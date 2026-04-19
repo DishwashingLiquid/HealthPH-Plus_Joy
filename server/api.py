@@ -69,6 +69,14 @@ app.mount("/", StaticFiles(directory="../build", html=True), name="build")
 templates = Jinja2Templates(directory="../build")
 
 # Handle 404 error
+""" @app.exception_handler(404)
+async def catch_all(request: Request, exc: HTTPException):
+    return templates.TemplateResponse("index.html", {"request": request}) """
+
 @app.exception_handler(404)
 async def catch_all(request: Request, exc: HTTPException):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={}
+    )
