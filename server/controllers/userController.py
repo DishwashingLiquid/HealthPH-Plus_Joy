@@ -716,14 +716,14 @@ route     DELETE api/users/admins/{id}
 
 
 async def delete_admin(
-    id: str, is_superadmin: Annotated[SuperadminResult, Depends(require_superadmin)]
+    id: str, current_user: Annotated[dict, Depends(require_role(["SUPERADMIN"]))]
 ):
     # Check if user / verifier is an admin or superadmin
-    if not is_superadmin.result:
+    """if not is_superadmin.result:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authorized to delete admin.",
-        )
+        ) """
 
     # Check if there is an id
     if not id:
@@ -739,7 +739,7 @@ async def delete_admin(
             detail="Failed to delete admin.",
         )
 
-    if id == is_superadmin.id:
+    if id == str(current_user["_id"]):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot delete own account.",
