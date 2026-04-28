@@ -29,6 +29,8 @@ from models.user import (
 from middleware.requireAuth import require_auth
 from middleware.requireAdmin import require_admin
 from middleware.requireSuperadmin import require_superadmin
+from middleware.requireRole import require_role
+
 from schema.userSchema import individual_user, list_users
 from helpers.miscHelpers import get_ph_datetime
 
@@ -448,7 +450,9 @@ route     GET api/users/admins/
 """
 
 
-async def fetch_admins():
+async def fetch_admins(
+    user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))]
+):
     admins = list_users(
         user_collection.find(
             {"$or": [{"user_type": "ADMIN"}, {"user_type": "SUPERADMIN"}]}
@@ -466,17 +470,19 @@ route     POST api/users
 
 async def create_user(
     user: CreateUserRequest,
-    is_admin: Annotated[AdminResult, Depends(require_admin)],
+    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
 ):
     errors = []
 
     # Check if user is an admin or superadmin
-    if not is_admin.result:
+    #commented this - moved to a centralized checking of user which is the code current_user
+    #not duplicated checking
+    """if not is_admin.result:
         errors.append({"field": "snackbar", "error": "Not authorized to add a user."})
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=errors,
-        )
+        ) """
 
     # Check fields if empty
     if (
@@ -576,7 +582,7 @@ async def create_user(
     # Generate hashed password
     to_encode.update({"password": generate_hashed_password(to_encode["password"])})
     # Set id of admin who adds the user
-    to_encode.update({"user_who_added": is_admin.id})
+    to_encode.update({"user_who_added": str(current_user["_id"])})
 
     new_user = user_collection.insert_one(dict(to_encode))
 
@@ -781,10 +787,10 @@ route     PUT api/users/disable/{id}
 async def set_disable_status(
     id: str,
     data: DisableUserRequest,
-    is_admin: Annotated[AdminResult, Depends(require_admin)],
+    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))]
 ):
     # Check if user is an admin or superadmin
-    if not is_admin.result:
+    """ if not is_admin.result:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=(
@@ -792,7 +798,7 @@ async def set_disable_status(
                 if data.disable_status
                 else "Failed to enable user."
             ),
-        )
+        ) """
 
     # Check if there is an id
     if not id:
