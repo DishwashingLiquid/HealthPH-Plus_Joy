@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from config.database import user_collection, dataset_collection
 from models.user import AdminResult
 from middleware.requireAdmin import require_admin
+from middleware.requireRole import require_role
 from schema.datasetSchema import individual_dataset, list_datasets
 from helpers.datasetsHelpers import annotation
 from helpers.miscHelpers import get_ph_datetime
@@ -30,6 +31,7 @@ annotated_datasets_folder = Path("public/annotated_datasets")
 def annotate_dataset(
     dataset_data: dict,
     raw_dataset_filename: str,
+    raw_dataset_path: str,
     original_filename: str,
     user_name: str,
 ):
@@ -44,7 +46,10 @@ def annotate_dataset(
     )
 
     # Annotated dataset
-    annotated_datasets_path: str = annotation(raw_dataset_filename, result_filename)
+    # temp comment = needs to stop annotation for a moment 
+    #annotated_datasets_path: str = annotation(raw_dataset_filename, result_filename)
+
+    annotated_datasets_path = raw_dataset_path
 
     file_size = os.stat(annotated_datasets_path).st_size
 
@@ -100,16 +105,16 @@ route     POST api/datasets/upload
 async def upload_dataset(
     background_tasks: BackgroundTasks,
     file: UploadFile,
-    is_admin: Annotated[AdminResult, Depends(require_admin)],
+    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
 ):
     # Check if user is an admin or superadmin
-    if not is_admin.result:
+    """if not is_admin.result:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authorized to upload a dataset.",
-        )
+        ) """
 
-    dataset_data = {"user_id": is_admin.id}
+    dataset_data = {"user_id": str(current_user["_id"])}
 
     to_encode = dict(dataset_data).copy()
 
@@ -193,13 +198,16 @@ async def upload_dataset(
             detail="Failed to upload dataset",
         )
 
-    background_tasks.add_task(
+    #TEMP: disable automatic annotation during upload
+    #HealthPH+ will process annotation as a separate dataset action/job
+    """ background_tasks.add_task(
         annotate_dataset,
         dataset_data,
         filename,
+        str(full_path),
         original_filename,
         f"{user_data['first_name']} {user_data['last_name']}",
-    )
+    ) """
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
