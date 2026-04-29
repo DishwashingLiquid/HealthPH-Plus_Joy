@@ -13,6 +13,8 @@ def individual_dataset(dataset) -> dict:
         "preview_headers": str(dataset["preview_headers"]).split("+"),
         "preview_data": (json.loads(dataset["preview_data"])),
         'dataset_type': str(dataset['dataset_type']),
+        "dataset_status": dataset.get("dataset_status", dataset.get("dataset_type", "RAW")),
+        "description": dataset.get("description", ""),
         "created_at": (
             str(dataset["created_at"]) if "created_at" in dataset.keys() else ""
         ),
