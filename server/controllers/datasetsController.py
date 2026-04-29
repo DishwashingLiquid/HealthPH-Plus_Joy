@@ -350,7 +350,11 @@ route     DELETE api/datasets/{id}
 """
 
 
-async def delete_dataset(background_tasks: BackgroundTasks, id: str):
+async def delete_dataset(
+    background_tasks: BackgroundTasks, 
+    id: str,
+    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))]
+):
     # Check if there is id
     if not id:
         raise HTTPException(
@@ -371,6 +375,13 @@ async def delete_dataset(background_tasks: BackgroundTasks, id: str):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found"
         )
+    
+    if current_user["user_type"] != "SUPERADMIN":
+        if str(dataset_data.get("user_id")) != str(current_user["_id"]):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to delete this dataset.",
+            )
 
     deleted_dataset = dataset_collection.find_one_and_delete({"_id": ObjectId(id)})
 
@@ -409,7 +420,9 @@ route     DELETE api/datasets/all-datasets
 """
 
 
-async def delete_all_datasets():
+async def delete_all_datasets(
+        current_user: Annotated[dict, Depends(require_role(["SUPERADMIN"]))]
+):
     deleted = dataset_collection.delete_many({})
 
     if not deleted:
