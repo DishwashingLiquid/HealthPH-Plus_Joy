@@ -186,7 +186,7 @@ async def upload_dataset(
             "preview_headers": str(preview_headers),
             "preview_data": json.dumps(preview_data),
             "dataset_type": "RAW",
-            "dataset_status": "RAW",
+            "dataset_status": "UPLOADED",
             "description": "",
             "created_at": get_ph_datetime(),
         }
