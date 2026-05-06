@@ -432,6 +432,7 @@ const UsersTable = ({
                   region,
                   accessible_regions,
                   organization,
+                  role_label,
                   is_disabled,
                   user_type,
                 },
@@ -464,7 +465,11 @@ const UsersTable = ({
                         highlightClassName="bg-warning-500 font-medium"
                         searchWords={searchWords}
                         autoEscape={true}
-                        textToHighlight={organization}
+                        textToHighlight={
+                          role_label
+                            ? `${organization} (${role_label})`
+                            : organization
+                        }
                       />
                     </div>
                     <div className="row-item">

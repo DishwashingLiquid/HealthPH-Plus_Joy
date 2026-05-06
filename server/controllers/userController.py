@@ -577,6 +577,8 @@ async def create_user(
         )
 
     to_encode = dict(user).copy()
+    # Add role_label (future-ready for role classification)
+    to_encode.update({"role_label": to_encode.get("role_label", "")})
     # Set is_disabled status to False
     to_encode.update({"is_disabled": False})
     # Generate hashed password

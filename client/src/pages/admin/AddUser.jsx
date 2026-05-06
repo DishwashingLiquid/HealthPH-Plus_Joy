@@ -21,6 +21,7 @@ const AddUser = () => {
 
   const [formData, setFormData] = useState({
     user_type: "",
+    role_label: "",
     region: "",
     accessible_regions: "",
     organization: "",
@@ -32,6 +33,7 @@ const AddUser = () => {
 
   const [formErrors, setFormErrors] = useState({
     user_type: "",
+    role_label: "",
     region: "",
     accessible_regions: "",
     organization: "",
@@ -471,6 +473,36 @@ const AddUser = () => {
             />
           </FieldGroup>
 
+          {/* ROLE LABEL */}
+          {["USER"].includes(formData.user_type) && (
+            <FieldGroup
+              label="Role"
+              labelFor="role-label"
+              additionalClasses="w-full max-w-[360px] mb-[20px]"
+              caption={formErrors.role_label != "" ? formErrors.role_label : ""}
+              state={formErrors.role_label != "" ? "error" : ""}
+            >
+              <CustomSelect 
+                options={[
+                  { label: "DOH", value: "DOH" },
+                  { label: "LGU", value: "LGU" },
+                  { label: "Researcher", value: "RESEARCHER" },
+                  { label: "Field Worker", value: "FIELD_WORKER" },
+                ]}
+                id="role-label"
+                placeholder="Select Role"
+                size="input-select-md"
+                value={formData.role_label}
+                handleChange={(value) => {
+                  setFormData({ ...formData, role_label: value});
+                  setFormErrors({ ...formErrors, role_label: ""});
+                  setError("");
+                }}
+                additionalClasses="w-full mt-[8px]"
+                state={formErrors.role_label != "" ? "error" : ""}
+              />
+            </FieldGroup>
+          )}
           {/* REGION */}
           {["USER"].includes(formData.user_type) && (
             <FieldGroup

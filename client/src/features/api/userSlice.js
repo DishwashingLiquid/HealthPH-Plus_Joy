@@ -53,6 +53,7 @@ export const userSlice = baseAPI.injectEndpoints({
       query: () => "/users/admins",
       providesTags: ["Admins"],
     }),
+    // Possible dead API hook: createAdmin / useCreateAdminMutation
     createAdmin: builder.mutation({
       query: (formData) => ({
         url: `/users/admins/`,
