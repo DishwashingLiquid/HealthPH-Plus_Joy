@@ -15,6 +15,30 @@ import useDeviceDetect from "../../hooks/useDeviceDetect";
 const Navbar = () => {
   const user = useSelector((state) => state.auth.user);
 
+  const analyticsRoles = [
+    "DOH_OFFICIAL",
+    "ANALYST",
+    "LGU_WORKER",
+    "RESEARCHER",
+    "VIEWER",
+  ];
+
+  const researchRoles = [
+    "RESEARCHER",
+    "ANALYST",
+  ];
+
+  const managementRoles = [
+    "DOH_OFFICIAL",
+  ];
+
+  const isSystemAdmin = user && ["ADMIN", "SUPERADMIN"].includes(user.user_type);
+
+  const hasRoleLabel = (allowedRoles) => {
+    if (!user?.role_label) return false;
+    return allowedRoles.includes(user.role_label);
+  };
+
   const { isPWA } = useDeviceDetect();
 
   const [isMenuActive, setIsMenuActive] = useState(false);

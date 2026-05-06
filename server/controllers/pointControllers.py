@@ -351,6 +351,7 @@ async def fetch_points(user_id: Annotated[str, Depends(require_auth)]):
             },
             {"filename": 1},
         )
+    # HealthPH+ scope rules may add region/org filtering
 
     valid_datasets = [dataset["filename"] for dataset in datasets]
 
