@@ -3,11 +3,7 @@ import Icon from "../Icon";
 
 const Sidebar = () => {
     return (
-        <aside className="w-[270px] h-screen bg-white border-r border-[#E5E5E5] p-[12px] flex-shrink-0">
-            <div className="mb-[24px] px-[12px]">
-                <h1 className="font-semibold text-[20px] text-gray-800">HealthPH+</h1>
-            </div>
-
+        <aside className="w-[270px] h-full bg-white border-r border-[#E5E5E5] p-[12px] flex-shrink-0">
             <div className="mb-[20px]">
                 <p className="text-xs uppercase text-gray-500 px-[12px] mb-[8px]">
                     Main
