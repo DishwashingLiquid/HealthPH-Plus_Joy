@@ -1,5 +1,6 @@
 import { Outlet, useLocation } from "react-router-dom";
 import Navbar from "../components/admin/Navbar";
+import Sidebar from "../components/admin/Sidebar";
 import { useSelector } from "react-redux";
 import AccessDenied from "../pages/error/AccessDenied";
 
@@ -9,7 +10,8 @@ const AdminLayout = () => {
 
   return (
     <>
-      <div className="admin-layout flex flex-col max-h-screen h-screen bg-[#F5F5F5] overflow-y-hidden">
+    {/* comment out temp: transitioning from navbar to sidebar */}
+      {/* <div className="admin-layout flex flex-col max-h-screen h-screen bg-[#F5F5F5] overflow-y-hidden">
         <Navbar />
         {user.is_disabled ? (
           <main className="w-full p-[20px]">
@@ -24,7 +26,28 @@ const AdminLayout = () => {
             <Outlet />
           </main>
         )}
+      </div> */}
+    <div className="admin-layout flex max-h-screen h-screen bg-[#F5F5F5] overflow-y-hidden">
+      <Sidebar/>
+
+      <div className="flex flex-col flex-grow overflow-hidden">
+        <Navbar/>
+
+        {user.is_disabled ? (
+          <main className="w-full p-[20px] overflow-y-auto">
+            <AccessDenied/>
+          </main>
+        ) : ["/dashboard/trends-map"].includes(location.pathname) ? (
+          <main className="w-full overflow-y-auto">
+            <Outlet />
+          </main>
+        ) : (
+          <main className="w-full p-[20px] overflow-y-auto">
+            <Outlet />
+          </main>
+        )}
       </div>
+    </div>
     </>
   );
 };
