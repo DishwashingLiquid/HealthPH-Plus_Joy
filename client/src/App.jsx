@@ -23,6 +23,7 @@ import Login from "./pages/auth/Login";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
 
+import AISurveillance from "./pages/admin/AISurveillance";
 import Analytics from "./pages/admin/Analytics";
 import TrendsMap from "./pages/admin/TrendsMap";
 import UploadDataset from "./pages/admin/UploadDataset";
@@ -192,7 +193,7 @@ function App() {
               element={
                 <>
                   <HelmetTitle title="HealthPH | Analytics" />
-                  <Analytics />
+                  <AISurveillance />
                 </>
               }
             />
