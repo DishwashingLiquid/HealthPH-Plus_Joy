@@ -1,4 +1,44 @@
+import { useState } from "react";
+import { useSelector } from "react-redux";
+
+import Map from "../../components/admin/Map";
+import MultiSelect from "../../components/MultiSelect";
+
+import Regions from "../../assets/data/regions.json";
+import RegionsCenter from "../../assets/data/regions_center.json";
+import DummyData from "../../assets/data/dummy_data_v3.json";
+
+import { useFetchPointsQuery } from "../../features/api/pointsSlice";
+import { set } from "date-fns";
+
 const AISurveillance = () => {
+    const user = useSelector((state) => state.auth.user);
+
+    const { data: points, isLoading: isPointsLoading } = useFetchPointsQuery();
+
+    const [filters, setFilters] = useState({
+        region: Regions.regions.filter((r) =>
+            user.accessible_regions.includes(r.value)
+        ),
+        dateRange: 7,
+        disease: "all",
+    });
+
+    const handleChangeFilter = (key, value) => {
+        setFilters((filters) => ({
+            ...filters,
+            [key]: value,
+        }));
+    };
+
+    const getCenter = () => {
+        if (user.user_type === "USER") {
+            return RegionsCenter.find((c) => c.region == user.region).center;
+        }
+
+        return [13, 122];
+    };
+
     return (
         <div className="flex flex-col gap-[20px]">
             {/* PAGE HEADER */}
@@ -74,7 +114,16 @@ const AISurveillance = () => {
                 {/* MAP SECTION */}
                 <div className="xl:col-span-2 bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[520px]">
                     <h2 className="text-[20px] font-semibold text-gray-800 mb-[16px]">Real-time Outbreak Monitoring</h2>
-                    <div className="w-full h-[450px] bg-[#F5F5F5] rounded-[12px] flex items-center justify-center text-gray-400">Map Visualization Placeholder</div>
+                    <div className="trends-wrapper h-[450px] rounded-[12px] overflow-hidden border border-[#E5E5E5]">
+                        <Map 
+                            filters={filters}
+                            data={DummyData}
+                            mapCenter={getCenter}
+                            points={points || []}
+                            isPointsLoading={isPointsLoading}
+                        />
+                    </div>
+                    
                 </div>
                 {/* RIGHT PANELS */}
                 <div className="flex flex-col gap-[20px]">
