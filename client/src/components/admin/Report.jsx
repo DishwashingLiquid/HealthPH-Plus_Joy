@@ -39,7 +39,7 @@ const Report = ({
       : regions;
 
   return (
-    <div className={"report-container " + additionalClasses}>
+    <div className={"bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] " + additionalClasses}>
       <div className="flex justify-between flex-col md:flex-row mb-[16px] md:mb-0">
         <div className="mb-[20px]">
           <p className="heading">{heading}</p>

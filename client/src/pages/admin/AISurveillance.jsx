@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useSelector } from "react-redux";
+import ReactWordCloud from "react-wordcloud";
 
 import Map from "../../components/admin/Map";
 import MultiSelect from "../../components/MultiSelect";
@@ -11,9 +12,44 @@ import DummyData from "../../assets/data/dummy_data_v3.json";
 import { useFetchPointsQuery } from "../../features/api/pointsSlice";
 import { set } from "date-fns";
 
+import {
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    Legend,
+    ResponsiveContainer,
+    LabelList,
+    PieChart,
+    Pie,
+    Cell,
+} from "recharts";
+
+import Report from "../../components/admin/Report";
+import capitalizeSymptom from "../../hooks/useCapitalizeSymptom";
+
+import {
+    useGenerateSuspectedSymptomsQuery,
+    useGenerateFrequentWordsQuery,
+    useGenerateWordCloudQuery,
+    useGeneratePercentageQuery,
+} from "../../features/api/analyticsSlice";
+
 const AISurveillance = () => {
     const user = useSelector((state) => state.auth.user);
 
+    /* SUMMARY CARD/COUNTS */
+    const { data: suspectedSymptoms, isFetching: isSuspectedSymptomsFetching } =
+        useGenerateSuspectedSymptomsQuery();
+
+    const formatCount = (value) => {
+        if (isSuspectedSymptomsFetching || !value) return "0";
+        return value["count"]?.toLocaleString() || "0";
+    };
+
+    /* MAP */
     const { data: points, isLoading: isPointsLoading } = useFetchPointsQuery();
 
     const [filters, setFilters] = useState({
@@ -38,6 +74,42 @@ const AISurveillance = () => {
 
         return [13, 122];
     };
+
+    /* TOP WORDS */
+    const [topWordsFilter, setTopWordsFilter] = useState(
+        user.user_type == "USER" ? user.accessible_regions[0] : "all"
+    );
+
+    const { data: frequentWords, isFetching: isTopWordsFetching } =
+        useGenerateFrequentWordsQuery(topWordsFilter);
+
+    /* WORD CLOUD */
+    const [wordCloudFilter, setWordCloudFilter] = useState(
+        user.user_type == "USER" ? user.accessible_regions[0] : "all"
+    );
+
+    const { data: wordcloud, isFetching: isWordCloudFetching } =
+        useGenerateWordCloudQuery(wordCloudFilter);
+    
+    const wordcloudOptions = {
+        colors: ["#171E26", "#F5D76E", "#6A8EB5", "#F78C6B", "#78C6B2"],
+        rotations: 0,
+        deterministic: true,
+        padding: 20,
+        fontSizes: [20, 50],
+        scale: "linear",
+    };
+
+    /* SUSPECTED CONDITIONS PERCENTAGE */
+    const [percentageFilter, setPercentageFilter] = useState(
+        user.user_type == "USER" ? user.accessible_regions[0] : "all"
+    );
+
+    const { data: percentage, isFetching: isPercentageFetching } =
+        useGeneratePercentageQuery();
+    
+    const COLORS = ["#F5D76E", "#6A8EB5", "#F78C6B", "#78C6B2"];
+    const RADIAN = Math.PI / 180;
 
     return (
         <div className="flex flex-col gap-[20px]">
@@ -78,25 +150,25 @@ const AISurveillance = () => {
                         {/* LEFT */}
                         <div className="flex flex-col justify-center">
                             <p className="text-gray-500 text-sm mb-[8px]">Suspected Cases</p>
-                            <h2 className="text-[32px] font-semibold text-gray-800 leading-none">1,120,540</h2>
+                            <h2 className="text-[32px] font-semibold text-gray-800 leading-none">{formatCount(suspectedSymptoms?.total)}</h2>
                         </div>
                         {/* RIGHT */}
                         <div className="grid grid-cols-2 gap-x-[32px] gap-y-[8px]">
                             <div>
                                 <p className="text-xs text-gray-500 uppercase">TB</p>
-                                <p className="text-[12px] font-semibold text-gray-800">14020</p>
+                                <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.TB)}</p>
                             </div>
                             <div>
                                 <p className="text-xs text-gray-500 uppercase">COVID</p>
-                                <p className="text-[12px] font-semibold text-gray-800">120</p>
+                                <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.COVID)}</p>
                             </div>
                             <div>
                                 <p className="text-xs text-gray-500 uppercase">Pneumonia</p>
-                                <p className="text-[12px] font-semibold text-gray-800">310</p>
+                                <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.PN)}</p>
                             </div>
                             <div>
                                 <p className="text-xs text-gray-500 uppercase">AURI</p>
-                                <p className="text-[12px] font-semibold text-gray-800">58000</p>
+                                <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.AURI)}</p>
                             </div>
                         </div>
                     </div>
@@ -145,7 +217,6 @@ const AISurveillance = () => {
                     </div>
                 </div>
             </div>
-
             {/* HEALTH MONITORING */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-[20px]">
                 <Panel title="Symptom Frequency" />
@@ -153,11 +224,131 @@ const AISurveillance = () => {
                 <Panel title="Trend Forecasting" />
             </div>
 
-            {/* LEGACY ANALYTICS INTEGRATION */}
+            {/* OLD ANALYTICS INTEGRATION */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-[20px]">
-                <Panel title="Top Words" />
-                <Panel title="Word Cloud" />
-                <Panel title="Suspected Conditions Percentage" />
+                {/* TOP WORDS */}
+                <Report
+                    heading="Top Words"
+                    filter={topWordsFilter}
+                    setFilter={setTopWordsFilter}
+                    isLoading={isTopWordsFetching}
+                >
+                    <ResponsiveContainer width="100%" height={220}>
+                        {frequentWords && (
+                            <BarChart
+                                data={frequentWords["frequent_words"]}
+                                layout="vertical"
+                                margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
+                            >
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis type="number" padding={{ left: 20, right: 20 }} tickLine={false} />
+                                <YAxis hide={true} dataKey={word} type="category" tickLine={false} axisLine={false} />
+                                <Tooltip />
+                                <Legend verticalAlign="top" align="left" iconSize={20} height={40} />
+                                <Bar dataKey="frequency" fill="#B5A8DE" maxBarSize={18} radius={[0, 8, 8, 0]}>
+                                    <LabelList
+                                        dataKey="word"
+                                        content={({ x, y, value}) => (
+                                            <text
+                                                x={x}
+                                                y={y - 5}
+                                                className="recharts-text recharts-cartesian-axis-tick-value text-[14px]" fill="#666"  
+                                            >
+                                                <tspan>{capitalizeSymptom(value)}</tspan>
+                                            </text>
+                                        )}
+                                    />
+                                </Bar>
+                            </BarChart>
+                        )}
+                    </ResponsiveContainer>
+                </Report>
+
+                {/* WORD CLOUD */}
+                <Report
+                    heading="Word Cloud"
+                    filter={wordCloudFilter}
+                    setFilter={setWordCloudFilter}
+                    isLoading={isWordCloudFetching}
+                >
+                    <div className="rounded-[8px] overflow-hidden border bg-[#F8F9FA] border-gray-50 flex justify-center items-center h-[220px]">
+                        {wordcloud && wordcloud !== "No datasets" ? (
+                            <ReactWordCloud 
+                                className="dynamic-wordcloud"
+                                style={{
+                                    height: "100%",
+                                    width: "100%",
+                                }}
+                                words={wordcloud}
+                                options={wordcloudOptions}
+                            />
+                        ) : (
+                            <p className="text-gray-400">No word cloud data available</p>
+                        )}
+                    </div>
+                </Report>
+
+                {/* SUSPECTED CONDITIONS PERCENTAGE */}
+                <Report
+                    heading="Suspected Conditions Percentage"
+                    filter={percentageFilter}
+                    setFilter={setPercentageFilter}
+                    isLoading={isPercentageFetching}
+                >
+                    <ResponsiveContainer width="100%" height={260}>
+                        {percentage && (
+                            <PieChart>
+                                <Legend 
+                                    verticalAlign="top"
+                                    align="left"
+                                    iconSize={16}
+                                    height={40}
+                                />
+
+                                <Pie
+                                    data={percentage[percentageFilter]}
+                                    cx="50%"
+                                    cy="50%"
+                                    labelLine={false}
+                                    label={({
+                                        cx,
+                                        cy,
+                                        midAngle,
+                                        innerRadius,
+                                        outerRadius,
+                                        percent,
+                                    }) => {
+                                        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                                        const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                                        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+                                        return (
+                                            <text
+                                                x={x}
+                                                y={y}
+                                                fill="white"
+                                                textAnchor={x > cx ? "start" : "end"}
+                                                dominantBaseline="central"
+                                            >
+                                                {`${(percent * 100).toFixed(0)}%`}
+                                            </text>
+                                        );
+                                    }}
+                                    fill="#8884d8"
+                                    dataKey="count"
+                                >
+                                    {percentage[percentageFilter]?.map((entry, index) => (
+                                        <Cell
+                                            key={`cell-${index}`}
+                                            fill={COLORS[index % COLORS.length]}
+                                        />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                            </PieChart>
+                        )}
+                    </ResponsiveContainer>
+                </Report>
             </div>
         </div>
     );
@@ -180,7 +371,7 @@ const MetricRow = ({ label, value }) => {
         </div>
     );
 };
-
+ 
 const Panel = ({ title }) => {
     return (
         <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[260px]">

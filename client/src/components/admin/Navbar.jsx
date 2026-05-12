@@ -79,11 +79,6 @@ const Navbar = () => {
   return (
     <nav className="bg-white border-b-[2px] border-[#E5E5E5] h-[68px] flex-shrink-0  px-[20px] py-[16px]">
       <div className="flex justify-between items-center w-full">
-        {/* LOGO */}
-        <div className="h-[36px] flex items-center">
-          <p className="prod-l2 font-medium text-gray-700">HealthPH+</p>
-        </div>
-
         {/* NAVIGATION */}
         <div
           className={
