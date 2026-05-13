@@ -23,6 +23,8 @@ import {
     PieChart,
     Pie,
     Cell,
+    LineChart,
+    Line,
 } from "recharts";
 
 import Report from "../../components/admin/Report";
@@ -250,7 +252,81 @@ const AISurveillance = () => {
                         />
                     </div>
                 </div>
-                <Panel title="Respiratory Monitoring" />
+
+                {/* RESPIRATORY MONITORING */}
+                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[260px]">
+                    <h2 className="text-[18px] font-semibold text-gray-800">
+                        Respiratory Monitoring
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-[4px] mb-[16px]">
+                        Air quality and respiratory metrics with environmental factors.
+                    </p>
+
+                    <ResponsiveContainer width="100%" height={360}>
+                        <LineChart
+                            data={[
+                                {
+                                    time: "13:00",
+                                    respiratoryRate: 3.4,
+                                    aqi: 13,
+                                    temperature: 15,
+                                    coughFrequency: 12,
+                                    pm25: 2.9,
+                                    humidity: 7,
+                                },
+                                {
+                                    time: "13:01",
+                                    respiratoryRate: 3.7,
+                                    aqi: 13.3,
+                                    temperature: 15.5,
+                                    coughFrequency: 12.5,
+                                    pm25: 3.5,
+                                    humidity: 7.2,
+                                },
+                                {
+                                    time: "13:02",
+                                    respiratoryRate: 3.4,
+                                    aqi: 13,
+                                    temperature: 15,
+                                    coughFrequency: 12,
+                                    pm25: 2.9,
+                                    humidity: 7,
+                                },
+                            ]}
+                            margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
+                        >
+                            <CartesianGrid strokeDasharray="3 3 " />
+                            <XAxis dataKey="time" />
+                            <YAxis/>
+                            <Tooltip />
+                            <Legend 
+                                verticalAlign="bottom"
+                                align="center"
+                                layout="horizontal"
+                                iconType="circle"
+                                wrapperStyle={{
+                                    paddingTop: "20px",
+                                    width: "100%",
+                                    lineHeight: "28px",
+                                }}
+                                formatter={(value) => (
+                                    <span className="text-[13px] text-gray-700 mr-[24px] inline-block min-w-[160px]">
+                                        {value}
+                                    </span>
+                                )}
+                            />
+
+                            <Line type="monotone" dataKey="respiratoryRate" name="Respiratory Rate" stroke="#2563EB" />
+                            <Line type="monotone" dataKey="aqi" name="AQI" stroke="#F97316" />
+                            <Line type="monotone" dataKey="temperature" name="Temperature (°C)" stroke="#1D4ED8" />
+                            <Line type="monotone" dataKey="coughFrequency" name="Cough Frequency" stroke="#9CA3AF" />
+                            <Line type="monotone" dataKey="pm25" name="PM2.5" stroke="#FF0000" />
+                            <Line type="monotone" dataKey="humidity" name="Humidity (%)" stroke="#20C997" />
+                        </LineChart>
+                    </ResponsiveContainer>
+                </div>
+
+
                 <Panel title="Trend Forecasting" />
             </div>
 
