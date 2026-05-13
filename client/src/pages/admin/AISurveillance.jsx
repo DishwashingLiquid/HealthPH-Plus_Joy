@@ -3,14 +3,12 @@ import { useSelector } from "react-redux";
 import ReactWordCloud from "react-wordcloud";
 
 import Map from "../../components/admin/Map";
-import MultiSelect from "../../components/MultiSelect";
 
 import Regions from "../../assets/data/regions.json";
 import RegionsCenter from "../../assets/data/regions_center.json";
 import DummyData from "../../assets/data/dummy_data_v3.json";
 
 import { useFetchPointsQuery } from "../../features/api/pointsSlice";
-import { set } from "date-fns";
 
 import {
     BarChart,
@@ -219,7 +217,39 @@ const AISurveillance = () => {
             </div>
             {/* HEALTH MONITORING */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-[20px]">
-                <Panel title="Symptom Frequency" />
+                {/* SYMPTOM FREQUENCY */}
+                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[260px]">
+                    <h2 className="text-[18px] font-semibold text-gray-800 mb-[24px]">
+                        Symptom Frequency    
+                    </h2>
+
+                    <div className="flex flex-col gap-[24px]">
+                        <SymptomFrequencyRow 
+                            symptom="Fever" 
+                            reports="356"
+                            progress="95%"
+                            note="+8% from last week | Primarily in NCR, Region III"
+                        />
+                        <SymptomFrequencyRow 
+                            symptom="Cough" 
+                            reports="289"
+                            progress="78%"
+                            note="-3% from last week | Primarily in NCR, Region IV-A"
+                        />
+                        <SymptomFrequencyRow 
+                            symptom="Headache" 
+                            reports="201"
+                            progress="60%"
+                            note="+32% from last week | Region IV-A"
+                        />
+                        <SymptomFrequencyRow 
+                            symptom="Rash" 
+                            reports="99"
+                            progress="35%"
+                            note="+5% from last week | Multiple regions"
+                        />
+                    </div>
+                </div>
                 <Panel title="Respiratory Monitoring" />
                 <Panel title="Trend Forecasting" />
             </div>
@@ -233,8 +263,8 @@ const AISurveillance = () => {
                     setFilter={setTopWordsFilter}
                     isLoading={isTopWordsFetching}
                 >
-                    <ResponsiveContainer width="100%" height={220}>
-                        {frequentWords && (
+                    <ResponsiveContainer width="100%" height={260}>
+                        {frequentWords && frequentWords["frequent_words"]?.length > 0 ? (
                             <BarChart
                                 data={frequentWords["frequent_words"]}
                                 layout="vertical"
@@ -242,7 +272,7 @@ const AISurveillance = () => {
                             >
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis type="number" padding={{ left: 20, right: 20 }} tickLine={false} />
-                                <YAxis hide={true} dataKey={word} type="category" tickLine={false} axisLine={false} />
+                                <YAxis hide={true} dataKey="word" type="category" tickLine={false} axisLine={false} />
                                 <Tooltip />
                                 <Legend verticalAlign="top" align="left" iconSize={20} height={40} />
                                 <Bar dataKey="frequency" fill="#B5A8DE" maxBarSize={18} radius={[0, 8, 8, 0]}>
@@ -260,6 +290,10 @@ const AISurveillance = () => {
                                     />
                                 </Bar>
                             </BarChart>
+                        ) : (
+                            <div className="flex items-center justify-center h-[220px] text-gray-400">
+                                No top words data available
+                            </div>
                         )}
                     </ResponsiveContainer>
                 </Report>
@@ -271,7 +305,7 @@ const AISurveillance = () => {
                     setFilter={setWordCloudFilter}
                     isLoading={isWordCloudFetching}
                 >
-                    <div className="rounded-[8px] overflow-hidden border bg-[#F8F9FA] border-gray-50 flex justify-center items-center h-[220px]">
+                    <ResponsiveContainer width="100%" height={260}>
                         {wordcloud && wordcloud !== "No datasets" ? (
                             <ReactWordCloud 
                                 className="dynamic-wordcloud"
@@ -283,9 +317,11 @@ const AISurveillance = () => {
                                 options={wordcloudOptions}
                             />
                         ) : (
-                            <p className="text-gray-400">No word cloud data available</p>
+                            <div className="flex items-center justify-center h-[220px] text-gray-400">
+                                No word cloud data available
+                            </div>
                         )}
-                    </div>
+                    </ResponsiveContainer>
                 </Report>
 
                 {/* SUSPECTED CONDITIONS PERCENTAGE */}
@@ -371,7 +407,26 @@ const MetricRow = ({ label, value }) => {
         </div>
     );
 };
- 
+
+const SymptomFrequencyRow = ({ symptom, reports, progress, note }) => {
+    return (
+        <div>
+            <div className="flex justify-between items-center mb-[8px]">
+                <p className="text-[16px] font-medium text-gray-800">{symptom}</p>
+                <p className="text-[16px] font-semibold text-gray-800">{reports} reports</p>
+            </div>
+            <div className="h-[12px] bg-gray-100 rounded-full overflow-hidden">
+                <div
+                    className="h-full bg-[#1FB985] rounded-full"
+                    style={{ width: progress}}
+                ></div>
+            </div>
+            <p className="text-sm text-gray-500 mt-[6px]">{note}</p>
+        </div>
+    );
+};
+
+/* remove this later on after removing the placeholders */
 const Panel = ({ title }) => {
     return (
         <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[260px]">
