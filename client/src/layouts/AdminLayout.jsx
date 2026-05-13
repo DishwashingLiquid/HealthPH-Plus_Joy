@@ -31,14 +31,14 @@ const AdminLayout = () => {
           </main>
         )}
       </div> */}
-    <div className="admin-layout flex max-h-screen h-screen bg-[#F5F5F5] overflow-y-hidden">
-      <Sidebar
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
-      />
+    <div className="admin-layout flex flex-col max-h-screen h-screen bg-[#F5F5F5] overflow-y-hidden">
+      <Navbar/>
 
-      <div className="flex flex-col flex-grow overflow-hidden">
-        <Navbar />
+      <div className="flex flex-grow overflow-hidden">
+        <Sidebar
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+        />
 
         {user.is_disabled ? (
           <main className="w-full p-[20px] overflow-y-auto">
