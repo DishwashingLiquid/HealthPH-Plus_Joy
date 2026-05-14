@@ -25,6 +25,8 @@ import {
     Cell,
     LineChart,
     Line,
+    AreaChart,
+    Area,
 } from "recharts";
 
 import Report from "../../components/admin/Report";
@@ -108,7 +110,7 @@ const AISurveillance = () => {
     const { data: percentage, isFetching: isPercentageFetching } =
         useGeneratePercentageQuery();
     
-    const COLORS = ["#F5D76E", "#6A8EB5", "#F78C6B", "#78C6B2"];
+    const COLORS = ["#2563EB", "#F97316", "#20C997", "#9CA3AF"];
     const RADIAN = Math.PI / 180;
 
     return (
@@ -327,7 +329,66 @@ const AISurveillance = () => {
                 </div>
 
 
-                <Panel title="Trend Forecasting" />
+                {/* TREND FORECASTING */}
+                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[360px]">
+                    <h2 className="text-[18px] font-semibold text-gray-800">
+                        Trend Forecasting
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-[4px] mb-[16px]">
+                        Projected disease signal trends based on recent surveillance patterns.
+                    </p>
+
+                    <ResponsiveContainer width="100%" height={360}>
+                        <AreaChart
+                            data={[
+                                { day: "Mon", actual: 120, forecast: 128 },
+                                { day: "Tue", actual: 135, forecast: 142 },
+                                { day: "Wed", actual: 150, forecast: 160 },
+                                { day: "Thu", actual: 170, forecast: 182 },
+                                { day: "Fri", actual: 185, forecast: 205 },
+                                { day: "Sat", actual: null, forecast: 218 },
+                                { day: "Sun", actual: null, forecast: 235 },
+                            ]}
+                            margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
+                        >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="day" />
+                            <YAxis />
+                            <Tooltip />
+                            <Legend
+                                verticalAlign="bottom"
+                                align="center"
+                                iconType="circle"
+                                wrapperStyle={{
+                                    paddingTop: "20px",
+                                    width: "100%",
+                                    lineHeight: "28px",
+                                }}
+                            />
+                        <Area
+                            type="monotone"
+                            dataKey="actual"
+                            name="Actual Reports"
+                            stroke="#2563EB"
+                            fill="#DBEAFE"
+                            strokeWidth={2}
+                            dot={{ r: 3 }}
+                            activeDot={{ r: 5 }}
+                        />
+                        <Area
+                            type="monotone"
+                            dataKey="forecast"
+                            name="Forecasted Trend"
+                            stroke="#F97316"
+                            fill="#FFEDD5"
+                            strokeWidth={2}
+                            strokeDasharray="5 5"
+                            dot={{ r: 3 }}
+                            activeDot={{ r: 5 }}
+                        />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
             </div>
 
             {/* OLD ANALYTICS INTEGRATION */}
@@ -411,10 +472,18 @@ const AISurveillance = () => {
                         {percentage && (
                             <PieChart>
                                 <Legend 
-                                    verticalAlign="top"
-                                    align="left"
-                                    iconSize={16}
-                                    height={40}
+                                    verticalAlign="bottom"
+                                    align="center"
+                                    iconType="circle"
+                                    wrapperStyle={{
+                                        paddingTop: "20px",
+                                        lineHeight: "28px",
+                                    }}
+                                    formatter={(value) => (
+                                        <span className="text-[13px] text-gray-700 mr-[18px]">
+                                            {value}
+                                        </span>
+                                    )}
                                 />
 
                                 <Pie
