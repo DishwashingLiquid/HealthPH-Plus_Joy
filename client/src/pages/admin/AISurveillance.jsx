@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useSelector } from "react-redux";
-import ReactWordCloud from "react-wordcloud";
 
 import Map from "../../components/admin/Map";
 
@@ -11,15 +10,12 @@ import DummyData from "../../assets/data/dummy_data_v3.json";
 import { useFetchPointsQuery } from "../../features/api/pointsSlice";
 
 import {
-    BarChart,
-    Bar,
     XAxis,
     YAxis,
     CartesianGrid,
     Tooltip,
     Legend,
     ResponsiveContainer,
-    LabelList,
     PieChart,
     Pie,
     Cell,
@@ -30,12 +26,9 @@ import {
 } from "recharts";
 
 import Report from "../../components/admin/Report";
-import capitalizeSymptom from "../../hooks/useCapitalizeSymptom";
 
 import {
     useGenerateSuspectedSymptomsQuery,
-    useGenerateFrequentWordsQuery,
-    useGenerateWordCloudQuery,
     useGeneratePercentageQuery,
 } from "../../features/api/analyticsSlice";
 
@@ -75,31 +68,6 @@ const AISurveillance = () => {
         }
 
         return [13, 122];
-    };
-
-    /* TOP WORDS */
-    const [topWordsFilter, setTopWordsFilter] = useState(
-        user.user_type == "USER" ? user.accessible_regions[0] : "all"
-    );
-
-    const { data: frequentWords, isFetching: isTopWordsFetching } =
-        useGenerateFrequentWordsQuery(topWordsFilter);
-
-    /* WORD CLOUD */
-    const [wordCloudFilter, setWordCloudFilter] = useState(
-        user.user_type == "USER" ? user.accessible_regions[0] : "all"
-    );
-
-    const { data: wordcloud, isFetching: isWordCloudFetching } =
-        useGenerateWordCloudQuery(wordCloudFilter);
-    
-    const wordcloudOptions = {
-        colors: ["#171E26", "#F5D76E", "#6A8EB5", "#F78C6B", "#78C6B2"],
-        rotations: 0,
-        deterministic: true,
-        padding: 20,
-        fontSizes: [20, 50],
-        scale: "linear",
     };
 
     /* SUSPECTED CONDITIONS PERCENTAGE */
@@ -221,40 +189,6 @@ const AISurveillance = () => {
             </div>
             {/* HEALTH MONITORING */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-[20px]">
-                {/* SYMPTOM FREQUENCY */}
-                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[260px]">
-                    <h2 className="text-[18px] font-semibold text-gray-800 mb-[24px]">
-                        Symptom Frequency    
-                    </h2>
-
-                    <div className="flex flex-col gap-[24px]">
-                        <SymptomFrequencyRow 
-                            symptom="Fever" 
-                            reports="356"
-                            progress="95%"
-                            note="+8% from last week | Primarily in NCR, Region III"
-                        />
-                        <SymptomFrequencyRow 
-                            symptom="Cough" 
-                            reports="289"
-                            progress="78%"
-                            note="-3% from last week | Primarily in NCR, Region IV-A"
-                        />
-                        <SymptomFrequencyRow 
-                            symptom="Headache" 
-                            reports="201"
-                            progress="60%"
-                            note="+32% from last week | Region IV-A"
-                        />
-                        <SymptomFrequencyRow 
-                            symptom="Rash" 
-                            reports="99"
-                            progress="35%"
-                            note="+5% from last week | Multiple regions"
-                        />
-                    </div>
-                </div>
-
                 {/* RESPIRATORY MONITORING */}
                 <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[260px]">
                     <h2 className="text-[18px] font-semibold text-gray-800">
@@ -328,7 +262,6 @@ const AISurveillance = () => {
                     </ResponsiveContainer>
                 </div>
 
-
                 {/* TREND FORECASTING */}
                 <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[360px]">
                     <h2 className="text-[18px] font-semibold text-gray-800">
@@ -389,77 +322,6 @@ const AISurveillance = () => {
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
-            </div>
-
-            {/* OLD ANALYTICS INTEGRATION */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-[20px]">
-                {/* TOP WORDS */}
-                <Report
-                    heading="Top Words"
-                    filter={topWordsFilter}
-                    setFilter={setTopWordsFilter}
-                    isLoading={isTopWordsFetching}
-                >
-                    <ResponsiveContainer width="100%" height={260}>
-                        {frequentWords && frequentWords["frequent_words"]?.length > 0 ? (
-                            <BarChart
-                                data={frequentWords["frequent_words"]}
-                                layout="vertical"
-                                margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
-                            >
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis type="number" padding={{ left: 20, right: 20 }} tickLine={false} />
-                                <YAxis hide={true} dataKey="word" type="category" tickLine={false} axisLine={false} />
-                                <Tooltip />
-                                <Legend verticalAlign="top" align="left" iconSize={20} height={40} />
-                                <Bar dataKey="frequency" fill="#B5A8DE" maxBarSize={18} radius={[0, 8, 8, 0]}>
-                                    <LabelList
-                                        dataKey="word"
-                                        content={({ x, y, value}) => (
-                                            <text
-                                                x={x}
-                                                y={y - 5}
-                                                className="recharts-text recharts-cartesian-axis-tick-value text-[14px]" fill="#666"  
-                                            >
-                                                <tspan>{capitalizeSymptom(value)}</tspan>
-                                            </text>
-                                        )}
-                                    />
-                                </Bar>
-                            </BarChart>
-                        ) : (
-                            <div className="flex items-center justify-center h-[220px] text-gray-400">
-                                No top words data available
-                            </div>
-                        )}
-                    </ResponsiveContainer>
-                </Report>
-
-                {/* WORD CLOUD */}
-                <Report
-                    heading="Word Cloud"
-                    filter={wordCloudFilter}
-                    setFilter={setWordCloudFilter}
-                    isLoading={isWordCloudFetching}
-                >
-                    <ResponsiveContainer width="100%" height={260}>
-                        {wordcloud && wordcloud !== "No datasets" ? (
-                            <ReactWordCloud 
-                                className="dynamic-wordcloud"
-                                style={{
-                                    height: "100%",
-                                    width: "100%",
-                                }}
-                                words={wordcloud}
-                                options={wordcloudOptions}
-                            />
-                        ) : (
-                            <div className="flex items-center justify-center h-[220px] text-gray-400">
-                                No word cloud data available
-                            </div>
-                        )}
-                    </ResponsiveContainer>
-                </Report>
 
                 {/* SUSPECTED CONDITIONS PERCENTAGE */}
                 <Report
@@ -468,7 +330,7 @@ const AISurveillance = () => {
                     setFilter={setPercentageFilter}
                     isLoading={isPercentageFetching}
                 >
-                    <ResponsiveContainer width="100%" height={260}>
+                    <ResponsiveContainer width="100%" height={360}>
                         {percentage && (
                             <PieChart>
                                 <Legend 
@@ -552,33 +414,5 @@ const MetricRow = ({ label, value }) => {
         </div>
     );
 };
-
-const SymptomFrequencyRow = ({ symptom, reports, progress, note }) => {
-    return (
-        <div>
-            <div className="flex justify-between items-center mb-[8px]">
-                <p className="text-[16px] font-medium text-gray-800">{symptom}</p>
-                <p className="text-[16px] font-semibold text-gray-800">{reports} reports</p>
-            </div>
-            <div className="h-[12px] bg-gray-100 rounded-full overflow-hidden">
-                <div
-                    className="h-full bg-[#1FB985] rounded-full"
-                    style={{ width: progress}}
-                ></div>
-            </div>
-            <p className="text-sm text-gray-500 mt-[6px]">{note}</p>
-        </div>
-    );
-};
-
-/* remove this later on after removing the placeholders */
-const Panel = ({ title }) => {
-    return (
-        <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[260px]">
-            <h2 className="text-[18px] font-semibold text-gray-800 mb-[16px]">{title}</h2>
-            <div className="w-full h-[180px] bg-[#F5F5F5] rounded-[12px] flex items-center justify-center text-gray-400">{title} Placeholder</div>
-        </div>
-    );
-};
-
+ 
 export default AISurveillance;
