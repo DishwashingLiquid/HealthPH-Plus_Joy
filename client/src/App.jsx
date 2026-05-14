@@ -24,8 +24,11 @@ import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
 
 import AISurveillance from "./pages/admin/AISurveillance";
+import HealthLiteracyHub from "./pages/admin/HealthLiteracyHub";
+import DiseaseWatchFeed from "./pages/admin/DiseaseWatchFeed";
 import Analytics from "./pages/admin/Analytics";
 import TrendsMap from "./pages/admin/TrendsMap";
+import SentimentPulseTool from "./pages/admin/SentimentPulseTool";
 import UploadDataset from "./pages/admin/UploadDataset";
 import UserManagement from "./pages/admin/UserManagement";
 import AddUser from "./pages/admin/AddUser";
@@ -198,11 +201,38 @@ function App() {
               }
             />
             <Route
+              path="health-literacy-hub"
+              element={
+                <>
+                  <HelmetTitle title="HealthPH | Health Literacy Hub" />
+                  <HealthLiteracyHub />
+                </>
+              }
+            />
+             <Route
+              path="disease-watch-feed"
+              element={
+                <>
+                  <HelmetTitle title="HealthPH | Disease Watch Feed" />
+                  <DiseaseWatchFeed />
+                </>
+              }
+            />
+            <Route
               path="trends-map"
               element={
                 <>
                   <HelmetTitle title="HealthPH | Trends Map" />
                   <TrendsMap />
+                </>
+              }
+            />
+            <Route
+              path="sentiment-pulse"
+              element={
+                <>
+                  <HelmetTitle title="HealthPH | Sentiment Pulse Tool" />
+                  <SentimentPulseTool />
                 </>
               }
             />
