@@ -24,6 +24,7 @@ import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
 
 import AISurveillance from "./pages/admin/AISurveillance";
+import NLPInsights from "./pages/admin/NLPInsights";
 import Analytics from "./pages/admin/Analytics";
 import TrendsMap from "./pages/admin/TrendsMap";
 import UploadDataset from "./pages/admin/UploadDataset";
@@ -192,8 +193,17 @@ function App() {
               index
               element={
                 <>
-                  <HelmetTitle title="HealthPH | Analytics" />
+                  <HelmetTitle title="HealthPH | AI Surveillance" />
                   <AISurveillance />
+                </>
+              }
+            />
+            <Route
+              path="nlp-insights"
+              element={
+                <>
+                  <HelmetTitle title="HealthPH | NLP Insights" />
+                  <NLPInsights />
                 </>
               }
             />
