@@ -1,39 +1,34 @@
 import { useState } from "react";
 import { useSelector } from "react-redux";
-import ReactWordCloud from "react-wordcloud";
 
 import Map from "../../components/admin/Map";
-import MultiSelect from "../../components/MultiSelect";
 
 import Regions from "../../assets/data/regions.json";
 import RegionsCenter from "../../assets/data/regions_center.json";
 import DummyData from "../../assets/data/dummy_data_v3.json";
 
 import { useFetchPointsQuery } from "../../features/api/pointsSlice";
-import { set } from "date-fns";
 
 import {
-    BarChart,
-    Bar,
     XAxis,
     YAxis,
     CartesianGrid,
     Tooltip,
     Legend,
     ResponsiveContainer,
-    LabelList,
     PieChart,
     Pie,
     Cell,
+    LineChart,
+    Line,
+    AreaChart,
+    Area,
 } from "recharts";
 
 import Report from "../../components/admin/Report";
-import capitalizeSymptom from "../../hooks/useCapitalizeSymptom";
 
 import {
     useGenerateSuspectedSymptomsQuery,
-    useGenerateFrequentWordsQuery,
-    useGenerateWordCloudQuery,
     useGeneratePercentageQuery,
 } from "../../features/api/analyticsSlice";
 
@@ -75,31 +70,6 @@ const AISurveillance = () => {
         return [13, 122];
     };
 
-    /* TOP WORDS */
-    const [topWordsFilter, setTopWordsFilter] = useState(
-        user.user_type == "USER" ? user.accessible_regions[0] : "all"
-    );
-
-    const { data: frequentWords, isFetching: isTopWordsFetching } =
-        useGenerateFrequentWordsQuery(topWordsFilter);
-
-    /* WORD CLOUD */
-    const [wordCloudFilter, setWordCloudFilter] = useState(
-        user.user_type == "USER" ? user.accessible_regions[0] : "all"
-    );
-
-    const { data: wordcloud, isFetching: isWordCloudFetching } =
-        useGenerateWordCloudQuery(wordCloudFilter);
-    
-    const wordcloudOptions = {
-        colors: ["#171E26", "#F5D76E", "#6A8EB5", "#F78C6B", "#78C6B2"],
-        rotations: 0,
-        deterministic: true,
-        padding: 20,
-        fontSizes: [20, 50],
-        scale: "linear",
-    };
-
     /* SUSPECTED CONDITIONS PERCENTAGE */
     const [percentageFilter, setPercentageFilter] = useState(
         user.user_type == "USER" ? user.accessible_regions[0] : "all"
@@ -108,7 +78,7 @@ const AISurveillance = () => {
     const { data: percentage, isFetching: isPercentageFetching } =
         useGeneratePercentageQuery();
     
-    const COLORS = ["#F5D76E", "#6A8EB5", "#F78C6B", "#78C6B2"];
+    const COLORS = ["#2563EB", "#F97316", "#20C997", "#9CA3AF"];
     const RADIAN = Math.PI / 180;
 
     return (
@@ -219,74 +189,139 @@ const AISurveillance = () => {
             </div>
             {/* HEALTH MONITORING */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-[20px]">
-                <Panel title="Symptom Frequency" />
-                <Panel title="Respiratory Monitoring" />
-                <Panel title="Trend Forecasting" />
-            </div>
+                {/* RESPIRATORY MONITORING */}
+                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[260px]">
+                    <h2 className="text-[18px] font-semibold text-gray-800">
+                        Respiratory Monitoring
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-[4px] mb-[16px]">
+                        Air quality and respiratory metrics with environmental factors.
+                    </p>
 
-            {/* OLD ANALYTICS INTEGRATION */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-[20px]">
-                {/* TOP WORDS */}
-                <Report
-                    heading="Top Words"
-                    filter={topWordsFilter}
-                    setFilter={setTopWordsFilter}
-                    isLoading={isTopWordsFetching}
-                >
-                    <ResponsiveContainer width="100%" height={220}>
-                        {frequentWords && (
-                            <BarChart
-                                data={frequentWords["frequent_words"]}
-                                layout="vertical"
-                                margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
-                            >
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis type="number" padding={{ left: 20, right: 20 }} tickLine={false} />
-                                <YAxis hide={true} dataKey={word} type="category" tickLine={false} axisLine={false} />
-                                <Tooltip />
-                                <Legend verticalAlign="top" align="left" iconSize={20} height={40} />
-                                <Bar dataKey="frequency" fill="#B5A8DE" maxBarSize={18} radius={[0, 8, 8, 0]}>
-                                    <LabelList
-                                        dataKey="word"
-                                        content={({ x, y, value}) => (
-                                            <text
-                                                x={x}
-                                                y={y - 5}
-                                                className="recharts-text recharts-cartesian-axis-tick-value text-[14px]" fill="#666"  
-                                            >
-                                                <tspan>{capitalizeSymptom(value)}</tspan>
-                                            </text>
-                                        )}
-                                    />
-                                </Bar>
-                            </BarChart>
-                        )}
-                    </ResponsiveContainer>
-                </Report>
-
-                {/* WORD CLOUD */}
-                <Report
-                    heading="Word Cloud"
-                    filter={wordCloudFilter}
-                    setFilter={setWordCloudFilter}
-                    isLoading={isWordCloudFetching}
-                >
-                    <div className="rounded-[8px] overflow-hidden border bg-[#F8F9FA] border-gray-50 flex justify-center items-center h-[220px]">
-                        {wordcloud && wordcloud !== "No datasets" ? (
-                            <ReactWordCloud 
-                                className="dynamic-wordcloud"
-                                style={{
-                                    height: "100%",
+                    <ResponsiveContainer width="100%" height={360}>
+                        <LineChart
+                            data={[
+                                {
+                                    time: "13:00",
+                                    respiratoryRate: 3.4,
+                                    aqi: 13,
+                                    temperature: 15,
+                                    coughFrequency: 12,
+                                    pm25: 2.9,
+                                    humidity: 7,
+                                },
+                                {
+                                    time: "13:01",
+                                    respiratoryRate: 3.7,
+                                    aqi: 13.3,
+                                    temperature: 15.5,
+                                    coughFrequency: 12.5,
+                                    pm25: 3.5,
+                                    humidity: 7.2,
+                                },
+                                {
+                                    time: "13:02",
+                                    respiratoryRate: 3.4,
+                                    aqi: 13,
+                                    temperature: 15,
+                                    coughFrequency: 12,
+                                    pm25: 2.9,
+                                    humidity: 7,
+                                },
+                            ]}
+                            margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
+                        >
+                            <CartesianGrid strokeDasharray="3 3 " />
+                            <XAxis dataKey="time" />
+                            <YAxis/>
+                            <Tooltip />
+                            <Legend 
+                                verticalAlign="bottom"
+                                align="center"
+                                layout="horizontal"
+                                iconType="circle"
+                                wrapperStyle={{
+                                    paddingTop: "20px",
                                     width: "100%",
+                                    lineHeight: "28px",
                                 }}
-                                words={wordcloud}
-                                options={wordcloudOptions}
+                                formatter={(value) => (
+                                    <span className="text-[13px] text-gray-700 mr-[24px] inline-block min-w-[160px]">
+                                        {value}
+                                    </span>
+                                )}
                             />
-                        ) : (
-                            <p className="text-gray-400">No word cloud data available</p>
-                        )}
-                    </div>
-                </Report>
+
+                            <Line type="monotone" dataKey="respiratoryRate" name="Respiratory Rate" stroke="#2563EB" />
+                            <Line type="monotone" dataKey="aqi" name="AQI" stroke="#F97316" />
+                            <Line type="monotone" dataKey="temperature" name="Temperature (°C)" stroke="#1D4ED8" />
+                            <Line type="monotone" dataKey="coughFrequency" name="Cough Frequency" stroke="#9CA3AF" />
+                            <Line type="monotone" dataKey="pm25" name="PM2.5" stroke="#FF0000" />
+                            <Line type="monotone" dataKey="humidity" name="Humidity (%)" stroke="#20C997" />
+                        </LineChart>
+                    </ResponsiveContainer>
+                </div>
+
+                {/* TREND FORECASTING */}
+                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[360px]">
+                    <h2 className="text-[18px] font-semibold text-gray-800">
+                        Trend Forecasting
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-[4px] mb-[16px]">
+                        Projected disease signal trends based on recent surveillance patterns.
+                    </p>
+
+                    <ResponsiveContainer width="100%" height={360}>
+                        <AreaChart
+                            data={[
+                                { day: "Mon", actual: 120, forecast: 128 },
+                                { day: "Tue", actual: 135, forecast: 142 },
+                                { day: "Wed", actual: 150, forecast: 160 },
+                                { day: "Thu", actual: 170, forecast: 182 },
+                                { day: "Fri", actual: 185, forecast: 205 },
+                                { day: "Sat", actual: null, forecast: 218 },
+                                { day: "Sun", actual: null, forecast: 235 },
+                            ]}
+                            margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
+                        >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="day" />
+                            <YAxis />
+                            <Tooltip />
+                            <Legend
+                                verticalAlign="bottom"
+                                align="center"
+                                iconType="circle"
+                                wrapperStyle={{
+                                    paddingTop: "20px",
+                                    width: "100%",
+                                    lineHeight: "28px",
+                                }}
+                            />
+                        <Area
+                            type="monotone"
+                            dataKey="actual"
+                            name="Actual Reports"
+                            stroke="#2563EB"
+                            fill="#DBEAFE"
+                            strokeWidth={2}
+                            dot={{ r: 3 }}
+                            activeDot={{ r: 5 }}
+                        />
+                        <Area
+                            type="monotone"
+                            dataKey="forecast"
+                            name="Forecasted Trend"
+                            stroke="#F97316"
+                            fill="#FFEDD5"
+                            strokeWidth={2}
+                            strokeDasharray="5 5"
+                            dot={{ r: 3 }}
+                            activeDot={{ r: 5 }}
+                        />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
 
                 {/* SUSPECTED CONDITIONS PERCENTAGE */}
                 <Report
@@ -295,14 +330,22 @@ const AISurveillance = () => {
                     setFilter={setPercentageFilter}
                     isLoading={isPercentageFetching}
                 >
-                    <ResponsiveContainer width="100%" height={260}>
+                    <ResponsiveContainer width="100%" height={360}>
                         {percentage && (
                             <PieChart>
                                 <Legend 
-                                    verticalAlign="top"
-                                    align="left"
-                                    iconSize={16}
-                                    height={40}
+                                    verticalAlign="bottom"
+                                    align="center"
+                                    iconType="circle"
+                                    wrapperStyle={{
+                                        paddingTop: "20px",
+                                        lineHeight: "28px",
+                                    }}
+                                    formatter={(value) => (
+                                        <span className="text-[13px] text-gray-700 mr-[18px]">
+                                            {value}
+                                        </span>
+                                    )}
                                 />
 
                                 <Pie
@@ -372,13 +415,4 @@ const MetricRow = ({ label, value }) => {
     );
 };
  
-const Panel = ({ title }) => {
-    return (
-        <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[260px]">
-            <h2 className="text-[18px] font-semibold text-gray-800 mb-[16px]">{title}</h2>
-            <div className="w-full h-[180px] bg-[#F5F5F5] rounded-[12px] flex items-center justify-center text-gray-400">{title} Placeholder</div>
-        </div>
-    );
-};
-
 export default AISurveillance;

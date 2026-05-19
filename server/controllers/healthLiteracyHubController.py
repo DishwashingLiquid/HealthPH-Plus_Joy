@@ -119,6 +119,19 @@ async def _encode_media(content_type: str, file: Optional[UploadFile]) -> Option
     }
 
 
+def _get_user_snapshot(current_user: Optional[dict]) -> dict:
+    if not current_user:
+        return {
+            "id": "",
+            "name": "",
+        }
+
+    return {
+        "id": str(current_user["_id"]),
+        "name": f"{current_user.get('first_name', '')} {current_user.get('last_name', '')}".strip(),
+    }
+
+
 """
 @desc     Fetch Health Literacy Hub content by type
 route     GET api/health-literacy-hub/{content_type}
@@ -174,14 +187,7 @@ async def create_health_literacy_content(
     media = await _encode_media(content_type, file)
     created_at = get_ph_datetime()
 
-    created_by = {
-        "id": str(current_user["_id"]) if current_user else "",
-        "name": (
-            f"{current_user.get('first_name', '')} {current_user.get('last_name', '')}".strip()
-            if current_user
-            else ""
-        ),
-    }
+    created_by = _get_user_snapshot(current_user)
 
     new_content = {
         "id": str(uuid4()),
@@ -203,5 +209,88 @@ async def create_health_literacy_content(
         content={
             "message": "Health Literacy Hub content created successfully",
             "content": new_content,
+        },
+    )
+
+
+"""
+@desc     Update Health Literacy Hub content
+route     PUT api/health-literacy-hub/{content_type}/{content_id}
+@access   Private
+"""
+
+
+async def update_health_literacy_content(
+    content_type: str,
+    content_id: str,
+    current_user: Annotated[
+        dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))
+    ],
+    title: Annotated[str, Form()],
+    description: Annotated[str, Form()],
+    tags: Annotated[Optional[str], Form()] = "",
+    publishToMobile: Annotated[bool, Form()] = False,
+    publishToWebsite: Annotated[bool, Form()] = False,
+    removeMedia: Annotated[bool, Form()] = False,
+    file: Annotated[Optional[UploadFile], File()] = None,
+):
+    if content_type not in CONTENT_FILES:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Health Literacy Hub content type not found",
+        )
+
+    if not title.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please enter a title",
+        )
+
+    if not description.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please enter a description",
+        )
+
+    content = _read_content(content_type)
+    content_index = next(
+        (index for index, item in enumerate(content) if str(item.get("id")) == content_id),
+        None,
+    )
+
+    if content_index is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Health Literacy Hub content not found",
+        )
+
+    current_content = content[content_index]
+    updated_media = current_content.get("media")
+
+    if file is not None:
+        updated_media = await _encode_media(content_type, file)
+    elif removeMedia:
+        updated_media = None
+
+    updated_content = {
+        **current_content,
+        "title": title.strip(),
+        "description": description.strip(),
+        "tags": _parse_tags(tags),
+        "media": updated_media,
+        "publishToMobile": publishToMobile,
+        "publishToWebsite": publishToWebsite,
+        "updatedAt": get_ph_datetime().isoformat(),
+        "updatedBy": _get_user_snapshot(current_user),
+    }
+
+    content[content_index] = updated_content
+    _write_content(content_type, content)
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "message": "Health Literacy Hub content updated successfully",
+            "content": updated_content,
         },
     )

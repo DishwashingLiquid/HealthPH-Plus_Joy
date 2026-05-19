@@ -18,10 +18,21 @@ export const healthLiteracyHubApi = baseAPI.injectEndpoints({
         { type: "HealthLiteracyContent", id: contentType },
       ],
     }),
+    updateHealthLiteracyContent: builder.mutation({
+      query: ({ contentType, contentId, data }) => ({
+        url: `/health-literacy-hub/${contentType}/${contentId}`,
+        method: "PUT",
+        body: data,
+      }),
+      invalidatesTags: (result, error, { contentType }) => [
+        { type: "HealthLiteracyContent", id: contentType },
+      ],
+    }),
   }),
 });
 
 export const {
   useFetchHealthLiteracyContentQuery,
   useCreateHealthLiteracyContentMutation,
+  useUpdateHealthLiteracyContentMutation,
 } = healthLiteracyHubApi;

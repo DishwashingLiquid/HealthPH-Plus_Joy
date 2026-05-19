@@ -8,6 +8,7 @@ import ModalWithBody from "../../components/admin/ModalWithBody";
 import {
   useCreateHealthLiteracyContentMutation,
   useFetchHealthLiteracyContentQuery,
+  useUpdateHealthLiteracyContentMutation,
 } from "../../features/api/healthLiteracyHubSlice";
 
 const TAB_CONTENT_TYPES = {
@@ -43,6 +44,8 @@ const INITIAL_FORM_DATA = {
   tags: "",
   media: null,
   mediaPreview: null,
+  existingMedia: null,
+  removeMedia: false,
   publishToMobile: false,
   publishToWebsite: false,
 };
@@ -226,6 +229,9 @@ const HealthLiteracyHub = () => {
   const [activeTab, setActiveTab] = useState("Articles");
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedMediaContent, setSelectedMediaContent] = useState(null);
+  const [editingContent, setEditingContent] = useState(null);
   const [formData, setFormData] = useState(INITIAL_FORM_DATA);
 
   const contentType = TAB_CONTENT_TYPES[activeTab];
@@ -242,6 +248,11 @@ const HealthLiteracyHub = () => {
     createHealthLiteracyContent,
     { isLoading: isCreatingContent },
   ] = useCreateHealthLiteracyContentMutation();
+
+  const [
+    updateHealthLiteracyContent,
+    { isLoading: isUpdatingContent },
+  ] = useUpdateHealthLiteracyContentMutation();
 
   const uploadRule = UPLOAD_RULES[activeTab] ?? UPLOAD_RULES.Articles;
 
@@ -268,7 +279,69 @@ const HealthLiteracyHub = () => {
 
   const handleCreateClick = () => {
     resetForm();
+    setEditingContent(null);
     setIsCreateModalOpen(true);
+  };
+
+  const handleEditClick = (item) => {
+    if (item.source !== "api") return;
+
+    setEditingContent(item);
+    setFormData({
+      title: item.title ?? "",
+      description: item.description ?? "",
+      tags: (item.tags ?? []).join(", "),
+      media: null,
+      mediaPreview: item.media?.dataUrl ?? null,
+      existingMedia: item.media ?? null,
+      removeMedia: false,
+      publishToMobile: Boolean(item.publishToMobile),
+      publishToWebsite: Boolean(item.publishToWebsite),
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleMediaPreviewClick = (item) => {
+    if (!item.media?.dataUrl) return;
+
+    setSelectedMediaContent({
+      title: item.title,
+      description: item.description,
+      media: item.media,
+      publishToMobile: item.publishToMobile,
+      publishToWebsite: item.publishToWebsite,
+    });
+  };
+
+  const handleMediaPreviewClose = () => {
+    setSelectedMediaContent(null);
+  };
+
+  const buildContentPayload = ({ includeRemoveMedia = false } = {}) => {
+    const payload = new FormData();
+    payload.append("title", formData.title);
+    payload.append("description", formData.description);
+    payload.append(
+      "tags",
+      JSON.stringify(
+        formData.tags
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean)
+      )
+    );
+    payload.append("publishToMobile", String(formData.publishToMobile));
+    payload.append("publishToWebsite", String(formData.publishToWebsite));
+
+    if (includeRemoveMedia) {
+      payload.append("removeMedia", String(formData.removeMedia));
+    }
+
+    if (formData.media) {
+      payload.append("file", formData.media);
+    }
+
+    return payload;
   };
 
   const handleCreateSubmit = async () => {
@@ -299,29 +372,10 @@ const HealthLiteracyHub = () => {
       return;
     }
 
-    const payload = new FormData();
-    payload.append("title", formData.title);
-    payload.append("description", formData.description);
-    payload.append(
-      "tags",
-      JSON.stringify(
-        formData.tags
-          .split(",")
-          .map((tag) => tag.trim())
-          .filter(Boolean)
-      )
-    );
-    payload.append("publishToMobile", String(formData.publishToMobile));
-    payload.append("publishToWebsite", String(formData.publishToWebsite));
-
-    if (formData.media) {
-      payload.append("file", formData.media);
-    }
-
     try {
       await createHealthLiteracyContent({
         contentType,
-        data: payload,
+        data: buildContentPayload(),
       }).unwrap();
 
       showToast({
@@ -339,6 +393,63 @@ const HealthLiteracyHub = () => {
         message:
           error?.data?.detail ??
           `Failed to create ${getContentLabel(activeTab).toLowerCase()}`,
+      });
+    }
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editingContent) return;
+
+    if (!formData.title.trim()) {
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message: "Please enter a title",
+      });
+      return;
+    }
+
+    if (!formData.description.trim()) {
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message: "Please enter a description",
+      });
+      return;
+    }
+
+    if (formData.media && !isAllowedMediaType(formData.media, activeTab)) {
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message: `${activeTab} does not accept this file type`,
+      });
+      return;
+    }
+
+    try {
+      await updateHealthLiteracyContent({
+        contentType,
+        contentId: editingContent.id,
+        data: buildContentPayload({ includeRemoveMedia: true }),
+      }).unwrap();
+
+      showToast({
+        iconName: "CheckCircle",
+        color: "success",
+        message: `${getContentLabel(activeTab)} updated successfully`,
+      });
+
+      setIsEditModalOpen(false);
+      setEditingContent(null);
+      resetForm();
+    } catch (error) {
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message:
+          error?.data?.detail ??
+          `Failed to update ${getContentLabel(activeTab).toLowerCase()}`,
       });
     }
   };
@@ -369,6 +480,8 @@ const HealthLiteracyHub = () => {
         ...prev,
         media: file,
         mediaPreview: reader.result,
+        existingMedia: null,
+        removeMedia: false,
       }));
     };
     reader.readAsDataURL(file);
@@ -383,6 +496,16 @@ const HealthLiteracyHub = () => {
   const handleMediaDrop = (e) => {
     e.preventDefault();
     setMediaFile(e.dataTransfer.files?.[0]);
+  };
+
+  const handleRemoveMedia = () => {
+    setFormData((prev) => ({
+      ...prev,
+      media: null,
+      mediaPreview: null,
+      existingMedia: null,
+      removeMedia: Boolean(isEditModalOpen),
+    }));
   };
 
   const getFilteredContent = () => {
@@ -496,6 +619,8 @@ const HealthLiteracyHub = () => {
           content={getFilteredContent()}
           contentType={activeTab}
           isLoading={isFetchingContent}
+          onMediaClick={handleMediaPreviewClick}
+          onEditClick={handleEditClick}
         />
       )}
 
@@ -512,158 +637,228 @@ const HealthLiteracyHub = () => {
           onLoadingLabel="Creating..."
           heading={`Create New ${getContentLabel(activeTab)}`}
           color="primary"
+          additionalClasses="!top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
         >
-          <div className="p-[20px] flex flex-col gap-[16px] max-h-[60vh] overflow-y-auto">
-            <div>
-              <label className="block text-[14px] font-medium text-gray-800 mb-[8px]">
-                Title *
-              </label>
-              <input
-                type="text"
-                name="title"
-                value={formData.title}
-                onChange={handleFormChange}
-                placeholder="Enter content title"
-                className="w-full px-[12px] py-[10px] border border-[#E5E5E5] rounded-[8px] text-[14px] focus:outline-none focus:border-[#6A8EB5]"
-              />
-            </div>
-            <div>
-              <label className="block text-[14px] font-medium text-gray-800 mb-[8px]">
-                Description *
-              </label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleFormChange}
-                placeholder="Enter content description"
-                className="w-full px-[12px] py-[10px] border border-[#E5E5E5] rounded-[8px] text-[14px] focus:outline-none focus:border-[#6A8EB5]"
-                rows="4"
-              />
-            </div>
-            <div>
-              <label className="block text-[14px] font-medium text-gray-800 mb-[8px]">
-                Tags (comma-separated)
-              </label>
-              <input
-                type="text"
-                name="tags"
-                value={formData.tags}
-                onChange={handleFormChange}
-                placeholder="e.g., health, education, wellness"
-                className="w-full px-[12px] py-[10px] border border-[#E5E5E5] rounded-[8px] text-[14px] focus:outline-none focus:border-[#6A8EB5]"
-              />
-            </div>
-            <div>
-              <label className="block text-[14px] font-medium text-gray-800 mb-[8px]">
-                {uploadRule.label}
-              </label>
-              <label
-                htmlFor="health-literacy-media-upload"
-                className="block border-2 border-dashed border-[#E5E5E5] rounded-[8px] p-[20px] text-center cursor-pointer hover:bg-[#F9F9F9] transition-colors"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={handleMediaDrop}
-              >
-                {formData.mediaPreview ? (
-                  <div className="flex flex-col items-center">
-                    {formData.media?.type.startsWith("video/") ? (
-                      <video
-                        src={formData.mediaPreview}
-                        className="w-[140px] h-[100px] object-cover rounded-[4px] mb-[8px]"
-                        controls
-                      />
-                    ) : (
-                      <img
-                        src={formData.mediaPreview}
-                        alt="Preview"
-                        className="w-[100px] h-[100px] object-cover rounded-[4px] mb-[8px]"
-                      />
-                    )}
-                    <p className="text-[13px] text-gray-600 font-medium break-all">
-                      {formData.media?.name}
-                    </p>
-                    <p className="text-[12px] text-gray-500 mt-[4px]">
-                      Click to change
-                    </p>
-                  </div>
-                ) : (
-                  <div>
-                    <Icon
-                      iconName="Upload"
-                      height="32px"
-                      width="32px"
-                      fill="#D0D5DD"
-                      className="mx-auto mb-[8px]"
-                    />
-                    <p className="text-[14px] font-medium text-gray-800">
-                      Drag and drop your file
-                    </p>
-                    <p className="text-[12px] text-gray-500 mt-[4px]">
-                      or click to browse
-                    </p>
-                    <p className="text-[11px] text-gray-400 mt-[8px]">
-                      {uploadRule.helperText}
-                    </p>
-                  </div>
-                )}
-              </label>
-              <input
-                id="health-literacy-media-upload"
-                type="file"
-                accept={uploadRule.accept}
-                onChange={handleMediaChange}
-                className="hidden"
-              />
-              {formData.media && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      media: null,
-                      mediaPreview: null,
-                    }))
-                  }
-                  className="text-[12px] text-red-500 hover:text-red-700 mt-[8px] font-medium"
-                >
-                  Remove file
-                </button>
-              )}
-            </div>
-            <div className="border-t border-[#E5E5E5] pt-[16px]">
-              <p className="text-[14px] font-medium text-gray-800 mb-[8px]">
-                Publish Options
-              </p>
-              <div className="flex flex-col gap-[10px]">
-                <label className="flex items-center gap-[10px] text-[14px] text-gray-700">
-                  <input
-                    type="checkbox"
-                    name="publishToMobile"
-                    checked={formData.publishToMobile}
-                    onChange={handleFormChange}
-                    className="h-[16px] w-[16px]"
-                  />
-                  Publish to mobile application
-                </label>
-                <label className="flex items-center gap-[10px] text-[14px] text-gray-700">
-                  <input
-                    type="checkbox"
-                    name="publishToWebsite"
-                    checked={formData.publishToWebsite}
-                    onChange={handleFormChange}
-                    className="h-[16px] w-[16px]"
-                  />
-                  Publish to website
-                </label>
-              </div>
-            </div>
-          </div>
+          <ContentFormBody
+            formData={formData}
+            uploadRule={uploadRule}
+            mode="create"
+            onFormChange={handleFormChange}
+            onMediaChange={handleMediaChange}
+            onMediaDrop={handleMediaDrop}
+            onRemoveMedia={handleRemoveMedia}
+          />
         </ModalWithBody>
+      )}
+
+      {isEditModalOpen && (
+        <ModalWithBody
+          onConfirm={handleEditSubmit}
+          onConfirmLabel="Save"
+          onCancel={() => {
+            setIsEditModalOpen(false);
+            setEditingContent(null);
+            resetForm();
+          }}
+          onLoading={isUpdatingContent}
+          onLoadingLabel="Saving..."
+          heading={`Edit ${getContentLabel(activeTab)}`}
+          color="primary"
+          additionalClasses="!top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
+        >
+          <ContentFormBody
+            formData={formData}
+            uploadRule={uploadRule}
+            mode="edit"
+            onFormChange={handleFormChange}
+            onMediaChange={handleMediaChange}
+            onMediaDrop={handleMediaDrop}
+            onRemoveMedia={handleRemoveMedia}
+          />
+        </ModalWithBody>
+      )}
+
+      {selectedMediaContent && (
+        <MediaPreviewModal
+          title={selectedMediaContent.title}
+          description={selectedMediaContent.description}
+          media={selectedMediaContent.media}
+          publishToMobile={selectedMediaContent.publishToMobile}
+          publishToWebsite={selectedMediaContent.publishToWebsite}
+          onClose={handleMediaPreviewClose}
+        />
       )}
     </div>
   );
 };
 
-const ContentGrid = ({ content, contentType, isLoading }) => {
+const ContentFormBody = ({
+  formData,
+  uploadRule,
+  mode,
+  onFormChange,
+  onMediaChange,
+  onMediaDrop,
+  onRemoveMedia,
+}) => {
+  const uploadInputId = `health-literacy-media-upload-${mode}`;
+  const hasMediaPreview = Boolean(formData.mediaPreview) && !formData.removeMedia;
+  const previewType =
+    formData.media?.type ?? formData.existingMedia?.contentType ?? "";
+  const previewName =
+    formData.media?.name ?? formData.existingMedia?.filename ?? "";
+
+  return (
+    <div className="p-[20px] flex flex-col gap-[16px] max-h-[60vh] overflow-y-auto">
+      <div>
+        <label className="block text-[14px] font-medium text-gray-800 mb-[8px]">
+          Title *
+        </label>
+        <input
+          type="text"
+          name="title"
+          value={formData.title}
+          onChange={onFormChange}
+          placeholder="Enter content title"
+          className="w-full px-[12px] py-[10px] border border-[#E5E5E5] rounded-[8px] text-[14px] focus:outline-none focus:border-[#6A8EB5]"
+        />
+      </div>
+      <div>
+        <label className="block text-[14px] font-medium text-gray-800 mb-[8px]">
+          Description *
+        </label>
+        <textarea
+          name="description"
+          value={formData.description}
+          onChange={onFormChange}
+          placeholder="Enter content description"
+          className="w-full max-h-[220px] px-[12px] py-[10px] border border-[#E5E5E5] rounded-[8px] text-[14px] focus:outline-none focus:border-[#6A8EB5]"
+          rows="5"
+        />
+      </div>
+      <div>
+        <label className="block text-[14px] font-medium text-gray-800 mb-[8px]">
+          Tags (comma-separated)
+        </label>
+        <input
+          type="text"
+          name="tags"
+          value={formData.tags}
+          onChange={onFormChange}
+          placeholder="e.g., health, education, wellness"
+          className="w-full px-[12px] py-[10px] border border-[#E5E5E5] rounded-[8px] text-[14px] focus:outline-none focus:border-[#6A8EB5]"
+        />
+      </div>
+      <div>
+        <label className="block text-[14px] font-medium text-gray-800 mb-[8px]">
+          {uploadRule.label}
+        </label>
+        <label
+          htmlFor={uploadInputId}
+          className="block border-2 border-dashed border-[#E5E5E5] rounded-[8px] p-[20px] text-center cursor-pointer hover:bg-[#F9F9F9] transition-colors"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={onMediaDrop}
+        >
+          {hasMediaPreview ? (
+            <div className="flex flex-col items-center">
+              {previewType.startsWith("video/") ? (
+                <video
+                  src={formData.mediaPreview}
+                  className="w-[140px] h-[100px] object-cover rounded-[4px] mb-[8px]"
+                  controls
+                />
+              ) : (
+                <img
+                  src={formData.mediaPreview}
+                  alt="Preview"
+                  className="w-[100px] h-[100px] object-cover rounded-[4px] mb-[8px]"
+                />
+              )}
+              {previewName && (
+                <p className="text-[13px] text-gray-600 font-medium break-all">
+                  {previewName}
+                </p>
+              )}
+              <p className="text-[12px] text-gray-500 mt-[4px]">
+                Click to change
+              </p>
+            </div>
+          ) : (
+            <div>
+              <Icon
+                iconName="Upload"
+                height="32px"
+                width="32px"
+                fill="#D0D5DD"
+                className="mx-auto mb-[8px]"
+              />
+              <p className="text-[14px] font-medium text-gray-800">
+                Drag and drop your file
+              </p>
+              <p className="text-[12px] text-gray-500 mt-[4px]">
+                or click to browse
+              </p>
+              <p className="text-[11px] text-gray-400 mt-[8px]">
+                {uploadRule.helperText}
+              </p>
+            </div>
+          )}
+        </label>
+        <input
+          id={uploadInputId}
+          type="file"
+          accept={uploadRule.accept}
+          onChange={onMediaChange}
+          className="hidden"
+        />
+        {hasMediaPreview && (
+          <button
+            type="button"
+            onClick={onRemoveMedia}
+            className="text-[12px] text-red-500 hover:text-red-700 mt-[8px] font-medium"
+          >
+            Remove file
+          </button>
+        )}
+      </div>
+      <div className="border-t border-[#E5E5E5] pt-[16px]">
+        <p className="text-[14px] font-medium text-gray-800 mb-[8px]">
+          Publish Options
+        </p>
+        <div className="flex flex-col gap-[10px]">
+          <label className="flex items-center gap-[10px] text-[14px] text-gray-700">
+            <input
+              type="checkbox"
+              name="publishToMobile"
+              checked={formData.publishToMobile}
+              onChange={onFormChange}
+              className="h-[16px] w-[16px]"
+            />
+            Publish to mobile application
+          </label>
+          <label className="flex items-center gap-[10px] text-[14px] text-gray-700">
+            <input
+              type="checkbox"
+              name="publishToWebsite"
+              checked={formData.publishToWebsite}
+              onChange={onFormChange}
+              className="h-[16px] w-[16px]"
+            />
+            Publish to website
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ContentGrid = ({
+  content,
+  contentType,
+  isLoading,
+  onMediaClick,
+  onEditClick,
+}) => {
   if (isLoading) {
     return (
       <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[40px] flex flex-col items-center justify-center text-center">
@@ -700,19 +895,33 @@ const ContentGrid = ({ content, contentType, isLoading }) => {
         <ContentCard
           key={`${item.source ?? "mock"}-${item.id}`}
           item={item}
+          onMediaClick={onMediaClick}
+          onEditClick={onEditClick}
         />
       ))}
     </div>
   );
 };
 
-const ContentCard = ({ item }) => {
+const ContentCard = ({ item, onMediaClick, onEditClick }) => {
   const media = item.media;
   const mediaType = media?.contentType ?? "";
+  const hasPreviewMedia = Boolean(media?.dataUrl);
+  const canEdit = item.source === "api";
+  const MediaPreviewWrapper = hasPreviewMedia ? "button" : "div";
 
   return (
-    <div className="bg-white rounded-[12px] border border-[#E5E5E5] overflow-hidden hover:shadow-lg transition-shadow cursor-pointer">
-      <div className="bg-gradient-to-br from-[#6A8EB5] to-[#78C6B2] h-[180px] flex items-center justify-center">
+    <div className="bg-white rounded-[12px] border border-[#E5E5E5] overflow-hidden hover:shadow-lg transition-shadow">
+      <MediaPreviewWrapper
+        type={hasPreviewMedia ? "button" : undefined}
+        onClick={hasPreviewMedia ? () => onMediaClick(item) : undefined}
+        className={`bg-gradient-to-br from-[#6A8EB5] to-[#78C6B2] h-[180px] w-full flex items-center justify-center ${
+          hasPreviewMedia
+            ? "cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#6A8EB5] focus:ring-offset-2"
+            : ""
+        }`}
+        aria-label={hasPreviewMedia ? `Open ${item.title} media preview` : undefined}
+      >
         {media?.dataUrl && mediaType.startsWith("image/") ? (
           <img
             src={media.dataUrl}
@@ -723,8 +932,8 @@ const ContentCard = ({ item }) => {
           <video
             src={media.dataUrl}
             className="w-full h-full object-cover"
-            controls
             muted
+            playsInline
           />
         ) : (
           <Icon
@@ -735,13 +944,24 @@ const ContentCard = ({ item }) => {
             opacity="0.5"
           />
         )}
-      </div>
+      </MediaPreviewWrapper>
 
       <div className="p-[16px]">
-        <h3 className="text-[16px] font-semibold text-gray-800 mb-[8px] line-clamp-2">
-          {item.title}
-        </h3>
-        <p className="text-[13px] text-gray-600 mb-[12px] line-clamp-2">
+        <div className="flex items-start justify-between gap-[12px] mb-[8px]">
+          <h3 className="text-[16px] font-semibold text-gray-800 line-clamp-2">
+            {item.title}
+          </h3>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => onEditClick(item)}
+              className="flex-shrink-0 rounded-[6px] border border-[#E5E5E5] px-[10px] py-[6px] text-[12px] font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#6A8EB5]"
+            >
+              Edit
+            </button>
+          )}
+        </div>
+        <p className="h-[58px] overflow-y-auto text-[13px] text-gray-600 mb-[12px] pr-[4px]">
           {item.description}
         </p>
 
@@ -775,6 +995,91 @@ const ContentCard = ({ item }) => {
                 .join(", ") || "Not selected"}
             </span>
           )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const MediaPreviewModal = ({
+  title,
+  description,
+  media,
+  publishToMobile,
+  publishToWebsite,
+  onClose,
+}) => {
+  const mediaType = media?.contentType ?? "";
+  const publishTargets = [
+    publishToMobile ? "Mobile" : null,
+    publishToWebsite ? "Website" : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 top-[68px] z-20 flex items-center justify-center bg-transparent px-[16px] py-[20px]">
+      <div
+        className="absolute inset-0 bg-[rgba(52,64,84,0.6)] backdrop-blur-[8px]"
+        onClick={onClose}
+      ></div>
+      <div className="relative z-10 flex max-h-[calc(100vh-40px)] w-full max-w-[960px] flex-col rounded-[8px] border-2 border-gray-50 bg-white shadow-2xl">
+        <div className="flex items-center justify-between gap-[16px] border-b-2 border-gray-50 p-[16px] sm:p-[20px]">
+          <h2 className="text-[18px] font-semibold text-gray-900 line-clamp-2">
+            {title}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-[36px] w-[36px] flex-shrink-0 items-center justify-center rounded-[8px] hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#6A8EB5]"
+            aria-label="Close media preview"
+          >
+            <Icon
+              iconName="Close"
+              height="22px"
+              width="22px"
+              stroke="#344054"
+            />
+          </button>
+        </div>
+
+        <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-gray-900 p-[12px] sm:p-[20px]">
+          {mediaType.startsWith("image/") ? (
+            <img
+              src={media.dataUrl}
+              alt={title}
+              className="max-h-[calc(100vh-220px)] w-auto max-w-full object-contain"
+            />
+          ) : mediaType.startsWith("video/") ? (
+            <video
+              key={media.dataUrl}
+              src={media.dataUrl}
+              className="max-h-[calc(100vh-220px)] w-full max-w-full rounded-[4px] bg-black"
+              controls
+            />
+          ) : (
+            <div className="flex min-h-[260px] flex-col items-center justify-center text-center text-white">
+              <Icon
+                iconName="Image"
+                height="64px"
+                width="64px"
+                fill="#FFFFFF"
+                opacity="0.5"
+                className="mb-[12px]"
+              />
+              <p className="text-[14px] font-medium">
+                This media type cannot be previewed.
+              </p>
+            </div>
+          )}
+        </div>
+        <div className="border-t-2 border-gray-50 p-[16px] sm:p-[20px]">
+          <p className="max-h-[110px] overflow-y-auto pr-[4px] text-[14px] text-gray-700">
+            {description}
+          </p>
+          <p className="mt-[10px] text-[12px] font-medium text-gray-500">
+            Publish: {publishTargets || "Not selected"}
+          </p>
         </div>
       </div>
     </div>

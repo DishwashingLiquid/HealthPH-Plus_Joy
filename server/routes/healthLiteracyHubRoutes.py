@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from controllers.healthLiteracyHubController import (
     create_health_literacy_content,
     fetch_health_literacy_content,
+    update_health_literacy_content,
 )
 
 router = APIRouter()
@@ -19,4 +20,11 @@ router.add_api_route(
     "/{content_type}",
     methods=["POST"],
     endpoint=create_health_literacy_content,
+)
+
+# PUT       /health-literacy-hub/{content_type}/{content_id}
+router.add_api_route(
+    "/{content_type}/{content_id}",
+    methods=["PUT"],
+    endpoint=update_health_literacy_content,
 )
