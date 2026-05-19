@@ -284,37 +284,42 @@ const DiseaseWatchFeed = () => {
             </div>
 
             {/* TAB NAVIGATION */}
-            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[12px] flex gap-[8px] flex-wrap">
-                <button
-                    onClick={() => setActiveTab("recent-alerts")}
-                    className={`px-[16px] py-[10px] rounded-[8px] font-medium transition-all ${
-                        activeTab === "recent-alerts"
-                            ? "bg-[#6A8EB5] text-white"
-                            : "bg-[#F5F5F5] text-gray-700 hover:bg-gray-200"
-                    }`}
-                >
-                    Recent Alerts
-                </button>
-                <button
-                    onClick={() => setActiveTab("regional-coverage")}
-                    className={`px-[16px] py-[10px] rounded-[8px] font-medium transition-all ${
-                        activeTab === "regional-coverage"
-                            ? "bg-[#6A8EB5] text-white"
-                            : "bg-[#F5F5F5] text-gray-700 hover:bg-gray-200"
-                    }`}
-                >
-                    Regional Coverage
-                </button>
-                <button
-                    onClick={() => setActiveTab("user-analytics")}
-                    className={`px-[16px] py-[10px] rounded-[8px] font-medium transition-all ${
-                        activeTab === "user-analytics"
-                            ? "bg-[#6A8EB5] text-white"
-                            : "bg-[#F5F5F5] text-gray-700 hover:bg-gray-200"
-                    }`}
-                >
-                    User Analytics
-                </button>
+            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[12px]">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-[8px] bg-[#F5F5F5] rounded-[10px] p-[6px]">
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab("recent-alerts")}
+                        className={`px-[16px] py-[10px] rounded-[8px] text-sm font-medium transition ${
+                            activeTab === "recent-alerts"
+                                ? "bg-white text-gray-900 shadow-sm"
+                                : "text-gray-500 hover:text-gray-800"
+                        }`}
+                    >
+                        Recent Alerts
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab("regional-coverage")}
+                        className={`px-[16px] py-[10px] rounded-[8px] text-sm font-medium transition ${
+                            activeTab === "regional-coverage"
+                                ? "bg-white text-gray-900 shadow-sm"
+                                : "text-gray-500 hover:text-gray-800"
+                        }`}
+                    >
+                        Regional Coverage
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setActiveTab("user-analytics")}
+                        className={`px-[16px] py-[10px] rounded-[8px] text-sm font-medium transition ${
+                            activeTab === "user-analytics"
+                                ? "bg-white text-gray-900 shadow-sm"
+                                : "text-gray-500 hover:text-gray-800"
+                        }`}
+                    >
+                        User Analytics
+                    </button>
+                </div>
             </div>
 
             {/* TAB CONTENT */}

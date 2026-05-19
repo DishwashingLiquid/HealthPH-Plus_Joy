@@ -26,6 +26,7 @@ import ResetPassword from "./pages/auth/ResetPassword";
 import AISurveillance from "./pages/admin/AISurveillance";
 import HealthLiteracyHub from "./pages/admin/HealthLiteracyHub";
 import DiseaseWatchFeed from "./pages/admin/DiseaseWatchFeed";
+import NLPInsights from "./pages/admin/NLPInsights";
 import Analytics from "./pages/admin/Analytics";
 import TrendsMap from "./pages/admin/TrendsMap";
 import SentimentPulseTool from "./pages/admin/SentimentPulseTool";
@@ -206,6 +207,15 @@ function App() {
                 <>
                   <HelmetTitle title="HealthPH | Health Literacy Hub" />
                   <HealthLiteracyHub />
+                </>
+              }
+            />
+            <Route
+              path="NLP-insights"
+              element={
+                <>
+                  <HelmetTitle title="HealthPH | NLP Insights" />
+                  <NLPInsights />
                 </>
               }
             />

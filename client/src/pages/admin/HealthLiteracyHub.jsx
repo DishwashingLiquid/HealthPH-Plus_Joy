@@ -557,19 +557,20 @@ const HealthLiteracyHub = () => {
 
       {/* TABS NAVIGATION */}
       <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[12px]">
-        <div className="flex flex-wrap gap-[8px]">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-[8px] bg-[#F5F5F5] rounded-[10px] p-[6px]">
           {["Articles", "Videos", "Infographics", "HealthLiteracyAnalytics"].map(
             (tab) => (
               <button
                 key={tab}
+                type="button"
                 onClick={() => {
                   setActiveTab(tab);
                   setSearchQuery("");
                 }}
-                className={`px-[16px] py-[10px] rounded-[8px] text-[14px] font-medium transition-all ${
+                className={`px-[16px] py-[10px] rounded-[8px] text-sm font-medium transition ${
                   activeTab === tab
-                    ? "bg-[#F5D76E] text-gray-800"
-                    : "bg-[#F5F5F5] text-gray-600 hover:bg-gray-100"
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-800"
                 }`}
               >
                 {tab === "HealthLiteracyAnalytics" ? "Analytics" : tab}
