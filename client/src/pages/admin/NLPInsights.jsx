@@ -11,6 +11,11 @@ import {
     Tooltip,
     Legend,
     LabelList,
+    PieChart,
+    Pie,
+    Cell,
+    LineChart,
+    Line,
 } from "recharts";
 
 import {
@@ -369,10 +374,132 @@ const NamedEntityRecognition = ({
 const SentimentAnalysis = () => {
     return (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-[20px]">
-            <NLPPanel title="Sentiment Distribution" />
-            <NLPPanel title="Sentiment by Region" />
-            <div className="xl:col-span-2">
-                <NLPPanel title="Sentiment Trends Over Time" />
+            {/* SENTIMENT DISTRIBUTION */}
+            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[360px]">
+                <h2 className="text-[18px] font-semibold text-gray-800">
+                    Sentiment Distribution
+                </h2>
+                <p className="text-sm text-gray-500 mt-[4px] mb-[16px]">
+                    Overall public sentiment detected from multilingual health-related posts.
+                </p>
+
+                <ResponsiveContainer width="100%" height={280}>
+                    <PieChart>
+                        <Legend
+                            verticalAlign="bottom"
+                            align="center"
+                            iconType="circle"
+                            wrapperStyle={{
+                                paddingTop: "20px",
+                                lineHeight: "28px",
+                            }}
+                            formatter={(value) => (
+                                <span className="text-[13px] text-gray-700 mr-[18px]">
+                                    {value}
+                                </span>
+                            )}
+                        />
+                        <Pie
+                            data={[
+                                { name: "Positive", value: 32 },
+                                { name: "Neutral", value: 46 },
+                                { name: "Negative", value: 22 },
+                            ]}
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={90}
+                            dataKey="value"
+                            label
+                        >
+                            {["#20C997", "#9CA3AF", "#EF4444"].map((color, index) => (
+                                <Cell key={`sentiment-cell-${index}`} fill={color} />
+                            ))}
+                        </Pie>
+
+                        <Tooltip />
+                    </PieChart>
+                </ResponsiveContainer>
+            </div>
+            
+            {/* SENTIMENT BY REGION */}
+            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[360px]">
+                <h2 className="text-[18px] font-semibold text-gray-800">
+                    Sentiment by Region
+                </h2>
+                <p className="text-sm text-gray-500 mt-[4px] mb-[16px]">
+                    Regional sentiment breakdown from detected public health conversations.
+                </p>
+
+                <ResponsiveContainer width="100%" height={280}>
+                    <BarChart
+                        data={[
+                            { region: "NCR", positive: 45, neutral: 30, negative: 25 },
+                            { region: "III", positive: 30, neutral: 42, negative: 28 },
+                            { region: "IV-A", positive: 25, neutral: 35, negative: 40 },
+                            { region: "NCR", positive: 38, neutral: 40, negative: 22 },
+                        ]}
+                        margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
+                    >
+                        <CartesianGrid strokeDasharray="3 3 " />
+                        <XAxis dataKey="region" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend
+                            verticalAlign="bottom"
+                            align="center"
+                            iconType="circle"
+                            wrapperStyle={{
+                                paddingTop: "20px",
+                                lineHeight: "28px",
+                            }}
+                        />
+
+                        <Bar dataKey="positive" name="Positive" fill="#20C997" />
+                        <Bar dataKey="neutral" name="Neutral" fill="#9CA3AF" />
+                        <Bar dataKey="negative" name="negative" fill="#EF4444" />
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
+            
+            {/* SENTIMENT TRENDS OVER TIME */}
+            <div className="xl:col-span-2 bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[380px]">
+                <h2 className="text-[18px] font-semibold text-gray-800">
+                    Sentiment Trends Over Time
+                </h2>
+                <p className="text-sm text-gray-500 mt-[4px] mb-[16px]">
+                    Weekly sentiment movement used to support public health communication monitoring.
+                </p>
+
+                <ResponsiveContainer width="100%" height={300}>
+                    <LineChart
+                        data={[
+                            { week: "Week 1", positive: 34, neutral: 42, negative: 24 },
+                            { week: "Week 2", positive: 36, neutral: 39, negative: 25 },
+                            { week: "Week 3", positive: 30, neutral: 37, negative: 33 },
+                            { week: "Week 4", positive: 28, neutral: 35, negative: 37 },
+                            { week: "Week 5", positive: 32, neutral: 40, negative: 28 },
+                        ]}
+                        margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
+                    >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="week" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend
+                            verticalAlign="bottom"
+                            align="center"
+                            iconType="circle"
+                            wrapperStyle={{
+                                paddingTop: "20px",
+                                lineHeight: "28px",
+                            }}
+                        />
+
+                        <Line type="monotone" dataKey="positive" name="Positive" stroke="#20C997" strokeWidth={2} />
+                        <Line type="monotone" dataKey="neutral" name="Neutral" stroke="#9CA3AF" strokeWidth={2} />
+                        <Line type="monotone" dataKey="negative" name="Negative" stroke="#EF4444" strokeWidth={2} />
+                    </LineChart> 
+                </ResponsiveContainer>
             </div>
         </div>
     );
