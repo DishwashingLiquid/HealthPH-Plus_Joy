@@ -195,7 +195,7 @@ function App() {
               index
               element={
                 <>
-                  <HelmetTitle title="HealthPH | Analytics" />
+                  <HelmetTitle title="HealthPH | AI Surveillance" />
                   <AISurveillance />
                 </>
               }
