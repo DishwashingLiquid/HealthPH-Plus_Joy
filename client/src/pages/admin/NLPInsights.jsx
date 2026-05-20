@@ -11,6 +11,11 @@ import {
     Tooltip,
     Legend,
     LabelList,
+    PieChart,
+    Pie,
+    Cell,
+    LineChart,
+    Line,
 } from "recharts";
 
 import {
@@ -369,10 +374,132 @@ const NamedEntityRecognition = ({
 const SentimentAnalysis = () => {
     return (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-[20px]">
-            <NLPPanel title="Sentiment Distribution" />
-            <NLPPanel title="Sentiment by Region" />
-            <div className="xl:col-span-2">
-                <NLPPanel title="Sentiment Trends Over Time" />
+            {/* SENTIMENT DISTRIBUTION */}
+            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[360px]">
+                <h2 className="text-[18px] font-semibold text-gray-800">
+                    Sentiment Distribution
+                </h2>
+                <p className="text-sm text-gray-500 mt-[4px] mb-[16px]">
+                    Overall public sentiment detected from multilingual health-related posts.
+                </p>
+
+                <ResponsiveContainer width="100%" height={280}>
+                    <PieChart>
+                        <Legend
+                            verticalAlign="bottom"
+                            align="center"
+                            iconType="circle"
+                            wrapperStyle={{
+                                paddingTop: "20px",
+                                lineHeight: "28px",
+                            }}
+                            formatter={(value) => (
+                                <span className="text-[13px] text-gray-700 mr-[18px]">
+                                    {value}
+                                </span>
+                            )}
+                        />
+                        <Pie
+                            data={[
+                                { name: "Positive", value: 32 },
+                                { name: "Neutral", value: 46 },
+                                { name: "Negative", value: 22 },
+                            ]}
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={90}
+                            dataKey="value"
+                            label
+                        >
+                            {["#20C997", "#9CA3AF", "#EF4444"].map((color, index) => (
+                                <Cell key={`sentiment-cell-${index}`} fill={color} />
+                            ))}
+                        </Pie>
+
+                        <Tooltip />
+                    </PieChart>
+                </ResponsiveContainer>
+            </div>
+            
+            {/* SENTIMENT BY REGION */}
+            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[360px]">
+                <h2 className="text-[18px] font-semibold text-gray-800">
+                    Sentiment by Region
+                </h2>
+                <p className="text-sm text-gray-500 mt-[4px] mb-[16px]">
+                    Regional sentiment breakdown from detected public health conversations.
+                </p>
+
+                <ResponsiveContainer width="100%" height={280}>
+                    <BarChart
+                        data={[
+                            { region: "NCR", positive: 45, neutral: 30, negative: 25 },
+                            { region: "III", positive: 30, neutral: 42, negative: 28 },
+                            { region: "IV-A", positive: 25, neutral: 35, negative: 40 },
+                            { region: "NCR", positive: 38, neutral: 40, negative: 22 },
+                        ]}
+                        margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
+                    >
+                        <CartesianGrid strokeDasharray="3 3 " />
+                        <XAxis dataKey="region" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend
+                            verticalAlign="bottom"
+                            align="center"
+                            iconType="circle"
+                            wrapperStyle={{
+                                paddingTop: "20px",
+                                lineHeight: "28px",
+                            }}
+                        />
+
+                        <Bar dataKey="positive" name="Positive" fill="#20C997" />
+                        <Bar dataKey="neutral" name="Neutral" fill="#9CA3AF" />
+                        <Bar dataKey="negative" name="negative" fill="#EF4444" />
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
+            
+            {/* SENTIMENT TRENDS OVER TIME */}
+            <div className="xl:col-span-2 bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[380px]">
+                <h2 className="text-[18px] font-semibold text-gray-800">
+                    Sentiment Trends Over Time
+                </h2>
+                <p className="text-sm text-gray-500 mt-[4px] mb-[16px]">
+                    Weekly sentiment movement used to support public health communication monitoring.
+                </p>
+
+                <ResponsiveContainer width="100%" height={300}>
+                    <LineChart
+                        data={[
+                            { week: "Week 1", positive: 34, neutral: 42, negative: 24 },
+                            { week: "Week 2", positive: 36, neutral: 39, negative: 25 },
+                            { week: "Week 3", positive: 30, neutral: 37, negative: 33 },
+                            { week: "Week 4", positive: 28, neutral: 35, negative: 37 },
+                            { week: "Week 5", positive: 32, neutral: 40, negative: 28 },
+                        ]}
+                        margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
+                    >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="week" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend
+                            verticalAlign="bottom"
+                            align="center"
+                            iconType="circle"
+                            wrapperStyle={{
+                                paddingTop: "20px",
+                                lineHeight: "28px",
+                            }}
+                        />
+
+                        <Line type="monotone" dataKey="positive" name="Positive" stroke="#20C997" strokeWidth={2} />
+                        <Line type="monotone" dataKey="neutral" name="Neutral" stroke="#9CA3AF" strokeWidth={2} />
+                        <Line type="monotone" dataKey="negative" name="Negative" stroke="#EF4444" strokeWidth={2} />
+                    </LineChart> 
+                </ResponsiveContainer>
             </div>
         </div>
     );
@@ -380,11 +507,105 @@ const SentimentAnalysis = () => {
 
 const LanguageDetection = () => {
     return (
-        <div className="grid  grid-cols-1 xl: grid-cols-2 gap-[20px]">
-            <NLPPanel title="Language Distribution" />
-            <NLPPanel title="Language Distribution by Region" />
-            <div className="xl:col-span-2">
-                <NLPPanel title="Language Processing Model Performance" />
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-[20px]">
+            {/* LANGUAGE DISTRIBUTION */}
+            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[360px]">
+                <h2 className="text-[18px] font-semibold text-gray-800">
+                    Language Distribution
+                </h2>
+                <p className="text-sm text-gray-500 mt-[4px] mb-[16px]">
+                    Detected language distribution from multilingual health-related posts.
+                </p>
+
+                <ResponsiveContainer width="100%" height={280}>
+                    <PieChart>
+                        <Legend
+                            verticalAlign="bottom"
+                            align="center"
+                            iconType="circle"
+                            wrapperStyle={{
+                                paddingTop: "20px",
+                                lineHeight: "28px"
+                            }}
+                        />
+
+                        <Pie
+                            data={[
+                                { name: "English", value: 34 },
+                                { name: "Filipino", value: 28 },
+                                { name: "Cebuano", value: 16 },
+                                { name: "Ilocano", value: 12 },
+                                { name: "Hiligaynon", value: 10 },
+                            ]}
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={90}
+                            dataKey="value"
+                            label
+                        >
+                            {["#2563EB", "#F97316", "#20C997", "#9CA3AF", "#8B5CF6"].map((color, index) => (
+                                <Cell key={`language-cell-${index}`} fill={color} />
+                            ))}
+                        </Pie>
+
+                        <Tooltip />
+                    </PieChart>
+                </ResponsiveContainer>
+            </div>
+
+            {/* LANGUAGE DISTRIBUTION BY REGION */}
+            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[360px]">
+                <h2 className="text-[18px] font-semibold text-gray-800">
+                    Language Distribution by Region
+                </h2>
+                <p className="text-sm text-gray-500 mt-[4px] mb-[16px]">
+                    Regional language patterns detected from public health conversations.
+                </p>
+
+                <ResponsiveContainer width="100%" height={280}>
+                    <BarChart
+                        data={[
+                            { region: "NCR", english: 42, filipino: 38, regional: 20 },
+                            { region: "VII", english: 22, filipino: 18, regional: 60 },
+                            { region: "I", english: 25, filipino: 20, regional: 55 },
+                            { region: "VI", english: 20, filipino: 24, regional: 56 },
+                        ]}
+                        margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
+                    >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="region" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend
+                            verticalAlign="bottom"
+                            align="center"
+                            iconType="circle"
+                            wrapperStyle={{
+                                paddingTop: "20px",
+                                lineHeight: "28px"
+                            }}
+                        />
+
+                        <Bar dataKey="english" name="English" fill="#2563EB" />
+                        <Bar dataKey="filipino" name="Filipino" fill="#F97316" />
+                        <Bar dataKey="regional" name="Regional Languages" fill="#20C997" />
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
+
+            {/* LANGUAGE PROCESSING MODEL PERFORMANCE */}
+            <div className="xl:col-span-2 bg-white rounded-[12px] border border-[#E5E5E5] p-[24px]">
+                <h2 className="text-[18px] font-semibold text-gray-800 mb-[20px]">
+                    Language Processing Model Performance
+                </h2>
+
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-[16px]">
+                    <ModelMetricCard label="English" value="94%" />
+                    <ModelMetricCard label="Filipino" value="91%" />
+                    <ModelMetricCard label="Cebuano" value="87%" />
+                    <ModelMetricCard label="Ilocano" value="84%" />
+                    <ModelMetricCard label="Hiligaynon" value="82%" />
+                </div>
             </div>
         </div>
     );
@@ -496,15 +717,16 @@ const EntityHighlight = ({ label, backgroundColor, textColor, }) => {
     )
 }
 
-const NLPPanel = ({ title }) => {
+const ModelMetricCard = ({ label, value }) => {
     return (
-        <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[260px]">
-            <h2 className="text-[18px] font-semibold text-gray-800 mb-[16px]">
-                {title}
-            </h2>
-            <div className="w-full h-[180px] bg-[#F5F5F5] rounded-[12px] flex items-center justify-center text-gray-400">
-                {title} Placeholder
-            </div>
+        <div className="bg-[#F5F5F5] rounded-[12px] p-[16px]">
+            <p className="text-sm text-gray-500">{label}</p>
+            <p className="text-[28px] font-semibold text-gray-800 mt-[8px]">
+                {value}
+            </p>
+            <p className="text-xs text-gray-500 mt-[4px]">
+                detection accuracy
+            </p>
         </div>
     );
 };

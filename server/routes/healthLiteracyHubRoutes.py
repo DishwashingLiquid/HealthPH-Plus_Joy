@@ -1,12 +1,36 @@
 from fastapi import APIRouter
 
 from controllers.healthLiteracyHubController import (
+    create_health_literacy_analytics_event,
     create_health_literacy_content,
+    fetch_health_literacy_analytics_overview,
     fetch_health_literacy_content,
     update_health_literacy_content,
+    upsert_health_literacy_content_feedback,
 )
 
 router = APIRouter()
+
+# GET       /health-literacy-hub/analytics/overview
+router.add_api_route(
+    "/analytics/overview",
+    methods=["GET"],
+    endpoint=fetch_health_literacy_analytics_overview,
+)
+
+# POST      /health-literacy-hub/analytics/events
+router.add_api_route(
+    "/analytics/events",
+    methods=["POST"],
+    endpoint=create_health_literacy_analytics_event,
+)
+
+# POST      /health-literacy-hub/content/{content_type}/{content_id}/feedback
+router.add_api_route(
+    "/content/{content_type}/{content_id}/feedback",
+    methods=["POST"],
+    endpoint=upsert_health_literacy_content_feedback,
+)
 
 # GET       /health-literacy-hub/{content_type}
 router.add_api_route(

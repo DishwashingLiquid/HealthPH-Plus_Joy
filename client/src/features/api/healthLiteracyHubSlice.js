@@ -16,6 +16,7 @@ export const healthLiteracyHubApi = baseAPI.injectEndpoints({
       }),
       invalidatesTags: (result, error, { contentType }) => [
         { type: "HealthLiteracyContent", id: contentType },
+        "HealthLiteracyAnalyticsOverview",
       ],
     }),
     updateHealthLiteracyContent: builder.mutation({
@@ -26,6 +27,33 @@ export const healthLiteracyHubApi = baseAPI.injectEndpoints({
       }),
       invalidatesTags: (result, error, { contentType }) => [
         { type: "HealthLiteracyContent", id: contentType },
+        "HealthLiteracyAnalyticsOverview",
+      ],
+    }),
+    fetchHealthLiteracyAnalyticsOverview: builder.query({
+      query: ({ timeRange, contentType, region }) => ({
+        url: "/health-literacy-hub/analytics/overview",
+        params: { timeRange, contentType, region },
+      }),
+      providesTags: ["HealthLiteracyAnalyticsOverview"],
+    }),
+    createHealthLiteracyAnalyticsEvent: builder.mutation({
+      query: (data) => ({
+        url: "/health-literacy-hub/analytics/events",
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: ["HealthLiteracyAnalyticsOverview"],
+    }),
+    upsertHealthLiteracyContentFeedback: builder.mutation({
+      query: ({ contentType, contentId, data }) => ({
+        url: `/health-literacy-hub/content/${contentType}/${contentId}/feedback`,
+        method: "POST",
+        body: data,
+      }),
+      invalidatesTags: [
+        "HealthLiteracyAnalyticsOverview",
+        "HealthLiteracyFeedback",
       ],
     }),
   }),
@@ -35,4 +63,7 @@ export const {
   useFetchHealthLiteracyContentQuery,
   useCreateHealthLiteracyContentMutation,
   useUpdateHealthLiteracyContentMutation,
+  useFetchHealthLiteracyAnalyticsOverviewQuery,
+  useCreateHealthLiteracyAnalyticsEventMutation,
+  useUpsertHealthLiteracyContentFeedbackMutation,
 } = healthLiteracyHubApi;

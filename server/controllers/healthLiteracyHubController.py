@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 from uuid import uuid4
@@ -9,8 +10,17 @@ from fastapi import Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import JSONResponse
 from typing_extensions import Annotated
 
+from config.database import (
+    health_literacy_analytics_events_collection,
+    health_literacy_feedback_collection,
+)
 from helpers.miscHelpers import get_ph_datetime
+from middleware.requireAuth import require_auth
 from middleware.requireRole import require_role
+from models.healthLiteracyHubAnalytics import (
+    HealthLiteracyAnalyticsEvent,
+    HealthLiteracyFeedbackRequest,
+)
 
 
 CONTENT_FILES = {
@@ -26,6 +36,48 @@ CONTENT_MEDIA_PREFIXES = {
 }
 
 health_literacy_folder = Path("public/health-literacy-hub")
+
+ANALYTICS_TIME_RANGE_DAYS = {
+    "last-7-days": 7,
+    "last-30-days": 30,
+    "last-90-days": 90,
+}
+
+ANALYTICS_CONTENT_LABELS = {
+    "articles": "Articles",
+    "videos": "Videos",
+    "infographics": "Infographics",
+}
+
+ANALYTICS_REGIONS = [
+    "NCR",
+    "I",
+    "II",
+    "III",
+    "IVA",
+    "IVB",
+    "V",
+    "VI",
+    "VII",
+    "VIII",
+    "IX",
+    "X",
+    "XI",
+    "XII",
+    "XIII",
+    "CAR",
+    "BARMM",
+]
+
+ALLOWED_ANALYTICS_EVENTS = {
+    "content_opened",
+    "search",
+    "helpful_vote",
+    "report_exported",
+}
+
+ALLOWED_FEEDBACK_VOTES = {"helpful", "not_helpful"}
+ALLOWED_FEEDBACK_PLATFORMS = {"mobile", "website"}
 
 
 def _get_content_path(content_type: str) -> Path:
@@ -132,6 +184,226 @@ def _get_user_snapshot(current_user: Optional[dict]) -> dict:
     }
 
 
+def _get_analytics_seed(value) -> int:
+    return sum(ord(char) for char in str(value or ""))
+
+
+def _get_analytics_region(content_type: str, item: dict, index: int = 0) -> str:
+    seed = _get_analytics_seed(
+        f"{content_type}-{item.get('id', '')}-{item.get('title', '')}"
+    )
+    return ANALYTICS_REGIONS[(seed + index) % len(ANALYTICS_REGIONS)]
+
+
+def _get_content_label(content_type: str) -> str:
+    return ANALYTICS_CONTENT_LABELS.get(content_type, content_type)
+
+
+def _ensure_feedback_indexes() -> None:
+    health_literacy_feedback_collection.create_index(
+        [
+            ("user_id", 1),
+            ("content_type_key", 1),
+            ("content_id", 1),
+        ],
+        unique=True,
+        name="unique_user_content_feedback",
+    )
+
+
+def _find_content_item(content_type: str, content_id: str):
+    content = _read_content(content_type)
+
+    for index, item in enumerate(content):
+        if str(item.get("id")) == content_id:
+            return item, index
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Health Literacy Hub content not found",
+    )
+
+
+def _serialize_feedback(feedback: dict) -> dict:
+    return {
+        "id": str(feedback.get("_id", "")),
+        "userId": feedback.get("user_id", ""),
+        "contentType": feedback.get("content_type", ""),
+        "contentTypeKey": feedback.get("content_type_key", ""),
+        "contentId": feedback.get("content_id", ""),
+        "vote": feedback.get("vote", ""),
+        "clientPlatform": feedback.get("client_platform", ""),
+        "contentSnapshot": feedback.get("content_snapshot", {}),
+        "createdAt": feedback.get("created_at").isoformat()
+        if feedback.get("created_at")
+        else "",
+        "updatedAt": feedback.get("updated_at").isoformat()
+        if feedback.get("updated_at")
+        else "",
+    }
+
+
+def _get_range_start_date(time_range: str):
+    days = ANALYTICS_TIME_RANGE_DAYS.get(time_range)
+
+    if not days:
+        return None
+
+    start_date = get_ph_datetime().replace(hour=0, minute=0, second=0, microsecond=0)
+    return start_date - timedelta(days=days - 1)
+
+
+def _build_event_match(
+    event_type: Optional[str] = None,
+    time_range: str = "last-30-days",
+    content_type: str = "all",
+    region: str = "all",
+) -> dict:
+    match = {}
+    start_date = _get_range_start_date(time_range)
+
+    if event_type:
+        match["event_type"] = event_type
+
+    if start_date:
+        match["created_at"] = {"$gte": start_date}
+
+    if content_type != "all":
+        match["content_type"] = content_type
+
+    if region != "all":
+        match["region"] = region
+
+    return match
+
+
+def _build_feedback_match(
+    time_range: str = "last-30-days",
+    content_type: str = "all",
+    region: str = "all",
+) -> dict:
+    match = {}
+    start_date = _get_range_start_date(time_range)
+
+    if start_date:
+        match["updated_at"] = {"$gte": start_date}
+
+    if content_type != "all":
+        match["content_type"] = content_type
+
+    if region != "all":
+        match["region"] = region
+
+    return match
+
+
+def _content_matches_filters(
+    item: dict,
+    content_type: str,
+    index: int,
+    selected_content_type: str,
+    selected_region: str,
+    time_range: str,
+) -> bool:
+    if selected_content_type != "all" and content_type != selected_content_type:
+        return False
+
+    if selected_region != "all" and _get_analytics_region(content_type, item, index) != selected_region:
+        return False
+
+    start_date = _get_range_start_date(time_range)
+    if not start_date:
+        return True
+
+    date_value = (
+        item.get("lastReviewedAt")
+        or item.get("updatedAt")
+        or item.get("createdAt")
+    )
+    if not date_value:
+        return True
+
+    try:
+        content_date = datetime.fromisoformat(str(date_value))
+    except ValueError:
+        return True
+
+    return content_date >= start_date
+
+
+def _content_has_media(item: dict) -> bool:
+    media = item.get("media")
+    return bool(
+        (isinstance(media, dict) and media.get("dataUrl")) or media or item.get("thumbnail")
+    )
+
+
+def _get_review_issues(item: dict) -> list[str]:
+    issues = []
+
+    if not str(item.get("title", "")).strip():
+        issues.append("Missing title")
+    if not str(item.get("description", "")).strip():
+        issues.append("Missing description")
+    if not _content_has_media(item):
+        issues.append("Missing media")
+    if not item.get("publishToMobile") and not item.get("publishToWebsite"):
+        issues.append("No publish target")
+
+    return issues
+
+
+def _count_content_needing_review(
+    time_range: str,
+    content_type: str,
+    region: str,
+) -> int:
+    review_count = 0
+
+    for content_key, label in ANALYTICS_CONTENT_LABELS.items():
+        if content_type != "all" and label != content_type:
+            continue
+
+        for index, item in enumerate(_read_content(content_key)):
+            if not _content_matches_filters(
+                item=item,
+                content_type=label,
+                index=index,
+                selected_content_type=content_type,
+                selected_region=region,
+                time_range=time_range,
+            ):
+                continue
+
+            if _get_review_issues(item):
+                review_count += 1
+
+    return review_count
+
+
+def _get_top_search_topic(match: dict) -> dict:
+    rows = list(
+        health_literacy_analytics_events_collection.aggregate(
+            [
+                {"$match": match},
+                {
+                    "$group": {
+                        "_id": "$topic",
+                        "searches": {"$sum": 1},
+                    }
+                },
+                {"$sort": {"searches": -1, "_id": 1}},
+                {"$limit": 1},
+            ]
+        )
+    )
+
+    if not rows or not rows[0].get("_id"):
+        return {"topic": "No searches yet", "searches": 0}
+
+    return {"topic": rows[0]["_id"], "searches": rows[0]["searches"]}
+
+
 """
 @desc     Fetch Health Literacy Hub content by type
 route     GET api/health-literacy-hub/{content_type}
@@ -144,6 +416,244 @@ async def fetch_health_literacy_content(
     current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
 ):
     return _read_content(content_type)
+
+
+"""
+@desc     Fetch Health Literacy Hub overview analytics
+route     GET api/health-literacy-hub/analytics/overview
+@access   Private
+"""
+
+
+async def fetch_health_literacy_analytics_overview(
+    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
+    timeRange: str = "last-30-days",
+    contentType: str = "all",
+    region: str = "all",
+):
+    content_opened_match = _build_event_match(
+        event_type="content_opened",
+        time_range=timeRange,
+        content_type=contentType,
+        region=region,
+    )
+    helpful_vote_match = _build_feedback_match(
+        time_range=timeRange,
+        content_type=contentType,
+        region=region,
+    )
+    report_exported_match = _build_event_match(
+        event_type="report_exported",
+        time_range=timeRange,
+        content_type=contentType,
+        region=region,
+    )
+    search_match = _build_event_match(
+        event_type="search",
+        time_range=timeRange,
+        content_type=contentType,
+        region=region,
+    )
+
+    helpful_votes = health_literacy_feedback_collection.count_documents(
+        {**helpful_vote_match, "vote": "helpful"}
+    )
+    not_helpful_votes = health_literacy_feedback_collection.count_documents(
+        {**helpful_vote_match, "vote": "not_helpful"}
+    )
+    total_votes = helpful_votes + not_helpful_votes
+    helpful_score = (helpful_votes / total_votes) * 100 if total_votes else 0
+
+    visitor_ids = health_literacy_analytics_events_collection.distinct(
+        "visitor_id",
+        content_opened_match,
+    )
+
+    return {
+        "peopleReached": health_literacy_analytics_events_collection.count_documents(
+            content_opened_match
+        ),
+        "uniqueVisitors": len([visitor_id for visitor_id in visitor_ids if visitor_id]),
+        "topSearchTopic": _get_top_search_topic(search_match),
+        "helpfulScore": helpful_score,
+        "needsReview": _count_content_needing_review(
+            time_range=timeRange,
+            content_type=contentType,
+            region=region,
+        ),
+        "reportsExported": health_literacy_analytics_events_collection.count_documents(
+            report_exported_match
+        ),
+    }
+
+
+"""
+@desc     Record Health Literacy Hub analytics event
+route     POST api/health-literacy-hub/analytics/events
+@access   Private
+"""
+
+
+async def create_health_literacy_analytics_event(
+    data: HealthLiteracyAnalyticsEvent,
+    user_id: Annotated[str, Depends(require_auth)],
+):
+    event_type = data.eventType.strip()
+
+    if event_type not in ALLOWED_ANALYTICS_EVENTS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported Health Literacy Hub analytics event",
+        )
+
+    topic = data.topic.strip() if data.topic else None
+    vote = data.vote.strip() if data.vote else None
+
+    if event_type == "search" and not topic:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Search analytics events require a topic",
+        )
+
+    if event_type == "helpful_vote" and vote not in {"helpful", "not_helpful"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Helpful vote analytics events require a valid vote",
+        )
+
+    event = {
+        "event_type": event_type,
+        "content_id": data.contentId,
+        "content_title": data.contentTitle,
+        "content_type": data.contentType or "all",
+        "region": data.region or "all",
+        "topic": topic,
+        "vote": vote,
+        "report_format": data.reportFormat,
+        "visitor_id": data.visitorId or user_id,
+        "user_id": user_id,
+        "metadata": data.metadata or {},
+        "created_at": get_ph_datetime(),
+    }
+
+    health_literacy_analytics_events_collection.insert_one(event)
+
+    return JSONResponse(
+        status_code=status.HTTP_201_CREATED,
+        content={"message": "Health Literacy Hub analytics event recorded"},
+    )
+
+
+"""
+@desc     Create or update logged-in user feedback for Health Literacy Hub content
+route     POST api/health-literacy-hub/content/{content_type}/{content_id}/feedback
+@access   Private
+"""
+
+
+async def upsert_health_literacy_content_feedback(
+    content_type: str,
+    content_id: str,
+    data: HealthLiteracyFeedbackRequest,
+    user_id: Annotated[str, Depends(require_auth)],
+):
+    if content_type not in CONTENT_FILES:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Health Literacy Hub content type not found",
+        )
+
+    vote = data.vote.strip()
+    client_platform = data.clientPlatform.strip()
+
+    if vote not in ALLOWED_FEEDBACK_VOTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Feedback vote must be helpful or not_helpful",
+        )
+
+    if client_platform not in ALLOWED_FEEDBACK_PLATFORMS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Feedback clientPlatform must be mobile or website",
+        )
+
+    content_item, content_index = _find_content_item(content_type, content_id)
+    content_label = _get_content_label(content_type)
+    region = _get_analytics_region(content_label, content_item, content_index)
+    now = get_ph_datetime()
+    feedback_filter = {
+        "user_id": user_id,
+        "content_type_key": content_type,
+        "content_id": content_id,
+    }
+    _ensure_feedback_indexes()
+    existing_feedback = health_literacy_feedback_collection.find_one(feedback_filter)
+
+    content_snapshot = {
+        "id": content_id,
+        "title": content_item.get("title", ""),
+        "description": content_item.get("description", ""),
+        "tags": content_item.get("tags", []),
+        "publishToMobile": bool(content_item.get("publishToMobile")),
+        "publishToWebsite": bool(content_item.get("publishToWebsite")),
+        "region": region,
+    }
+
+    health_literacy_feedback_collection.update_one(
+        feedback_filter,
+        {
+            "$set": {
+                "vote": vote,
+                "client_platform": client_platform,
+                "content_type": content_label,
+                "content_title": content_item.get("title", ""),
+                "region": region,
+                "content_snapshot": content_snapshot,
+                "updated_at": now,
+            },
+            "$setOnInsert": {
+                "user_id": user_id,
+                "content_type_key": content_type,
+                "content_id": content_id,
+                "created_at": now,
+            },
+        },
+        upsert=True,
+    )
+
+    health_literacy_analytics_events_collection.insert_one(
+        {
+            "event_type": "helpful_vote",
+            "content_id": content_id,
+            "content_title": content_item.get("title", ""),
+            "content_type": content_label,
+            "region": region,
+            "topic": None,
+            "vote": vote,
+            "report_format": None,
+            "visitor_id": user_id,
+            "user_id": user_id,
+            "metadata": {
+                "clientPlatform": client_platform,
+                "previousVote": existing_feedback.get("vote")
+                if existing_feedback
+                else None,
+                "action": "updated" if existing_feedback else "created",
+            },
+            "created_at": now,
+        }
+    )
+
+    saved_feedback = health_literacy_feedback_collection.find_one(feedback_filter)
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK if existing_feedback else status.HTTP_201_CREATED,
+        content={
+            "message": "Health Literacy Hub feedback saved successfully",
+            "feedback": _serialize_feedback(saved_feedback),
+        },
+    )
 
 
 """
@@ -198,6 +708,7 @@ async def create_health_literacy_content(
         "publishToMobile": publishToMobile,
         "publishToWebsite": publishToWebsite,
         "createdAt": created_at.isoformat(),
+        "lastReviewedAt": created_at.isoformat(),
         "createdBy": created_by,
     }
 
@@ -272,6 +783,7 @@ async def update_health_literacy_content(
     elif removeMedia:
         updated_media = None
 
+    updated_at = get_ph_datetime()
     updated_content = {
         **current_content,
         "title": title.strip(),
@@ -280,7 +792,8 @@ async def update_health_literacy_content(
         "media": updated_media,
         "publishToMobile": publishToMobile,
         "publishToWebsite": publishToWebsite,
-        "updatedAt": get_ph_datetime().isoformat(),
+        "updatedAt": updated_at.isoformat(),
+        "lastReviewedAt": updated_at.isoformat(),
         "updatedBy": _get_user_snapshot(current_user),
     }
 

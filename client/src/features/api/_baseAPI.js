@@ -7,7 +7,7 @@ export const baseAPI = createApi({
   reducerPath: "api",
   baseQuery: fetchBaseQuery({
     baseUrl: apiUrl,
-    prepareHeaders: (headers, { getState }) => {
+    prepareHeaders: (headers) => {
       const token = Cookies.get("token");
 
       if (token) {
@@ -36,6 +36,8 @@ export const baseAPI = createApi({
     "Points",
     "PointsDisease",
     "HealthLiteracyContent",
+    "HealthLiteracyAnalyticsOverview",
+    "HealthLiteracyFeedback",
   ],
   endpoints: () => ({}),
 });

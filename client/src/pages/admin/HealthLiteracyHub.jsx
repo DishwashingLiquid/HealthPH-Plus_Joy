@@ -1,12 +1,18 @@
 /* eslint-disable react/prop-types */
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import { toPng } from "html-to-image";
 import Input from "../../components/Input";
 import Icon from "../../components/Icon";
 import Snackbar from "../../components/Snackbar";
 import ModalWithBody from "../../components/admin/ModalWithBody";
+import RegionsData from "../../assets/data/regions.json";
 import {
   useCreateHealthLiteracyContentMutation,
+  useCreateHealthLiteracyAnalyticsEventMutation,
+  useFetchHealthLiteracyAnalyticsOverviewQuery,
   useFetchHealthLiteracyContentQuery,
   useUpdateHealthLiteracyContentMutation,
 } from "../../features/api/healthLiteracyHubSlice";
@@ -173,6 +179,907 @@ const ILLUSTRATIONS = [
   },
 ];
 
+const ANALYTICS_TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "content-performance", label: "Content Performance" },
+  { id: "search-topic", label: "Search and Topic Analysis" },
+  { id: "helpful", label: "Helpful/Not Helpful Analytics" },
+  { id: "fact-check", label: "Fact-Check Usage Analytics" },
+  { id: "regional-usage", label: "Regional Usage" },
+  { id: "review-queue", label: "Review Queue" },
+];
+
+const ANALYTICS_TIME_RANGES = [
+  { value: "last-7-days", label: "Last 7 days", days: 7 },
+  { value: "last-30-days", label: "Last 30 days", days: 30 },
+  { value: "last-90-days", label: "Last 90 days", days: 90 },
+  { value: "all-time", label: "All time", days: null },
+];
+
+const ANALYTICS_CONTENT_FILTERS = [
+  { value: "all", label: "All content" },
+  { value: "Articles", label: "Articles" },
+  { value: "Videos", label: "Videos" },
+  { value: "Infographics", label: "Infographics" },
+];
+
+const ANALYTICS_REGIONS = RegionsData.regions;
+
+const HEALTH_LITERACY_VISITOR_ID_KEY = "healthLiteracyVisitorId";
+
+const DEFAULT_ANALYTICS_OVERVIEW = {
+  peopleReached: 0,
+  uniqueVisitors: 0,
+  topSearchTopic: {
+    topic: "No searches yet",
+    searches: 0,
+  },
+  helpfulScore: 0,
+  needsReview: 0,
+  reportsExported: 0,
+};
+
+const REVIEW_SOON_AFTER_DAYS = 150;
+const REVIEW_OVERDUE_AFTER_DAYS = 180;
+const LOW_HELPFUL_SCORE_THRESHOLD = 60;
+const PROMOTE_HELPFUL_SCORE_THRESHOLD = 80;
+const PROMOTE_VIEWS_THRESHOLD = 500;
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+const SEARCH_TOPIC_STOP_WORDS = new Set([
+  "and",
+  "are",
+  "for",
+  "from",
+  "has",
+  "have",
+  "how",
+  "the",
+  "what",
+  "when",
+  "where",
+  "with",
+]);
+
+const MOCK_SEARCH_TOPIC_ANALYTICS = [
+  {
+    term: "diabetes symptoms",
+    topic: "Diabetes",
+    contentType: "Articles",
+    region: "NCR",
+    searchCount: 684,
+    zeroResults: 18,
+    resultFound: true,
+    resultClicked: true,
+    suggestedAction: "Refresh diabetes symptom content and add common search phrases to tags.",
+    date: "2026-05-18",
+  },
+  {
+    term: "hypertension diet",
+    topic: "Hypertension",
+    contentType: "Articles",
+    region: "IVA",
+    searchCount: 571,
+    zeroResults: 12,
+    resultFound: true,
+    resultClicked: true,
+    suggestedAction: "Add diet-focused links or summaries to hypertension content.",
+    date: "2026-05-16",
+  },
+  {
+    term: "mental health hotline",
+    topic: "Mental Health",
+    contentType: "Infographics",
+    region: "VII",
+    searchCount: 436,
+    zeroResults: 31,
+    resultFound: true,
+    resultClicked: false,
+    suggestedAction: "Create or improve hotline content with clear emergency contact details.",
+    date: "2026-05-13",
+  },
+  {
+    term: "covid prevention",
+    topic: "COVID-19",
+    contentType: "Videos",
+    region: "III",
+    searchCount: 398,
+    zeroResults: 9,
+    resultFound: true,
+    resultClicked: true,
+    suggestedAction: "Keep prevention guidance current and promote the most useful video.",
+    date: "2026-05-10",
+  },
+  {
+    term: "stroke warning signs",
+    topic: "Emergency Care",
+    contentType: "Infographics",
+    region: "VI",
+    searchCount: 284,
+    zeroResults: 7,
+    resultFound: true,
+    resultClicked: true,
+    suggestedAction: "Add stroke warning signs to emergency care tags and related content.",
+    date: "2026-05-04",
+  },
+];
+
+const MOCK_FACT_CHECK_ANALYTICS = [
+  {
+    claim: "Garlic water can cure high blood pressure",
+    topic: "Hypertension",
+    contentType: "Articles",
+    region: "NCR",
+    checks: 248,
+    verified: 92,
+    needsReview: 14,
+    date: "2026-05-18",
+  },
+  {
+    claim: "Skipping meals prevents diabetes",
+    topic: "Diabetes",
+    contentType: "Articles",
+    region: "IVA",
+    checks: 204,
+    verified: 84,
+    needsReview: 21,
+    date: "2026-05-15",
+  },
+  {
+    claim: "Antibiotics treat common colds",
+    topic: "Respiratory Illness",
+    contentType: "Videos",
+    region: "VII",
+    checks: 186,
+    verified: 79,
+    needsReview: 18,
+    date: "2026-05-12",
+  },
+  {
+    claim: "All chest pain means a heart attack",
+    topic: "Emergency Care",
+    contentType: "Infographics",
+    region: "III",
+    checks: 143,
+    verified: 88,
+    needsReview: 9,
+    date: "2026-05-07",
+  },
+];
+
+const getAnalyticsSeed = (value) => {
+  return String(value ?? "")
+    .split("")
+    .reduce((total, char) => total + char.charCodeAt(0), 0);
+};
+
+const getAnalyticsRegionValue = (contentType, item, index = 0) => {
+  const seed = getAnalyticsSeed(`${contentType}-${item.id}-${item.title}`);
+  return ANALYTICS_REGIONS[(seed + index) % ANALYTICS_REGIONS.length]?.value ?? "all";
+};
+
+const getHealthLiteracyVisitorId = (userId) => {
+  if (userId) return String(userId);
+
+  if (typeof window === "undefined") return "anonymous";
+
+  const existingVisitorId = window.localStorage.getItem(
+    HEALTH_LITERACY_VISITOR_ID_KEY
+  );
+
+  if (existingVisitorId) return existingVisitorId;
+
+  const visitorId =
+    window.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+  window.localStorage.setItem(HEALTH_LITERACY_VISITOR_ID_KEY, visitorId);
+  return visitorId;
+};
+
+const formatNumber = (value) => {
+  return new Intl.NumberFormat("en-US").format(value ?? 0);
+};
+
+const formatPercent = (value) => {
+  return `${Math.round(value ?? 0)}%`;
+};
+
+const getAnalyticsCellText = (value) => {
+  if (value && typeof value === "object") {
+    return value.csvValue ?? value.label ?? value.title ?? "";
+  }
+
+  return value ?? "";
+};
+
+const escapeCsvValue = (value) => {
+  const text = String(getAnalyticsCellText(value) ?? "");
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+};
+
+const slugify = (value) => {
+  return String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+};
+
+const getFilterLabel = (options, value) => {
+  return options.find((option) => option.value === value)?.label ?? value;
+};
+
+const getRegionLabel = (value) => {
+  if (value === "all") return "All regions";
+  return ANALYTICS_REGIONS.find((region) => region.value === value)?.label ?? value;
+};
+
+const getRangeStartDate = (timeRange) => {
+  const selectedRange = ANALYTICS_TIME_RANGES.find(
+    (range) => range.value === timeRange
+  );
+
+  if (!selectedRange?.days) return null;
+
+  const startDate = new Date();
+  startDate.setHours(0, 0, 0, 0);
+  startDate.setDate(startDate.getDate() - selectedRange.days + 1);
+  return startDate;
+};
+
+const isWithinTimeRange = (dateValue, timeRange) => {
+  const startDate = getRangeStartDate(timeRange);
+  if (!startDate || !dateValue) return true;
+
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return true;
+
+  return date >= startDate;
+};
+
+const truncateContentDescription = (value, maxLength = 50) => {
+  const description = String(value ?? "").trim();
+
+  if (description.length <= maxLength) return description;
+
+  return `${description.slice(0, maxLength).trimEnd()}....`;
+};
+
+const formatTopicLabel = (value) => {
+  return String(value ?? "")
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
+
+const getContentTopic = (item) => {
+  const tags = Array.isArray(item.tags) ? item.tags : [];
+  const topicLabels = tags.slice(0, 2).map(formatTopicLabel).filter(Boolean);
+
+  if (topicLabels.length === 0) return "Uncategorized";
+
+  return tags.length > 2
+    ? `${topicLabels.join(", ")}....`
+    : topicLabels.join(", ");
+};
+
+const getContentHelpfulScore = (item) => {
+  const totalFeedback = Number(item.helpful ?? 0) + Number(item.notHelpful ?? 0);
+
+  if (totalFeedback <= 0) return 0;
+
+  return (Number(item.helpful ?? 0) / totalFeedback) * 100;
+};
+
+const getContentShares = (item) => {
+  return Number(
+    item.shares ??
+      item.shareCount ??
+      item.sharesCount ??
+      item.analytics?.shares ??
+      item.metrics?.shares ??
+      0
+  );
+};
+
+const addDays = (date, days) => {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+};
+
+const getReviewDateValue = (item, fallbackIndex = 0) => {
+  const explicitReviewDate = getContentReviewDate(item);
+
+  if (explicitReviewDate) return explicitReviewDate;
+
+  const seed = getAnalyticsSeed(`${item.contentType}-${item.id}-${item.title}`);
+
+  if ((seed + fallbackIndex) % 9 === 0) return null;
+
+  const daysAgoOptions = [45, 116, 154, 176, 194, 223];
+  const daysAgo = daysAgoOptions[(seed + fallbackIndex) % daysAgoOptions.length];
+  return addDays(new Date(), -daysAgo).toISOString();
+};
+
+const formatReviewDate = (value) => {
+  if (!value) return "No review date";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "No review date";
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  }).format(date);
+};
+
+const getContentReviewDate = (item) => {
+  return (
+    item.lastReviewedAt ??
+    item.lastReviewed ??
+    item.reviewedAt ??
+    item.reviewDate ??
+    item.updatedAt ??
+    item.createdAt
+  );
+};
+
+const getNextReviewDueDate = (lastReviewedAt) => {
+  if (!lastReviewedAt) return null;
+
+  const date = new Date(lastReviewedAt);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return addDays(date, REVIEW_OVERDUE_AFTER_DAYS).toISOString();
+};
+
+const getDaysSinceReview = (lastReviewedAt) => {
+  if (!lastReviewedAt) return null;
+
+  const date = new Date(lastReviewedAt);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
+
+  return Math.floor((today.getTime() - date.getTime()) / DAY_IN_MS);
+};
+
+const getReviewStatus = ({ lastReviewedAt, helpfulScore, views }) => {
+  const daysSinceReview = getDaysSinceReview(lastReviewedAt);
+
+  if (daysSinceReview === null) return "Needs Review";
+  if (helpfulScore < LOW_HELPFUL_SCORE_THRESHOLD) return "Improve";
+  if (daysSinceReview > REVIEW_OVERDUE_AFTER_DAYS) return "Overdue";
+  if (daysSinceReview > REVIEW_SOON_AFTER_DAYS) return "Review Soon";
+  if (
+    helpfulScore >= PROMOTE_HELPFUL_SCORE_THRESHOLD &&
+    Number(views ?? 0) < PROMOTE_VIEWS_THRESHOLD
+  ) {
+    return "Promote";
+  }
+
+  return "Good";
+};
+
+const STATUS_STYLES = {
+  Good: "bg-[#E7F6EF] text-[#166534] border-[#BBE8D2]",
+  "Review Soon": "bg-[#FFF7E6] text-[#92400E] border-[#F8D8A6]",
+  Overdue: "bg-[#FEECEC] text-[#B42318] border-[#F8B4B4]",
+  "Needs Review": "bg-[#EEF2F6] text-[#475467] border-[#D0D5DD]",
+  Improve: "bg-[#FDEAF2] text-[#A2145B] border-[#F8B5D0]",
+  Promote: "bg-[#EAF3FF] text-[#175CD3] border-[#B8D7FF]",
+};
+
+const buildContentPerformanceRows = (rows) => {
+  return rows
+    .slice()
+    .sort((a, b) => b.views - a.views)
+    .map((item, index) => {
+      const helpfulScore = getContentHelpfulScore(item);
+      const lastReviewedAt = getReviewDateValue(item, index);
+      const nextReviewDue = getNextReviewDueDate(lastReviewedAt);
+      const status = getReviewStatus({
+        lastReviewedAt,
+        helpfulScore,
+        views: item.views,
+      });
+      const contentTitle = item.title || "Untitled content";
+      const contentDescription = truncateContentDescription(item.description);
+
+      return [
+        {
+          type: "content",
+          title: contentTitle,
+          description: contentDescription,
+          csvValue: contentDescription
+            ? `${contentTitle} - ${contentDescription}`
+            : contentTitle,
+        },
+        item.contentType,
+        getContentTopic(item),
+        formatNumber(item.views),
+        formatPercent(helpfulScore),
+        formatNumber(getContentShares(item)),
+        formatReviewDate(lastReviewedAt),
+        nextReviewDue ? formatReviewDate(nextReviewDue) : "Not scheduled",
+        {
+          type: "status",
+          label: status,
+          csvValue: status,
+          className: STATUS_STYLES[status] ?? STATUS_STYLES["Needs Review"],
+        },
+      ];
+    });
+};
+
+const downloadCsv = ({ filename, title, filters, columns, rows }) => {
+  const headerRows = [
+    [title],
+    [`Generated: ${new Date().toLocaleString()}`],
+    [`Time Range: ${filters.timeRange}`],
+    [`Content Type: ${filters.contentType}`],
+    [`Region: ${filters.region}`],
+    [],
+    columns,
+  ];
+
+  const csvContent = [...headerRows, ...rows]
+    .map((row) => row.map(escapeCsvValue).join(","))
+    .join("\n");
+
+  const element = document.createElement("a");
+  element.setAttribute(
+    "href",
+    `data:text/csv;charset=utf-8,${encodeURIComponent(csvContent)}`
+  );
+  element.setAttribute("download", filename);
+  element.style.display = "none";
+  document.body.appendChild(element);
+  element.click();
+  document.body.removeChild(element);
+};
+
+const normalizeContentForAnalytics = (content, contentType) => {
+  return normalizeApiContent(content).map((item, index) => {
+    const seed = getAnalyticsSeed(`${contentType}-${item.id}-${item.title}`);
+    const lastReviewedAt = getContentReviewDate(item);
+
+    return {
+      ...item,
+      contentType,
+      region: getAnalyticsRegionValue(contentType, item),
+      lastReviewedAt,
+      analyticsDate: lastReviewedAt ?? "2026-05-18",
+      views: 420 + seed * 3 + index * 64,
+      clicks: 92 + (seed % 180) + index * 17,
+      completions: 58 + (seed % 120) + index * 12,
+      helpful: 34 + (seed % 84),
+      notHelpful: 4 + (seed % 22),
+      shares: getContentShares(item),
+      factChecks: 12 + (seed % 52),
+    };
+  });
+};
+
+const normalizeMockContentForAnalytics = (content, contentType) => {
+  return (content ?? []).map((item, index) => {
+    const seed = getAnalyticsSeed(`${contentType}-${item.id}-${item.title}`);
+
+    return {
+      ...item,
+      source: "mock",
+      contentType,
+      region: getAnalyticsRegionValue(contentType, item, index),
+      analyticsDate: item.date ? new Date(item.date).toISOString() : "2026-05-12",
+      publishToMobile: index % 2 === 0,
+      publishToWebsite: true,
+      views: 510 + seed * 2 + index * 81,
+      clicks: 118 + (seed % 210) + index * 25,
+      completions: 78 + (seed % 160) + index * 18,
+      helpful: 44 + (seed % 92),
+      notHelpful: 5 + (seed % 24),
+      shares: 18 + (seed % 86) + index * 9,
+      factChecks: 14 + (seed % 48),
+    };
+  });
+};
+
+const contentHasMedia = (item) => {
+  return Boolean(item.media?.dataUrl || item.media || item.thumbnail);
+};
+
+const getReviewIssues = (item) => {
+  const issues = [];
+
+  if (!String(item.title ?? "").trim()) issues.push("Missing title");
+  if (!String(item.description ?? "").trim()) issues.push("Missing description");
+  if (!contentHasMedia(item)) issues.push("Missing media");
+  if (!item.publishToMobile && !item.publishToWebsite) {
+    issues.push("No publish target");
+  }
+
+  return issues;
+};
+
+const filterAnalyticsRows = (rows, filters) => {
+  return rows.filter((row) => {
+    const matchesType =
+      filters.contentType === "all" || row.contentType === filters.contentType;
+    const matchesRegion = filters.region === "all" || row.region === filters.region;
+    const matchesDate = isWithinTimeRange(row.analyticsDate ?? row.date, filters.timeRange);
+
+    return matchesType && matchesRegion && matchesDate;
+  });
+};
+
+const parseAnalyticsBoolean = (value, fallback = false) => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value > 0;
+
+  if (typeof value === "string") {
+    const normalizedValue = value.trim().toLowerCase();
+    if (["yes", "true", "found", "clicked", "1"].includes(normalizedValue)) {
+      return true;
+    }
+    if (["no", "false", "none", "not found", "not clicked", "0"].includes(normalizedValue)) {
+      return false;
+    }
+  }
+
+  return fallback;
+};
+
+const getSearchTopicSuggestedAction = (item) => {
+  if (!item.resultFound) {
+    return `Create content for "${item.term}" and add matching tags.`;
+  }
+
+  if (!item.resultClicked) {
+    return `Improve titles, descriptions, and tags for "${item.term}" so users can find the right content.`;
+  }
+
+  return `Maintain existing content for "${item.term}" and keep it updated.`;
+};
+
+const normalizeSearchTopicAnalyticsRows = (apiRows = []) => {
+  const sourceRows = apiRows.length > 0 ? apiRows : MOCK_SEARCH_TOPIC_ANALYTICS;
+
+  return sourceRows.map((item) => {
+    const searchCount = Number(
+      item.searchCount ?? item.searches ?? item.count ?? item.totalSearches ?? 0
+    );
+    const zeroResults = Number(item.zeroResults ?? 0);
+    const resultFound = parseAnalyticsBoolean(
+      item.resultFound ?? item.result_found,
+      searchCount > zeroResults
+    );
+    const resultClicked = parseAnalyticsBoolean(
+      item.resultClicked ?? item.result_clicked ?? item.clicked,
+      Number(item.clicks ?? 0) > 0 || Number(item.clickThroughRate ?? 0) > 0
+    );
+    const normalizedItem = {
+      term: item.term ?? item.searchTerm ?? item.search_term ?? "Unknown search",
+      topic: item.topic ?? item.searchTopic ?? item.search_topic ?? item.term,
+      contentType: item.contentType ?? item.content_type ?? "all",
+      region: item.region ?? "all",
+      searchCount,
+      resultFound,
+      resultClicked,
+      analyticsDate: item.analyticsDate ?? item.date ?? item.createdAt,
+      suggestedAction: item.suggestedAction ?? item.suggested_action,
+    };
+
+    return {
+      ...normalizedItem,
+      suggestedAction:
+        normalizedItem.suggestedAction ??
+        getSearchTopicSuggestedAction(normalizedItem),
+    };
+  });
+};
+
+const tokenizeSearchTopic = (value) => {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .split(/[\s-]+/)
+    .map((token) => token.trim())
+    .filter(
+      (token) =>
+        token.length > 2 && !SEARCH_TOPIC_STOP_WORDS.has(token)
+    );
+};
+
+const getRelatedContentMatches = (searchItem, contentRows, limit = 5) => {
+  const searchTokens = new Set(
+    tokenizeSearchTopic(`${searchItem.term} ${searchItem.topic}`)
+  );
+
+  if (searchTokens.size === 0) return [];
+
+  return contentRows
+    .map((item) => {
+      const tagTokens = (item.tags ?? []).flatMap(tokenizeSearchTopic);
+      const titleTokens = tokenizeSearchTopic(item.title);
+      const descriptionTokens = tokenizeSearchTopic(item.description);
+      const tagMatches = tagTokens.filter((token) => searchTokens.has(token));
+      const titleMatches = titleTokens.filter((token) => searchTokens.has(token));
+      const descriptionMatches = descriptionTokens.filter((token) =>
+        searchTokens.has(token)
+      );
+      const score =
+        tagMatches.length * 3 + titleMatches.length * 2 + descriptionMatches.length;
+
+      return {
+        id: item.id,
+        title: item.title || "Untitled content",
+        description: truncateContentDescription(item.description, 96),
+        contentType: item.contentType,
+        tags: item.tags ?? [],
+        score,
+        matchedTags: [...new Set(tagMatches)],
+      };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title))
+    .slice(0, limit);
+};
+
+const buildTopSearchTopicItems = (rows) => {
+  const topicTotals = rows.reduce((totals, row) => {
+    const label = row.topic || row.term;
+    totals[label] = (totals[label] ?? 0) + Number(row.searchCount ?? 0);
+    return totals;
+  }, {});
+
+  return Object.entries(topicTotals)
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value);
+};
+
+const buildSearchTopicReportRows = (searchRows, contentRows) => {
+  return searchRows.map((item) => {
+    const relatedContent = getRelatedContentMatches(item, contentRows);
+
+    return [
+      item.term,
+      formatNumber(item.searchCount),
+      getRegionLabel(item.region),
+      {
+        type: "result-status",
+        label: item.resultFound ? "Found" : "Not Found",
+        csvValue: item.resultFound ? "Found" : "Not Found",
+        className: item.resultFound
+          ? "bg-[#E7F6EF] text-[#166534] border-[#BBE8D2]"
+          : "bg-[#FEECEC] text-[#B42318] border-[#F8B4B4]",
+      },
+      {
+        type: "result-status",
+        label: item.resultClicked ? "Clicked" : "Not Clicked",
+        csvValue: item.resultClicked ? "Clicked" : "Not Clicked",
+        className: item.resultClicked
+          ? "bg-[#EAF3FF] text-[#175CD3] border-[#B8D7FF]"
+          : "bg-[#FFF7E6] text-[#92400E] border-[#F8D8A6]",
+      },
+      {
+        type: "related-content",
+        label:
+          relatedContent.length > 0
+            ? `View ${relatedContent.length}`
+            : "No Matches",
+        csvValue:
+          relatedContent.length > 0
+            ? relatedContent.map((content) => content.title).join("; ")
+            : "No matches",
+        disabled: relatedContent.length === 0,
+        searchTerm: item.term,
+        matches: relatedContent,
+      },
+      item.suggestedAction,
+    ];
+  });
+};
+
+const sumBy = (rows, key) => {
+  return rows.reduce((total, row) => total + Number(row[key] ?? 0), 0);
+};
+
+const buildRegionalUsageRows = (rows, regionFilter = "all") => {
+  return ANALYTICS_REGIONS.filter(
+    (region) => regionFilter === "all" || region.value === regionFilter
+  ).map((region, index) => {
+    const regionRows = rows.filter((row) => row.region === region.value);
+    const baseSessions = 320 + index * 29;
+    const views = sumBy(regionRows, "views");
+
+    return {
+      region: region.label,
+      regionValue: region.value,
+      contentItems: regionRows.length,
+      sessions: baseSessions + Math.round(views / 16),
+      views,
+      helpfulRate:
+        sumBy(regionRows, "helpful") + sumBy(regionRows, "notHelpful") > 0
+          ? (sumBy(regionRows, "helpful") /
+              (sumBy(regionRows, "helpful") + sumBy(regionRows, "notHelpful"))) *
+            100
+          : 0,
+    };
+  }).filter((row) => row.contentItems > 0 || row.sessions > 0);
+};
+
+const buildReviewQueueRows = (rows) => {
+  return rows
+    .map((item) => ({
+      title: item.title || "Untitled content",
+      contentType: item.contentType,
+      region: getRegionLabel(item.region),
+      issues: getReviewIssues(item),
+      source: item.source === "api" ? "Live content" : "Mock content",
+    }))
+    .filter((item) => item.issues.length > 0);
+};
+
+const buildAnalyticsReport = ({
+  activeTab,
+  rows,
+  filters,
+  overviewAnalytics = DEFAULT_ANALYTICS_OVERVIEW,
+}) => {
+  const filterLabels = {
+    timeRange: getFilterLabel(ANALYTICS_TIME_RANGES, filters.timeRange),
+    contentType: getFilterLabel(ANALYTICS_CONTENT_FILTERS, filters.contentType),
+    region: getRegionLabel(filters.region),
+  };
+  const overview = {
+    ...DEFAULT_ANALYTICS_OVERVIEW,
+    ...overviewAnalytics,
+    topSearchTopic: {
+      ...DEFAULT_ANALYTICS_OVERVIEW.topSearchTopic,
+      ...overviewAnalytics?.topSearchTopic,
+    },
+  };
+  const regionalRows = buildRegionalUsageRows(rows, filters.region);
+  const reviewRows = buildReviewQueueRows(rows);
+  const searchRows = filterAnalyticsRows(normalizeSearchTopicAnalyticsRows(), filters);
+  const factRows = filterAnalyticsRows(MOCK_FACT_CHECK_ANALYTICS, filters);
+
+  if (activeTab === "content-performance") {
+    return {
+      columns: [
+        "Content",
+        "Type",
+        "Topic",
+        "Views",
+        "Helpful Score",
+        "Shares",
+        "Last Reviewed",
+        "Next Review Due",
+        "Status",
+      ],
+      rows: buildContentPerformanceRows(rows),
+      filterLabels,
+    };
+  }
+
+  if (activeTab === "search-topic") {
+    return {
+      columns: [
+        "Search Term",
+        "Search Count",
+        "Region",
+        "Result Found",
+        "Result Clicked",
+        "Related Content",
+        "Suggested Action",
+      ],
+      rows: buildSearchTopicReportRows(searchRows, rows),
+      filterLabels,
+    };
+  }
+
+  if (activeTab === "helpful") {
+    return {
+      columns: ["Title", "Type", "Region", "Helpful", "Not Helpful", "Helpful Rate"],
+      rows: rows.map((item) => [
+        item.title,
+        item.contentType,
+        getRegionLabel(item.region),
+        item.helpful,
+        item.notHelpful,
+        formatPercent(
+          (item.helpful / Math.max(item.helpful + item.notHelpful, 1)) * 100
+        ),
+      ]),
+      filterLabels,
+    };
+  }
+
+  if (activeTab === "fact-check") {
+    return {
+      columns: ["Claim", "Topic", "Type", "Region", "Checks", "Verified", "Needs Review"],
+      rows: factRows.map((item) => [
+        item.claim,
+        item.topic,
+        item.contentType,
+        getRegionLabel(item.region),
+        item.checks,
+        `${item.verified}%`,
+        item.needsReview,
+      ]),
+      filterLabels,
+    };
+  }
+
+  if (activeTab === "regional-usage") {
+    return {
+      columns: ["Region", "Content Items", "Sessions", "Views", "Helpful Rate"],
+      rows: regionalRows.map((item) => [
+        item.region,
+        item.contentItems,
+        item.sessions,
+        item.views,
+        formatPercent(item.helpfulRate),
+      ]),
+      filterLabels,
+    };
+  }
+
+  if (activeTab === "review-queue") {
+    return {
+      columns: ["Title", "Type", "Region", "Source", "Issues"],
+      rows: reviewRows.map((item) => [
+        item.title,
+        item.contentType,
+        item.region,
+        item.source,
+        item.issues.join("; "),
+      ]),
+      filterLabels,
+    };
+  }
+
+  return {
+    columns: ["Metric", "Value", "Details"],
+    rows: [
+      [
+        "People Reached",
+        formatNumber(overview.peopleReached),
+        "Health Literacy Hub content opened",
+      ],
+      [
+        "Unique Visitors",
+        formatNumber(overview.uniqueVisitors),
+        "Distinct audience members reached",
+      ],
+      [
+        "Top Search Topic",
+        overview.topSearchTopic.topic,
+        `${formatNumber(overview.topSearchTopic.searches)} searches`,
+      ],
+      [
+        "Helpful Score",
+        formatPercent(overview.helpfulScore),
+        "Helpful votes divided by total feedback",
+      ],
+      [
+        "Needs Review",
+        formatNumber(overview.needsReview),
+        "Content missing review-ready details",
+      ],
+      [
+        "Reports Exported",
+        formatNumber(overview.reportsExported),
+        "PDF and CSV report exports",
+      ],
+    ],
+    filterLabels,
+  };
+};
+
 const showToast = ({ color, iconName, message }) => {
   toast(
     <Snackbar
@@ -210,6 +1117,7 @@ const normalizeApiContent = (content) => {
   return (content ?? []).map((item) => ({
     ...item,
     tags: Array.isArray(item.tags) ? item.tags : [],
+    lastReviewedAt: getContentReviewDate(item),
     date: formatContentDate(item.createdAt),
     source: "api",
   }));
@@ -226,6 +1134,7 @@ const isAllowedMediaType = (file, activeTab) => {
 const getContentLabel = (activeTab) => activeTab.slice(0, -1);
 
 const HealthLiteracyHub = () => {
+  const user = useSelector((state) => state.auth.user);
   const [activeTab, setActiveTab] = useState("Articles");
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -253,8 +1162,34 @@ const HealthLiteracyHub = () => {
     updateHealthLiteracyContent,
     { isLoading: isUpdatingContent },
   ] = useUpdateHealthLiteracyContentMutation();
+  const [createHealthLiteracyAnalyticsEvent] =
+    useCreateHealthLiteracyAnalyticsEventMutation();
 
   const uploadRule = UPLOAD_RULES[activeTab] ?? UPLOAD_RULES.Articles;
+
+  useEffect(() => {
+    const topic = searchQuery.trim();
+
+    if (!contentType || topic.length < 2) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      createHealthLiteracyAnalyticsEvent({
+        eventType: "search",
+        contentType: activeTab,
+        region: "all",
+        topic,
+        visitorId: getHealthLiteracyVisitorId(user?.id),
+      }).catch(() => {});
+    }, 800);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    activeTab,
+    contentType,
+    createHealthLiteracyAnalyticsEvent,
+    searchQuery,
+    user?.id,
+  ]);
 
   const resetForm = () => {
     setFormData(INITIAL_FORM_DATA);
@@ -303,6 +1238,15 @@ const HealthLiteracyHub = () => {
 
   const handleMediaPreviewClick = (item) => {
     if (!item.media?.dataUrl) return;
+
+    createHealthLiteracyAnalyticsEvent({
+      eventType: "content_opened",
+      contentId: item.id ? String(item.id) : undefined,
+      contentTitle: item.title,
+      contentType: activeTab,
+      region: item.region ?? getAnalyticsRegionValue(activeTab, item),
+      visitorId: getHealthLiteracyVisitorId(user?.id),
+    }).catch(() => {});
 
     setSelectedMediaContent({
       title: item.title,
@@ -511,8 +1455,16 @@ const HealthLiteracyHub = () => {
   const getFilteredContent = () => {
     if (activeTab === "HealthLiteracyAnalytics") return [];
 
-    const apiContent = normalizeApiContent(fetchedContent);
-    const mockContent = MOCK_CONTENT_BY_TAB[activeTab] ?? [];
+    const apiContent = normalizeApiContent(fetchedContent).map((item) => ({
+      ...item,
+      contentType: activeTab,
+      region: getAnalyticsRegionValue(activeTab, item),
+    }));
+    const mockContent = (MOCK_CONTENT_BY_TAB[activeTab] ?? []).map((item, index) => ({
+      ...item,
+      contentType: activeTab,
+      region: getAnalyticsRegionValue(activeTab, item, index),
+    }));
 
     return filterContent([...apiContent, ...mockContent]);
   };
@@ -1088,22 +2040,723 @@ const MediaPreviewModal = ({
 };
 
 const AnalyticsSection = () => {
+  const navigate = useNavigate();
+  const user = useSelector((state) => state.auth.user);
+  const reportRef = useRef(null);
+  const [activeAnalyticsTab, setActiveAnalyticsTab] = useState("overview");
+  const [filters, setFilters] = useState({
+    timeRange: "last-30-days",
+    contentType: "all",
+    region: "all",
+  });
+
+  const {
+    data: articles = [],
+    isFetching: isFetchingArticles,
+  } = useFetchHealthLiteracyContentQuery("articles");
+  const {
+    data: videos = [],
+    isFetching: isFetchingVideos,
+  } = useFetchHealthLiteracyContentQuery("videos");
+  const {
+    data: infographics = [],
+    isFetching: isFetchingInfographics,
+  } = useFetchHealthLiteracyContentQuery("infographics");
+  const {
+    data: overviewAnalytics = DEFAULT_ANALYTICS_OVERVIEW,
+    isFetching: isFetchingOverviewAnalytics,
+  } = useFetchHealthLiteracyAnalyticsOverviewQuery(filters);
+  const [createHealthLiteracyAnalyticsEvent] =
+    useCreateHealthLiteracyAnalyticsEventMutation();
+
+  const isFetchingAnalytics =
+    isFetchingArticles ||
+    isFetchingVideos ||
+    isFetchingInfographics ||
+    (activeAnalyticsTab === "overview" && isFetchingOverviewAnalytics);
+  const activeTabLabel =
+    ANALYTICS_TABS.find((tab) => tab.id === activeAnalyticsTab)?.label ??
+    "Overview";
+
+  const allContentRows = useMemo(
+    () => [
+      ...normalizeContentForAnalytics(articles, "Articles"),
+      ...normalizeContentForAnalytics(videos, "Videos"),
+      ...normalizeContentForAnalytics(infographics, "Infographics"),
+      ...normalizeMockContentForAnalytics(MOCK_ARTICLES, "Articles"),
+      ...normalizeMockContentForAnalytics(MOCK_VIDEOS, "Videos"),
+      ...normalizeMockContentForAnalytics(MOCK_INFOGRAPHICS, "Infographics"),
+    ],
+    [articles, videos, infographics]
+  );
+
+  const filteredRows = useMemo(
+    () => filterAnalyticsRows(allContentRows, filters),
+    [allContentRows, filters]
+  );
+
+  const report = useMemo(
+    () =>
+      buildAnalyticsReport({
+        activeTab: activeAnalyticsTab,
+        rows: filteredRows,
+        filters,
+        overviewAnalytics,
+      }),
+    [activeAnalyticsTab, filteredRows, filters, overviewAnalytics]
+  );
+
+  const updateFilter = (name, value) => {
+    setFilters((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const recordReportExport = (reportFormat) => {
+    createHealthLiteracyAnalyticsEvent({
+      eventType: "report_exported",
+      reportFormat,
+      contentType: filters.contentType,
+      region: filters.region,
+      visitorId: getHealthLiteracyVisitorId(user?.id),
+      metadata: {
+        analyticsTab: activeAnalyticsTab,
+        timeRange: filters.timeRange,
+      },
+    }).catch(() => {});
+  };
+
+  const handleExportCsv = () => {
+    recordReportExport("csv");
+
+    downloadCsv({
+      filename: `health-literacy-${slugify(activeTabLabel)}-${Date.now()}.csv`,
+      title: `Health Literacy Hub - ${activeTabLabel}`,
+      filters: report.filterLabels,
+      columns: report.columns,
+      rows: report.rows,
+    });
+  };
+
+  const handleExportPdf = async () => {
+    if (!reportRef.current) return;
+
+    try {
+      recordReportExport("pdf");
+
+      const imageData = await toPng(reportRef.current, {
+        canvasWidth: reportRef.current.offsetWidth * 2,
+        canvasHeight: reportRef.current.offsetHeight * 2,
+        pixelRatio: 1,
+        quality: 1,
+        backgroundColor: "#ffffff",
+      });
+
+      navigate("/print", {
+        state: {
+          data: {
+            documentTitle: `HealthPH - Health Literacy Hub - ${activeTabLabel}`,
+            imageData,
+            log_activity: {
+              user_id: user?.id,
+              entry: `Generated Health Literacy Hub ${activeTabLabel} report`,
+              module: "Health Literacy Hub",
+            },
+          },
+        },
+      });
+    } catch (error) {
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message: "Failed to generate PDF report. Please try again.",
+      });
+    }
+  };
+
   return (
-    <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[40px] flex flex-col items-center justify-center text-center min-h-[400px]">
-      <Icon
-        iconName="BarChart3"
-        height="64px"
-        width="64px"
-        fill="#D0D5DD"
-        className="mb-[16px]"
+    <div ref={reportRef} className="flex flex-col gap-[16px]">
+      <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[16px]">
+        <div className="flex flex-col gap-[14px] lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 className="text-[22px] font-semibold text-gray-900">
+              Health Literacy Analytics
+            </h2>
+            <p className="mt-[4px] text-[14px] text-gray-500">
+              Monitor content usage, feedback, fact-check demand, regional reach,
+              and quality review needs.
+            </p>
+          </div>
+          <div className="flex flex-col gap-[8px] sm:flex-row">
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="prod-btn-base prod-btn-primary flex min-h-[40px] items-center justify-center gap-[8px] px-[14px]"
+            >
+              <Icon iconName="Download" height="18px" width="18px" fill="#FFF" />
+              <span>CSV</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleExportPdf}
+              className="prod-btn-base prod-btn-primary flex min-h-[40px] items-center justify-center gap-[8px] px-[14px]"
+            >
+              <Icon iconName="Printer" height="18px" width="18px" fill="#FFF" />
+              <span>PDF</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-[16px] grid grid-cols-1 gap-[12px] lg:grid-cols-3">
+          <AnalyticsSelect
+            label="Time Range"
+            value={filters.timeRange}
+            options={ANALYTICS_TIME_RANGES}
+            onChange={(value) => updateFilter("timeRange", value)}
+          />
+          <AnalyticsSelect
+            label="Content Type"
+            value={filters.contentType}
+            options={ANALYTICS_CONTENT_FILTERS}
+            onChange={(value) => updateFilter("contentType", value)}
+          />
+          <AnalyticsSelect
+            label="Region"
+            value={filters.region}
+            options={[{ value: "all", label: "All regions" }, ...ANALYTICS_REGIONS]}
+            onChange={(value) => updateFilter("region", value)}
+          />
+        </div>
+      </div>
+
+      <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[12px]">
+        <div className="grid grid-cols-1 gap-[8px] md:grid-cols-2 xl:grid-cols-7">
+          {ANALYTICS_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveAnalyticsTab(tab.id)}
+              className={`min-h-[44px] rounded-[8px] px-[10px] py-[8px] text-[13px] font-medium transition ${
+                activeAnalyticsTab === tab.id
+                  ? "bg-[#6A8EB5] text-white shadow-sm"
+                  : "bg-[#F5F5F5] text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {isFetchingAnalytics && (
+        <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[14px] text-[14px] text-gray-500">
+          Refreshing analytics data...
+        </div>
+      )}
+
+      <AnalyticsTabContent
+        activeTab={activeAnalyticsTab}
+        rows={filteredRows}
+        filters={filters}
+        report={report}
+        overviewAnalytics={overviewAnalytics}
       />
-      <h3 className="text-[20px] font-semibold text-gray-800 mb-[8px]">
-        Analytics Coming Soon
+    </div>
+  );
+};
+
+const AnalyticsSelect = ({ label, value, options, onChange }) => {
+  return (
+    <label className="flex flex-col gap-[6px]">
+      <span className="text-[13px] font-semibold text-gray-700">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="min-h-[40px] rounded-[8px] border border-[#D0D5DD] bg-white px-[12px] text-[14px] text-gray-800 outline-none focus:border-[#6A8EB5] focus:ring-2 focus:ring-[#6A8EB5]/20"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+};
+
+const AnalyticsMetricCard = ({ label, value, detail }) => {
+  return (
+    <div className="rounded-[8px] border border-[#E5E5E5] bg-white p-[16px]">
+      <p className="text-[13px] font-medium text-gray-500">{label}</p>
+      <p className="mt-[6px] text-[24px] font-semibold text-gray-900">{value}</p>
+      {detail && <p className="mt-[4px] text-[12px] text-gray-500">{detail}</p>}
+    </div>
+  );
+};
+
+const AnalyticsBarList = ({ items, labelKey, valueKey, valueSuffix = "" }) => {
+  const maxValue = Math.max(...items.map((item) => Number(item[valueKey] ?? 0)), 1);
+
+  return (
+    <div className="flex flex-col gap-[12px]">
+      {items.map((item) => {
+        const value = Number(item[valueKey] ?? 0);
+        return (
+          <div key={item[labelKey]} className="flex flex-col gap-[6px]">
+            <div className="flex items-center justify-between gap-[12px] text-[13px]">
+              <span className="font-medium text-gray-700">{item[labelKey]}</span>
+              <span className="text-gray-500">
+                {formatNumber(value)}
+                {valueSuffix}
+              </span>
+            </div>
+            <div className="h-[8px] overflow-hidden rounded-full bg-[#EEF2F6]">
+              <div
+                className="h-full rounded-full bg-[#78C6B2]"
+                style={{ width: `${Math.max((value / maxValue) * 100, 4)}%` }}
+              ></div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const renderAnalyticsTableCell = (cell) => {
+  if (cell?.type === "content") {
+    return (
+      <div className="flex min-w-[220px] flex-col gap-[3px]">
+        <span className="font-semibold text-gray-900">{cell.title}</span>
+        {cell.description && (
+          <span className="text-[12px] leading-[1.35] text-gray-500">
+            {cell.description}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  if (cell?.type === "status") {
+    return (
+      <span
+        className={`inline-flex min-w-[92px] items-center justify-center rounded-full border px-[10px] py-[4px] text-[12px] font-semibold ${cell.className}`}
+      >
+        {cell.label}
+      </span>
+    );
+  }
+
+  if (cell?.type === "result-status") {
+    return (
+      <span
+        className={`inline-flex min-w-[96px] items-center justify-center rounded-full border px-[10px] py-[4px] text-[12px] font-semibold ${cell.className}`}
+      >
+        {cell.label}
+      </span>
+    );
+  }
+
+  if (cell?.type === "related-content") {
+    return (
+      <button
+        type="button"
+        onClick={cell.onClick}
+        disabled={cell.disabled}
+        className={`inline-flex min-h-[34px] items-center justify-center rounded-[8px] border px-[12px] text-[12px] font-semibold transition ${
+          cell.disabled
+            ? "cursor-not-allowed border-[#D0D5DD] bg-[#F8FAFC] text-gray-400"
+            : "border-[#6A8EB5] bg-white text-[#315F8C] hover:bg-[#F0F6FC] focus:outline-none focus:ring-2 focus:ring-[#6A8EB5]/30"
+        }`}
+      >
+        {cell.label}
+      </button>
+    );
+  }
+
+  return <span className="line-clamp-2">{cell}</span>;
+};
+
+const AnalyticsTable = ({ columns, rows, emptyMessage }) => {
+  return (
+    <div className="overflow-hidden rounded-[8px] border border-[#E5E5E5] bg-white">
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-[#E5E5E5]">
+          <thead className="bg-[#F8FAFC]">
+            <tr>
+              {columns.map((column) => (
+                <th
+                  key={column}
+                  className="px-[14px] py-[12px] text-left text-[12px] font-semibold uppercase tracking-[0.04em] text-gray-500"
+                >
+                  {column}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#E5E5E5]">
+            {rows.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  className="px-[14px] py-[28px] text-center text-[14px] text-gray-500"
+                >
+                  {emptyMessage}
+                </td>
+              </tr>
+            ) : (
+              rows.map((row, rowIndex) => (
+                <tr
+                  key={`${row.map(getAnalyticsCellText).join("-")}-${rowIndex}`}
+                >
+                  {row.map((cell, cellIndex) => (
+                    <td
+                      key={`${cellIndex}-${getAnalyticsCellText(cell)}`}
+                      className="max-w-[340px] px-[14px] py-[12px] text-[13px] text-gray-700"
+                    >
+                      {renderAnalyticsTableCell(cell)}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+const AnalyticsPanel = ({ title, children }) => {
+  return (
+    <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[16px]">
+      <h3 className="mb-[14px] text-[16px] font-semibold text-gray-900">
+        {title}
       </h3>
-      <p className="text-[14px] text-gray-500 max-w-[400px]">
-        Analytics dashboard is being prepared. Check back soon for detailed
-        insights on content performance and user engagement.
-      </p>
+      {children}
+    </div>
+  );
+};
+
+const RelatedContentModal = ({ searchTerm, matches, onClose }) => {
+  return (
+    <div className="fixed bottom-0 left-0 right-0 top-[68px] z-20 flex items-center justify-center bg-transparent px-[16px] py-[20px]">
+      <div
+        className="absolute inset-0 bg-[rgba(52,64,84,0.6)] backdrop-blur-[8px]"
+        onClick={onClose}
+      ></div>
+      <div className="relative z-10 flex max-h-[calc(100vh-40px)] w-full max-w-[720px] flex-col rounded-[8px] border-2 border-gray-50 bg-white shadow-2xl">
+        <div className="flex items-center justify-between gap-[16px] border-b-2 border-gray-50 p-[16px] sm:p-[20px]">
+          <div>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-gray-500">
+              Related Content
+            </p>
+            <h2 className="mt-[4px] text-[18px] font-semibold text-gray-900">
+              {searchTerm}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-[36px] w-[36px] flex-shrink-0 items-center justify-center rounded-[8px] hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#6A8EB5]"
+            aria-label="Close related content"
+          >
+            <Icon
+              iconName="Close"
+              height="22px"
+              width="22px"
+              stroke="#344054"
+            />
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-[16px] sm:p-[20px]">
+          <div className="flex flex-col gap-[10px]">
+            {matches.map((item) => (
+              <div
+                key={`${item.contentType}-${item.id}-${item.title}`}
+                className="rounded-[8px] border border-[#E5E5E5] p-[12px]"
+              >
+                <div className="flex flex-col gap-[6px] sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-[14px] font-semibold text-gray-900">
+                      {item.title}
+                    </p>
+                    <p className="mt-[3px] text-[12px] text-gray-500">
+                      {item.contentType}
+                    </p>
+                  </div>
+                  {item.matchedTags.length > 0 && (
+                    <span className="rounded-full bg-[#EAF3FF] px-[10px] py-[4px] text-[12px] font-semibold text-[#175CD3]">
+                      {item.matchedTags.join(", ")}
+                    </span>
+                  )}
+                </div>
+                {item.description && (
+                  <p className="mt-[8px] text-[13px] leading-[1.45] text-gray-600">
+                    {item.description}
+                  </p>
+                )}
+                {item.tags.length > 0 && (
+                  <div className="mt-[10px] flex flex-wrap gap-[6px]">
+                    {item.tags.slice(0, 5).map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-[4px] bg-[#F5F5F5] px-[8px] py-[4px] text-[11px] font-medium text-gray-600"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AnalyticsTabContent = ({
+  activeTab,
+  rows,
+  filters,
+  report,
+  overviewAnalytics,
+}) => {
+  const [relatedContentModal, setRelatedContentModal] = useState(null);
+  const totalViews = sumBy(rows, "views");
+  const totalShares = sumBy(rows, "shares");
+  const totalFeedback = sumBy(rows, "helpful") + sumBy(rows, "notHelpful");
+  const helpfulRate = (sumBy(rows, "helpful") / Math.max(totalFeedback, 1)) * 100;
+  const overview = {
+    ...DEFAULT_ANALYTICS_OVERVIEW,
+    ...overviewAnalytics,
+    topSearchTopic: {
+      ...DEFAULT_ANALYTICS_OVERVIEW.topSearchTopic,
+      ...overviewAnalytics?.topSearchTopic,
+    },
+  };
+  const searchRows = filterAnalyticsRows(normalizeSearchTopicAnalyticsRows(), filters);
+  const searchTopicTableRows = report.rows.map((row) =>
+    row.map((cell) => {
+      if (cell?.type !== "related-content" || cell.disabled) return cell;
+
+      return {
+        ...cell,
+        onClick: () =>
+          setRelatedContentModal({
+            searchTerm: cell.searchTerm,
+            matches: cell.matches,
+          }),
+      };
+    })
+  );
+  const factRows = filterAnalyticsRows(MOCK_FACT_CHECK_ANALYTICS, filters);
+  const regionalRows = buildRegionalUsageRows(rows, filters.region)
+    .slice()
+    .sort((a, b) => b.sessions - a.sessions);
+  const reviewRows = buildReviewQueueRows(rows);
+
+  if (activeTab === "content-performance") {
+    return (
+      <div className="flex flex-col gap-[16px]">
+        <div className="grid grid-cols-1 gap-[12px] md:grid-cols-3">
+          <AnalyticsMetricCard label="Total Views" value={formatNumber(totalViews)} />
+          <AnalyticsMetricCard
+            label="Helpful Score"
+            value={formatPercent(helpfulRate)}
+          />
+          <AnalyticsMetricCard label="Shares" value={formatNumber(totalShares)} />
+        </div>
+        <AnalyticsPanel title="Content Performance">
+          <AnalyticsTable
+            columns={report.columns}
+            rows={report.rows}
+            emptyMessage="No content performance data matches the selected filters."
+          />
+        </AnalyticsPanel>
+      </div>
+    );
+  }
+
+  if (activeTab === "search-topic") {
+    return (
+      <>
+        <div className="grid grid-cols-1 gap-[16px] xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+          <AnalyticsPanel title="Top Search Topics">
+            <AnalyticsBarList
+              items={buildTopSearchTopicItems(searchRows)}
+              labelKey="label"
+              valueKey="value"
+            />
+          </AnalyticsPanel>
+          <AnalyticsPanel title="Search and Topic Analysis">
+            <AnalyticsTable
+              columns={report.columns}
+              rows={searchTopicTableRows}
+              emptyMessage="No search activity matches the selected filters."
+            />
+          </AnalyticsPanel>
+        </div>
+        {relatedContentModal && (
+          <RelatedContentModal
+            searchTerm={relatedContentModal.searchTerm}
+            matches={relatedContentModal.matches}
+            onClose={() => setRelatedContentModal(null)}
+          />
+        )}
+      </>
+    );
+  }
+
+  if (activeTab === "helpful") {
+    return (
+      <div className="flex flex-col gap-[16px]">
+        <div className="grid grid-cols-1 gap-[12px] md:grid-cols-3">
+          <AnalyticsMetricCard
+            label="Helpful Responses"
+            value={formatNumber(sumBy(rows, "helpful"))}
+          />
+          <AnalyticsMetricCard
+            label="Not Helpful Responses"
+            value={formatNumber(sumBy(rows, "notHelpful"))}
+          />
+          <AnalyticsMetricCard
+            label="Helpful Rate"
+            value={formatPercent(helpfulRate)}
+          />
+        </div>
+        <AnalyticsPanel title="Helpful/Not Helpful Analytics">
+          <AnalyticsTable
+            columns={report.columns}
+            rows={report.rows}
+            emptyMessage="No feedback data matches the selected filters."
+          />
+        </AnalyticsPanel>
+      </div>
+    );
+  }
+
+  if (activeTab === "fact-check") {
+    return (
+      <div className="flex flex-col gap-[16px]">
+        <div className="grid grid-cols-1 gap-[12px] md:grid-cols-3">
+          <AnalyticsMetricCard
+            label="Fact Checks"
+            value={formatNumber(sumBy(factRows, "checks"))}
+          />
+          <AnalyticsMetricCard
+            label="Average Verified"
+            value={formatPercent(
+              factRows.reduce((total, row) => total + row.verified, 0) /
+                Math.max(factRows.length, 1)
+            )}
+          />
+          <AnalyticsMetricCard
+            label="Claims Needing Review"
+            value={formatNumber(sumBy(factRows, "needsReview"))}
+          />
+        </div>
+        <AnalyticsPanel title="Fact-Check Usage Analytics">
+          <AnalyticsTable
+            columns={report.columns}
+            rows={report.rows}
+            emptyMessage="No fact-check usage matches the selected filters."
+          />
+        </AnalyticsPanel>
+      </div>
+    );
+  }
+
+  if (activeTab === "regional-usage") {
+    return (
+      <div className="grid grid-cols-1 gap-[16px] xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+        <AnalyticsPanel title="Regional Sessions">
+          <AnalyticsBarList
+            items={regionalRows.slice(0, 8)}
+            labelKey="region"
+            valueKey="sessions"
+          />
+        </AnalyticsPanel>
+        <AnalyticsPanel title="Regional Usage">
+          <AnalyticsTable
+            columns={report.columns}
+            rows={report.rows}
+            emptyMessage="No regional usage data matches the selected filters."
+          />
+        </AnalyticsPanel>
+      </div>
+    );
+  }
+
+  if (activeTab === "review-queue") {
+    return (
+      <div className="flex flex-col gap-[16px]">
+        <div className="grid grid-cols-1 gap-[12px] md:grid-cols-3">
+          <AnalyticsMetricCard
+            label="Items Needing Review"
+            value={formatNumber(reviewRows.length)}
+          />
+          <AnalyticsMetricCard
+            label="Missing Media"
+            value={formatNumber(
+              reviewRows.filter((row) => row.issues.includes("Missing media")).length
+            )}
+          />
+          <AnalyticsMetricCard
+            label="Missing Publish Target"
+            value={formatNumber(
+              reviewRows.filter((row) => row.issues.includes("No publish target"))
+                .length
+            )}
+          />
+        </div>
+        <AnalyticsPanel title="Review Queue">
+          <AnalyticsTable
+            columns={report.columns}
+            rows={report.rows}
+            emptyMessage="No content currently needs review."
+          />
+        </AnalyticsPanel>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-[12px] md:grid-cols-2 xl:grid-cols-3">
+      <AnalyticsMetricCard
+        label="People Reached"
+        value={formatNumber(overview.peopleReached)}
+        detail="Health Literacy Hub content opened"
+      />
+      <AnalyticsMetricCard
+        label="Unique Visitors"
+        value={formatNumber(overview.uniqueVisitors)}
+        detail="Distinct audience members reached"
+      />
+      <AnalyticsMetricCard
+        label="Top Search Topic"
+        value={overview.topSearchTopic.topic}
+        detail={`${formatNumber(overview.topSearchTopic.searches)} searches`}
+      />
+      <AnalyticsMetricCard
+        label="Helpful Score"
+        value={formatPercent(overview.helpfulScore)}
+        detail="Helpful votes divided by total feedback"
+      />
+      <AnalyticsMetricCard
+        label="Needs Review"
+        value={formatNumber(overview.needsReview)}
+        detail="Content missing review-ready details"
+      />
+      <AnalyticsMetricCard
+        label="Reports Exported"
+        value={formatNumber(overview.reportsExported)}
+        detail="PDF and CSV report exports"
+      />
     </div>
   );
 };
