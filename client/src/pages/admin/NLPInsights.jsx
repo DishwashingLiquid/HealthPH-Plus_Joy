@@ -59,7 +59,7 @@ const NLPInsights = () => {
         deterministic: true,
         padding: 20,
         fontSizes: [20, 50],
-        scale: "linear,"
+        scale: "linear",
     };
 
     return (

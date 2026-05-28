@@ -25,6 +25,7 @@ import ResetPassword from "./pages/auth/ResetPassword";
 
 import AISurveillance from "./pages/admin/AISurveillance";
 import NLPInsights from "./pages/admin/NLPInsights";
+import MisinformationTracker from "./pages/admin/MisinformationTracker";
 import Analytics from "./pages/admin/Analytics";
 import TrendsMap from "./pages/admin/TrendsMap";
 import UploadDataset from "./pages/admin/UploadDataset";
@@ -204,6 +205,15 @@ function App() {
                 <>
                   <HelmetTitle title="HealthPH | NLP Insights" />
                   <NLPInsights />
+                </>
+              }
+            />
+            <Route
+              path="misinformation-tracker"
+              element={
+                <>
+                  <HelmetTitle title="HealthPH | Misinformation Tracker" />
+                  <MisinformationTracker />
                 </>
               }
             />
