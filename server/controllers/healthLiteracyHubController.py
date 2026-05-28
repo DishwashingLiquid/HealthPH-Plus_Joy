@@ -19,6 +19,7 @@ from middleware.requireAuth import require_auth
 from middleware.requireRole import require_role
 from models.healthLiteracyHubAnalytics import (
     HealthLiteracyAnalyticsEvent,
+    HealthLiteracyContentReviewAction,
     HealthLiteracyFeedbackRequest,
 )
 
@@ -71,6 +72,7 @@ ANALYTICS_REGIONS = [
 
 ALLOWED_ANALYTICS_EVENTS = {
     "content_opened",
+    "content_shared",
     "search",
     "helpful_vote",
     "report_exported",
@@ -78,6 +80,28 @@ ALLOWED_ANALYTICS_EVENTS = {
 
 ALLOWED_FEEDBACK_VOTES = {"helpful", "not_helpful"}
 ALLOWED_FEEDBACK_PLATFORMS = {"mobile", "website"}
+FACT_CHECK_CLAIM_STATUSES = {
+    "False",
+    "Misleading",
+    "Verified",
+    "Needs Expert Review",
+}
+FACT_CHECK_VERIFIERS = {
+    "DOH",
+    "Medical Expert",
+    "Project Researcher",
+}
+REVIEW_ACTIONS = {
+    "send_for_review",
+    "mark_reviewed",
+    "archive",
+    "pin",
+}
+ASSIGNED_REVIEWERS = {
+    "Content Editor",
+    "Project Researcher",
+    "Medical Expert",
+}
 
 
 def _get_content_path(content_type: str) -> Path:
@@ -199,6 +223,42 @@ def _get_content_label(content_type: str) -> str:
     return ANALYTICS_CONTENT_LABELS.get(content_type, content_type)
 
 
+def _normalize_fact_check_status(value: Optional[str]) -> str:
+    if value in FACT_CHECK_CLAIM_STATUSES:
+        return value
+
+    return "Needs Expert Review"
+
+
+def _normalize_fact_check_verifier(value: Optional[str]) -> str:
+    if value in FACT_CHECK_VERIFIERS:
+        return value
+
+    return "Project Researcher"
+
+
+def _build_fact_check_metadata(
+    is_fact_check: bool,
+    claim: Optional[str],
+    claim_status: Optional[str],
+    verified_by: Optional[str],
+) -> dict:
+    normalized_claim = str(claim or "").strip()
+
+    if is_fact_check and not normalized_claim:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Fact-check content requires a claim",
+        )
+
+    return {
+        "isFactCheck": bool(is_fact_check),
+        "claim": normalized_claim if is_fact_check else "",
+        "claimStatus": _normalize_fact_check_status(claim_status),
+        "verifiedBy": _normalize_fact_check_verifier(verified_by),
+    }
+
+
 def _ensure_feedback_indexes() -> None:
     health_literacy_feedback_collection.create_index(
         [
@@ -222,6 +282,21 @@ def _find_content_item(content_type: str, content_id: str):
         status_code=status.HTTP_404_NOT_FOUND,
         detail="Health Literacy Hub content not found",
     )
+
+
+def _find_content_index(content: list, content_id: str) -> int:
+    content_index = next(
+        (index for index, item in enumerate(content) if str(item.get("id")) == content_id),
+        None,
+    )
+
+    if content_index is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Health Literacy Hub content not found",
+        )
+
+    return content_index
 
 
 def _serialize_feedback(feedback: dict) -> dict:
@@ -251,6 +326,42 @@ def _get_range_start_date(time_range: str):
 
     start_date = get_ph_datetime().replace(hour=0, minute=0, second=0, microsecond=0)
     return start_date - timedelta(days=days - 1)
+
+
+def _parse_content_datetime(value):
+    if not value:
+        return None
+
+    try:
+        return datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+
+
+def _format_review_date(value) -> str:
+    date_value = _parse_content_datetime(value)
+
+    if not date_value:
+        return "No review date"
+
+    return date_value.strftime("%b %d, %Y")
+
+
+def _get_fact_check_review_status(last_reviewed_at) -> str:
+    date_value = _parse_content_datetime(last_reviewed_at)
+
+    if not date_value:
+        return "Needs Update"
+
+    today = get_ph_datetime().date()
+    days_since_review = (today - date_value.date()).days
+
+    if days_since_review > 180:
+        return "Needs Update"
+    if days_since_review > 150:
+        return "Review Soon"
+
+    return "Up to Date"
 
 
 def _build_event_match(
@@ -341,6 +452,9 @@ def _content_has_media(item: dict) -> bool:
 def _get_review_issues(item: dict) -> list[str]:
     issues = []
 
+    if item.get("isArchived"):
+        return issues
+
     if not str(item.get("title", "")).strip():
         issues.append("Missing title")
     if not str(item.get("description", "")).strip():
@@ -349,6 +463,26 @@ def _get_review_issues(item: dict) -> list[str]:
         issues.append("Missing media")
     if not item.get("publishToMobile") and not item.get("publishToWebsite"):
         issues.append("No publish target")
+
+    return issues
+
+
+def _get_review_age_issues(item: dict) -> list[str]:
+    issues = []
+
+    if item.get("isArchived"):
+        return issues
+
+    last_reviewed_at = item.get("lastReviewedAt")
+    date_value = _parse_content_datetime(last_reviewed_at)
+
+    if not date_value:
+        return ["No review date"]
+
+    days_since_review = (get_ph_datetime().date() - date_value.date()).days
+
+    if days_since_review > 180:
+        issues.append("Overdue review")
 
     return issues
 
@@ -375,7 +509,7 @@ def _count_content_needing_review(
             ):
                 continue
 
-            if _get_review_issues(item):
+            if _get_review_issues(item) or _get_review_age_issues(item):
                 review_count += 1
 
     return review_count
@@ -488,6 +622,113 @@ async def fetch_health_literacy_analytics_overview(
 
 
 """
+@desc     Fetch Health Literacy Hub fact-check usage analytics
+route     GET api/health-literacy-hub/analytics/fact-check
+@access   Private
+"""
+
+
+async def fetch_health_literacy_fact_check_analytics(
+    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
+    timeRange: str = "last-30-days",
+    contentType: str = "all",
+    region: str = "all",
+):
+    rows = []
+
+    for content_key, content_label in ANALYTICS_CONTENT_LABELS.items():
+        if contentType != "all" and content_label != contentType:
+            continue
+
+        for index, item in enumerate(_read_content(content_key)):
+            if not item.get("isFactCheck"):
+                continue
+
+            item_region = _get_analytics_region(content_label, item, index)
+            if region != "all" and item_region != region:
+                continue
+
+            content_id = str(item.get("id", ""))
+            event_match_base = _build_event_match(
+                time_range=timeRange,
+                content_type=content_label,
+                region=item_region,
+            )
+            event_match_base["content_type"] = {"$in": [content_label, content_key]}
+            event_match_base.update(
+                {
+                    "content_id": content_id,
+                }
+            )
+            event_platform_match = [
+                {"client_platform": {"$in": list(ALLOWED_FEEDBACK_PLATFORMS)}},
+                {"metadata.clientPlatform": {"$in": list(ALLOWED_FEEDBACK_PLATFORMS)}},
+                {"metadata.client_platform": {"$in": list(ALLOWED_FEEDBACK_PLATFORMS)}},
+            ]
+            feedback_match_base = _build_feedback_match(
+                time_range=timeRange,
+                content_type=content_label,
+                region=item_region,
+            )
+            feedback_match_base.update(
+                {
+                    "content_id": content_id,
+                    "client_platform": {"$in": list(ALLOWED_FEEDBACK_PLATFORMS)},
+                }
+            )
+
+            helpful_votes = health_literacy_feedback_collection.count_documents(
+                {**feedback_match_base, "vote": "helpful"}
+            )
+            not_helpful_votes = health_literacy_feedback_collection.count_documents(
+                {**feedback_match_base, "vote": "not_helpful"}
+            )
+            total_feedback = helpful_votes + not_helpful_votes
+            helpful_score = (
+                (helpful_votes / total_feedback) * 100
+                if total_feedback
+                else None
+            )
+            last_reviewed_at = item.get("lastReviewedAt")
+
+            rows.append(
+                {
+                    "contentId": content_id,
+                    "contentType": content_label,
+                    "region": item_region,
+                    "claim": item.get("claim") or item.get("title", "Untitled claim"),
+                    "claimStatus": _normalize_fact_check_status(
+                        item.get("claimStatus")
+                    ),
+                    "views": health_literacy_analytics_events_collection.count_documents(
+                        {
+                            **event_match_base,
+                            "event_type": "content_opened",
+                            "$or": event_platform_match,
+                        }
+                    ),
+                    "helpful": helpful_votes,
+                    "notHelpful": not_helpful_votes,
+                    "helpfulScore": helpful_score,
+                    "shares": health_literacy_analytics_events_collection.count_documents(
+                        {
+                            **event_match_base,
+                            "event_type": "content_shared",
+                            "$or": event_platform_match,
+                        }
+                    ),
+                    "verifiedBy": _normalize_fact_check_verifier(
+                        item.get("verifiedBy")
+                    ),
+                    "lastReviewedDate": _format_review_date(last_reviewed_at),
+                    "reviewStatus": _get_fact_check_review_status(last_reviewed_at),
+                }
+            )
+
+    return rows
+
+
+"""
 @desc     Record Health Literacy Hub analytics event
 route     POST api/health-literacy-hub/analytics/events
 @access   Private
@@ -508,6 +749,13 @@ async def create_health_literacy_analytics_event(
 
     topic = data.topic.strip() if data.topic else None
     vote = data.vote.strip() if data.vote else None
+    metadata = data.metadata or {}
+    client_platform = (
+        data.clientPlatform
+        or metadata.get("clientPlatform")
+        or metadata.get("client_platform")
+    )
+    client_platform = client_platform.strip() if client_platform else None
 
     if event_type == "search" and not topic:
         raise HTTPException(
@@ -521,18 +769,28 @@ async def create_health_literacy_analytics_event(
             detail="Helpful vote analytics events require a valid vote",
         )
 
+    if client_platform and client_platform not in ALLOWED_FEEDBACK_PLATFORMS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="clientPlatform must be mobile or website",
+        )
+
+    if client_platform:
+        metadata = {**metadata, "clientPlatform": client_platform}
+
     event = {
         "event_type": event_type,
         "content_id": data.contentId,
         "content_title": data.contentTitle,
         "content_type": data.contentType or "all",
+        "client_platform": client_platform,
         "region": data.region or "all",
         "topic": topic,
         "vote": vote,
         "report_format": data.reportFormat,
         "visitor_id": data.visitorId or user_id,
         "user_id": user_id,
-        "metadata": data.metadata or {},
+        "metadata": metadata,
         "created_at": get_ph_datetime(),
     }
 
@@ -657,6 +915,107 @@ async def upsert_health_literacy_content_feedback(
 
 
 """
+@desc     Apply Health Literacy Hub review queue action
+route     PATCH api/health-literacy-hub/{content_type}/{content_id}/review-action
+@access   Private
+"""
+
+
+async def apply_health_literacy_content_review_action(
+    content_type: str,
+    content_id: str,
+    data: HealthLiteracyContentReviewAction,
+    current_user: Annotated[
+        dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))
+    ],
+):
+    if content_type not in CONTENT_FILES:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Health Literacy Hub content type not found",
+        )
+
+    action = data.action.strip()
+
+    if action not in REVIEW_ACTIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported Health Literacy Hub review action",
+        )
+
+    content = _read_content(content_type)
+    content_index = _find_content_index(content, content_id)
+    current_content = content[content_index]
+    current_user_snapshot = _get_user_snapshot(current_user)
+    updated_at = get_ph_datetime().isoformat()
+    updated_content = {
+        **current_content,
+        "updatedAt": updated_at,
+    }
+
+    if action == "send_for_review":
+        assigned_reviewer = str(data.assignedReviewer or "").strip()
+
+        if assigned_reviewer not in ASSIGNED_REVIEWERS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Please select a valid assigned reviewer",
+            )
+
+        updated_content.update(
+            {
+                "assignedReviewer": assigned_reviewer,
+                "reviewRequestedAt": updated_at,
+                "reviewRequestedBy": current_user_snapshot,
+            }
+        )
+
+    if action == "mark_reviewed":
+        updated_content.update(
+            {
+                "lastReviewedAt": updated_at,
+                "lastReviewedBy": current_user_snapshot,
+            }
+        )
+
+    if action == "archive":
+        updated_content.update(
+            {
+                "publishToMobile": False,
+                "publishToWebsite": False,
+                "isArchived": True,
+                "archivedAt": updated_at,
+                "archivedBy": current_user_snapshot,
+            }
+        )
+
+    if action == "pin":
+        updated_content.update(
+            {
+                "isPinned": True,
+                "pinnedAt": updated_at,
+                "pinnedBy": current_user_snapshot,
+            }
+        )
+
+    content[content_index] = updated_content
+
+    if action == "pin":
+        pinned_content = content.pop(content_index)
+        content.insert(0, pinned_content)
+
+    _write_content(content_type, content)
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "message": "Health Literacy Hub review action saved successfully",
+            "content": updated_content,
+        },
+    )
+
+
+"""
 @desc     Create Health Literacy Hub content
 route     POST api/health-literacy-hub/{content_type}
 @access   Private
@@ -673,6 +1032,10 @@ async def create_health_literacy_content(
     tags: Annotated[Optional[str], Form()] = "",
     publishToMobile: Annotated[bool, Form()] = False,
     publishToWebsite: Annotated[bool, Form()] = False,
+    isFactCheck: Annotated[bool, Form()] = False,
+    claim: Annotated[Optional[str], Form()] = "",
+    claimStatus: Annotated[Optional[str], Form()] = "Needs Expert Review",
+    verifiedBy: Annotated[Optional[str], Form()] = "Project Researcher",
     file: Annotated[Optional[UploadFile], File()] = None,
 ):
     if content_type not in CONTENT_FILES:
@@ -698,6 +1061,12 @@ async def create_health_literacy_content(
     created_at = get_ph_datetime()
 
     created_by = _get_user_snapshot(current_user)
+    fact_check_metadata = _build_fact_check_metadata(
+        isFactCheck,
+        claim,
+        claimStatus,
+        verifiedBy,
+    )
 
     new_content = {
         "id": str(uuid4()),
@@ -709,7 +1078,17 @@ async def create_health_literacy_content(
         "publishToWebsite": publishToWebsite,
         "createdAt": created_at.isoformat(),
         "lastReviewedAt": created_at.isoformat(),
+        "assignedReviewer": "",
+        "reviewRequestedAt": "",
+        "lastReviewedBy": created_by,
+        "isArchived": False,
+        "archivedAt": "",
+        "archivedBy": {},
+        "isPinned": False,
+        "pinnedAt": "",
+        "pinnedBy": {},
         "createdBy": created_by,
+        **fact_check_metadata,
     }
 
     content.insert(0, new_content)
@@ -742,6 +1121,10 @@ async def update_health_literacy_content(
     tags: Annotated[Optional[str], Form()] = "",
     publishToMobile: Annotated[bool, Form()] = False,
     publishToWebsite: Annotated[bool, Form()] = False,
+    isFactCheck: Annotated[bool, Form()] = False,
+    claim: Annotated[Optional[str], Form()] = "",
+    claimStatus: Annotated[Optional[str], Form()] = "Needs Expert Review",
+    verifiedBy: Annotated[Optional[str], Form()] = "Project Researcher",
     removeMedia: Annotated[bool, Form()] = False,
     file: Annotated[Optional[UploadFile], File()] = None,
 ):
@@ -764,16 +1147,7 @@ async def update_health_literacy_content(
         )
 
     content = _read_content(content_type)
-    content_index = next(
-        (index for index, item in enumerate(content) if str(item.get("id")) == content_id),
-        None,
-    )
-
-    if content_index is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Health Literacy Hub content not found",
-        )
+    content_index = _find_content_index(content, content_id)
 
     current_content = content[content_index]
     updated_media = current_content.get("media")
@@ -784,6 +1158,12 @@ async def update_health_literacy_content(
         updated_media = None
 
     updated_at = get_ph_datetime()
+    fact_check_metadata = _build_fact_check_metadata(
+        isFactCheck,
+        claim,
+        claimStatus,
+        verifiedBy,
+    )
     updated_content = {
         **current_content,
         "title": title.strip(),
@@ -795,6 +1175,7 @@ async def update_health_literacy_content(
         "updatedAt": updated_at.isoformat(),
         "lastReviewedAt": updated_at.isoformat(),
         "updatedBy": _get_user_snapshot(current_user),
+        **fact_check_metadata,
     }
 
     content[content_index] = updated_content

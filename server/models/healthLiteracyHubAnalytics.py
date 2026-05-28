@@ -8,6 +8,7 @@ class HealthLiteracyAnalyticsEvent(BaseModel):
     contentId: Optional[str] = None
     contentTitle: Optional[str] = None
     contentType: Optional[str] = None
+    clientPlatform: Optional[str] = None
     region: Optional[str] = None
     topic: Optional[str] = None
     vote: Optional[str] = None
@@ -19,3 +20,8 @@ class HealthLiteracyAnalyticsEvent(BaseModel):
 class HealthLiteracyFeedbackRequest(BaseModel):
     vote: str
     clientPlatform: str
+
+
+class HealthLiteracyContentReviewAction(BaseModel):
+    action: str
+    assignedReviewer: Optional[str] = None
