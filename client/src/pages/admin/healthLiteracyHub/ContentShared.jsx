@@ -1,14 +1,163 @@
 ﻿/* eslint-disable react/prop-types */
+import { useState } from "react";
 import Icon from "../../../components/Icon";
 import {
   FACT_CHECK_CLAIM_STATUS_OPTIONS,
   FACT_CHECK_VERIFIED_BY_OPTIONS,
+  HEALTH_LITERACY_TAG_LIMIT,
+  getContentMediaSource,
+  getLimitedContentTags,
+  getTagOptionsWithSelectedTags,
 } from "./shared";
+
+const TagsPicker = ({ selectedTags = [], onTagsChange }) => {
+  const [searchValue, setSearchValue] = useState("");
+  const selectedTagList = getLimitedContentTags(selectedTags);
+  const selectedTagKeys = new Set(
+    selectedTagList.map((tag) => tag.toLowerCase())
+  );
+  const searchText = searchValue.trim();
+  const searchKey = searchText.toLowerCase();
+  const tagOptions = getTagOptionsWithSelectedTags(selectedTagList);
+  const filteredOptions = tagOptions.filter((option) =>
+    option.label.toLowerCase().includes(searchKey)
+  );
+  const canAddCustomTag =
+    searchText &&
+    !tagOptions.some((option) => option.value.toLowerCase() === searchKey) &&
+    selectedTagList.length < HEALTH_LITERACY_TAG_LIMIT;
+
+  const updateTags = (nextTags) => {
+    onTagsChange(getLimitedContentTags(nextTags));
+  };
+
+  const toggleTag = (tag) => {
+    const isSelected = selectedTagKeys.has(tag.toLowerCase());
+
+    if (isSelected) {
+      updateTags(selectedTagList.filter((selectedTag) => selectedTag !== tag));
+      return;
+    }
+
+    if (selectedTagList.length >= HEALTH_LITERACY_TAG_LIMIT) return;
+
+    updateTags([...selectedTagList, tag]);
+  };
+
+  const addCustomTag = () => {
+    if (!canAddCustomTag) return;
+
+    updateTags([...selectedTagList, searchText]);
+    setSearchValue("");
+  };
+
+  return (
+    <div>
+      <label className="block text-[14px] font-medium text-gray-800 mb-[8px]">
+        Tags *
+      </label>
+      <div className="rounded-[8px] border border-[#E5E5E5] bg-white p-[10px] focus-within:border-[#6A8EB5]">
+        <div className="flex flex-wrap gap-[6px]">
+          {selectedTagList.map((tag) => (
+            <span
+              key={tag}
+              className="inline-flex min-h-[28px] items-center gap-[6px] rounded-[6px] bg-[#EAF3FF] px-[8px] text-[12px] font-semibold text-[#175CD3]"
+            >
+              {tag}
+              <button
+                type="button"
+                onClick={() => toggleTag(tag)}
+                className="flex h-[18px] w-[18px] items-center justify-center rounded-full hover:bg-[#D6E8FF] focus:outline-none focus:ring-2 focus:ring-[#6A8EB5]/30"
+                aria-label={`Remove ${tag}`}
+              >
+                <Icon iconName="Close" height="12px" width="12px" stroke="#175CD3" />
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="mt-[8px] flex items-center gap-[8px]">
+          <Icon iconName="Search" height="18px" width="18px" stroke="#667085" />
+          <input
+            type="text"
+            value={searchValue}
+            onChange={(event) => setSearchValue(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                addCustomTag();
+              }
+            }}
+            placeholder={
+              selectedTagList.length >= HEALTH_LITERACY_TAG_LIMIT
+                ? "Tag limit reached"
+                : "Search or add tag"
+            }
+            disabled={selectedTagList.length >= HEALTH_LITERACY_TAG_LIMIT}
+            className="min-h-[34px] flex-1 text-[14px] text-gray-800 placeholder:text-gray-400 focus:outline-none disabled:bg-white"
+          />
+        </div>
+      </div>
+      <div className="mt-[8px] flex flex-col gap-[8px] rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] p-[8px]">
+        <div className="max-h-[190px] overflow-y-auto pr-[4px]">
+          <div className="grid grid-cols-1 gap-[6px] sm:grid-cols-2">
+            {filteredOptions.map((option) => {
+              const isSelected = selectedTagKeys.has(option.value.toLowerCase());
+              const isDisabled =
+                !isSelected && selectedTagList.length >= HEALTH_LITERACY_TAG_LIMIT;
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => toggleTag(option.value)}
+                  disabled={isDisabled}
+                  className={`flex min-h-[38px] items-center gap-[8px] rounded-[6px] px-[10px] py-[7px] text-left text-[13px] font-medium transition focus:outline-none focus:ring-2 focus:ring-[#6A8EB5]/30 ${
+                    isSelected
+                      ? "bg-[#EAF3FF] text-[#175CD3]"
+                      : "bg-white text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
+                  }`}
+                >
+                  <span
+                    className={`flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-[4px] border ${
+                      isSelected
+                        ? "border-[#175CD3] bg-[#175CD3]"
+                        : "border-[#D0D5DD] bg-white"
+                    }`}
+                  >
+                    {isSelected && (
+                      <Icon iconName="Check" height="14px" width="14px" fill="#FFF" />
+                    )}
+                  </span>
+                  <span>{option.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        {canAddCustomTag && (
+          <button
+            type="button"
+            onClick={addCustomTag}
+            className="flex min-h-[36px] items-center justify-center gap-[8px] rounded-[6px] border border-[#6A8EB5] bg-white px-[10px] text-[13px] font-semibold text-[#315F8C] transition hover:bg-[#F0F6FC] focus:outline-none focus:ring-2 focus:ring-[#6A8EB5]/30"
+          >
+            <Icon iconName="Plus" height="16px" width="16px" fill="#315F8C" />
+            <span>Add &quot;{searchText}&quot;</span>
+          </button>
+        )}
+        <p className="text-[12px] font-medium text-gray-500">
+          {selectedTagList.length}/{HEALTH_LITERACY_TAG_LIMIT} selected
+        </p>
+      </div>
+    </div>
+  );
+};
+
 export const ContentFormBody = ({
   formData,
   uploadRule,
   mode,
   onFormChange,
+  onTagsChange,
   onMediaChange,
   onMediaDrop,
   onRemoveMedia,
@@ -49,17 +198,7 @@ export const ContentFormBody = ({
         />
       </div>
       <div>
-        <label className="block text-[14px] font-medium text-gray-800 mb-[8px]">
-          Tags (comma-separated)
-        </label>
-        <input
-          type="text"
-          name="tags"
-          value={formData.tags}
-          onChange={onFormChange}
-          placeholder="e.g., health, education, wellness"
-          className="w-full px-[12px] py-[10px] border border-[#E5E5E5] rounded-[8px] text-[14px] focus:outline-none focus:border-[#6A8EB5]"
-        />
+        <TagsPicker selectedTags={formData.tags} onTagsChange={onTagsChange} />
       </div>
       <div>
         <label className="block text-[14px] font-medium text-gray-800 mb-[8px]">
@@ -283,7 +422,8 @@ export const ContentGrid = ({
 const ContentCard = ({ item, onMediaClick, onEditClick }) => {
   const media = item.media;
   const mediaType = media?.contentType ?? "";
-  const hasPreviewMedia = Boolean(media?.dataUrl);
+  const mediaSource = getContentMediaSource(media);
+  const hasPreviewMedia = Boolean(mediaSource);
   const canEdit = item.source === "api";
   const MediaPreviewWrapper = hasPreviewMedia ? "button" : "div";
 
@@ -299,15 +439,15 @@ const ContentCard = ({ item, onMediaClick, onEditClick }) => {
         }`}
         aria-label={hasPreviewMedia ? `Open ${item.title} media preview` : undefined}
       >
-        {media?.dataUrl && mediaType.startsWith("image/") ? (
+        {mediaSource && mediaType.startsWith("image/") ? (
           <img
-            src={media.dataUrl}
+            src={mediaSource}
             alt={item.title}
             className="w-full h-full object-cover"
           />
-        ) : media?.dataUrl && mediaType.startsWith("video/") ? (
+        ) : mediaSource && mediaType.startsWith("video/") ? (
           <video
-            src={media.dataUrl}
+            src={mediaSource}
             className="w-full h-full object-cover"
             muted
             playsInline
@@ -387,6 +527,7 @@ export const MediaPreviewModal = ({
   onClose,
 }) => {
   const mediaType = media?.contentType ?? "";
+  const mediaSource = getContentMediaSource(media);
   const publishTargets = [
     publishToMobile ? "Mobile" : null,
     publishToWebsite ? "Website" : null,
@@ -421,16 +562,16 @@ export const MediaPreviewModal = ({
         </div>
 
         <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-gray-900 p-[12px] sm:p-[20px]">
-          {mediaType.startsWith("image/") ? (
+          {mediaSource && mediaType.startsWith("image/") ? (
             <img
-              src={media.dataUrl}
+              src={mediaSource}
               alt={title}
               className="max-h-[calc(100vh-220px)] w-auto max-w-full object-contain"
             />
-          ) : mediaType.startsWith("video/") ? (
+          ) : mediaSource && mediaType.startsWith("video/") ? (
             <video
-              key={media.dataUrl}
-              src={media.dataUrl}
+              key={mediaSource}
+              src={mediaSource}
               className="max-h-[calc(100vh-220px)] w-full max-w-full rounded-[4px] bg-black"
               controls
             />

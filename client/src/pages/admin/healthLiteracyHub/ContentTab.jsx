@@ -18,8 +18,11 @@ import {
   getAnalyticsRegionValue,
   getContentFormValidationError,
   getContentLabel,
+  getContentMediaSource,
   getHealthLiteracyVisitorId,
+  getLimitedContentTags,
   isAllowedMediaType,
+  normalizeContentTags,
   normalizeApiContent,
   showToast,
 } from "./shared";
@@ -107,9 +110,9 @@ const ContentTab = ({ contentTypeLabel }) => {
     setFormData({
       title: item.title ?? "",
       description: item.description ?? "",
-      tags: (item.tags ?? []).join(", "),
+      tags: getLimitedContentTags(item.tags),
       media: null,
-      mediaPreview: item.media?.dataUrl ?? null,
+      mediaPreview: getContentMediaSource(item.media) || null,
       existingMedia: item.media ?? null,
       removeMedia: false,
       publishToMobile: Boolean(item.publishToMobile),
@@ -123,7 +126,7 @@ const ContentTab = ({ contentTypeLabel }) => {
   };
 
   const handleMediaPreviewClick = (item) => {
-    if (!item.media?.dataUrl) return;
+    if (!getContentMediaSource(item.media)) return;
 
     createHealthLiteracyAnalyticsEvent({
       eventType: "content_opened",
@@ -149,12 +152,7 @@ const ContentTab = ({ contentTypeLabel }) => {
     payload.append("description", formData.description);
     payload.append(
       "tags",
-      JSON.stringify(
-        formData.tags
-          .split(",")
-          .map((tag) => tag.trim())
-          .filter(Boolean)
-      )
+      JSON.stringify(normalizeContentTags(formData.tags))
     );
     payload.append("publishToMobile", String(formData.publishToMobile));
     payload.append("publishToWebsite", String(formData.publishToWebsite));
@@ -255,6 +253,13 @@ const ContentTab = ({ contentTypeLabel }) => {
     setFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const handleTagsChange = (tags) => {
+    setFormData((prev) => ({
+      ...prev,
+      tags: getLimitedContentTags(tags),
     }));
   };
 
@@ -372,6 +377,7 @@ const ContentTab = ({ contentTypeLabel }) => {
             uploadRule={uploadRule}
             mode="create"
             onFormChange={handleFormChange}
+            onTagsChange={handleTagsChange}
             onMediaChange={handleMediaChange}
             onMediaDrop={handleMediaDrop}
             onRemoveMedia={handleRemoveMedia}
@@ -399,6 +405,7 @@ const ContentTab = ({ contentTypeLabel }) => {
             uploadRule={uploadRule}
             mode="edit"
             onFormChange={handleFormChange}
+            onTagsChange={handleTagsChange}
             onMediaChange={handleMediaChange}
             onMediaDrop={handleMediaDrop}
             onRemoveMedia={handleRemoveMedia}

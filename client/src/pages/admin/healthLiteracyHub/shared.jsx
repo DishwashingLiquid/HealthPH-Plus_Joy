@@ -32,7 +32,7 @@ export const UPLOAD_RULES = {
 export const INITIAL_FORM_DATA = {
   title: "",
   description: "",
-  tags: "",
+  tags: [],
   media: null,
   mediaPreview: null,
   existingMedia: null,
@@ -57,6 +57,76 @@ export const FACT_CHECK_VERIFIED_BY_OPTIONS = [
   { value: "Medical Expert", label: "Medical Expert" },
   { value: "Project Researcher", label: "Project Researcher" },
 ];
+
+export const HEALTH_LITERACY_TAG_LIMIT = 3;
+
+export const HEALTH_LITERACY_TAG_OPTIONS = [
+  "Disease Prevention",
+  "Vaccination",
+  "Respiratory Health",
+  "Dengue and Vector-borne Diseases",
+  "Maternal and Child Health",
+  "Nutrition",
+  "Mental Health",
+  "Sexual and Reproductive Health",
+  "Chronic Diseases",
+  "Medication Safety",
+  "First Aid and Emergency Care",
+  "Hygiene and Sanitation",
+  "Health Services Access",
+  "Myth Busting / Fact Check",
+  "Environmental Health",
+  "Outbreak Updates",
+  "Healthy Lifestyle",
+].map((tag, index) => ({
+  value: tag,
+  label: tag,
+  order: index,
+}));
+
+export const normalizeContentTags = (tags) => {
+  const sourceTags = Array.isArray(tags)
+    ? tags
+    : String(tags ?? "")
+        .split(",")
+        .map((tag) => tag.trim());
+  const seenTags = new Set();
+
+  return sourceTags.reduce((normalizedTags, tag) => {
+    const normalizedTag = String(tag ?? "").trim();
+    const tagKey = normalizedTag.toLowerCase();
+
+    if (!normalizedTag || seenTags.has(tagKey)) return normalizedTags;
+
+    seenTags.add(tagKey);
+    normalizedTags.push(normalizedTag);
+    return normalizedTags;
+  }, []);
+};
+
+export const getLimitedContentTags = (tags) =>
+  normalizeContentTags(tags).slice(0, HEALTH_LITERACY_TAG_LIMIT);
+
+export const getTagOptionsWithSelectedTags = (selectedTags = []) => {
+  const selectedTagKeys = new Set(
+    HEALTH_LITERACY_TAG_OPTIONS.map((option) => option.value.toLowerCase())
+  );
+  const customTagOptions = normalizeContentTags(selectedTags)
+    .filter((tag) => {
+      const tagKey = tag.toLowerCase();
+      if (selectedTagKeys.has(tagKey)) return false;
+
+      selectedTagKeys.add(tagKey);
+      return true;
+    })
+    .map((tag, index) => ({
+      value: tag,
+      label: tag,
+      order: HEALTH_LITERACY_TAG_OPTIONS.length + index,
+    }));
+
+  return [...HEALTH_LITERACY_TAG_OPTIONS, ...customTagOptions];
+};
 
 export const ILLUSTRATIONS = [
   {
@@ -534,7 +604,19 @@ export const normalizeContentForAnalytics = (content, contentType) => {
 };
 
 export const contentHasMedia = (item) => {
-  return Boolean(item.media?.dataUrl || item.media || item.thumbnail);
+  return Boolean(item.media?.url || item.media?.dataUrl || item.media || item.thumbnail);
+};
+
+export const getContentMediaSource = (media) => {
+  const mediaSource = media?.url || media?.dataUrl || "";
+
+  if (!mediaSource || mediaSource.startsWith("data:")) return mediaSource;
+
+  try {
+    return new URL(mediaSource, import.meta.env.VITE_API_URL).href;
+  } catch {
+    return mediaSource;
+  }
 };
 
 export const getReviewIssues = (item) => {
@@ -690,6 +772,20 @@ export const buildTopSearchTopicItems = (rows) => {
   return Object.entries(topicTotals)
     .map(([label, value]) => ({ label, value }))
     .sort((a, b) => b.value - a.value);
+};
+
+export const buildTopContentTagItems = (rows) => {
+  const tagTotals = rows.reduce((totals, row) => {
+    normalizeContentTags(row.tags).forEach((tag) => {
+      totals[tag] = (totals[tag] ?? 0) + 1;
+    });
+
+    return totals;
+  }, {});
+
+  return Object.entries(tagTotals)
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label));
 };
 
 export const buildSearchTopicReportRows = (searchRows, contentRows) => {
@@ -1187,7 +1283,7 @@ export const formatContentDate = (value) => {
 export const normalizeApiContent = (content) => {
   return (content ?? []).map((item) => ({
     ...item,
-    tags: Array.isArray(item.tags) ? item.tags : [],
+    tags: normalizeContentTags(item.tags),
     lastReviewedAt: getContentReviewDate(item),
     assignedReviewer: item.assignedReviewer ?? "",
     isArchived: Boolean(item.isArchived),
@@ -1212,6 +1308,14 @@ export const getContentFormValidationError = (formData, contentTypeLabel) => {
 
   if (!formData.description.trim()) {
     return "Please enter a description";
+  }
+
+  if (normalizeContentTags(formData.tags).length === 0) {
+    return "Please select at least one tag";
+  }
+
+  if (normalizeContentTags(formData.tags).length > HEALTH_LITERACY_TAG_LIMIT) {
+    return `Please select up to ${HEALTH_LITERACY_TAG_LIMIT} tags only`;
   }
 
   if (

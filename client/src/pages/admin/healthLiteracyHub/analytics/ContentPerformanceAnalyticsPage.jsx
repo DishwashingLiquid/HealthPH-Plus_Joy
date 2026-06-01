@@ -1,10 +1,16 @@
 /* eslint-disable react/prop-types */
 import {
+  AnalyticsBarList,
   AnalyticsMetricCard,
   AnalyticsPanel,
   AnalyticsTable,
 } from "../AnalyticsShared";
-import { formatNumber, formatPercent, sumBy } from "../shared";
+import {
+  buildTopContentTagItems,
+  formatNumber,
+  formatPercent,
+  sumBy,
+} from "../shared";
 
 const ContentPerformanceAnalyticsPage = ({ rows, report }) => {
   const totalViews = sumBy(rows, "views");
@@ -13,6 +19,7 @@ const ContentPerformanceAnalyticsPage = ({ rows, report }) => {
   const notHelpfulVotes = sumBy(rows, "notHelpful");
   const totalFeedback = helpfulVotes + notHelpfulVotes;
   const helpfulRate = (helpfulVotes / Math.max(totalFeedback, 1)) * 100;
+  const topContentTags = buildTopContentTagItems(rows);
 
   return (
     <div className="flex flex-col gap-[16px]">
@@ -24,6 +31,19 @@ const ContentPerformanceAnalyticsPage = ({ rows, report }) => {
         />
         <AnalyticsMetricCard label="Shares" value={formatNumber(totalShares)} />
       </div>
+      <AnalyticsPanel title="Top Content Tags">
+        {topContentTags.length > 0 ? (
+          <AnalyticsBarList
+            items={topContentTags}
+            labelKey="label"
+            valueKey="value"
+          />
+        ) : (
+          <p className="text-[14px] text-gray-500">
+            No tag data matches the selected filters.
+          </p>
+        )}
+      </AnalyticsPanel>
       <AnalyticsPanel title="Content Performance">
         <AnalyticsTable
           columns={report.columns}

@@ -22,7 +22,10 @@ import {
   formatNumber,
   getContentFormValidationError,
   getContentLabel,
+  getContentMediaSource,
+  getLimitedContentTags,
   isAllowedMediaType,
+  normalizeContentTags,
   showToast,
 } from "../shared";
 
@@ -65,12 +68,7 @@ const ReviewQueueAnalyticsPage = ({ rows, report }) => {
     payload.append("description", formData.description);
     payload.append(
       "tags",
-      JSON.stringify(
-        formData.tags
-          .split(",")
-          .map((tag) => tag.trim())
-          .filter(Boolean)
-      )
+      JSON.stringify(normalizeContentTags(formData.tags))
     );
     payload.append("publishToMobile", String(formData.publishToMobile));
     payload.append("publishToWebsite", String(formData.publishToWebsite));
@@ -114,6 +112,13 @@ const ReviewQueueAnalyticsPage = ({ rows, report }) => {
     setFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const handleTagsChange = (tags) => {
+    setFormData((prev) => ({
+      ...prev,
+      tags: getLimitedContentTags(tags),
     }));
   };
 
@@ -179,9 +184,9 @@ const ReviewQueueAnalyticsPage = ({ rows, report }) => {
     setFormData({
       title: item.title ?? "",
       description: item.description ?? "",
-      tags: (item.tags ?? []).join(", "),
+      tags: getLimitedContentTags(item.tags),
       media: null,
-      mediaPreview: item.media?.dataUrl ?? null,
+      mediaPreview: getContentMediaSource(item.media) || null,
       existingMedia: item.media ?? null,
       removeMedia: false,
       publishToMobile: Boolean(item.publishToMobile),
@@ -202,7 +207,7 @@ const ReviewQueueAnalyticsPage = ({ rows, report }) => {
     setFormData({
       ...INITIAL_FORM_DATA,
       title: relatedTitle,
-      tags: (item.tags ?? []).join(", "),
+      tags: getLimitedContentTags(item.tags),
     });
     setSelectedReviewItem(null);
     setCreatingRelatedFor(reviewItem);
@@ -368,6 +373,7 @@ const ReviewQueueAnalyticsPage = ({ rows, report }) => {
             uploadRule={activeFormUploadRule}
             mode="review-edit"
             onFormChange={handleFormChange}
+            onTagsChange={handleTagsChange}
             onMediaChange={handleMediaChange}
             onMediaDrop={handleMediaDrop}
             onRemoveMedia={handleRemoveMedia}
@@ -393,6 +399,7 @@ const ReviewQueueAnalyticsPage = ({ rows, report }) => {
             uploadRule={activeFormUploadRule}
             mode="related-create"
             onFormChange={handleFormChange}
+            onTagsChange={handleTagsChange}
             onMediaChange={handleMediaChange}
             onMediaDrop={handleMediaDrop}
             onRemoveMedia={handleRemoveMedia}

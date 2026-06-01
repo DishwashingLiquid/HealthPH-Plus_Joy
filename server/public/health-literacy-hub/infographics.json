@@ -4,7 +4,9 @@
     "title": "Test upload",
     "description": "Logo upload - changes made",
     "tags": [
-      "health"
+      "Healthy Lifestyle",
+      "Medication Safety",
+      "Nutrition"
     ],
     "media": {
       "filename": "HEALTHPH+logo.png",
@@ -19,10 +21,15 @@
       "id": "6997fa96abc6b3882c62dcd5",
       "name": "Janzzen Cuentas"
     },
-    "updatedAt": "2026-05-19T11:12:28.588974",
+    "updatedAt": "2026-05-29T10:10:17.938755",
     "updatedBy": {
       "id": "6997fa96abc6b3882c62dcd5",
       "name": "Janzzen Cuentas"
-    }
+    },
+    "lastReviewedAt": "2026-05-29T10:10:17.938755",
+    "isFactCheck": false,
+    "claim": "",
+    "claimStatus": "Needs Expert Review",
+    "verifiedBy": "Project Researcher"
   }
 ]
