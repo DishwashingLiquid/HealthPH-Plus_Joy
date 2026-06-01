@@ -34,7 +34,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
                     <NavLink to="/dashboard/user-management" className="px-[12px] py-[10px] rounded-md">
                         {sidebarOpen && "User Management"}
                     </NavLink>
-                    <NavLink to="/dashboard/model-toolkit" className="px-[12px] py-[10px] rounded-md">
+                    <NavLink to="/dashboard/model-access-toolkit" className="px-[12px] py-[10px] rounded-md">
                         {sidebarOpen && "Model Access and Toolkit"}
                     </NavLink>
                 </nav>

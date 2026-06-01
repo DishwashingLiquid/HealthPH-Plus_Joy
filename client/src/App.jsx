@@ -27,6 +27,8 @@ import AISurveillance from "./pages/admin/AISurveillance";
 import HealthLiteracyHub from "./pages/admin/HealthLiteracyHub";
 import DiseaseWatchFeed from "./pages/admin/DiseaseWatchFeed";
 import NLPInsights from "./pages/admin/NLPInsights";
+import MisinformationTracker from "./pages/admin/MisinformationTracker";
+import ModelAccessToolkit from "./pages/admin/ModelAccessToolkit";
 import Analytics from "./pages/admin/Analytics";
 import TrendsMap from "./pages/admin/TrendsMap";
 import SentimentPulseTool from "./pages/admin/SentimentPulseTool";
@@ -225,6 +227,24 @@ function App() {
                 <>
                   <HelmetTitle title="HealthPH | Disease Watch Feed" />
                   <DiseaseWatchFeed />
+                </>
+              }
+            />
+            <Route
+              path="misinformation-tracker"
+              element={
+                <>
+                  <HelmetTitle title="HealthPH | Misinformation Tracker" />
+                  <MisinformationTracker />
+                </>
+              }
+            />
+            <Route
+              path="model-access-toolkit"
+              element={
+                <>
+                  <HelmetTitle title="HealthPH | Model Access and Toolkit" />
+                  <ModelAccessToolkit />
                 </>
               }
             />
