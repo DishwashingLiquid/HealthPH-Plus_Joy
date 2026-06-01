@@ -26,6 +26,7 @@ import ResetPassword from "./pages/auth/ResetPassword";
 import AISurveillance from "./pages/admin/AISurveillance";
 import NLPInsights from "./pages/admin/NLPInsights";
 import MisinformationTracker from "./pages/admin/MisinformationTracker";
+import ModelAccessToolkit from "./pages/admin/ModelAccessToolkit";
 import Analytics from "./pages/admin/Analytics";
 import TrendsMap from "./pages/admin/TrendsMap";
 import UploadDataset from "./pages/admin/UploadDataset";
@@ -214,6 +215,15 @@ function App() {
                 <>
                   <HelmetTitle title="HealthPH | Misinformation Tracker" />
                   <MisinformationTracker />
+                </>
+              }
+            />
+            <Route
+              path="model-access-toolkit"
+              element={
+                <>
+                  <HelmetTitle title="HealthPH | Model Access and Toolkit" />
+                  <ModelAccessToolkit />
                 </>
               }
             />

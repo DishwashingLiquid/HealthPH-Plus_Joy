@@ -324,8 +324,8 @@ const MisinfoClaimRow = ({
             </td>
             <td className="py-[14px] px-[10px]">
                 <div className="flex gap-[10px]">
-                    <button className="text-blue-600 text-sm">View</button>
-                    <button className="text-red-600 text-sm">Respond</button>
+                    <button className="text-primary-600 text-sm">View</button>
+                    <button className="text-destructive-600 text-sm">Respond</button>
                 </div>
             </td>
         </tr>
