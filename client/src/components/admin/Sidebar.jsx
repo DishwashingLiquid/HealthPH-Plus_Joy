@@ -36,10 +36,11 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
                         {({ isActive }) => (
                             <>
                                 <Icon 
-                                    iconName="Analytics"
+                                    iconName="PanelsTopLeft"
                                     height="20px"
                                     width="20px"
-                                    fill={iconColor(isActive)}
+                                    fill="none"
+                                    stroke={iconColor(isActive)}
                                 />
                                 {sidebarOpen && <span>AI Surveillance</span>}
                             </>
@@ -49,10 +50,11 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
                         {({ isActive }) => (
                             <>
                                 <Icon
-                                    iconName="TowerLine"
+                                    iconName="Languages"
                                     height="20px"
                                     width="20px"
-                                    fill={iconColor(isActive)}
+                                    fill="none"
+                                    stroke={iconColor(isActive)}
                                 />
                                 {sidebarOpen && <span>NLP Insights</span>}
                             </>
@@ -62,10 +64,11 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
                         {({ isActive }) => (
                             <>
                                 <Icon
-                                    iconName="Megaphone"
+                                    iconName="CircleAlert"
                                     height="20px"
                                     width="20px"
-                                    fill={iconColor(isActive)}
+                                    fill="none"
+                                    stroke={iconColor(isActive)}
                                 />
                                 {sidebarOpen && <span>Misinformation Tracker</span>}
                             </>
@@ -75,10 +78,11 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
                         {({ isActive }) => (
                             <>
                                 <Icon
-                                    iconName="UserThree"
+                                    iconName="Users"
                                     height="20px"
                                     width="20px"
-                                    fill={iconColor(isActive)}
+                                    fill="none"
+                                    stroke={iconColor(isActive)}
                                 />
                                 {sidebarOpen && <span>User Management</span>}
                             </>
@@ -88,12 +92,13 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
                         {({ isActive }) => (
                             <>
                                 <Icon
-                                    iconName="Settings"
+                                    iconName="Database"
                                     height="20px"
                                     width="20px"
-                                    fill={iconColor(isActive)}
+                                    fill="none"
+                                    stroke={iconColor(isActive)}
                                 />
-                                {sidebarOpen && <span>Model Access and Toolkit</span>}
+                                {sidebarOpen && <span>Model Access & Toolkit</span>}
                             </>
                         )}
                     </NavLink>
@@ -114,7 +119,8 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
                                     iconName="Stethoscope"
                                     height="20px"
                                     width="20px"
-                                    fill={iconColor(isActive)}
+                                    fill="none"
+                                    stroke={iconColor(isActive)}
                                 />
                                 {sidebarOpen && <span>Disease Watch Feed</span>}
                             </>
@@ -124,10 +130,11 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
                         {({ isActive }) => (
                             <>
                                 <Icon
-                                    iconName="Document"
+                                    iconName="Heart"
                                     height="20px"
                                     width="20px"
-                                    fill={iconColor(isActive)}
+                                    fill="none"
+                                    stroke={iconColor(isActive)}
                                 />
                                 {sidebarOpen && <span>Health Literacy Hub</span>}
                             </>
@@ -137,10 +144,11 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
                         {({ isActive }) => (
                             <>
                                 <Icon
-                                    iconName="ActivityLog"
+                                    iconName="SquareActivity"
                                     height="20px"
                                     width="20px"
-                                    fill={iconColor(isActive)}
+                                    fill="none"
+                                    stroke={iconColor(isActive)}
                                 />
                                 {sidebarOpen && <span>Sentiment Pulse Tool</span>}
                             </>
