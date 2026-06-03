@@ -19,13 +19,48 @@ import {
   getContentFormValidationError,
   getContentLabel,
   getContentMediaSource,
+  getContentViewCount,
   getHealthLiteracyVisitorId,
   getLimitedContentTags,
+  formatVideoDuration,
   isAllowedMediaType,
   normalizeContentTags,
   normalizeApiContent,
   showToast,
 } from "./shared";
+
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+const getVideoFileDuration = (file) =>
+  new Promise((resolve) => {
+    const video = document.createElement("video");
+    const objectUrl = URL.createObjectURL(file);
+
+    const cleanup = () => {
+      video.removeAttribute("src");
+      video.load();
+      URL.revokeObjectURL(objectUrl);
+    };
+
+    video.preload = "metadata";
+    video.onloadedmetadata = () => {
+      const duration = formatVideoDuration(video.duration);
+      cleanup();
+      resolve(duration);
+    };
+    video.onerror = () => {
+      cleanup();
+      resolve("");
+    };
+    video.src = objectUrl;
+  });
 
 const ContentTab = ({ contentTypeLabel }) => {
   const user = useSelector((state) => state.auth.user);
@@ -110,10 +145,14 @@ const ContentTab = ({ contentTypeLabel }) => {
     setFormData({
       title: item.title ?? "",
       description: item.description ?? "",
-      tags: getLimitedContentTags(item.tags),
+      tags:
+        contentTypeLabel === "Infographics"
+          ? []
+          : getLimitedContentTags(item.tags),
       media: null,
       mediaPreview: getContentMediaSource(item.media) || null,
       existingMedia: item.media ?? null,
+      duration: item.duration ?? "",
       removeMedia: false,
       publishToMobile: Boolean(item.publishToMobile),
       publishToWebsite: Boolean(item.publishToWebsite),
@@ -126,7 +165,9 @@ const ContentTab = ({ contentTypeLabel }) => {
   };
 
   const handleMediaPreviewClick = (item) => {
-    if (!getContentMediaSource(item.media)) return;
+    if (!getContentMediaSource(item.media) && contentTypeLabel !== "Infographics") {
+      return;
+    }
 
     createHealthLiteracyAnalyticsEvent({
       eventType: "content_opened",
@@ -138,12 +179,85 @@ const ContentTab = ({ contentTypeLabel }) => {
     }).catch(() => {});
 
     setSelectedMediaContent({
+      item,
       title: item.title,
       description: item.description,
       media: item.media,
+      contentType: contentTypeLabel,
+      tags: item.tags ?? [],
+      viewCount: getContentViewCount(item),
+      uploadDate: item.date,
       publishToMobile: item.publishToMobile,
       publishToWebsite: item.publishToWebsite,
+      canEdit:
+        item.source === "api" &&
+        ["Videos", "Infographics"].includes(contentTypeLabel),
     });
+  };
+
+  const getShareUrl = (item) => {
+    return item.publicUrl || item.shareUrl || getContentMediaSource(item.media);
+  };
+
+  const handleShareClick = async (item) => {
+    const shareUrl = getShareUrl(item);
+
+    if (!shareUrl) {
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message: "No share URL is available for this article",
+      });
+      return;
+    }
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: item.title,
+          text: item.description,
+          url: shareUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        showToast({
+          iconName: "CheckCircle",
+          color: "success",
+          message: "Article link copied to clipboard",
+        });
+      }
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message: "Failed to share article",
+      });
+    }
+  };
+
+  const handleDownloadClick = (item) => {
+    const mediaSource = getContentMediaSource(item.media);
+
+    if (!mediaSource) {
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message: "No infographic file is available to download",
+      });
+      return;
+    }
+
+    const filename = item.media?.filename || `${item.title || "infographic"}`;
+    const downloadLink = document.createElement("a");
+    downloadLink.href = mediaSource;
+    downloadLink.download = filename;
+    downloadLink.rel = "noopener noreferrer";
+    downloadLink.style.display = "none";
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
   };
 
   const buildContentPayload = ({ includeRemoveMedia = false } = {}) => {
@@ -152,7 +266,11 @@ const ContentTab = ({ contentTypeLabel }) => {
     payload.append("description", formData.description);
     payload.append(
       "tags",
-      JSON.stringify(normalizeContentTags(formData.tags))
+      JSON.stringify(
+        contentTypeLabel === "Infographics"
+          ? []
+          : normalizeContentTags(formData.tags)
+      )
     );
     payload.append("publishToMobile", String(formData.publishToMobile));
     payload.append("publishToWebsite", String(formData.publishToWebsite));
@@ -161,11 +279,15 @@ const ContentTab = ({ contentTypeLabel }) => {
     payload.append("claimStatus", formData.claimStatus);
     payload.append("verifiedBy", formData.verifiedBy);
 
+    if (contentTypeLabel === "Videos") {
+      payload.append("duration", formData.duration || "");
+    }
+
     if (includeRemoveMedia) {
       payload.append("removeMedia", String(formData.removeMedia));
     }
 
-    if (formData.media) {
+    if (contentTypeLabel !== "Articles" && formData.media) {
       payload.append("file", formData.media);
     }
 
@@ -263,8 +385,17 @@ const ContentTab = ({ contentTypeLabel }) => {
     }));
   };
 
-  const setMediaFile = (file) => {
+  const setMediaFile = async (file) => {
     if (!file) return;
+
+    if (contentTypeLabel === "Articles") {
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message: "Articles only accept text content",
+      });
+      return;
+    }
 
     if (!isAllowedMediaType(file, contentTypeLabel)) {
       showToast({
@@ -275,28 +406,37 @@ const ContentTab = ({ contentTypeLabel }) => {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
+    try {
+      const mediaPreview = await readFileAsDataUrl(file);
+      const duration =
+        contentTypeLabel === "Videos" ? await getVideoFileDuration(file) : "";
+
       setFormData((prev) => ({
         ...prev,
         media: file,
-        mediaPreview: reader.result,
+        mediaPreview,
         existingMedia: null,
+        duration: contentTypeLabel === "Videos" ? duration : "",
         removeMedia: false,
       }));
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message: "Failed to read the selected media file",
+      });
+    }
   };
 
-  const handleMediaChange = (e) => {
+  const handleMediaChange = async (e) => {
     const file = e.target.files?.[0];
-    setMediaFile(file);
+    await setMediaFile(file);
     e.target.value = "";
   };
 
-  const handleMediaDrop = (e) => {
+  const handleMediaDrop = async (e) => {
     e.preventDefault();
-    setMediaFile(e.dataTransfer.files?.[0]);
+    await setMediaFile(e.dataTransfer.files?.[0]);
   };
 
   const handleRemoveMedia = () => {
@@ -305,6 +445,7 @@ const ContentTab = ({ contentTypeLabel }) => {
       media: null,
       mediaPreview: null,
       existingMedia: null,
+      duration: contentTypeLabel === "Videos" ? "" : prev.duration,
       removeMedia: Boolean(isEditModalOpen),
     }));
   };
@@ -314,6 +455,7 @@ const ContentTab = ({ contentTypeLabel }) => {
       ...item,
       contentType: contentTypeLabel,
       region: getAnalyticsRegionValue(contentTypeLabel, item),
+      tags: contentTypeLabel === "Infographics" ? [] : item.tags,
     }));
 
     return filterContent(apiContent);
@@ -356,6 +498,8 @@ const ContentTab = ({ contentTypeLabel }) => {
         isLoading={isFetchingContent}
         onMediaClick={handleMediaPreviewClick}
         onEditClick={handleEditClick}
+        onShareClick={handleShareClick}
+        onDownloadClick={handleDownloadClick}
       />
 
       {isCreateModalOpen && (
@@ -370,12 +514,13 @@ const ContentTab = ({ contentTypeLabel }) => {
           onLoadingLabel="Creating..."
           heading={`Create New ${getContentLabel(contentTypeLabel)}`}
           color="primary"
-          additionalClasses="!top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
+          additionalClasses="health-literacy-content-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
         >
           <ContentFormBody
             formData={formData}
             uploadRule={uploadRule}
             mode="create"
+            contentTypeLabel={contentTypeLabel}
             onFormChange={handleFormChange}
             onTagsChange={handleTagsChange}
             onMediaChange={handleMediaChange}
@@ -398,12 +543,17 @@ const ContentTab = ({ contentTypeLabel }) => {
           onLoadingLabel="Saving..."
           heading={`Edit ${getContentLabel(contentTypeLabel)}`}
           color="primary"
-          additionalClasses="!top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
+          additionalClasses={`${
+            ["Articles", "Infographics"].includes(contentTypeLabel)
+              ? "health-literacy-content-modal "
+              : ""
+          }!top-[68px] !h-[calc(100vh-68px)] !pt-[20px]`}
         >
           <ContentFormBody
             formData={formData}
             uploadRule={uploadRule}
             mode="edit"
+            contentTypeLabel={contentTypeLabel}
             onFormChange={handleFormChange}
             onTagsChange={handleTagsChange}
             onMediaChange={handleMediaChange}
@@ -415,11 +565,22 @@ const ContentTab = ({ contentTypeLabel }) => {
 
       {selectedMediaContent && (
         <MediaPreviewModal
+          item={selectedMediaContent.item}
           title={selectedMediaContent.title}
           description={selectedMediaContent.description}
           media={selectedMediaContent.media}
+          contentType={selectedMediaContent.contentType}
+          tags={selectedMediaContent.tags}
+          viewCount={selectedMediaContent.viewCount}
+          uploadDate={selectedMediaContent.uploadDate}
           publishToMobile={selectedMediaContent.publishToMobile}
           publishToWebsite={selectedMediaContent.publishToWebsite}
+          canEdit={selectedMediaContent.canEdit}
+          onDownloadClick={handleDownloadClick}
+          onEditClick={(item) => {
+            setSelectedMediaContent(null);
+            handleEditClick(item);
+          }}
           onClose={() => setSelectedMediaContent(null)}
         />
       )}

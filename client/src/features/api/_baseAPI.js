@@ -37,7 +37,6 @@ export const baseAPI = createApi({
     "PointsDisease",
     "HealthLiteracyContent",
     "HealthLiteracyAnalyticsOverview",
-    "HealthLiteracyFeedback",
   ],
   endpoints: () => ({}),
 });

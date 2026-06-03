@@ -30,27 +30,9 @@ export const healthLiteracyHubApi = baseAPI.injectEndpoints({
         "HealthLiteracyAnalyticsOverview",
       ],
     }),
-    applyHealthLiteracyContentReviewAction: builder.mutation({
-      query: ({ contentType, contentId, data }) => ({
-        url: `/health-literacy-hub/${contentType}/${contentId}/review-action`,
-        method: "PATCH",
-        body: data,
-      }),
-      invalidatesTags: (result, error, { contentType }) => [
-        { type: "HealthLiteracyContent", id: contentType },
-        "HealthLiteracyAnalyticsOverview",
-      ],
-    }),
     fetchHealthLiteracyAnalyticsOverview: builder.query({
       query: ({ timeRange, contentType, region }) => ({
         url: "/health-literacy-hub/analytics/overview",
-        params: { timeRange, contentType, region },
-      }),
-      providesTags: ["HealthLiteracyAnalyticsOverview"],
-    }),
-    fetchHealthLiteracyFactCheckAnalytics: builder.query({
-      query: ({ timeRange, contentType, region }) => ({
-        url: "/health-literacy-hub/analytics/fact-check",
         params: { timeRange, contentType, region },
       }),
       providesTags: ["HealthLiteracyAnalyticsOverview"],
@@ -63,17 +45,6 @@ export const healthLiteracyHubApi = baseAPI.injectEndpoints({
       }),
       invalidatesTags: ["HealthLiteracyAnalyticsOverview"],
     }),
-    upsertHealthLiteracyContentFeedback: builder.mutation({
-      query: ({ contentType, contentId, data }) => ({
-        url: `/health-literacy-hub/content/${contentType}/${contentId}/feedback`,
-        method: "POST",
-        body: data,
-      }),
-      invalidatesTags: [
-        "HealthLiteracyAnalyticsOverview",
-        "HealthLiteracyFeedback",
-      ],
-    }),
   }),
 });
 
@@ -81,9 +52,6 @@ export const {
   useFetchHealthLiteracyContentQuery,
   useCreateHealthLiteracyContentMutation,
   useUpdateHealthLiteracyContentMutation,
-  useApplyHealthLiteracyContentReviewActionMutation,
   useFetchHealthLiteracyAnalyticsOverviewQuery,
-  useFetchHealthLiteracyFactCheckAnalyticsQuery,
   useCreateHealthLiteracyAnalyticsEventMutation,
-  useUpsertHealthLiteracyContentFeedbackMutation,
 } = healthLiteracyHubApi;

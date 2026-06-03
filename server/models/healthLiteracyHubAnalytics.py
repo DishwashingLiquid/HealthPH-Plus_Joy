@@ -16,12 +16,3 @@ class HealthLiteracyAnalyticsEvent(BaseModel):
     visitorId: Optional[str] = None
     metadata: Optional[dict[str, Any]] = None
 
-
-class HealthLiteracyFeedbackRequest(BaseModel):
-    vote: str
-    clientPlatform: str
-
-
-class HealthLiteracyContentReviewAction(BaseModel):
-    action: str
-    assignedReviewer: Optional[str] = None
