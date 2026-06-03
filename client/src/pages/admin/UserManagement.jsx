@@ -198,13 +198,13 @@ const UserManagement = () => {
       {isAdminsLoading || isUsersLoading ? (
         <SkeletonTable columns={9} />
       ) : (
-        <div className="flex flex-col gap-[20px]">
+        <div className="flex flex-col gap-[10px]">
           {/* PAGE HEADER */}
           <div>
-            <h1 className="text-[28px] font-semibold text-gray-800">
+            <h1 className="text-[24px] font-semibold text-gray-800">
               User Management
             </h1>
-            <p className="text-gray-500 mt-[4px]">
+            <p className="text-gray-500">
               Manage administrators, users, access permissions, and account status.
             </p>
           </div>

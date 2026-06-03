@@ -14,13 +14,13 @@ import {
 
 const MisinformationTracker = () => {
     return (
-        <div className="flex flex-col gap-[20px]">
+        <div className="flex flex-col gap-[10px]">
             {/* PAGE HEADER */}
             <div>
-                <h1 className="text-[28px] font-semibold text-gray-800">
+                <h1 className="text-[24px] font-semibold text-gray-800">
                     Misinformation Tracker
                 </h1>
-                <p className="text-gray-500 mt-[4px]">
+                <p className="text-gray-500">
                     Monitor and respond to health misinformation across the Philippines.
                 </p>
             </div>
@@ -83,7 +83,7 @@ const MisinformationTracker = () => {
             </div>
 
             {/* MAIN CONTENT */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-[20px]">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-[10px]">
                 {/* TRENDING MISINFORMATION */}
                 <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
                     <div className="mb-[20px]">

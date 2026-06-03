@@ -63,13 +63,13 @@ const NLPInsights = () => {
     };
 
     return (
-        <div className="flex flex-col gap-[20px]">
+        <div className="flex flex-col gap-[10px]">
             {/* PAGE HEADER */}
             <div>
-                <h1 className="text-[28px] font-semibold text-gray-800">
+                <h1 className="text-[24px] font-semibold text-gray-800">
                     NLP Insights
                 </h1>
-                <p className="text-gray-500 mt-[4px]">
+                <p className="text-gray-500">
                     Multilingual natural language processing, entity recognitation, sentiment analysis, and language detection.
                 </p>
             </div>
@@ -142,9 +142,9 @@ const NamedEntityRecognition = ({
     wordcloudOptions,
 }) => {
     return (
-        <div className="flex flex-col gap-[20px]">
+        <div className="flex flex-col gap-[10px]">
             {/* FIRST ROW */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-[20px]">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-[10px]">
                 {/* DISEASES PANEL */}
                 <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[260px]">
                     <h2 className="text-[18px] font-semibold text-gray-800 mb-[24px]">
@@ -256,7 +256,7 @@ const NamedEntityRecognition = ({
                 </div>
             </div>
             {/* SECOND ROW */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-[20px]">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-[10px]">
                 {/* LEFT - NER DEMO PANEL*/}
                 <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[420px]">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-[16px] mb-[20px]">
@@ -297,7 +297,7 @@ const NamedEntityRecognition = ({
                     </div>
                 </div>
                 {/* RIGHT */}
-                <div className="flex flex-col gap-[20px]">
+                <div className="flex flex-col gap-[10px]">
                     {/* TOP WORDS */}
                     <Report
                         heading="Top Words"
@@ -373,7 +373,7 @@ const NamedEntityRecognition = ({
 
 const SentimentAnalysis = () => {
     return (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-[20px]">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-[10px]">
             {/* SENTIMENT DISTRIBUTION */}
             <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[360px]">
                 <h2 className="text-[18px] font-semibold text-gray-800">
@@ -507,7 +507,7 @@ const SentimentAnalysis = () => {
 
 const LanguageDetection = () => {
     return (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-[20px]">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-[10px]">
             {/* LANGUAGE DISTRIBUTION */}
             <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[360px]">
                 <h2 className="text-[18px] font-semibold text-gray-800">

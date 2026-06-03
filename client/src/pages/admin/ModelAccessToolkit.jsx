@@ -25,13 +25,13 @@ const ModelAccessToolkit = () => {
     const [activeTab, setActiveTab] = useState("comparison");
 
     return (
-        <div className="flex flex-col gap-[20px]">
+        <div className="flex flex-col gap-[10px]">
             {/* PAGE HEADER */}
             <div>
-                <h1 className="text-[28px] font-semibold text-gray-800">
+                <h1 className="text-[24px] font-semibold text-gray-800">
                     Model Access and Toolkit
                 </h1>
-                <p className="text-gray-500 mt-[4px]">
+                <p className="text-gray-500">
                     Evaluate, compare, and manage machine learning models for health surveillance.
                 </p>
             </div>
@@ -82,7 +82,7 @@ const TabButton = ({ label, active, onClick }) => {
 /* SUBTAB 1 = MODEL COMPARISON */
 const ModelComparison = () => {
     return (
-        <div className="flex flex-col gap-[20px]">
+        <div className="flex flex-col gap-[10px]">
             {/* FILTERS */}
             <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
                 <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-[16px]">
@@ -144,7 +144,7 @@ const ModelComparison = () => {
             </div>
 
             {/* MODEL CARDS */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-[20px]">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-[10px]">
                 <ModelCard
                     name="mBERT"
                     description="Pretrained multilingual BERT model fine-tuned for disease entity recognition."
@@ -366,7 +366,7 @@ const ModelCard = ({ name, description, score, precision, recall, tag }) => {
                         {description}
                     </p>
                 </div>
-                <span className="bg-blue-50 text-primary-600 rounded-full px-[10px] py-[4px] text-xs font-medium">
+                <span className="bg-primary-100 text-primary-600 rounded-full px-[5px] py-[4px] text-xs font-medium">
                     {tag}
                 </span>
             </div>

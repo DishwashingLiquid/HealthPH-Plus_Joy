@@ -82,77 +82,80 @@ const AISurveillance = () => {
     const RADIAN = Math.PI / 180;
 
     return (
-        <div className="flex flex-col gap-[20px]">
+        <div className="flex flex-col gap-[10px]">
             {/* PAGE HEADER */}
             <div>
-                <h1 className="text-[28px] font-semibold text-gray-800">
+                <h1 className="text-[24px] font-semibold text-gray-800">
                     AI Surveillance
                 </h1>
 
-                <p className="text-gray-500 mt-[4px]">
+                <p className="text-gray-500">
                     Real-time disease surveillance, outbreak monitoring, and AI-driven public health analytics.
                 </p>
             </div>
 
             {/* FILTER SECTION */}
-            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[12px]">
-                <div className="flex flex-wrap gap-[12px]">
-                    <div className="bg-[#F5F5F5] px-[16px] py-[10px] rounded-[8px]">
-                        Region Filter
-                    </div>
-                    <div className="bg-[#F5F5F5] px-[16px] py-[10px] rounded-[8px]">
-                        Disease Filter
-                    </div>
-                    <div className="bg-[#F5F5F5] px-[16px] py-[10px] rounded-[8px]">
-                        Time Range
-                    </div>
-                    <div className="bg-[#F5F5F5] px-[16px] py-[10px] rounded-[8px]">
-                        Language
+            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
+                <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-[16px]">
+                    {/* LEFT */}
+                    <div className="flex flex-wrap gap-[12px]">
+                        <select className="border border-[#E5E5E5] rounded-[10px] px-[14px] py-[10px] text-sm">
+                            <option>Region Filter</option>
+                        </select>
+                        <select className="border border-[#E5E5E5] rounded-[10px] px-[14px] py-[10px] text-sm">
+                            <option>Disease Filter</option>
+                        </select>
+                        <select className="border border-[#E5E5E5] rounded-[10px] px-[14px] py-[10px] text-sm">
+                            <option>Time Range</option>
+                        </select>
+                        <select className="border border-[#E5E5E5] rounded-[10px] px-[14px] py-[10px] text-sm">
+                            <option>Language</option>
+                        </select>
                     </div>
                 </div>
-            </div>
 
-            {/* SUMMARY CARDS */}
-            <div className="grid grid-cols-1 xl:grid-cols-4 gap-[20px]">
-                {/* SUSPECTED CASES */}
-                <div className="xl:col-span-1 bg-white rounded-[12px] border border-[#E5E5E5] p-[12px]">
-                    <div className="flex justify-between items-center h-full">
-                        {/* LEFT */}
-                        <div className="flex flex-col justify-center">
-                            <p className="text-gray-500 text-sm mb-[8px]">Suspected Cases</p>
-                            <h2 className="text-[32px] font-semibold text-gray-800 leading-none">{formatCount(suspectedSymptoms?.total)}</h2>
-                        </div>
-                        {/* RIGHT */}
-                        <div className="grid grid-cols-2 gap-x-[32px] gap-y-[8px]">
-                            <div>
-                                <p className="text-xs text-gray-500 uppercase">TB</p>
-                                <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.TB)}</p>
+                {/* SUMMARY CARDS */}
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-[16px] mt-[20px]">
+                    {/* SUSPECTED CASES */}
+                    <div className="xl:col-span-1 bg-white rounded-[12px] border border-[#E5E5E5] p-[12px]">
+                        <div className="flex justify-between items-center h-full">
+                            {/* LEFT */}
+                            <div className="flex flex-col justify-center">
+                                <p className="text-gray-500 text-sm mb-[8px]">Suspected Cases</p>
+                                <h2 className="text-[32px] font-semibold text-gray-800 leading-none">{formatCount(suspectedSymptoms?.total)}</h2>
                             </div>
-                            <div>
-                                <p className="text-xs text-gray-500 uppercase">COVID</p>
-                                <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.COVID)}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-gray-500 uppercase">Pneumonia</p>
-                                <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.PN)}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-gray-500 uppercase">AURI</p>
-                                <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.AURI)}</p>
+                            {/* RIGHT */}
+                            <div className="grid grid-cols-2 gap-x-[32px] gap-y-[8px]">
+                                <div>
+                                    <p className="text-xs text-gray-500 uppercase">TB</p>
+                                    <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.TB)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-500 uppercase">COVID</p>
+                                    <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.COVID)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-500 uppercase">Pneumonia</p>
+                                    <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.PN)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-gray-500 uppercase">AURI</p>
+                                    <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.AURI)}</p>
+                                </div>
                             </div>
                         </div>
                     </div>
+                    {/* ACTIVE REGIONS */}
+                    <SummaryCard label="Active Regions" value="15" />
+                    {/* RESPIRATORY ALERTS */}
+                    <SummaryCard label="Respiratory Alerts" value="3" />
+                    {/* HIGH RISK AREAS */}
+                    <SummaryCard label="High Risk Areas" value="5" />
                 </div>
-                {/* ACTIVE REGIONS */}
-                <SummaryCard label="Active Regions" value="15" />
-                {/* RESPIRATORY ALERTS */}
-                <SummaryCard label="Respiratory Alerts" value="3" />
-                {/* HIGH RISK AREAS */}
-                <SummaryCard label="High Risk Areas" value="5" />
             </div>
 
             {/* MAIN CONTENT */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-[20px]">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-[10px]">
                 {/* MAP SECTION */}
                 <div className="xl:col-span-2 bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[520px]">
                     <h2 className="text-[20px] font-semibold text-gray-800 mb-[16px]">Real-time Outbreak Monitoring</h2>
@@ -168,7 +171,7 @@ const AISurveillance = () => {
                     
                 </div>
                 {/* RIGHT PANELS */}
-                <div className="flex flex-col gap-[20px]">
+                <div className="flex flex-col gap-[10px]">
                     <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
                         <h2 className="text-[18px] font-semibold text-gray-800 mb-[16px]">Environmental Data</h2>
                         <div className="flex flex-col gap-[12px]">
@@ -188,7 +191,7 @@ const AISurveillance = () => {
                 </div>
             </div>
             {/* HEALTH MONITORING */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-[20px]">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-[10px]">
                 {/* RESPIRATORY MONITORING */}
                 <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[260px]">
                     <h2 className="text-[18px] font-semibold text-gray-800">
