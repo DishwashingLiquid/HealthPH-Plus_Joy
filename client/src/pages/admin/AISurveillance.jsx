@@ -25,6 +25,12 @@ import {
     Area,
 } from "recharts";
 
+import {
+    ToolbarSearch,
+    ToolbarButton,
+    ToolbarSelect,
+} from "../../components/ToolbarControls";
+
 import Report from "../../components/admin/Report";
 
 import {
@@ -89,7 +95,7 @@ const AISurveillance = () => {
                     AI Surveillance
                 </h1>
 
-                <p className="text-gray-500">
+                <p className="text-gray-500 text-[12px]">
                     Real-time disease surveillance, outbreak monitoring, and AI-driven public health analytics.
                 </p>
             </div>
@@ -99,67 +105,35 @@ const AISurveillance = () => {
                 <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-[16px]">
                     {/* LEFT */}
                     <div className="flex flex-wrap gap-[12px]">
-                        <select className="border border-[#E5E5E5] rounded-[10px] px-[14px] py-[10px] text-sm">
-                            <option>Region Filter</option>
-                        </select>
-                        <select className="border border-[#E5E5E5] rounded-[10px] px-[14px] py-[10px] text-sm">
-                            <option>Disease Filter</option>
-                        </select>
-                        <select className="border border-[#E5E5E5] rounded-[10px] px-[14px] py-[10px] text-sm">
-                            <option>Time Range</option>
-                        </select>
-                        <select className="border border-[#E5E5E5] rounded-[10px] px-[14px] py-[10px] text-sm">
-                            <option>Language</option>
-                        </select>
+                        <ToolbarSelect>
+                            <option value="">Last 7 Days</option>
+                        </ToolbarSelect>
+                        <ToolbarSelect>
+                            <option value="">All Regions</option>
+                        </ToolbarSelect>
+                        <ToolbarSelect iconName="ChevronDown">
+                            <option value="">All Impacts</option>
+                        </ToolbarSelect>
+                        <ToolbarSelect iconName="List">
+                            <option value="">More Filters</option>
+                        </ToolbarSelect>
                     </div>
-                </div>
-
-                {/* SUMMARY CARDS */}
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-[16px] mt-[20px]">
-                    {/* SUSPECTED CASES */}
-                    <div className="xl:col-span-1 bg-white rounded-[12px] border border-[#E5E5E5] p-[12px]">
-                        <div className="flex justify-between items-center h-full">
-                            {/* LEFT */}
-                            <div className="flex flex-col justify-center">
-                                <p className="text-gray-500 text-sm mb-[8px]">Suspected Cases</p>
-                                <h2 className="text-[32px] font-semibold text-gray-800 leading-none">{formatCount(suspectedSymptoms?.total)}</h2>
-                            </div>
-                            {/* RIGHT */}
-                            <div className="grid grid-cols-2 gap-x-[32px] gap-y-[8px]">
-                                <div>
-                                    <p className="text-xs text-gray-500 uppercase">TB</p>
-                                    <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.TB)}</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500 uppercase">COVID</p>
-                                    <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.COVID)}</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500 uppercase">Pneumonia</p>
-                                    <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.PN)}</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-500 uppercase">AURI</p>
-                                    <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.AURI)}</p>
-                                </div>
-                            </div>
-                        </div>
+                    {/* RIGHT */}
+                    <div className="flex flex-wrap gap-[12px]">
+                        <ToolbarSearch placeholder="Search regions, diseases..." />
+                        <ToolbarButton iconName="Upload" className="bg-primary-600 text-white">
+                            Export
+                        </ToolbarButton>
                     </div>
-                    {/* ACTIVE REGIONS */}
-                    <SummaryCard label="Active Regions" value="15" />
-                    {/* RESPIRATORY ALERTS */}
-                    <SummaryCard label="Respiratory Alerts" value="3" />
-                    {/* HIGH RISK AREAS */}
-                    <SummaryCard label="High Risk Areas" value="5" />
                 </div>
             </div>
 
             {/* MAIN CONTENT */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-[10px]">
                 {/* MAP SECTION */}
-                <div className="xl:col-span-2 bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[520px]">
+                <div className="xl:col-span-2 bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[700px]">
                     <h2 className="text-[20px] font-semibold text-gray-800 mb-[16px]">Real-time Outbreak Monitoring</h2>
-                    <div className="trends-wrapper h-[450px] rounded-[12px] overflow-hidden border border-[#E5E5E5]">
+                    <div className="trends-wrapper h-[620px] rounded-[12px] overflow-hidden border border-[#E5E5E5]">
                         <Map 
                             filters={filters}
                             data={DummyData}
@@ -172,6 +146,44 @@ const AISurveillance = () => {
                 </div>
                 {/* RIGHT PANELS */}
                 <div className="flex flex-col gap-[10px]">
+                    {/* SUMMARY CARDS */}
+                    <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
+                        {/* SUSPECTED CASES */}
+                        <div className="xl:col-span-1 bg-white rounded-[12px] border border-[#E5E5E5] p-[12px]">
+                            <div className="flex justify-between items-center h-full">
+                                {/* LEFT */}
+                                <div className="flex flex-col justify-center">
+                                    <p className="text-gray-500 text-sm mb-[8px]">Suspected Cases</p>
+                                    <h2 className="text-[32px] font-semibold text-gray-800 leading-none">{formatCount(suspectedSymptoms?.total)}</h2>
+                                </div>
+                                {/* RIGHT */}
+                                <div className="grid grid-cols-2 gap-x-[32px] gap-y-[8px]">
+                                    <div>
+                                        <p className="text-xs text-gray-500 uppercase">TB</p>
+                                        <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.TB)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500 uppercase">COVID</p>
+                                        <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.COVID)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500 uppercase">Pneumonia</p>
+                                        <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.PN)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-gray-500 uppercase">AURI</p>
+                                        <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.AURI)}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {/* ACTIVE REGIONS */}
+                        <SummaryCard label="Active Regions" value="15" />
+                        {/* RESPIRATORY ALERTS */}
+                        <SummaryCard label="Respiratory Alerts" value="3" />
+                        {/* HIGH RISK AREAS */}
+                        <SummaryCard label="High Risk Areas" value="5" />
+                    </div>
                     <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
                         <h2 className="text-[18px] font-semibold text-gray-800 mb-[16px]">Environmental Data</h2>
                         <div className="flex flex-col gap-[12px]">
@@ -179,15 +191,7 @@ const AISurveillance = () => {
                             <MetricRow label="Weather Pattern" value="Humid / Cloudy" />
                             <MetricRow label="Heat Index" value="38°C" />
                         </div>
-                    </div>
-                    <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
-                        <h2 className="text-[18px] font-semibold text-gray-800 mb-[16px]">AI Insights</h2>
-                        <div className="flex flex-col gap-[12px]">
-                            <div className="bg-[#F5F5F5] rounded-[8px] p-[12px]">Increase flu-related mentions detected in NCR</div>
-                            <div className="bg-[#F5F5F5] rounded-[8px] p-[12px]">Spike in respiratory symptom reports in Region IV-A</div>
-                            <div className="bg-[#F5F5F5] rounded-[8px] p-[12px]">Misinformation alert volume increased by 12%</div>
-                        </div>
-                    </div>
+                    </div> 
                 </div>
             </div>
             {/* HEALTH MONITORING */}
@@ -402,9 +406,9 @@ const AISurveillance = () => {
 
 const SummaryCard = ({ label, value }) => {
     return (
-        <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[12px]">
+        <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[12px] mt-[10px]">
             <p className="text-gray-500 text-sm">{label}</p>
-            <h2 className="text-[32px] font-semibold text-gray-800 mt-[8px]">{value}</h2>
+            <h2 className="text-[32px] font-semibold text-gray-800">{value}</h2>
         </div>
     );
 };
