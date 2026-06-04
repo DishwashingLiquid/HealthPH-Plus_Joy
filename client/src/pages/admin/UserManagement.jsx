@@ -20,6 +20,7 @@ import useDeviceDetect from "../../hooks/useDeviceDetect";
 import Snackbar from "../../components/Snackbar";
 import { toast } from "react-toastify";
 import { toPng } from "html-to-image";
+import { ToolbarSearch } from "../../components/ToolbarControls";
 
 const UserManagement = () => {
   const user = useSelector((state) => state.auth.user);
@@ -204,19 +205,17 @@ const UserManagement = () => {
             <h1 className="text-[24px] font-semibold text-gray-800">
               User Management
             </h1>
-            <p className="text-gray-500">
+            <p className="text-gray-500 text-[14px]">
               Manage administrators, users, access permissions, and account status.
             </p>
           </div>
 
           {/* FILTERS SECTION */}
-          <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
+          <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[10px]">
             <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-[16px]">
               {/* LEFT */}
               <div className="flex flex-wrap gap-[12px]">
-                <input 
-                  type="text"
-                  className="border border-[#E5E5E5] rounded-[10px] px-[14px] py-[10px] text-sm w-full xl:w-[320px]"
+                <ToolbarSearch 
                   id="search"
                   placeholder="Search user..."
                   value={searchQuery}

@@ -69,7 +69,7 @@ const NLPInsights = () => {
                 <h1 className="text-[24px] font-semibold text-gray-800">
                     NLP Insights
                 </h1>
-                <p className="text-gray-500">
+                <p className="text-gray-500 text-[14px]">
                     Multilingual natural language processing, entity recognitation, sentiment analysis, and language detection.
                 </p>
             </div>
@@ -146,8 +146,8 @@ const NamedEntityRecognition = ({
             {/* FIRST ROW */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-[10px]">
                 {/* DISEASES PANEL */}
-                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[260px]">
-                    <h2 className="text-[18px] font-semibold text-gray-800 mb-[24px]">
+                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[260px]">
+                    <h2 className="text-[18px] font-semibold text-gray-800 mb-[12px]">
                         Diseases
                     </h2>
 
@@ -157,35 +157,35 @@ const NamedEntityRecognition = ({
                             count="328"
                             progress="90%"
                             note="+12% from last week | Primarily NCR"
-                            color="#2563EB"
-                        />
-                        <EntityFrequencyRow
-                            entity="COVID-19"
-                            count="241"
-                            progress="75%"
-                            note="-4% from last week | Region IV-A"
-                            color="#F97316"
+                            color="#32418C"
                         />
                         <EntityFrequencyRow
                             entity="Pneumonia"
+                            count="241"
+                            progress="75%"
+                            note="-4% from last week | Region IV-A"
+                            color="#2572A5"
+                        />
+                        <EntityFrequencyRow
+                            entity="COVID-19"
                             count="187"
                             progress="60%"
                             note="+8% from last week | Region III"
-                            color="#20C997"
+                            color="#9BCC33"
                         />
                         <EntityFrequencyRow
                             entity="AURI"
                             count="121"
                             progress="40%"
                             note="+3% from last week | Multiple regions"
-                            color="#9CA3AF"
+                            color="#FBD117"
                         />
                     </div>
                 </div>
 
                 {/* SYMPTOM FREQUENCY PANEL */}
-                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[260px]">
-                    <h2 className="text-[18px] font-semibold text-gray-800 mb-[24px]">
+                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[260px]">
+                    <h2 className="text-[18px] font-semibold text-gray-800 mb-[12px]">
                         Symptom Frequency    
                     </h2>
 
@@ -195,35 +195,35 @@ const NamedEntityRecognition = ({
                             count="356"
                             progress="95%"
                             note="+8% from last week | Primarily in NCR, Region III"
-                            color="#F97316"
+                            color="#32418C"
                         />
                         <EntityFrequencyRow 
                             entity="Cough" 
                             count="289"
                             progress="78%"
                             note="-3% from last week | Primarily in NCR, Region IV-A"
-                            color="#F97316"
+                            color="#2572A5"
                         />
                         <EntityFrequencyRow 
                             entity="Headache" 
                             count="201"
                             progress="60%"
                             note="+32% from last week | Region IV-A"
-                            color="#F97316"
+                            color="#9BCC33"
                         />
                         <EntityFrequencyRow 
                             entity="Rash" 
                             count="99"
                             progress="35%"
                             note="+5% from last week | Multiple regions"
-                            color="#F97316"
+                            color="#FBD117"
                         />
                     </div>
                 </div>
                 
                 {/* LOCATION PANEL */}
-                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[260px]">
-                    <h2 className="text-[18px] font-semibold text-gray-800 mb-[24px]">
+                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[260px]">
+                    <h2 className="text-[18px] font-semibold text-gray-800 mb-[12px]">
                         Locations
                     </h2>
 
@@ -232,25 +232,25 @@ const NamedEntityRecognition = ({
                             location="National Capital Region"
                             mentions="428"
                             status="High Activity"
-                            color="#FF0000"
+                            color="#32418C"
                         />
                         <LocationRow 
                             location="Region IV-A"
                             mentions="312"
                             status="Moderate Activity"
-                            color="#F97316"
+                            color="#2572A5"
                         />
                         <LocationRow 
                             location="Region III"
                             mentions="201"
                             status="Monitoring"
-                            color="#FFFF00"
+                            color="#9BCC33"
                         />
                         <LocationRow 
                             location="BARMM"
                             mentions="97"
                             status="Low Activity"
-                            color="#FFFFED"
+                            color="#FBD117"
                         />
                     </div>
                 </div>
@@ -258,21 +258,21 @@ const NamedEntityRecognition = ({
             {/* SECOND ROW */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-[10px]">
                 {/* LEFT - NER DEMO PANEL*/}
-                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[420px]">
+                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[420px]">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-[16px] mb-[20px]">
                         <div>
                             <h2 className="text-[18px] font-semibold text-gray-800">
                                 Named Entity Recognition Demo
                             </h2>
-                            <p className="text-sm text-gray-500 mt-[4px]">
+                            <p className="text-sm text-gray-500">
                                 Sample entity extraction from health-related text.
                             </p>
                         </div>
                         
                         <div className="flex flex-wrap gap-[14px] text-sm">
-                            <LegendItem label="Disease" color="#DC2626" />
-                            <LegendItem label="Symptom" color="#059669" />
-                            <LegendItem label="Location" color="#EA580C" />
+                            <LegendItem label="Disease" color="#32418C" />
+                            <LegendItem label="Symptom" color="#2572A5" />
+                            <LegendItem label="Location" color="#FBD117" />
                         </div>
                     </div>
                     <div className="flex flex-col gap-[14px]">
@@ -281,18 +281,18 @@ const NamedEntityRecognition = ({
                             postId="Post ID: 1"
                         >
                             Maraming kaso ng {" "}
-                            <EntityHighlight label="dengue" backgroundColor="#FEE2E2" textColor="#DC2626" /> sa aming barangay sa {" "}
-                            <EntityHighlight label="Quezon City" backgroundColor="#FFEDD5" textColor="#EA580C" />. May {" "}
-                            <EntityHighlight label="lagnat" backgroundColor="#D1FAE5" textColor="#059669" /> at {" "}
-                            <EntityHighlight label="pantal" backgroundColor="#D1FAE5" textColor="#059669" /> ang aking anak.
+                            <EntityHighlight label="dengue" backgroundColor="#32418C30" textColor="#32418C" /> sa aming barangay sa {" "}
+                            <EntityHighlight label="Quezon City" backgroundColor="#FBD11730" textColor="#FBD117" />. May {" "}
+                            <EntityHighlight label="lagnat" backgroundColor="#1ABC9C30" textColor="#1ABC9C" /> at {" "}
+                            <EntityHighlight label="pantal" backgroundColor="#1ABC9C30" textColor="#1ABC9C" /> ang aking anak.
                         </NERPostCard>
                         <NERPostCard
                             language="English"
                             postId="Post ID: 2"
                         >
                             Several people in {" "}
-                            <EntityHighlight label="Cebu City" backgroundColor="#FFEDD5" textColor="#EA580C" /> are experiencing severe {" "}
-                            <EntityHighlight label="coughing" backgroundColor="#D1FAE5" textColor="#059669" /> and difficulty breathing after the typhoon. 
+                            <EntityHighlight label="Cebu City" backgroundColor="#FBD11730" textColor="#FBD117" /> are experiencing severe {" "}
+                            <EntityHighlight label="coughing" backgroundColor="#1ABC9C30" textColor="#1ABC9C" /> and difficulty breathing after the typhoon. 
                         </NERPostCard>
                     </div>
                 </div>
@@ -375,11 +375,11 @@ const SentimentAnalysis = () => {
     return (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-[10px]">
             {/* SENTIMENT DISTRIBUTION */}
-            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[360px]">
+            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[360px]">
                 <h2 className="text-[18px] font-semibold text-gray-800">
                     Sentiment Distribution
                 </h2>
-                <p className="text-sm text-gray-500 mt-[4px] mb-[16px]">
+                <p className="text-sm text-gray-500 mb-[12px]">
                     Overall public sentiment detected from multilingual health-related posts.
                 </p>
 
@@ -411,7 +411,7 @@ const SentimentAnalysis = () => {
                             dataKey="value"
                             label
                         >
-                            {["#20C997", "#9CA3AF", "#EF4444"].map((color, index) => (
+                            {["#32418C", "#1ABC9C", "#FBD117 "].map((color, index) => (
                                 <Cell key={`sentiment-cell-${index}`} fill={color} />
                             ))}
                         </Pie>
@@ -422,11 +422,11 @@ const SentimentAnalysis = () => {
             </div>
             
             {/* SENTIMENT BY REGION */}
-            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[360px]">
+            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[360px]">
                 <h2 className="text-[18px] font-semibold text-gray-800">
                     Sentiment by Region
                 </h2>
-                <p className="text-sm text-gray-500 mt-[4px] mb-[16px]">
+                <p className="text-sm text-gray-500 mb-[12px]">
                     Regional sentiment breakdown from detected public health conversations.
                 </p>
 
@@ -454,19 +454,19 @@ const SentimentAnalysis = () => {
                             }}
                         />
 
-                        <Bar dataKey="positive" name="Positive" fill="#20C997" />
-                        <Bar dataKey="neutral" name="Neutral" fill="#9CA3AF" />
-                        <Bar dataKey="negative" name="negative" fill="#EF4444" />
+                        <Bar dataKey="positive" name="Positive" fill="#32418C" />
+                        <Bar dataKey="neutral" name="Neutral" fill="#1ABC9C" />
+                        <Bar dataKey="negative" name="Negative" fill="#FBD117" />
                     </BarChart>
                 </ResponsiveContainer>
             </div>
             
             {/* SENTIMENT TRENDS OVER TIME */}
-            <div className="xl:col-span-2 bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[380px]">
+            <div className="xl:col-span-2 bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[380px]">
                 <h2 className="text-[18px] font-semibold text-gray-800">
                     Sentiment Trends Over Time
                 </h2>
-                <p className="text-sm text-gray-500 mt-[4px] mb-[16px]">
+                <p className="text-sm text-gray-500 mb-[12px]">
                     Weekly sentiment movement used to support public health communication monitoring.
                 </p>
 
@@ -495,9 +495,9 @@ const SentimentAnalysis = () => {
                             }}
                         />
 
-                        <Line type="monotone" dataKey="positive" name="Positive" stroke="#20C997" strokeWidth={2} />
-                        <Line type="monotone" dataKey="neutral" name="Neutral" stroke="#9CA3AF" strokeWidth={2} />
-                        <Line type="monotone" dataKey="negative" name="Negative" stroke="#EF4444" strokeWidth={2} />
+                        <Line type="monotone" dataKey="positive" name="Positive" stroke="#32418C" strokeWidth={2} />
+                        <Line type="monotone" dataKey="neutral" name="Neutral" stroke="#1ABC9C" strokeWidth={2} />
+                        <Line type="monotone" dataKey="negative" name="Negative" stroke="#FBD117" strokeWidth={2} />
                     </LineChart> 
                 </ResponsiveContainer>
             </div>
@@ -509,11 +509,11 @@ const LanguageDetection = () => {
     return (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-[10px]">
             {/* LANGUAGE DISTRIBUTION */}
-            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[360px]">
+            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[360px]">
                 <h2 className="text-[18px] font-semibold text-gray-800">
                     Language Distribution
                 </h2>
-                <p className="text-sm text-gray-500 mt-[4px] mb-[16px]">
+                <p className="text-sm text-gray-500 mb-[12px]">
                     Detected language distribution from multilingual health-related posts.
                 </p>
 
@@ -543,7 +543,7 @@ const LanguageDetection = () => {
                             dataKey="value"
                             label
                         >
-                            {["#2563EB", "#F97316", "#20C997", "#9CA3AF", "#8B5CF6"].map((color, index) => (
+                            {["#32418C", "#2572A5", "#1ABC9C", "#9BCC33", "#FBD117"].map((color, index) => (
                                 <Cell key={`language-cell-${index}`} fill={color} />
                             ))}
                         </Pie>
@@ -554,11 +554,11 @@ const LanguageDetection = () => {
             </div>
 
             {/* LANGUAGE DISTRIBUTION BY REGION */}
-            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] min-h-[360px]">
+            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[360px]">
                 <h2 className="text-[18px] font-semibold text-gray-800">
                     Language Distribution by Region
                 </h2>
-                <p className="text-sm text-gray-500 mt-[4px] mb-[16px]">
+                <p className="text-sm text-gray-500 mb-[12px]">
                     Regional language patterns detected from public health conversations.
                 </p>
 
@@ -582,20 +582,20 @@ const LanguageDetection = () => {
                             iconType="circle"
                             wrapperStyle={{
                                 paddingTop: "20px",
-                                lineHeight: "28px"
+                                lineHeight: "28px",
                             }}
                         />
 
-                        <Bar dataKey="english" name="English" fill="#2563EB" />
-                        <Bar dataKey="filipino" name="Filipino" fill="#F97316" />
-                        <Bar dataKey="regional" name="Regional Languages" fill="#20C997" />
+                        <Bar dataKey="english" name="English" fill="#32418C" />
+                        <Bar dataKey="filipino" name="Filipino" fill="#1ABC9C" />
+                        <Bar dataKey="regional" name="Regional Languages" fill="#FBD117" />
                     </BarChart>
                 </ResponsiveContainer>
             </div>
 
             {/* LANGUAGE PROCESSING MODEL PERFORMANCE */}
-            <div className="xl:col-span-2 bg-white rounded-[12px] border border-[#E5E5E5] p-[24px]">
-                <h2 className="text-[18px] font-semibold text-gray-800 mb-[20px]">
+            <div className="xl:col-span-2 bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
+                <h2 className="text-[18px] font-semibold text-gray-800 mb-[12px]">
                     Language Processing Model Performance
                 </h2>
 

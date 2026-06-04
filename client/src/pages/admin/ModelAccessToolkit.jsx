@@ -21,6 +21,8 @@ import {
     Legend,
 } from "recharts";
 
+import { ToolbarSearch } from "../../components/ToolbarControls";
+
 const ModelAccessToolkit = () => {
     const [activeTab, setActiveTab] = useState("comparison");
 
@@ -31,7 +33,7 @@ const ModelAccessToolkit = () => {
                 <h1 className="text-[24px] font-semibold text-gray-800">
                     Model Access and Toolkit
                 </h1>
-                <p className="text-gray-500">
+                <p className="text-gray-500 text-[14px]">
                     Evaluate, compare, and manage machine learning models for health surveillance.
                 </p>
             </div>
@@ -84,7 +86,7 @@ const ModelComparison = () => {
     return (
         <div className="flex flex-col gap-[10px]">
             {/* FILTERS */}
-            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
+            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[10px]">
                 <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-[16px]">
                     <div className="flex flex-wrap gap-[12px]">
                         <select className="border border-[#E5E5E5] rounded-[10px] px-[14px] py-[10px] text-sm">
@@ -94,20 +96,16 @@ const ModelComparison = () => {
                             <option value="">F1 Score</option>
                         </select>
                     </div>
-                    <input 
-                        type="text"
-                        placeholder="Search models by name or description..."
-                        className="border border-[#E5E5E5] rounded-[10px] px-[14px] py-[10px] text-sm w-full xl:w-[360px]"    
-                    />
+                    <ToolbarSearch placeholder="Search models by name or description..." />
                 </div>
             </div>
 
             {/* PERFORMANCE CHART */}
             <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
-                <h2 className="text-[20px] font-semibold text-gray-800">
+                <h2 className="text-[18px] font-semibold text-gray-800">
                     Model Performance Comparison
                 </h2>
-                <p className="text-sm text-gray-500 mt-[4px] mb-[20px]">
+                <p className="text-sm text-gray-500 mb-[12px]">
                     Comparative analysis of model metrics across different tasks and languages.
                 </p>
 
@@ -135,10 +133,10 @@ const ModelComparison = () => {
                                 lineHeight: "28px",
                             }}
                         />
-                        <Bar dataKey="f1" name="F1 Score" fill="#2563EB" />
-                        <Bar dataKey="precision" name="Precision" fill="#20C997" />
-                        <Bar dataKey="recall" name="Recall" fill="#9CA3AF" />
-                        <Bar dataKey="accuracy" name="Accuracy" fill="#F97316" />
+                        <Bar dataKey="f1" name="F1 Score" fill="#32418C" />
+                        <Bar dataKey="precision" name="Precision" fill="#2572A5" />
+                        <Bar dataKey="recall" name="Recall" fill="#9BCC33" />
+                        <Bar dataKey="accuracy" name="Accuracy" fill="#FBD117" />
                     </BarChart>
                 </ResponsiveContainer>
             </div>
@@ -294,7 +292,7 @@ const TrainingLogs = () => {
                         Track model training activity, evaluation runs, and dataset processing history.
                     </p>
                 </div>
-                <button className="border border-[#E5E5E5] rounded-[10px] px-[14px] py-[9px] text-sm text-white bg-[#2563EB]">
+                <button className="border border-[#E5E5E5] rounded-[10px] px-[14px] py-[9px] text-sm text-white bg-[#32418C]">
                     Download Logs
                 </button>
             </div>
@@ -357,35 +355,35 @@ const TrainingLogs = () => {
 const ModelCard = ({ name, description, score, precision, recall, tag }) => {
     return (
         <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
-            <div className="flex justify-between items-start mb-[16px]">
+            <div className="flex justify-between items-start mb-[12px]">
                 <div>
                     <h3 className="text-[18px] font-semibold text-gray-800">
                         {name}
                     </h3>
-                    <p className="text-sm text-gray-500 mt-[4px]">
+                    <p className="text-sm text-gray-500">
                         {description}
                     </p>
                 </div>
-                <span className="bg-primary-100 text-primary-600 rounded-full px-[5px] py-[4px] text-xs font-medium">
+                <span className="bg-[#32418C30] text-[#32418C] rounded-full px-[10px] py-[4px] text-xs font-medium">
                     {tag}
                 </span>
             </div>
 
-            <div className="mb-[16px]">
+            <div className="mb-[10px]">
                 <div className="flex justify-between text-sm mb-[6px]">
                     <span className="text-gray-500">F1 Score</span>
                     <span className="font-semibold text-gray-800">{score}</span>
                 </div>
                 <div className="h-[10px] bg-gray-100 rounded-full overflow-hidden">
                     <div 
-                        className="h-full bg-[#2563EB] rounded-full" 
+                        className="h-full bg-[#32418C] rounded-full" 
                         style={{ width: score }}
                     >
                     </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-[16px] mb-[16px]">
+            <div className="grid grid-cols-2 gap-[16px] mb-[10px]">
                 <div>
                     <p className="text-sm text-gray-500">Precision</p>
                     <p className="text-[20px] font-semibold text-gray-800">{precision}</p>
@@ -400,7 +398,7 @@ const ModelCard = ({ name, description, score, precision, recall, tag }) => {
                 <button className="border border-[#E5E5E5] rounded-[8px] px-[12px] py-[8px] text-sm">
                     Details
                 </button>
-                <button className="bg-[#2563EB] text-white rounded-[8px] px-[12px] py-[8px] text-sm">
+                <button className="bg-[#32418C] text-white rounded-[8px] px-[12px] py-[8px] text-sm">
                     Compare
                 </button>
             </div>

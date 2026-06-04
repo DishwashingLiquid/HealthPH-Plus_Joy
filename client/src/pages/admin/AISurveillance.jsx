@@ -84,7 +84,7 @@ const AISurveillance = () => {
     const { data: percentage, isFetching: isPercentageFetching } =
         useGeneratePercentageQuery();
     
-    const COLORS = ["#2563EB", "#F97316", "#20C997", "#9CA3AF"];
+    const COLORS = ["#32418C", "#2572A5", "#9BCC33", "#FBD117"];
     const RADIAN = Math.PI / 180;
 
     return (
@@ -95,13 +95,13 @@ const AISurveillance = () => {
                     AI Surveillance
                 </h1>
 
-                <p className="text-gray-500 text-[12px]">
+                <p className="text-gray-500 text-[14px]">
                     Real-time disease surveillance, outbreak monitoring, and AI-driven public health analytics.
                 </p>
             </div>
 
             {/* FILTER SECTION */}
-            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
+            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[10px]">
                 <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-[16px]">
                     {/* LEFT */}
                     <div className="flex flex-wrap gap-[12px]">
@@ -121,7 +121,7 @@ const AISurveillance = () => {
                     {/* RIGHT */}
                     <div className="flex flex-wrap gap-[12px]">
                         <ToolbarSearch placeholder="Search regions, diseases..." />
-                        <ToolbarButton iconName="Upload" className="bg-primary-600 text-white">
+                        <ToolbarButton iconName="Upload" className="bg-[#32418C] text-white">
                             Export
                         </ToolbarButton>
                     </div>
@@ -131,9 +131,9 @@ const AISurveillance = () => {
             {/* MAIN CONTENT */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-[10px]">
                 {/* MAP SECTION */}
-                <div className="xl:col-span-2 bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[700px]">
-                    <h2 className="text-[20px] font-semibold text-gray-800 mb-[16px]">Real-time Outbreak Monitoring</h2>
-                    <div className="trends-wrapper h-[620px] rounded-[12px] overflow-hidden border border-[#E5E5E5]">
+                <div className="xl:col-span-2 bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[630px]">
+                    <h2 className="text-[18px] font-semibold text-gray-800 mb-[12px]">Real-time Outbreak Monitoring</h2>
+                    <div className="trends-wrapper h-[595px] rounded-[12px] overflow-hidden border border-[#E5E5E5]">
                         <Map 
                             filters={filters}
                             data={DummyData}
@@ -149,12 +149,12 @@ const AISurveillance = () => {
                     {/* SUMMARY CARDS */}
                     <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
                         {/* SUSPECTED CASES */}
-                        <div className="xl:col-span-1 bg-white rounded-[12px] border border-[#E5E5E5] p-[12px]">
+                        <div className="xl:col-span-1 bg-white rounded-[12px] border border-[#E5E5E5] p-[16px]">
                             <div className="flex justify-between items-center h-full">
                                 {/* LEFT */}
                                 <div className="flex flex-col justify-center">
                                     <p className="text-gray-500 text-sm mb-[8px]">Suspected Cases</p>
-                                    <h2 className="text-[32px] font-semibold text-gray-800 leading-none">{formatCount(suspectedSymptoms?.total)}</h2>
+                                    <h2 className="text-[24px] font-semibold text-gray-800 leading-none">{formatCount(suspectedSymptoms?.total)}</h2>
                                 </div>
                                 {/* RIGHT */}
                                 <div className="grid grid-cols-2 gap-x-[32px] gap-y-[8px]">
@@ -185,7 +185,7 @@ const AISurveillance = () => {
                         <SummaryCard label="High Risk Areas" value="5" />
                     </div>
                     <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
-                        <h2 className="text-[18px] font-semibold text-gray-800 mb-[16px]">Environmental Data</h2>
+                        <h2 className="text-[18px] font-semibold text-gray-800 mb-[12px]">Environmental Data</h2>
                         <div className="flex flex-col gap-[12px]">
                             <MetricRow label="Air Quality Index" value="Moderate" />
                             <MetricRow label="Weather Pattern" value="Humid / Cloudy" />
@@ -201,7 +201,7 @@ const AISurveillance = () => {
                     <h2 className="text-[18px] font-semibold text-gray-800">
                         Respiratory Monitoring
                     </h2>
-                    <p className="text-sm text-gray-500 mt-[4px] mb-[16px]">
+                    <p className="text-sm text-gray-500 mb-[12px]">
                         Air quality and respiratory metrics with environmental factors.
                     </p>
 
@@ -259,22 +259,22 @@ const AISurveillance = () => {
                                 )}
                             />
 
-                            <Line type="monotone" dataKey="respiratoryRate" name="Respiratory Rate" stroke="#2563EB" />
-                            <Line type="monotone" dataKey="aqi" name="AQI" stroke="#F97316" />
-                            <Line type="monotone" dataKey="temperature" name="Temperature (°C)" stroke="#1D4ED8" />
-                            <Line type="monotone" dataKey="coughFrequency" name="Cough Frequency" stroke="#9CA3AF" />
-                            <Line type="monotone" dataKey="pm25" name="PM2.5" stroke="#FF0000" />
-                            <Line type="monotone" dataKey="humidity" name="Humidity (%)" stroke="#20C997" />
+                            <Line type="monotone" dataKey="respiratoryRate" name="Respiratory Rate" stroke="#32418C" />
+                            <Line type="monotone" dataKey="aqi" name="AQI" stroke="#2572A5" />
+                            <Line type="monotone" dataKey="temperature" name="Temperature (°C)" stroke="#1D8D9F" />
+                            <Line type="monotone" dataKey="coughFrequency" name="Cough Frequency" stroke="#1ABC9C" />
+                            <Line type="monotone" dataKey="pm25" name="PM2.5" stroke="#9BCC33" />
+                            <Line type="monotone" dataKey="humidity" name="Humidity (%)" stroke="#FBD117" />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>
 
                 {/* TREND FORECASTING */}
-                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[360px]">
+                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[300px]">
                     <h2 className="text-[18px] font-semibold text-gray-800">
                         Trend Forecasting
                     </h2>
-                    <p className="text-sm text-gray-500 mt-[4px] mb-[16px]">
+                    <p className="text-sm text-gray-500 mb-[12px]">
                         Projected disease signal trends based on recent surveillance patterns.
                     </p>
 
@@ -309,7 +309,7 @@ const AISurveillance = () => {
                             type="monotone"
                             dataKey="actual"
                             name="Actual Reports"
-                            stroke="#2563EB"
+                            stroke="#32418C"
                             fill="#DBEAFE"
                             strokeWidth={2}
                             dot={{ r: 3 }}
@@ -319,7 +319,7 @@ const AISurveillance = () => {
                             type="monotone"
                             dataKey="forecast"
                             name="Forecasted Trend"
-                            stroke="#F97316"
+                            stroke="#FBD117"
                             fill="#FFEDD5"
                             strokeWidth={2}
                             strokeDasharray="5 5"
@@ -408,7 +408,7 @@ const SummaryCard = ({ label, value }) => {
     return (
         <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[12px] mt-[10px]">
             <p className="text-gray-500 text-sm">{label}</p>
-            <h2 className="text-[32px] font-semibold text-gray-800">{value}</h2>
+            <h2 className="text-[24px] font-semibold text-gray-800">{value}</h2>
         </div>
     );
 };
