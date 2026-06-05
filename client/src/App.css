@@ -144,6 +144,12 @@
     @apply flex items-center justify-center;
   }
 
+  .modal.health-literacy-content-modal {
+    left: var(--admin-sidebar-width, 72px);
+    width: calc(100vw - var(--admin-sidebar-width, 72px));
+    @apply z-[60];
+  }
+
   .modal .modal-backdrop {
     @apply absolute top-0 h-full w-full;
     background-color: rgba(52, 64, 84, 0.6);
@@ -156,8 +162,12 @@
     box-shadow: 0px 25px 50px -12px rgba(0, 0, 0, 0.25);
   }
 
+  .modal.health-literacy-content-modal .modal-backdrop {
+    @apply z-0;
+  }
+
   .modal.health-literacy-content-modal .modal-container {
-    @apply w-full max-w-[1120px];
+    @apply relative z-10 w-full max-w-[1120px];
   }
 
   .modal .modal-container .modal-body {

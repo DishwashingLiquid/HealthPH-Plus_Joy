@@ -33,6 +33,8 @@
     "react-wordcloud": "^1.2.7",
     "recharts": "^2.12.3",
     "save-svg-as-png": "^1.4.17",
+    "survey-core": "^2.5.27",
+    "survey-react-ui": "^2.5.27",
     "vite-plugin-svgr": "^4.2.0"
   },
   "devDependencies": {

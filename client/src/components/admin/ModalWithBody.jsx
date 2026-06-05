@@ -1,11 +1,12 @@
+/* eslint-disable react/prop-types */
 const ModalWithBody = ({
   onConfirm,
+  onConfirmDisabled,
   onConfirmLabel,
   onCancel,
   onLoading,
   onLoadingLabel,
   heading,
-  content,
   color,
   additionalClasses,
   children,
@@ -38,7 +39,7 @@ const ModalWithBody = ({
               onCancel ? "mb-[16px]" : ""
             } sm:mb-0`}
             onClick={onConfirm}
-            disabled={onLoading}
+            disabled={onLoading || onConfirmDisabled}
           >
             {onLoading ? onLoadingLabel : onConfirmLabel}
           </button>

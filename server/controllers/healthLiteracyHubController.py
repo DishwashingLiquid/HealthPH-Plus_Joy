@@ -987,9 +987,6 @@ def _build_top_performing_content(
             }
         )
 
-    ranked_content = [
-        item for item in ranked_content if item["interactedUsers"] > 0
-    ]
     ranked_content.sort(
         key=lambda item: (
             -item["engagementRate"],

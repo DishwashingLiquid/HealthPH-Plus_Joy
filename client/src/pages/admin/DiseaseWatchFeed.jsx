@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     BarChart,
     Bar,
@@ -13,6 +13,9 @@ import {
 
 const DiseaseWatchFeed = () => {
     const [activeTab, setActiveTab] = useState("recent-alerts");
+    const [selectedRegions, setSelectedRegions] = useState([]);
+    const [showRegionDropdown, setShowRegionDropdown] = useState(false);
+    const regionDropdownRef = useRef(null);
 
     // Mock data for Regional Coverage
     const regionUserData = [
@@ -104,6 +107,38 @@ const DiseaseWatchFeed = () => {
         },
     };
 
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (
+                regionDropdownRef.current &&
+                !regionDropdownRef.current.contains(event.target)
+            ) {
+                setShowRegionDropdown(false);
+            }
+        };
+
+        document.addEventListener("mousedown", handleClickOutside);
+
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
+
+    const handleRegionChange = (regionName) => {
+        setSelectedRegions((currentRegions) =>
+            currentRegions.includes(regionName)
+                ? currentRegions.filter((region) => region !== regionName)
+                : [...currentRegions, regionName]
+        );
+    };
+
+    const visibleRegionCards =
+        selectedRegions.length === 0
+            ? regionUserData
+            : regionUserData.filter((region) =>
+                  selectedRegions.includes(region.region)
+              );
+
     // Metric Card Component
     const MetricCard = ({ label, value, change, percentage, trend }) => (
         <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
@@ -181,8 +216,46 @@ const DiseaseWatchFeed = () => {
             </div>
 
             {/* Regional Grid Cards */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-[12px] mb-[16px]">
+                <h3 className="text-[18px] font-semibold text-gray-800">Regional Cards</h3>
+                <div className="relative w-full sm:w-auto" ref={regionDropdownRef}>
+                    <button
+                        type="button"
+                        onClick={() => setShowRegionDropdown((isOpen) => !isOpen)}
+                        className="w-full sm:w-auto min-h-[40px] px-[14px] py-[8px] border border-[#D8DDE3] rounded-[8px] bg-white text-gray-800 text-sm font-medium flex items-center justify-between gap-[12px] hover:border-[#6A8EB5] transition"
+                        aria-expanded={showRegionDropdown}
+                        aria-haspopup="true"
+                    >
+                        <span>
+                            Filter Regions
+                            {selectedRegions.length > 0 ? ` (${selectedRegions.length})` : ""}
+                        </span>
+                        <span className="text-gray-500 text-xs">v</span>
+                    </button>
+
+                    {showRegionDropdown && (
+                        <div className="absolute right-0 top-full mt-[6px] w-full sm:w-[240px] max-h-[280px] overflow-y-auto bg-white border border-[#D8DDE3] rounded-[8px] shadow-lg z-20">
+                            {regionUserData.map((region) => (
+                                <label
+                                    key={region.region}
+                                    className="flex items-center gap-[10px] px-[12px] py-[10px] text-sm text-gray-800 cursor-pointer hover:bg-[#F5F5F5]"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedRegions.includes(region.region)}
+                                        onChange={() => handleRegionChange(region.region)}
+                                        className="w-[16px] h-[16px] accent-[#6A8EB5]"
+                                    />
+                                    <span>{region.region}</span>
+                                </label>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-[12px]">
-                {regionUserData.map((region) => (
+                {visibleRegionCards.map((region) => (
                     <div
                         key={region.region}
                         className="bg-white rounded-[12px] border border-[#E5E5E5] p-[16px]"

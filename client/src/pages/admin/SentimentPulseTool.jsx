@@ -1,17 +1,30 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { REGIONS, regionalSentimentData } from "../../assets/data/sentimentMockData";
 import {
-  REGIONS,
-  regionalSentimentData,
-} from "../../assets/data/sentimentMockData";
+  useCreateSentimentPulseSurveyMutation,
+  useFetchSentimentPulseRegionalAnalysisQuery,
+  useFetchSentimentPulseSurveysQuery,
+  useScheduleSentimentPulseSurveyMutation,
+} from "../../features/api/sentimentPulseSlice";
 import StaticContainers from "./sentimentPulseTool/StaticContainers";
 import SentimentTrends from "./sentimentPulseTool/SentimentTrends";
 import RegionalAnalysis from "./sentimentPulseTool/RegionalAnalysis";
 import MobileSurveys from "./sentimentPulseTool/MobileSurveys";
+import MobileSurveyScheduleModal from "./sentimentPulseTool/MobileSurveyScheduleModal";
+import MobileSurveyCreateModal, {
+  buildSurveyJson,
+  createQuestion,
+  emptyDraft,
+  validateDraft,
+} from "./sentimentPulseTool/MobileSurveyCreateModal";
 
 const getRegionLabel = (regionValue) =>
   REGIONS.find((region) => region.value === regionValue)?.label || regionValue;
 
-const getVisibleRegionalRows = (selectedRegions) => {
+const getVisibleRegionalRows = (
+  selectedRegions,
+  regionalData = regionalSentimentData
+) => {
   const visibleRegions =
     selectedRegions.length > 0
       ? REGIONS.filter((region) => selectedRegions.includes(region.value))
@@ -20,9 +33,37 @@ const getVisibleRegionalRows = (selectedRegions) => {
   return visibleRegions
     .map((region) => ({
       ...region,
-      data: regionalSentimentData[region.value],
+      data: regionalData[region.value],
     }))
     .filter((region) => region.data);
+};
+
+const normalizeRegionalApiData = (regionalAnalysis) => {
+  if (!Array.isArray(regionalAnalysis?.regions) || regionalAnalysis.regions.length === 0) {
+    return regionalSentimentData;
+  }
+
+  return regionalAnalysis.regions.reduce(
+    (regionalData, region) => {
+      if (!region?.region) {
+        return regionalData;
+      }
+
+      const mockRegionData = regionalSentimentData[region.region] || {};
+
+      return {
+        ...regionalData,
+        [region.region]: {
+          ...mockRegionData,
+          ...region,
+          previousResponses:
+            region.previousResponses ?? mockRegionData.previousResponses ?? 0,
+          trend: region.trend ?? mockRegionData.trend ?? 0,
+        },
+      };
+    },
+    { ...regionalSentimentData }
+  );
 };
 
 const escapeCsvValue = (value) => {
@@ -32,12 +73,71 @@ const escapeCsvValue = (value) => {
     : text;
 };
 
+const formatDateTimeLocalValue = (date) => {
+  const pad = (value) => String(value).padStart(2, "0");
+
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+    date.getDate()
+  )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+const getDefaultScheduleDateTime = () => {
+  const date = new Date();
+  date.setMinutes(date.getMinutes() + 15);
+  date.setSeconds(0, 0);
+
+  return formatDateTimeLocalValue(date);
+};
+
 export default function SentimentPulseTool() {
   const [activeTab, setActiveTab] = useState("sentiment-trends");
   const [selectedRegions, setSelectedRegions] = useState([]);
   const [timeRange, setTimeRange] = useState("last-30-days");
   const [showRegionDropdown, setShowRegionDropdown] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [draft, setDraft] = useState(emptyDraft);
+  const [draftError, setDraftError] = useState("");
+  const [scheduleItems, setScheduleItems] = useState([]);
+  const [scheduleError, setScheduleError] = useState("");
   const regionDropdownRef = useRef(null);
+  const { data: regionalAnalysisData } =
+    useFetchSentimentPulseRegionalAnalysisQuery({
+      timeRange,
+      regions: selectedRegions,
+    });
+  const {
+    data: surveysData = [],
+    isLoading: isSurveysLoading,
+    isError: isSurveysError,
+  } = useFetchSentimentPulseSurveysQuery();
+  const [createSentimentPulseSurvey, { isLoading: isCreatingSurvey }] =
+    useCreateSentimentPulseSurveyMutation();
+  const [scheduleSentimentPulseSurvey, { isLoading: isSchedulingSurvey }] =
+    useScheduleSentimentPulseSurveyMutation();
+  const regionalData = useMemo(
+    () => normalizeRegionalApiData(regionalAnalysisData),
+    [regionalAnalysisData]
+  );
+  const surveys = useMemo(
+    () => (Array.isArray(surveysData) ? surveysData : surveysData?.surveys ?? []),
+    [surveysData]
+  );
+  const draftSurveys = useMemo(
+    () => surveys.filter((survey) => survey.status === "Draft"),
+    [surveys]
+  );
+  const hasDraftSurveys = draftSurveys.length > 0;
+  const scheduleButtonLabel = hasDraftSurveys
+    ? "Schedule Survey"
+    : "Create Draft Survey";
+  const scheduleButtonHelper = isSurveysLoading
+    ? "Loading surveys..."
+    : isSurveysError
+      ? "Unable to load surveys. Try again before scheduling."
+      : hasDraftSurveys
+        ? ""
+        : "Create a draft survey before scheduling publication.";
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -55,6 +155,299 @@ export default function SentimentPulseTool() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  const resetDraft = () => {
+    setDraft(emptyDraft);
+    setDraftError("");
+  };
+
+  const handleNewSurvey = () => {
+    resetDraft();
+    setIsCreateModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsCreateModalOpen(false);
+    resetDraft();
+  };
+
+  const resetScheduleForm = () => {
+    setScheduleItems([]);
+    setScheduleError("");
+  };
+
+  const handleOpenScheduleModal = () => {
+    const defaultScheduledAt = getDefaultScheduleDateTime();
+
+    setScheduleItems(
+      draftSurveys.map((survey, index) => ({
+        surveyId: survey.id,
+        title: survey.title || "Untitled survey",
+        target: survey.target,
+        scheduledAt: defaultScheduledAt,
+        selected: index === 0,
+        status: "idle",
+        error: "",
+      }))
+    );
+    setScheduleError("");
+    setIsScheduleModalOpen(true);
+  };
+
+  const handleScheduleButtonClick = () => {
+    if (hasDraftSurveys) {
+      handleOpenScheduleModal();
+      return;
+    }
+
+    handleNewSurvey();
+  };
+
+  const handleCloseScheduleModal = () => {
+    setIsScheduleModalOpen(false);
+    resetScheduleForm();
+  };
+
+  const handleScheduleItemSelectedChange = (surveyId, selected) => {
+    setScheduleItems((currentItems) =>
+      currentItems.map((item) =>
+        item.surveyId === surveyId
+          ? {
+              ...item,
+              selected,
+              status: item.status === "success" ? "success" : "idle",
+              error: "",
+            }
+          : item
+      )
+    );
+    setScheduleError("");
+  };
+
+  const handleScheduleItemDateChange = (surveyId, scheduledAtValue) => {
+    setScheduleItems((currentItems) =>
+      currentItems.map((item) =>
+        item.surveyId === surveyId
+          ? {
+              ...item,
+              scheduledAt: scheduledAtValue,
+              status: item.status === "success" ? "success" : "idle",
+              error: "",
+            }
+          : item
+      )
+    );
+    setScheduleError("");
+  };
+
+  const handleDraftFieldChange = (field, value) => {
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      [field]: value,
+    }));
+    setDraftError("");
+  };
+
+  const handleAddQuestion = (type) => {
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      questions: [...currentDraft.questions, createQuestion(type)],
+    }));
+    setDraftError("");
+  };
+
+  const handleQuestionChange = (questionId, field, value) => {
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      questions: currentDraft.questions.map((question) =>
+        question.id === questionId ? { ...question, [field]: value } : question
+      ),
+    }));
+    setDraftError("");
+  };
+
+  const handleChoiceChange = (questionId, choiceIndex, value) => {
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      questions: currentDraft.questions.map((question) => {
+        if (question.id !== questionId) {
+          return question;
+        }
+
+        return {
+          ...question,
+          choices: question.choices.map((choice, index) =>
+            index === choiceIndex ? value : choice
+          ),
+        };
+      }),
+    }));
+    setDraftError("");
+  };
+
+  const handleAddChoice = (questionId) => {
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      questions: currentDraft.questions.map((question) =>
+        question.id === questionId
+          ? {
+              ...question,
+              choices: [
+                ...question.choices,
+                `Option ${question.choices.length + 1}`,
+              ],
+            }
+          : question
+      ),
+    }));
+  };
+
+  const handleRemoveChoice = (questionId, choiceIndex) => {
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      questions: currentDraft.questions.map((question) => {
+        if (question.id !== questionId) {
+          return question;
+        }
+
+        return {
+          ...question,
+          choices: question.choices.filter((_, index) => index !== choiceIndex),
+        };
+      }),
+    }));
+  };
+
+  const handleRemoveQuestion = (questionId) => {
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      questions: currentDraft.questions.filter(
+        (question) => question.id !== questionId
+      ),
+    }));
+    setDraftError("");
+  };
+
+  const handleCreateSurvey = async () => {
+    const validationMessage = validateDraft(draft);
+
+    if (validationMessage) {
+      setDraftError(validationMessage);
+      return;
+    }
+
+    const surveyPayload = {
+      title: draft.title.trim(),
+      subtitle: draft.subtitle.trim() || "Draft mobile sentiment survey",
+      target: Number(draft.target),
+      questions: draft.questions,
+      surveyJson: buildSurveyJson(draft),
+    };
+
+    try {
+      await createSentimentPulseSurvey(surveyPayload).unwrap();
+      setActiveTab("mobile-surveys");
+      handleCloseModal();
+    } catch (error) {
+      setDraftError(
+        error?.data?.detail ||
+          "Unable to create the survey draft. Please try again."
+      );
+    }
+  };
+
+  const handleScheduleSurvey = async () => {
+    if (scheduleItems.length === 0) {
+      setScheduleError("Create a draft survey before scheduling publication.");
+      return;
+    }
+
+    const selectedItems = scheduleItems.filter((item) => item.selected);
+
+    if (selectedItems.length === 0) {
+      setScheduleError("Select at least one draft survey to schedule.");
+      return;
+    }
+
+    const hasMissingDate = selectedItems.some((item) => !item.scheduledAt);
+
+    if (hasMissingDate) {
+      setScheduleItems((currentItems) =>
+        currentItems.map((item) =>
+          item.selected && !item.scheduledAt
+            ? {
+                ...item,
+                status: "error",
+                error: "Set a publish date and time.",
+              }
+            : item
+        )
+      );
+      setScheduleError("Set the publish date and time for each selected survey.");
+      return;
+    }
+
+    setScheduleError("");
+    setScheduleItems((currentItems) =>
+      currentItems.map((item) =>
+        item.selected ? { ...item, status: "idle", error: "" } : item
+      )
+    );
+
+    const scheduleResults = await Promise.allSettled(
+      selectedItems.map((item) =>
+        scheduleSentimentPulseSurvey({
+          surveyId: item.surveyId,
+          scheduledAt: item.scheduledAt,
+        }).unwrap()
+      )
+    );
+    const resultsBySurveyId = selectedItems.reduce((results, item, index) => {
+      results[item.surveyId] = scheduleResults[index];
+      return results;
+    }, {});
+    const failedResults = scheduleResults.filter(
+      (result) => result.status === "rejected"
+    );
+
+    if (failedResults.length === 0) {
+      handleCloseScheduleModal();
+      return;
+    }
+
+    setScheduleItems((currentItems) =>
+      currentItems.map((item) => {
+        const result = resultsBySurveyId[item.surveyId];
+
+        if (!result) {
+          return item;
+        }
+
+        if (result.status === "fulfilled") {
+          return {
+            ...item,
+            selected: false,
+            status: "success",
+            error: "",
+          };
+        }
+
+        return {
+          ...item,
+          selected: true,
+          status: "error",
+          error:
+            result.reason?.data?.detail ||
+            "Unable to schedule this survey. Please try again.",
+        };
+      })
+    );
+    setScheduleError(
+      failedResults.length === selectedItems.length
+        ? "Unable to schedule the selected surveys. Please try again."
+        : "Some surveys were scheduled. Review the failed rows and try again."
+    );
+  };
 
   // Handle region selection for multi-select
   const handleRegionChange = (regionValue) => {
@@ -102,7 +495,7 @@ export default function SentimentPulseTool() {
     } else if (activeTab === "regional-analysis") {
       csvContent +=
         "Region,Responses,Previous Responses,Dominant Sentiment,Trend (%)\n";
-      const regionalRows = getVisibleRegionalRows(selectedRegions);
+      const regionalRows = getVisibleRegionalRows(selectedRegions, regionalData);
       csvContent += regionalRows
         .map((region) =>
           [
@@ -119,11 +512,22 @@ export default function SentimentPulseTool() {
       csvContent += regionalRows.length > 0 ? "\n" : "";
     } else if (activeTab === "mobile-surveys") {
       csvContent +=
-        "Survey Title,Status,Responses,Target,Dominant Sentiment\n";
-      csvContent +=
-        "COVID-19 Vaccination Awareness,Active,2340,2500,Proactive\n";
-      csvContent +=
-        "Mental Health Support Services,Active,1856,2000,Proactive\n";
+        "Survey Title,Status,Scheduled At,Responses,Target,Dominant Sentiment\n";
+      csvContent += surveys
+        .map((survey) =>
+          [
+            survey.title,
+            survey.status,
+            survey.scheduledAt || "",
+            survey.responses,
+            survey.target,
+            survey.dominantSentiment,
+          ]
+            .map(escapeCsvValue)
+            .join(",")
+        )
+        .join("\n");
+      csvContent += surveys.length > 0 ? "\n" : "";
     }
 
     // Create and download file
@@ -158,7 +562,17 @@ export default function SentimentPulseTool() {
       <div className="max-w-7xl mx-auto">
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Sentiment Pulse Tool</h1>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <h1 className="text-3xl font-bold text-gray-900">
+              Sentiment Pulse Tool
+            </h1>
+            <button
+              onClick={handleNewSurvey}
+              className="prod-btn-base prod-btn-primary flex min-h-[40px] items-center justify-center font-semibold sm:w-auto"
+            >
+              + New Survey
+            </button>
+          </div>
           <p className="text-gray-600 mt-2">
             Monitor public sentiment trends, regional analysis, and mobile survey responses.
           </p>
@@ -316,11 +730,72 @@ export default function SentimentPulseTool() {
           {activeTab === "regional-analysis" && (
             <RegionalAnalysis
               selectedRegions={selectedRegions}
+              regionalData={regionalData}
             />
           )}
-          {activeTab === "mobile-surveys" && <MobileSurveys />}
+          {activeTab === "mobile-surveys" && (
+            <div className="space-y-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Mobile Surveys
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleScheduleButtonClick}
+                  disabled={isSurveysLoading || isSurveysError}
+                  className="prod-btn-base prod-btn-primary flex min-h-[40px] items-center justify-center font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                >
+                  {scheduleButtonLabel}
+                </button>
+              </div>
+              {scheduleButtonHelper && (
+                <p
+                  className={`text-sm font-medium ${
+                    isSurveysError ? "text-red-700" : "text-gray-500"
+                  }`}
+                >
+                  {scheduleButtonHelper}
+                </p>
+              )}
+              <MobileSurveys
+                surveys={surveys}
+                isLoading={isSurveysLoading}
+                isError={isSurveysError}
+              />
+            </div>
+          )}
         </div>
       </div>
+
+      {isCreateModalOpen && (
+        <MobileSurveyCreateModal
+          draft={draft}
+          draftError={draftError}
+          onFieldChange={handleDraftFieldChange}
+          onAddQuestion={handleAddQuestion}
+          onQuestionChange={handleQuestionChange}
+          onChoiceChange={handleChoiceChange}
+          onAddChoice={handleAddChoice}
+          onRemoveChoice={handleRemoveChoice}
+          onRemoveQuestion={handleRemoveQuestion}
+          onCreateSurvey={handleCreateSurvey}
+          isCreating={isCreatingSurvey}
+          onClose={handleCloseModal}
+        />
+      )}
+      {isScheduleModalOpen && (
+        <MobileSurveyScheduleModal
+          scheduleItems={scheduleItems}
+          scheduleError={scheduleError}
+          isScheduling={isSchedulingSurvey}
+          onSelectionChange={handleScheduleItemSelectedChange}
+          onScheduledAtChange={handleScheduleItemDateChange}
+          onConfirm={handleScheduleSurvey}
+          onClose={handleCloseScheduleModal}
+        />
+      )}
     </div>
   );
 }
