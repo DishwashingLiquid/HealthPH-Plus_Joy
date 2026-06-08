@@ -43,7 +43,7 @@ export const ToolbarButton = ({
             onClick={onClick}
             className={`rounded-[10px] px-[16px] py-[10px] text-sm flex items-center gap-[8px] ${
                 isPrimary
-                    ? "bg-primary-600 text-white"
+                    ? "bg-[#32418C] text-white"
                     : "border border-[#E5E5E5] bg-[#F8F9FA] text-gray-800"
             } ${className}`}
         >

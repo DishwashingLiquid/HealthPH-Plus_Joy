@@ -19,9 +19,14 @@ import {
     CartesianGrid,
     Tooltip,
     Legend,
+    RadarChart,
+    PolarGrid,
+    PolarAngleAxis,
+    PolarRadiusAxis,
+    Radar,  
 } from "recharts";
 
-import { ToolbarSearch } from "../../components/ToolbarControls";
+import { ToolbarButton, ToolbarSearch } from "../../components/ToolbarControls";
 
 const ModelAccessToolkit = () => {
     const [activeTab, setActiveTab] = useState("comparison");
@@ -147,18 +152,168 @@ const ModelComparison = () => {
                     name="mBERT"
                     description="Pretrained multilingual BERT model fine-tuned for disease entity recognition."
                     score="87%"
+                    hammingLoss="0.15"
                     precision="85%"
                     recall="89%"
                     tag="Multilingual BERT"
+                    languages={["English", "Filipino", "Cebuano", "Ilocano", "Hiligaynon"]}
+                    lastUpdated="3/15/2026"
                 />
                 <ModelCard
                     name="XLM-RoBERTa"
-                    description="Cross-lingual RoBERTa model adapted for health terminology extraction and classification."
+                    description="XLM-RoBERTa model adapted for health terminology extraction and classification."
                     score="92%"
+                    hammingLoss="0.09"
                     precision="93%"
                     recall="91%"
                     tag="Cross-lingual RoBERTa"
+                    languages={["English", "Filipino", "Cebuano", "Ilocano", "Hiligaynon"]}
+                    lastUpdated="4/2/2026"
                 />
+                <ModelCard
+                    name="GPT-based"
+                    description="Local fine-tuned GPT model for healthcare content analysis and summarization."
+                    score="94%"
+                    hammingLoss="0.07"
+                    precision="95%"
+                    recall="93%"
+                    tag="Transformer LLM"
+                    languages={["English", "Filipino"]}
+                    lastUpdated="4/14/2026"
+                />
+                <ModelCard
+                    name="LSTM Model"
+                    description="LSTM-based model for time-series disease trend forecasting."
+                    score="82%"
+                    hammingLoss="0.22"
+                    precision="84%"
+                    recall="80%"
+                    tag="Recurrent Neural Network"
+                    languages={["English"]}
+                    lastUpdated="4/27/2026"
+                />
+                <ModelCard
+                    name="XGBoost"
+                    description="XGBoost ensemble model for regional outbreak prediction."
+                    score="85%"
+                    hammingLoss="0.18"
+                    precision="86%"
+                    recall="84%"
+                    tag="Gradient Boosting"
+                    languages={["All"]}
+                    lastUpdated="4/29/2026"
+                />
+            </div>
+
+            {/* MULTILINGUAL PERFORMANCE */}
+            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-[12px]">
+                    <div>
+                        <h2 className="text-[18px] font-semibold text-gray-800">
+                            Multilingual Performance
+                        </h2>
+                        <p className="text-sm text-gray-500 mb-[12px]">
+                            Model accuracy across different Philippine languages. 
+                        </p>
+                    </div>
+                    <ToolbarButton iconName="Upload" className="bg-[#32418C] text-white">
+                        Export
+                    </ToolbarButton>
+                </div>
+
+                <ResponsiveContainer width="100%" height={320}>
+                    <BarChart
+                        data={[
+                            { language: "English", mbert: 87, xlm: 93, gpt: 95 },
+                            { language: "Filipino", mbert: 85, xlm: 91, gpt: 92 },
+                            { language: "Cebuano", mbert: 82, xlm: 88, gpt: 0 },
+                            { language: "Ilocano", mbert: 80, xlm: 86, gpt: 0 },
+                            { language: "Hiligaynon", mbert: 79, xlm: 85, gpt: 0 },
+                        ]}
+                        margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
+                    >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="language" />
+                        <YAxis domain={[0, 100]} />
+                        <Tooltip />
+                        <Legend
+                            verticalAlign="bottom"
+                            align="center"
+                            iconType="square"
+                            wrapperStyle={{
+                                paddingTop: "20px",
+                                lineHeight: "28px"
+                            }}
+                        />
+
+                        <Bar dataKey="mbert" name="mBERT" fill="#32418C" />
+                        <Bar dataKey="xlm" name="XLM-R" fill="#20C997" />
+                        <Bar dataKey="gpt" name="GPT" fill="#FBD117" />
+                    </BarChart>
+                </ResponsiveContainer>
+                <p className="text-sm text-gray-500 mt-[12px]">
+                    Based on evaluation with standardized test sets.
+                </p>
+            </div>
+
+            {/* TASK PERFORMANCE RADAR */}
+            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
+                <div>
+                    <h2 className="text-[18px] font-semibold text-gray-800">
+                        Task Performance Radar
+                    </h2>
+                    <p className="text-sm text-gray-500">
+                        Model capabilities across different NLP tasks.
+                    </p>
+                </div>
+
+                <ResponsiveContainer width="100%" height={360}>
+                    <RadarChart
+                        cx="50%"
+                        cy="50%"
+                        outerRadius="70%"
+                        data={[
+                            { task: "NER", mbert: 87, xlm: 92, gpt: 94 },
+                            { task: "Sentiment", mbert: 82, xlm: 88, gpt: 91 },
+                            { task: "Classification", mbert: 84, xlm: 89, gpt: 93 },
+                            { task: "QA", mbert: 78, xlm: 84, gpt: 92 },
+                            { task: "Summarization", mbert: 72, xlm: 80, gpt: 95 },
+                        ]}
+                    >
+                        <PolarGrid />
+                        <PolarAngleAxis dataKey="task" />
+                        <PolarRadiusAxis angle={30} domain={[0, 100]} />
+                        <Radar
+                            name="mBERT"
+                            dataKey="mbert"
+                            stroke="#32418C"
+                            fill="#32418C"
+                            fillOpacity={0.25}
+                        />
+                        <Radar
+                            name="XLM-R"
+                            dataKey="xlm"
+                            stroke="#20C997"
+                            fill="#20C997"
+                            fillOpacity={0.25}
+                        />
+                        <Radar
+                            name="GPT"
+                            dataKey="gpt"
+                            stroke="#FBD117"
+                            fill="#FBD117"
+                            fillOpacity={0.25}
+                        />
+                        <Legend
+                            verticalAlign="bottom"
+                            align="center"
+                            wrapperStyle={{
+                                paddingTop: "20px"
+                            }}
+                        />
+                        <Tooltip />
+                    </RadarChart>
+                </ResponsiveContainer>
             </div>
         </div>
     ); 
@@ -316,7 +471,7 @@ const TrainingLogs = () => {
                             model="mBERT"
                             dataset="DOH Disease Reports"
                             status="Completed"
-                            starter="May 08, 2026 09:10 AM"
+                            started="May 08, 2026 09:10 AM"
                             duration="14m"
                         />
                         <TrainingLogRow
@@ -324,7 +479,7 @@ const TrainingLogs = () => {
                             model="XLM-RoBERTa"
                             dataset="Social Media Health Mentions"
                             status="Running"
-                            starter="May 08, 2026 10:24 AM"
+                            started="May 08, 2026 10:24 AM"
                             duration="7m"
                         />
                         <TrainingLogRow
@@ -332,7 +487,7 @@ const TrainingLogs = () => {
                             model="GPT-based Classifier"
                             dataset="COVID-19 Symptoms Database"
                             status="Failed"
-                            starter="May 08, 2026 11:03 AM"
+                            started="May 08, 2026 11:03 AM"
                             duration="2m"
                         />
                         <TrainingLogRow
@@ -340,7 +495,7 @@ const TrainingLogs = () => {
                             model="LSTM Model"
                             dataset="TB Cases 2022"
                             status="Queued"
-                            starter="Pending"
+                            started="Pending"
                             duration="—"
                         />
                     </tbody>
@@ -352,55 +507,104 @@ const TrainingLogs = () => {
 
 /* HELPERS */
 
-const ModelCard = ({ name, description, score, precision, recall, tag }) => {
+const ModelCard = ({ 
+    name,
+    description,
+    score,
+    hammingLoss,
+    precision,
+    recall,
+    tag,
+    languages = [],
+    lastUpdated,
+}) => {
     return (
-        <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
-            <div className="flex justify-between items-start mb-[12px]">
-                <div>
-                    <h3 className="text-[18px] font-semibold text-gray-800">
-                        {name}
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                        {description}
-                    </p>
+        <div className="bg-white rounded-[12px] border border-[#E5E5E5] overflow-hidden">
+            <div className="p-[20px]">
+                <div className="flex justify-between items-start gap-[12px] mb-[12px]">
+                    <div>
+                        <h3 className="text-[18px] font-semibold text-gray-800">
+                            {name}
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                            {description}
+                        </p>
+                    </div>
+                    <span className="border border-[#E5E5E5] rounded-full px-[10px] py-[4px] text-xs font-medium whitespace-nowrap">
+                        {tag}
+                    </span>
                 </div>
-                <span className="bg-[#32418C30] text-[#32418C] rounded-full px-[10px] py-[4px] text-xs font-medium">
-                    {tag}
-                </span>
-            </div>
 
-            <div className="mb-[10px]">
-                <div className="flex justify-between text-sm mb-[6px]">
-                    <span className="text-gray-500">F1 Score</span>
-                    <span className="font-semibold text-gray-800">{score}</span>
-                </div>
-                <div className="h-[10px] bg-gray-100 rounded-full overflow-hidden">
-                    <div 
-                        className="h-full bg-[#32418C] rounded-full" 
-                        style={{ width: score }}
-                    >
+                <div className="mb-[10px]">
+                    <div className="flex justify-between text-sm mb-[6px]">
+                        <span className="text-gray-500">F1 Score</span>
+                        <span className="font-semibold text-gray-800">{score}</span>
+                    </div>
+                    <div className="h-[10px] bg-gray-100 rounded-full overflow-hidden">
+                        <div 
+                            className="h-full bg-[#32418C] rounded-full" 
+                            style={{ width: score }}
+                        />
                     </div>
                 </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-[16px] mb-[10px]">
-                <div>
-                    <p className="text-sm text-gray-500">Precision</p>
-                    <p className="text-[20px] font-semibold text-gray-800">{precision}</p>
+                <div className="mb-[10px]">
+                    <div className="flex justify-between text-sm mb-[6px]">
+                        <span className="text-gray-500">Hamming Loss</span>
+                        <span className="font-semibold text-gray-800">{score}</span>
+                    </div>
+                    <div className="h-[8px] bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-[#32418C] rounded-full"
+                            style={{
+                                width: `${Math.max(10, 100 - Number(hammingLoss) * 100)}%`,
+                            }}
+                        />
+                    </div> 
                 </div>
-                <div>
-                    <p className="text-sm text-gray-500">Recall</p>
-                    <p className="text-[20px] font-semibold text-gray-800">{recall}</p>
-                </div> 
+
+                <div className="grid grid-cols-2 gap-[16px] mb-[14px]">
+                    <div>
+                        <p className="text-sm font-medium text-gray-800">Precision</p>
+                        <p className="text-[20px] font-semibold text-gray-900">
+                            {precision}
+                        </p>
+                    </div>
+
+                    <div>
+                        <p className="text-sm font-medium text-gray-800">Recall</p>
+                        <p className="text-[20px] font-semibold text-gray-900">
+                            {recall}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap gap-[6px]">
+                    {languages.map((language) => (
+                        <span
+                            key={language}
+                            className="bg-primary-50 text-primary-700 rounded-full px-[10px] py-[3px] text-xs"
+                        >
+                            {language}
+                        </span>
+                    ))}
+                </div>
             </div>
 
-            <div className="flex justify-end gap-[10px]">
-                <button className="border border-[#E5E5E5] rounded-[8px] px-[12px] py-[8px] text-sm">
-                    Details
-                </button>
-                <button className="bg-[#32418C] text-white rounded-[8px] px-[12px] py-[8px] text-sm">
-                    Compare
-                </button>
+            <div className="border-t border-[#E5E5E5] px-[20px] py-[14px] flex items-center justify-between">
+                <p className="text-sm text-gray-500">
+                    Last updated: {lastUpdated}
+                </p>
+
+                <div className="flex gap-[8px]">
+                    <button className="border border-[#E5E5E5] rounded-[8px] px-[12px] py-[8px] text-sm">
+                        Details
+                    </button>
+
+                    <button className="bg-[#32418C] text-white rounded-[8px] px-[12px] py-[8px] text-sm">
+                        Compare
+                    </button>
+                </div>
             </div>
         </div>
     );

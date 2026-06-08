@@ -121,7 +121,7 @@ const AISurveillance = () => {
                     {/* RIGHT */}
                     <div className="flex flex-wrap gap-[12px]">
                         <ToolbarSearch placeholder="Search regions, diseases..." />
-                        <ToolbarButton iconName="Upload" className="bg-[#32418C] text-white">
+                        <ToolbarButton iconName="Upload" variant="primary">
                             Export
                         </ToolbarButton>
                     </div>
