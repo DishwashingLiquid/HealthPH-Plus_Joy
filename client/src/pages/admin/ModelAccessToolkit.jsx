@@ -216,7 +216,7 @@ const ModelComparison = () => {
                             Model accuracy across different Philippine languages. 
                         </p>
                     </div>
-                    <ToolbarButton iconName="Upload" className="bg-[#32418C] text-white">
+                    <ToolbarButton iconName="Upload" variant="primary">
                         Export
                     </ToolbarButton>
                 </div>
