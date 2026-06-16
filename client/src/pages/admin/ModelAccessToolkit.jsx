@@ -1,14 +1,20 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { format } from "date-fns";
 
-import Datatable from "../../components/admin/Datatable";
+import CSVReader from "react-csv-reader";
+
 import EmptyState from "../../components/admin/EmptyState";
 import SkeletonBody from "../../components/SkeletonBody";
 
 import {
     useFetchDatasetsByUserQuery,
+    useDownloadDatasetMutation,
+    useDeleteDatasetMutation,
+    useUploadFileMutation,
 } from "../../features/api/datasetsSlice";
+
+import { useCreateActivityLogMutation } from "../../features/api/activityLogsSlice";
 
 import {
     ResponsiveContainer,
@@ -323,13 +329,120 @@ const ModelComparison = () => {
 const DataManagement = () => {
     const user = useSelector((state) => state.auth.user);
 
+    /* API HOOKS */
+    const [downloadDataset] = useDownloadDatasetMutation();
+
+    const [deleteDataset, { isLoading: isDeleteLoading }] = useDeleteDatasetMutation();
+
+    const [createActivityLog] = useCreateActivityLogMutation();
+
     const {
         data: datasetsByUser,
         isFetching: isDatasetsByUserFetching,
     } = useFetchDatasetsByUserQuery(user.id);
 
-    const [rows, setRows] = useState([]);
+    const datasets = datasetsByUser || [];
 
+    /* UPLOAD MODAL STATE */
+    const inputFile = useRef(null);
+    const [uploadFile, { isLoading: isUploadLoading }] = useUploadFileMutation();
+
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [uploadModalActive, setUploadModalActive] = useState(false);
+    const [uploadError, setUploadError] = useState("");
+    const [uploadPreviewData, setUploadPreviewData] = useState({
+        filename: "",
+        rows: 0,
+        headers: [],
+        data: [],
+    });
+
+    /* DELETE MODAL STATE */
+    const [deleteModalActive, setDeleteModalActive] = useState(false);
+    const [deleteModalData, setDeleteModalData] = useState({
+        id: "",
+        filename: "",
+    });
+    const [deleteError, setDeleteError] = useState("");
+
+    /* PREVIEW MODAL STATE */
+    const [previewModalActive, setPreviewModalActive] = useState(false);
+
+    const [previewModalData, setPreviewModalData] = useState({
+        filename: "",
+        num_of_rows: 0,
+        dataset_status: "",
+        preview_headers: [],
+        preview_data: [],
+    });
+
+    /* UPLOAD HANDLER */
+    const resetUploadState = () => {
+        setSelectedFile(null);
+        setUploadModalActive(false);
+        setUploadError("");
+        setUploadPreviewData({
+            filename: "",
+            rows: 0,
+            headers: [],
+            data: [],
+        });
+
+        if (inputFile.current) {
+            inputFile.current.value = "";
+        }
+    };
+
+    const onFileSelect = (data, fileInfo, originalFile) => {
+        const isCsv =
+            fileInfo?.type === "text/csv" ||
+            fileInfo?.name?.toLowerCase().endsWith(".csv");
+
+        if (!isCsv) {
+            setUploadError("Please select a valid CSV file.");
+            resetUploadState();
+            return;
+        }
+
+        const headers = data?.[0] ? Object.keys(data[0]) : [];
+
+        setSelectedFile(originalFile);
+        setUploadPreviewData({
+            filename: fileInfo.name,
+            rows: data.length,
+            headers,
+            data: data.slice(0, 3),
+        });
+        setUploadError("");
+        setUploadModalActive(true);
+    };
+
+    const handleUploadDataset = async () => {
+        if (!selectedFile) {
+            setUploadError("No CSV file selected.");
+            return;
+        }
+
+        try {
+            const payload = new FormData();
+            payload.append("file", selectedFile);
+
+            await uploadFile(payload).unwrap();
+
+            await createActivityLog({
+                user_id: user.id,
+                entry:  `Uploaded dataset: ${uploadPreviewData.filename}`,
+                module: "Model Access and Toolkit",
+            }).unwrap();
+
+            resetUploadState();
+        } catch (error) {
+            setUploadError("Failed to upload dataset. Please try again.");
+            console.error("Failed to upload dataset", error);
+        }
+    };
+
+    /* HELPERS */
     const displayFileSize = (size) => {
         if (size < 1024) return `${size} B`;
 
@@ -338,10 +451,95 @@ const DataManagement = () => {
         if (newSize >= 1024) {
             return `${(newSize / 1024).toFixed(2).replace(/\.?0+$/, "")} MB`;
         }
-        return `${newSize.toFixed(2).replace(/\.?0+$/, "")} KB`;
+        return `${newSize.toFixed(2).replace(/\.?0+$/, "")} KB`; 
+    };
+
+    const normalizePreviewHeaders = (headers) => {
+        if (Array.isArray(headers)) return headers;
+        if (typeof headers === "string") return headers.split("+").filter(Boolean);
+        return [];
+    };
+
+    const normalizePreviewRows = (rows) => {
+        let value = rows;
+
+        for (let i = 0; i < 2; i += 1) {
+            if (Array.isArray(value)) return value;
+            if (typeof value !== "string") return [];
+
+            try {
+                value = JSON.parse(value);
+            } catch {
+                return [];
+            }
+        }
+        return Array.isArray(value) ? value : [];
+    };
+
+    /* ACTION HANDLERS */
+    const handleDownloadDataset = async ({ id, filename }) => {
+        try {
+            const blob = await downloadDataset(id).unwrap();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+
+            link.href = url;
+            link.download = filename || "dataset.csv";
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error("Failed to download dataset", error);
+        }
+    };
+
+    const openPreviewModal = (dataset) => {
+        setPreviewModalData({
+            filename: dataset.original_filename || dataset.filename || "Dataset",
+            num_of_rows: dataset.num_of_rows ?? 0,
+            dataset_status: dataset.dataset_status || dataset.dataset_type || "Unknown",
+            preview_headers: normalizePreviewHeaders(dataset.preview_headers),
+            preview_data: normalizePreviewRows(dataset.preview_data),
+        });
+
+        setPreviewModalActive(true);
+    };
+
+    const openDeleteModal = ({ id, filename }) => {
+        setDeleteModalData({ id, filename });
+        setDeleteError("");
+        setDeleteModalActive(true);
+    };
+
+    const closeDeleteModal = () => {
+        if (isDeleteLoading) return;
+
+        setDeleteModalActive(false);
+        setDeleteModalData({ id: "", filename: ""});
+        setDeleteError("");
+    };
+
+    const handleDeleteDataset = async () => {
+        try {
+            await deleteDataset(deleteModalData.id).unwrap();
+
+            await createActivityLog({
+                user_id: user.id,
+                entry: `Deleted dataset: $(deleteModalData.filename)`,
+                module: "Model Access and Toolkit",
+            }).unwrap();
+
+            closeDeleteModal();
+        } catch (error) {
+            setDeleteError("Failed to delete dataset. Please try again.");
+            console.error("Failed to delete dataset", error);
+        }
     };
 
     return (
+        <>
         <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
             <div className="flex justify-between items-start mb-[20px]">
                 <div>
@@ -352,9 +550,20 @@ const DataManagement = () => {
                         Datasets available for model training, validation, and evaluation.
                     </p>
                 </div>
-                <button className="bg-[#2563EB] text-white rounded-[10px] px-[14px] py-[9px] text-sm">
-                    Upload Dataset
-                </button>
+                <div>
+                <button 
+                        className="bg-[#2563EB] text-white rounded-[10px] px-[14px] py-[9px] text-sm"
+                        onClick={() => inputFile.current.click()}    
+                    >
+                        Upload Dataset
+                    </button>
+                    <CSVReader
+                        parserOptions={{ header: true }}
+                        onFileLoaded={onFileSelect}
+                        ref={inputFile}
+                        cssInputClass="hidden"
+                    />
+                </div>
             </div>
 
             {isDatasetsByUserFetching ? (
@@ -362,74 +571,401 @@ const DataManagement = () => {
                     <SkeletonBody columns={5} />
                 </div>
             ) : (
-                <div className="h-[500px] overflow-hidden">
-                    <Datatable
-                        datatableHeader="Datasets"
-                        datatableColumns={[
-                            { label: "File Name" },
-                            { label: "File Size (Status)" },
-                            { label: "Uploaded By" },
-                            { label: "Date Uploaded" },
-                            { label: "Actions" },
-                        ]}
-                        datatableData={datasetsByUser || []}
-                        setDatatableData={setRows}
-                        rowsPerPage={10}
-                        withActions={true}
-                        actionsWidth="260px"
-                    >
-                        {datasetsByUser?.length > 0 ? (
-                            rows.map(
-                                ({
+                <div className="overflow-x-auto">
+                    {datasets.length > 0 ? (
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
+                                    <th className="py-[12px] px-[10px] font-medium">File Name</th>
+                                    <th className="py-[12px] px-[10px] font-medium">File Size</th>
+                                    <th className="py-[12px] px-[10px] font-medium">Status</th>
+                                    <th className="py-[12px] px-[10px] font-medium">Uploaded By</th>
+                                    <th className="py-[12px] px-[10px] font-medium">Date Uploaded</th>
+                                    <th className="py-[12px] px-[10px] font-medium">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {datasets.map(({
                                     id,
                                     user_name,
                                     filename,
                                     file_size,
                                     dataset_status,
                                     created_at,
+                                    original_filename,
+                                    dataset_type,
+                                    num_of_rows,
+                                    preview_headers,
+                                    preview_data,
                                 }) => (
-                                    <div className="content-row" key={id}>
-                                        <div className="row-item">{filename}</div>
-
-                                        <div className="row-item">
+                                    <tr className="border-b border-[#F0F0F0]" key={id}>
+                                        <td className="max-w-[260px] truncate py-[14px] px-[10px] font-medium text-gray-800">
+                                            {filename}
+                                        </td>
+                                        <td className="py-[14px] px-[10px] text-gray-600">
                                             {displayFileSize(file_size)}
-                                            <span className="font-medium ms-1">
-                                                ({dataset_status})
-                                            </span>
-                                        </div>
-
-                                        <div className="row-item">{user_name}</div>
-                                        
-                                        <div className="row-item">
+                                        </td>
+                                        <td className="py-[14px] px-[10px]">
+                                            <DatasetStatusBadge status={dataset_status} />
+                                        </td>
+                                        <td className="py-[14px] px-[10px] text-gray-600">
+                                            {user_name}
+                                        </td>
+                                        <td className="py-[14px] px-[10px] text-gray-600">
                                             {format(new Date(created_at), "MMM dd, yyyy hh:mm a")}
-                                        </div>
-                                            
-                                        <div className="row-item">
-                                            <div className="flex items-center">
-                                                <button className="prod-push-btn-sm prod-btn-primary me-[8px] min-w-[70px]">
+                                        </td>
+                                        <td className="py-[14px] px-[10px]">
+                                            <div className="flex gap-[10px]">
+                                                <button
+                                                    className="text-primary-600 text-sm"
+                                                    onClick={() =>
+                                                        openPreviewModal({
+                                                            original_filename,
+                                                            filename,
+                                                            dataset_type,
+                                                            dataset_status,
+                                                            num_of_rows,
+                                                            preview_headers,
+                                                            preview_data,
+                                                        })
+                                                    }
+                                                >
                                                     Preview
                                                 </button>
-                                                <button className="prod-push-btn-sm prod-btn-secondary me-[8px] min-w-[70px]">
+                                                <button
+                                                    className="text-gray-600 text-sm"
+                                                    onClick={() => handleDownloadDataset({ id, filename })}
+                                                >
                                                     Download
                                                 </button>
-                                                <button className="prod-push-btn-sm prod-btn-destructive min-w-[70px]">
+                                                <button 
+                                                    className="text-destructive-600 text-sm"
+                                                    onClick={() => openDeleteModal({ id, filename })}
+                                                >
                                                     Delete
                                                 </button>
                                             </div>
-                                        </div>
-                                    </div>
-                                )
-                            )
-                        ) : (
-                            <EmptyState
-                                iconName="Document"
-                                heading="No Datasets Uploaded"
-                                content="There are no datasets uploaded. Upload a dataset to prepare it for model processing."
-                            />
-                        )}
-                    </Datatable>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    ) : (
+                        <EmptyState
+                            iconName="Document"
+                            heading="No Datasets Uploaded"
+                            content="There are no datasets uploaded. Upload a dataset to prepare it for model processing."
+                        />
+                    )}
                 </div>
             )}
+        </div>
+        {previewModalActive && (
+            <DatasetPreviewModal
+                data={previewModalData}
+                onClose={() => setPreviewModalActive(false)}
+            />
+        )}
+        {deleteModalActive && (
+            <DeleteDatasetModal
+                filename={deleteModalData.filename}
+                error={deleteError}
+                isLoading={isDeleteLoading}
+                onCancel={closeDeleteModal}
+                onConfirm={handleDeleteDataset}
+            />
+        )}
+        {uploadModalActive && (
+            <UploadDatasetModal
+                data={uploadPreviewData}
+                error={uploadError}
+                isLoading={isUploadLoading}
+                onCancel={resetUploadState}
+                onConfirm={handleUploadDataset}
+            />
+        )}
+        </>
+    );
+};
+
+const DatasetStatusBadge = ({ status }) => {
+    const label = status || "Unknown";
+    const statusColor = {
+        UPLOADED: {
+            backgroundColor: "#DBEAFE",
+            color: "#2563EB",
+        },
+        RAW: {
+            backgroundColor: "#F3F4F6",
+            color: "#6B7280",
+        },
+        ANNOTATED: {
+            backgroundColor: "#D1FAE5",
+            color: "#059669",
+        },
+        PROCESSING: {
+            backgroundColor: "#FEF3C7",
+            color: "#D97706",
+        },
+        FAILED: {
+            backgroundColor: "#FEE2E2",
+            color: "#DC2626",
+        },
+    };
+
+    return (
+        <span
+            className="px-[8px] py-[4px] rounded-full text-xs font-medium"
+            style={statusColor[label.toUpperCase()] ?? statusColor.RAW}
+        >
+            {label}
+        </span>
+    );
+};
+
+/* MODALS */
+const UploadDatasetModal = ({ data, error, isLoading, onCancel, onConfirm }) => {
+    const columns = data.headers.slice(0, 3);
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-[20px] py-[24px]">
+            <button
+                type="button"
+                className="absolute inset-0 bg-[#34405499] backdrop-blur-sm"
+                onClick={onCancel}
+                aria-label="Close upload dataset preview"
+                disabled={isLoading}
+            />
+
+            <div className="relative w-full max-w-[680px] overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-white shadow-xl">
+                <div className="border-b border-[#E5E5E5] px-[20px] py-[16px]">
+                    <h3 className="text-[18px] font-semibold text-gray-800">
+                        Upload Dataset
+                    </h3>
+                    <p className="text-sm text-gray-500">{data.filename}</p>
+                </div>
+
+                <div className="p-[20px]">
+                    <p className="mb-[16px] text-sm text-gray-500">
+                        Rows: <span className="font-medium text-gray-800">{data.rows}</span>
+                    </p>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
+                                    {columns.map ((column) => (
+                                        <th 
+                                            key={column}
+                                            className="py-[12px] px-[10px] font-medium"
+                                        >
+                                            {column}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {data.data.map((row, index) => (
+                                    <tr
+                                        key={index}
+                                        className="border-b border-[#F0F0F0]"
+                                    >   
+                                        {columns.map((column) => (
+                                            <td
+                                                key={column}
+                                                className="max-w-[220px] truncate py-[14px] px-[10px] text-gray-600"
+                                            >
+                                                {row?.[column] ?? ""}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {error && (
+                        <p className="mt-[12px] text-sm text-destructive-600">
+                            {error}
+                        </p>
+                    )}
+                </div>
+
+                <div className="flex justify-end gap-[10px] border-t border-[#E5E5E5] px-[20px] py-[16px]">
+                    <button 
+                        className="prod-btn-base prod-btn-secondary"
+                        onClick={onCancel}
+                        disabled={isLoading}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        className="prod-btn-base prod-btn-primary"
+                        onClick={onConfirm}
+                        disabled={isLoading}
+                    >
+                        {isLoading ? "Uploading..." : "Upload"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+const DeleteDatasetModal = ({
+    filename,
+    error,
+    isLoading,
+    onCancel,
+    onConfirm,
+}) => {
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-[20px] py-[24px]">
+            <button
+                type="button"
+                className="absolute inset-0 bg-[#32205499] backdrop-blur-sm"
+                onClick={onCancel}
+                aria-label="Close delete dataset confirmation"
+                disabled={isLoading}
+            />
+
+            <div className="relative w-full max-w-[480px] overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-white shadow-xl">
+                <div className="border-b border-[#E5E5E5] px-[20px] py-[16px]">
+                    <h3 className="text-[18px] font-semibold text-gray-800">
+                        Delete Dataset
+                    </h3>
+                    <p className="mt-[4px] text-sm text-gray-500">
+                        This action cannot be undone.
+                    </p>
+                </div>
+
+                <div className="p-[20px] text-sm text-gray-600">
+                    <p>
+                        Are you sure you want to delete{" "}
+                        <span className="font-medium text-gray-800">
+                            {filename}
+                        </span>
+                        ?
+                    </p>
+
+                    {error && (
+                        <p className="mt-[12px] text-sm text-destructive-600">
+                            {error}
+                        </p>
+                    )}
+                </div>
+
+                <div className="flex justify-end gap-[10px] border-t border-[#E5E5E5] px-[20px] py-[16px]">
+                    <button
+                        type="button"
+                        className="prod-btn-base prod-btn-secondary"
+                        onClick={onCancel}
+                        disabled={isLoading}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        className="prod-btn-base prod-btn-destructive"
+                        onClick={onConfirm}
+                        disabled={isLoading}
+                    >
+                        {isLoading ? "Deleting..." : "Delete"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const DatasetPreviewModal = ({ data, onClose }) => {
+    const columns = data.preview_headers.slice(0, 3);
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-[20px] py-[24px]">
+            <button
+                type="button"
+                className="absolute inset-0 bg-[#34405499] backdrop-blur-sm"
+                onClick={onClose}
+                aria-label="Close dataset preview"
+            />
+
+            <div className="relative w-full max-w-[680px] overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-white shadow-xl">
+                <div className="border-b border-[#E5E5E5] px-[20px] py-[16px]">
+                    <h3 className="text-[18px] font-semibold text-gray-800">
+                        Dataset Preview
+                    </h3>
+                    <p className="text-sm text-gray-500">{data.filename}</p>
+                </div>
+
+                <div className="p-[20px]">
+                    <div className="mb-[16px] grid grid-cols-1 gap-[10px] text-sm sm:grid-cols-2">
+                        <p className="text-gray-500">
+                            Status:{" "}
+                            <span className="font-medium text-gray-800">
+                                {data.dataset_status}
+                            </span>
+                        </p>
+                        <p className="text-gray-500">
+                            Rows:{" "}
+                            <span className="font-medium text-gray-800">
+                                {data.num_of_rows}
+                            </span>
+                        </p>
+                    </div>
+
+                    {columns.length > 0 && data.preview_data.length > 0 ? (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
+                                        {columns.map((column) => (
+                                            <th
+                                                key={column}
+                                                className="py-[12px] px-[10px] font-medium capitalize"
+                                            >
+                                                {column}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {data.preview_data.map((row, index) => (
+                                        <tr
+                                            key={index}
+                                            className="border-b border-[#F0F0F0]"
+                                        >
+                                            {columns.map((column) => (
+                                                <td
+                                                    key={column}
+                                                    className="max-w-[220px] truncate py-[14px] px-[10px] text-gray-600"
+                                                >
+                                                    {row?.[column] ?? ""}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div className="rounded-[8px] border border-[#E5E5E5] bg-white px-[14px] py-[18px] text-sm text-gray-500">
+                            No preview data available.
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex justify-end border-t border-[#E5E5E5] px-[20px] py-[16px]">
+                    <button
+                        type="button"
+                        className="prod-btn-base prod-btn-secondary"
+                        onClick={onClose}
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
         </div>
     );
 };
@@ -506,7 +1042,6 @@ const TrainingLogs = () => {
 };
 
 /* HELPERS */
-
 const ModelCard = ({ 
     name,
     description,

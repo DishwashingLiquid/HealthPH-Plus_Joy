@@ -224,7 +224,11 @@ route     GET api/datasets/download/{filename}
 """
 
 
-async def download_dataset(id: str):
+async def download_dataset(
+    id: str,
+    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
+
+):
     # Check if there is id
     if not id:
         raise HTTPException(
@@ -245,6 +249,13 @@ async def download_dataset(id: str):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found"
         )
+
+    if current_user["user_type"] != "SUPERADMIN":
+        if str(dataset_data.get("user_id")) != str(current_user["_id"]):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to download this dataset.",
+            )
 
     filename = dataset_data["filename"]
 

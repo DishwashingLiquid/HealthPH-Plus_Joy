@@ -24,6 +24,13 @@ export const datasetsApi = baseAPI.injectEndpoints({
       query: (id) => `/datasets/user/${id}`,
       providesTags: ["Datasets"],
     }),
+    downloadDataset: builder.mutation({
+      query: (id) => ({
+        url: `/datasets/download/${id}`,
+        method: "GET",
+        responseHandler: (response) => response.blob(),
+      }),
+    }),
     deleteDataset: builder.mutation({
       query: (id) => ({
         url: `/datasets/${id}`,
@@ -47,4 +54,5 @@ export const {
   useFetchDatasetsQuery,
   useFetchDatasetsByUserQuery,
   useDeleteDatasetMutation,
+  useDownloadDatasetMutation,
 } = datasetsApi;
