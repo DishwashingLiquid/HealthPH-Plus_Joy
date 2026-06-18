@@ -32,7 +32,7 @@ import {
     Radar,  
 } from "recharts";
 
-import { ToolbarButton, ToolbarSearch } from "../../components/ToolbarControls";
+import { ToolbarButton, ToolbarSearch, ToolbarSelect } from "../../components/ToolbarControls";
 
 const ModelAccessToolkit = () => {
     const [activeTab, setActiveTab] = useState("comparison");
@@ -343,6 +343,9 @@ const DataManagement = () => {
 
     const datasets = datasetsByUser || [];
 
+    const [datasetSearch, setDatasetSearch] = useState("");
+    const [datasetStatusFilter, setDatasetStatusFilter] = useState("all");
+
     /* UPLOAD MODAL STATE */
     const inputFile = useRef(null);
     const [uploadFile, { isLoading: isUploadLoading }] = useUploadFileMutation();
@@ -454,6 +457,60 @@ const DataManagement = () => {
         return `${newSize.toFixed(2).replace(/\.?0+$/, "")} KB`; 
     };
 
+    const getDatasetStatus = (dataset) =>
+        String(dataset.dataset_status || dataset.dataset_type || "UNKNOWN").toUpperCase();
+
+    const filteredDatasets = datasets.filter((dataset) => {
+        const searchValue = datasetSearch.trim().toLowerCase();
+        const status = getDatasetStatus(dataset);
+
+        const matchesSearch =
+            !searchValue ||
+            [
+                dataset.filename,
+                dataset.original_filename,
+                dataset.user_name,
+                dataset.dataset_status,
+                dataset.dataset_type,
+            ]
+                .filter(Boolean)
+                .some((value) => String(value).toLowerCase().includes(searchValue));
+
+        const matchesStatus =
+            datasetStatusFilter === "all" || status === datasetStatusFilter;
+
+        return matchesSearch && matchesStatus;
+    });
+
+    const datasetSummaryCards = [
+        {
+            label: "Total Datasets",
+            value: datasets.length,
+        },
+        {
+            label: "Uploaded / Raw",
+            value: datasets.filter((dataset) =>
+                ["UPLOADED", "RAW"].includes(getDatasetStatus(dataset))
+            ).length,
+        },
+        {
+            label: "Annotated",
+            value: datasets.filter((dataset) => getDatasetStatus(dataset) === "ANNOTATED").length,
+        },
+        {
+            label: "Total Rows",
+            value: datasets
+                .reduce((sum, dataset) => sum + Number(dataset.num_of_rows || 0), 0)
+                .toLocaleString(),
+        },
+        {
+            label: "Storage Used",
+            value: displayFileSize(
+                datasets.reduce((sum, dataset) => sum + Number(dataset.file_size || 0), 0)
+            ),
+        },
+    ];
+
     const normalizePreviewHeaders = (headers) => {
         if (Array.isArray(headers)) return headers;
         if (typeof headers === "string") return headers.split("+").filter(Boolean);
@@ -527,7 +584,7 @@ const DataManagement = () => {
 
             await createActivityLog({
                 user_id: user.id,
-                entry: `Deleted dataset: $(deleteModalData.filename)`,
+                entry: `Deleted dataset: ${deleteModalData.filename}`,
                 module: "Model Access and Toolkit",
             }).unwrap();
 
@@ -566,13 +623,47 @@ const DataManagement = () => {
                 </div>
             </div>
 
+            {/* SEARCH AND SUMMARY CARDS */}
+            <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-[10px] mb-[18px]">
+                {datasetSummaryCards.map(({ label, value }) => (
+                    <div
+                        key={label}
+                        className="rounded-[8px] border border-[#E5E5E5] bg-white px-[14px] py-[12px]"
+                    >
+                        <p className="text-xs font-medium text-gray-500">{label}</p>
+                        <p className="mt-[6px] text-[18px] font-semibold text-gray-800">{value}</p>
+                    </div>
+                ))}
+            </div>
+
+            <div className="mb-[16px] flex flex-col gap-[10px] md:flex-row md:items-center md:justify-between">
+                <ToolbarSearch
+                    placeholder="Search datasets..."
+                    value={datasetSearch}
+                    onChange={(event) => setDatasetSearch(event.target.value)}
+                />
+
+                <ToolbarSelect
+                    value={datasetStatusFilter}
+                    onChange={(event) => setDatasetStatusFilter(event.target.value)}
+                    className="w-full md:w-[180px]"
+                >
+                    <option value="all">All Status</option>
+                    <option value="UPLOADED">Uploaded</option>
+                    <option value="RAW">Raw</option>
+                    <option value="ANNOTATED">Annotated</option>
+                    <option value="PROCESSING">Processing</option>
+                    <option value="FAILED">Failed</option>
+                </ToolbarSelect>
+            </div>
+
             {isDatasetsByUserFetching ? (
                 <div className="overflow-y-hidden min-w-full h-[500px]">
                     <SkeletonBody columns={5} />
                 </div>
             ) : (
                 <div className="overflow-x-auto">
-                    {datasets.length > 0 ? (
+                    {filteredDatasets.length > 0 ? (
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
@@ -585,7 +676,7 @@ const DataManagement = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {datasets.map(({
+                                {filteredDatasets.map(({
                                     id,
                                     user_name,
                                     filename,
@@ -653,8 +744,12 @@ const DataManagement = () => {
                     ) : (
                         <EmptyState
                             iconName="Document"
-                            heading="No Datasets Uploaded"
-                            content="There are no datasets uploaded. Upload a dataset to prepare it for model processing."
+                            heading={datasets.length > 0 ? "No Matching Datasets" : "No Datasets Uploaded"}
+                            content={
+                                datasets.length > 0
+                                    ? "Try adjusting your search or status filter."
+                                    : "There are no datasets uploaded. Upload a dataset to prepare it for model processing."
+                            }
                         />
                     )}
                 </div>
