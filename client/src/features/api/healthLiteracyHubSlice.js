@@ -8,6 +8,18 @@ export const healthLiteracyHubApi = baseAPI.injectEndpoints({
         { type: "HealthLiteracyContent", id: contentType },
       ],
     }),
+    fetchWebsiteHealthLiteracyContent: builder.query({
+      query: (contentType) =>
+        contentType
+          ? `/health-literacy-hub/website/${contentType}`
+          : "/health-literacy-hub/website",
+      providesTags: (result, error, contentType) => [
+        {
+          type: "HealthLiteracyContent",
+          id: `website-${contentType ?? "all"}`,
+        },
+      ],
+    }),
     createHealthLiteracyContent: builder.mutation({
       query: ({ contentType, data }) => ({
         url: `/health-literacy-hub/${contentType}`,
@@ -50,6 +62,7 @@ export const healthLiteracyHubApi = baseAPI.injectEndpoints({
 
 export const {
   useFetchHealthLiteracyContentQuery,
+  useFetchWebsiteHealthLiteracyContentQuery,
   useCreateHealthLiteracyContentMutation,
   useUpdateHealthLiteracyContentMutation,
   useFetchHealthLiteracyAnalyticsOverviewQuery,

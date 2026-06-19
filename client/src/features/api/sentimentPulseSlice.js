@@ -6,6 +6,12 @@ export const sentimentPulseApi = baseAPI.injectEndpoints({
       query: () => "/sentiment-pulse/surveys",
       providesTags: ["SentimentPulseSurveys"],
     }),
+    fetchSentimentPulseSurveyResults: builder.query({
+      query: (surveyId) => `/sentiment-pulse/surveys/${surveyId}/results`,
+      providesTags: (_result, _error, surveyId) => [
+        { type: "SentimentPulseSurveys", id: surveyId },
+      ],
+    }),
     createSentimentPulseSurvey: builder.mutation({
       query: (data) => ({
         url: "/sentiment-pulse/surveys",
@@ -52,6 +58,7 @@ export const sentimentPulseApi = baseAPI.injectEndpoints({
 
 export const {
   useCreateSentimentPulseSurveyMutation,
+  useFetchSentimentPulseSurveyResultsQuery,
   useFetchPublicSentimentPulseSurveysQuery,
   useFetchSentimentPulseRegionalAnalysisQuery,
   useFetchSentimentPulseSurveysQuery,

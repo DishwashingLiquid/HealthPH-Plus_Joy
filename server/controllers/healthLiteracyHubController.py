@@ -200,6 +200,16 @@ def _ensure_content_indexes() -> None:
         ],
         name="health_literacy_mobile_publish_lookup",
     )
+    health_literacy_content_collection.create_index(
+        [
+            ("contentType", 1),
+            ("publishToWebsite", 1),
+            ("isArchived", 1),
+            ("isPinned", -1),
+            ("createdAt", -1),
+        ],
+        name="health_literacy_website_publish_lookup",
+    )
 
 
 def _read_json_seed_content(content_type: str) -> list:
@@ -444,7 +454,46 @@ def _fetch_published_mobile_content(content_type: Optional[str] = None) -> list:
     return content
 
 
+def _get_published_website_match(content_type: Optional[str] = None) -> dict:
+    match = {
+        "publishToWebsite": True,
+        "isArchived": {"$ne": True},
+    }
+
+    if content_type:
+        if content_type not in CONTENT_FILES:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Health Literacy Hub content type not found",
+            )
+
+        match["contentType"] = content_type
+
+    return match
+
+
+def _fetch_published_website_content(content_type: Optional[str] = None) -> list:
+    content_keys = [content_type] if content_type else CONTENT_FILES.keys()
+
+    for content_key in content_keys:
+        _ensure_json_content_migrated(content_key)
+
+    content = list(
+        health_literacy_content_collection.find(
+            _get_published_website_match(content_type)
+        ).sort([("isPinned", -1), ("pinnedAt", -1), ("createdAt", -1)])
+    )
+
+    return content
+
+
 def _serialize_mobile_content(document: dict) -> dict:
+    serialized_document = _serialize_content_document(document)
+    serialized_document["contentType"] = document.get("contentType", "")
+    return serialized_document
+
+
+def _serialize_website_content(document: dict) -> dict:
     serialized_document = _serialize_content_document(document)
     serialized_document["contentType"] = document.get("contentType", "")
     return serialized_document
@@ -1058,6 +1107,34 @@ async def fetch_mobile_health_literacy_content_by_type(content_type: str):
     return [
         _serialize_mobile_content(item)
         for item in _fetch_published_mobile_content(content_type)
+    ]
+
+
+"""
+@desc     Fetch published Health Literacy Hub content for website
+route     GET api/health-literacy-hub/website
+@access   Public
+"""
+
+
+async def fetch_website_health_literacy_content():
+    return [
+        _serialize_website_content(item)
+        for item in _fetch_published_website_content()
+    ]
+
+
+"""
+@desc     Fetch published Health Literacy Hub content by type for website
+route     GET api/health-literacy-hub/website/{content_type}
+@access   Public
+"""
+
+
+async def fetch_website_health_literacy_content_by_type(content_type: str):
+    return [
+        _serialize_website_content(item)
+        for item in _fetch_published_website_content(content_type)
     ]
 
 

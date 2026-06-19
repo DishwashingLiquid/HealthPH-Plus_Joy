@@ -5,6 +5,7 @@ from controllers.sentimentPulseController import (
     create_survey,
     fetch_public_surveys,
     fetch_regional_analysis,
+    fetch_survey_results,
     fetch_surveys,
     schedule_survey,
 )
@@ -24,6 +25,13 @@ router.add_api_route(
     "/surveys",
     methods=["POST"],
     endpoint=create_survey,
+)
+
+# GET       /sentiment-pulse/surveys/{survey_id}/results
+router.add_api_route(
+    "/surveys/{survey_id}/results",
+    methods=["GET"],
+    endpoint=fetch_survey_results,
 )
 
 # PATCH     /sentiment-pulse/surveys/{survey_id}/schedule

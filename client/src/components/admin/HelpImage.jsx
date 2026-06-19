@@ -61,8 +61,12 @@ import UserMap2Sm from "../../assets/images/help/user-map-2-sm.png";
 import UserListViewSm from "../../assets/images/help/user-list-view-sm.png";
 import UserSettingsSm from "../../assets/images/help/user-settings-sm.png";
 
+import DashboardLaptop from "../../assets/images/dashboard-laptop.png";
+import DashboardTablet from "../../assets/images/dashboard-tablet-portrait.png";
+import DashboardMobile from "../../assets/images/dashboard-mobile.png";
 import useDeviceDetect from "../../hooks/useDeviceDetect";
 import { useEffect, useState } from "react";
+import PropTypes from "prop-types";
 import Icon from "../Icon";
 
 const HelpImage = ({ image }) => {
@@ -83,7 +87,7 @@ const HelpImage = ({ image }) => {
         setSize("base");
       }
     }
-  }, []);
+  }, [isPWA]);
 
   const imageList = {
     "admin-navigation": AdminNavigation,
@@ -150,12 +154,30 @@ const HelpImage = ({ image }) => {
     "user-settings": UserSettingsSm,
   };
 
+  const placeholderList = {
+    base: DashboardLaptop,
+    md: DashboardTablet,
+    sm: DashboardMobile,
+  };
+
+  const getImageSource = () => {
+    if (size == "md") {
+      return imageListMd[image] || placeholderList.md;
+    }
+
+    if (size == "sm") {
+      return imageListSm[image] || placeholderList.sm;
+    }
+
+    return imageList[image] || placeholderList.base;
+  };
+
+  const imageSource = image ? getImageSource() : undefined;
+
   return (
     <>
       <div className="image-wrapper" onClick={() => setModalActive(true)}>
-        {image && size == "base" && <img src={imageList[image]} alt={image} />}
-        {image && size == "md" && <img src={imageListMd[image]} alt={image} />}
-        {image && size == "sm" && <img src={imageListSm[image]} alt={image} />}
+        {imageSource && <img src={imageSource} alt={image} />}
       </div>
 
       {modalActive && (
@@ -171,19 +193,16 @@ const HelpImage = ({ image }) => {
             />
           </div>
           <div className="modal-image">
-            {image && size == "base" && (
-              <img src={imageList[image]} alt={image} />
-            )}
-            {image && size == "md" && (
-              <img src={imageListMd[image]} alt={image} />
-            )}
-            {image && size == "sm" && (
-              <img src={imageListSm[image]} alt={image} />
-            )}
+            {imageSource && <img src={imageSource} alt={image} />}
           </div>
         </div>
       )}
     </>
   );
 };
+
+HelpImage.propTypes = {
+  image: PropTypes.string,
+};
+
 export default HelpImage;

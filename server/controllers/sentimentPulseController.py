@@ -265,6 +265,163 @@ def _build_sentiment_breakdown(sentiment_counts: Counter, total_responses: int) 
     }
 
 
+def _calculate_percentage(count: int, total: int) -> int:
+    if total == 0:
+        return 0
+
+    return round((count / total) * 100)
+
+
+def _normalize_answer_value(value) -> str:
+    return str(value).strip()
+
+
+def _is_empty_answer(value) -> bool:
+    if value is None:
+        return True
+
+    if isinstance(value, str):
+        return value.strip() == ""
+
+    if isinstance(value, list):
+        return len(value) == 0
+
+    return False
+
+
+def _get_question_label(question: dict, index: int) -> str:
+    title = str(question.get("title") or "").strip()
+
+    return title or f"Question {index + 1}"
+
+
+def _get_question_result_type(question: dict) -> str:
+    question_type = str(question.get("type") or "").strip()
+
+    if question_type == "multipleChoice":
+        return "multipleChoice"
+
+    if question_type == "rating":
+        return "rating"
+
+    return "text"
+
+
+def _get_choice_labels(question: dict) -> list[str]:
+    choices = question.get("choices") or []
+
+    return [
+        _normalize_answer_value(choice)
+        for choice in choices
+        if _normalize_answer_value(choice)
+    ]
+
+
+def _get_rating_labels(question: dict) -> list[str]:
+    rate_min = int(question.get("rateMin") or 1)
+    rate_max = int(question.get("rateMax") or 5)
+    start = min(rate_min, rate_max)
+    end = max(rate_min, rate_max)
+
+    return [str(value) for value in range(start, end + 1)]
+
+
+def _build_choice_or_rating_rows(
+    configured_labels: list[str],
+    answer_counts: Counter,
+    answered_count: int,
+) -> list[dict]:
+    rows = [
+        {
+            "label": label,
+            "count": answer_counts[label],
+            "percentage": _calculate_percentage(answer_counts[label], answered_count),
+        }
+        for label in configured_labels
+    ]
+    configured_set = set(configured_labels)
+    unknown_count = sum(
+        count
+        for label, count in answer_counts.items()
+        if label not in configured_set
+    )
+
+    if unknown_count > 0:
+        rows.append(
+            {
+                "label": "Other / Removed option",
+                "count": unknown_count,
+                "percentage": _calculate_percentage(unknown_count, answered_count),
+            }
+        )
+
+    return rows
+
+
+def _build_question_results(question: dict, index: int, responses: list[dict]) -> dict:
+    question_id = question.get("id")
+    result_type = _get_question_result_type(question)
+    answer_counts = Counter()
+    answered_count = 0
+
+    for response in responses:
+        answers = response.get("answers") or {}
+
+        if question_id not in answers:
+            continue
+
+        answer_value = answers.get(question_id)
+
+        if _is_empty_answer(answer_value):
+            continue
+
+        answered_count += 1
+
+        if result_type == "text":
+            answer_counts.update(["Non-empty text response"])
+            continue
+
+        if isinstance(answer_value, list):
+            answer_counts.update(
+                _normalize_answer_value(value)
+                for value in answer_value
+                if not _is_empty_answer(value)
+            )
+            continue
+
+        answer_counts.update([_normalize_answer_value(answer_value)])
+
+    if result_type == "multipleChoice":
+        rows = _build_choice_or_rating_rows(
+            _get_choice_labels(question),
+            answer_counts,
+            answered_count,
+        )
+    elif result_type == "rating":
+        rows = _build_choice_or_rating_rows(
+            _get_rating_labels(question),
+            answer_counts,
+            answered_count,
+        )
+    else:
+        text_count = answer_counts["Non-empty text response"]
+        rows = [
+            {
+                "label": "Non-empty text responses",
+                "count": text_count,
+                "percentage": _calculate_percentage(text_count, answered_count),
+            }
+        ]
+
+    return {
+        "id": question_id,
+        "title": _get_question_label(question, index),
+        "type": result_type,
+        "answeredResponses": answered_count,
+        "rows": rows,
+    }
+
+
 """
 @desc     Fetch admin Sentiment Pulse surveys
 route     GET api/sentiment-pulse/surveys
@@ -283,6 +440,51 @@ async def fetch_surveys(
     )
 
     return [_serialize_survey(survey) for survey in surveys]
+
+
+"""
+@desc     Fetch admin Sentiment Pulse survey results
+route     GET api/sentiment-pulse/surveys/{survey_id}/results
+@access   Private
+"""
+
+
+async def fetch_survey_results(
+    survey_id: str,
+    _current_user: Annotated[
+        dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))
+    ],
+):
+    survey = _get_survey_or_404(survey_id)
+    serialized_survey = _serialize_survey(survey)
+    responses = list(
+        sentiment_pulse_survey_responses_collection.find(
+            {"surveyId": survey_id},
+            {"_id": 0, "answers": 1},
+        )
+    )
+    questions = survey.get("questions") or []
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "survey": {
+                "id": serialized_survey.get("id"),
+                "title": serialized_survey.get("title"),
+                "subtitle": serialized_survey.get("subtitle"),
+                "status": serialized_survey.get("status"),
+                "target": serialized_survey.get("target"),
+                "responses": serialized_survey.get("responses"),
+                "dominantSentiment": serialized_survey.get("dominantSentiment"),
+                "sentimentBreakdown": serialized_survey.get("sentimentBreakdown"),
+            },
+            "questions": [
+                _build_question_results(question, index, responses)
+                for index, question in enumerate(questions)
+            ],
+            "updatedAt": get_ph_datetime().isoformat(),
+        },
+    )
 
 
 """

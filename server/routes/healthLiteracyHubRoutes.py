@@ -8,6 +8,8 @@ from controllers.healthLiteracyHubController import (
     fetch_health_literacy_content,
     fetch_mobile_health_literacy_content,
     fetch_mobile_health_literacy_content_by_type,
+    fetch_website_health_literacy_content,
+    fetch_website_health_literacy_content_by_type,
     update_health_literacy_content,
 )
 
@@ -39,6 +41,20 @@ router.add_api_route(
     "/mobile/{content_type}",
     methods=["GET"],
     endpoint=fetch_mobile_health_literacy_content_by_type,
+)
+
+# GET       /health-literacy-hub/website
+router.add_api_route(
+    "/website",
+    methods=["GET"],
+    endpoint=fetch_website_health_literacy_content,
+)
+
+# GET       /health-literacy-hub/website/{content_type}
+router.add_api_route(
+    "/website/{content_type}",
+    methods=["GET"],
+    endpoint=fetch_website_health_literacy_content_by_type,
 )
 
 # GET       /health-literacy-hub/media/{content_type}/{filename}
