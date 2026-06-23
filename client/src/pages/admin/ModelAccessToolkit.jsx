@@ -325,6 +325,19 @@ const ModelComparison = () => {
     ); 
 };
 
+const RAW_DATASET_REQUIRED_HEADERS = [
+    "id",
+    "language",
+    "text",
+    "location",
+    "date_posted",
+    "source",
+    "date_collected",
+];
+
+const normalizeCsvHeader = (header) =>
+    String(header || "").trim().toLowerCase().replace(/\s+/g, "_");    
+
 /* SUBTAB 2 = DATA MANAGEMENT */
 const DataManagement = () => {
     const user = useSelector((state) => state.auth.user);
@@ -358,6 +371,7 @@ const DataManagement = () => {
         rows: 0,
         headers: [],
         data: [],
+        missingHeaders: [],
     });
 
     /* DELETE MODAL STATE */
@@ -375,6 +389,8 @@ const DataManagement = () => {
         filename: "",
         num_of_rows: 0,
         dataset_status: "",
+        processing_error: "",
+        processed_at: "",
         preview_headers: [],
         preview_data: [],
     });
@@ -389,6 +405,7 @@ const DataManagement = () => {
             rows: 0,
             headers: [],
             data: [],
+            missingHeaders: [],
         });
 
         if (inputFile.current) {
@@ -409,12 +426,19 @@ const DataManagement = () => {
 
         const headers = data?.[0] ? Object.keys(data[0]) : [];
 
+        const normalizedHeaders = headers.map(normalizeCsvHeader);
+
+        const missingHeaders = RAW_DATASET_REQUIRED_HEADERS.filter(
+            (requiredHeader) => !normalizedHeaders.includes(requiredHeader)
+        );
+
         setSelectedFile(originalFile);
         setUploadPreviewData({
             filename: fileInfo.name,
             rows: data.length,
             headers,
             data: data.slice(0, 3),
+            missingHeaders,
         });
         setUploadError("");
         setUploadModalActive(true);
@@ -423,6 +447,13 @@ const DataManagement = () => {
     const handleUploadDataset = async () => {
         if (!selectedFile) {
             setUploadError("No CSV file selected.");
+            return;
+        }
+
+        if (uploadPreviewData.missingHeaders.length > 0) {
+            setUploadError(
+                `Missing required columns: ${uploadPreviewData.missingHeaders.join(", ")}`
+            );
             return;
         }
 
@@ -440,9 +471,53 @@ const DataManagement = () => {
 
             resetUploadState();
         } catch (error) {
-            setUploadError("Failed to upload dataset. Please try again.");
+            const message =
+                error?.data?.detail ||
+                error?.error ||
+                "Failed to upload dataset. Please try again.";
+
+            setUploadError(message);
             console.error("Failed to upload dataset", error);
         }
+    };
+
+    const handleDownloadTemplate = () => {
+        const sampleRows = [
+            {
+                id: "0001",
+                language: "english",
+                text: "Sample post text about lung-related diseases.",
+                location: "Manila",
+                date_posted: "2026-01-15",
+                source: "Facebook",
+                date_collected: "2026-01-16",
+            },  
+        ];
+
+        const headers = RAW_DATASET_REQUIRED_HEADERS;
+        const csvRows = [
+            headers.join(","),
+            ...sampleRows.map((row) =>
+                headers
+                    .map((header) => `"${String(row[header] ?? "").replace(/"/g, '""')}"`)
+                    .join(",")
+            ),
+        ];
+
+        const blob = new Blob([csvRows.join("\n")], {
+            type: "text/csv;charset=utf-8;",
+        });
+
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+
+        link.href = url;
+        link.download = "healthph-plus-raw-dataset-template.csv";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
+        window.URL.revokeObjectURL(url);
     };
 
     /* HELPERS */
@@ -557,6 +632,8 @@ const DataManagement = () => {
             filename: dataset.original_filename || dataset.filename || "Dataset",
             num_of_rows: dataset.num_of_rows ?? 0,
             dataset_status: dataset.dataset_status || dataset.dataset_type || "Unknown",
+            processing_error: dataset.processing_error || "",
+            processed_at: dataset.processed_at || "",
             preview_headers: normalizePreviewHeaders(dataset.preview_headers),
             preview_data: normalizePreviewRows(dataset.preview_data),
         });
@@ -607,13 +684,21 @@ const DataManagement = () => {
                         Datasets available for model training, validation, and evaluation.
                     </p>
                 </div>
-                <div>
-                <button 
-                        className="bg-[#2563EB] text-white rounded-[10px] px-[14px] py-[9px] text-sm"
+                <div className="flex flex-wrap justify-end gap-[10px]">
+                    <ToolbarButton
+                        iconName="Download"
+                        variant="primary"
+                        onClick={handleDownloadTemplate}
+                    >
+                        Download Template
+                    </ToolbarButton>
+                    <ToolbarButton 
+                        iconName="Upload"
+                        variant="primary"
                         onClick={() => inputFile.current.click()}    
                     >
                         Upload Dataset
-                    </button>
+                    </ToolbarButton>
                     <CSVReader
                         parserOptions={{ header: true }}
                         onFileLoaded={onFileSelect}
@@ -651,8 +736,9 @@ const DataManagement = () => {
                     <option value="all">All Status</option>
                     <option value="UPLOADED">Uploaded</option>
                     <option value="RAW">Raw</option>
-                    <option value="ANNOTATED">Annotated</option>
+                    <option value="QUEUED">Queued</option>
                     <option value="PROCESSING">Processing</option>
+                    <option value="ANNOTATED">Annotated</option>
                     <option value="FAILED">Failed</option>
                 </ToolbarSelect>
             </div>
@@ -686,6 +772,8 @@ const DataManagement = () => {
                                     original_filename,
                                     dataset_type,
                                     num_of_rows,
+                                    processing_error,
+                                    processed_at,
                                     preview_headers,
                                     preview_data,
                                 }) => (
@@ -716,6 +804,8 @@ const DataManagement = () => {
                                                             dataset_type,
                                                             dataset_status,
                                                             num_of_rows,
+                                                            processing_error,
+                                                            processed_at,
                                                             preview_headers,
                                                             preview_data,
                                                         })
@@ -794,13 +884,17 @@ const DatasetStatusBadge = ({ status }) => {
             backgroundColor: "#F3F4F6",
             color: "#6B7280",
         },
-        ANNOTATED: {
-            backgroundColor: "#D1FAE5",
-            color: "#059669",
+        QUEUED: {
+            backgroundColor: "#E0E7FF",
+            color: "#4F46E5",
         },
         PROCESSING: {
             backgroundColor: "#FEF3C7",
             color: "#D97706",
+        },
+        ANNOTATED: {
+            backgroundColor: "#D1FAE5",
+            color: "#059669",
         },
         FAILED: {
             backgroundColor: "#FEE2E2",
@@ -820,7 +914,8 @@ const DatasetStatusBadge = ({ status }) => {
 
 /* MODALS */
 const UploadDatasetModal = ({ data, error, isLoading, onCancel, onConfirm }) => {
-    const columns = data.headers.slice(0, 3);
+    const columns = data.headers.slice(0, 7);
+    const hasMissingHeaders = data.missingHeaders?.length > 0;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-[20px] py-[24px]">
@@ -829,7 +924,7 @@ const UploadDatasetModal = ({ data, error, isLoading, onCancel, onConfirm }) => 
                 className="absolute inset-0 bg-[#34405499] backdrop-blur-sm"
                 onClick={onCancel}
                 aria-label="Close upload dataset preview"
-                disabled={isLoading}
+                disabled={isLoading || hasMissingHeaders}
             />
 
             <div className="relative w-full max-w-[680px] overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-white shadow-xl">
@@ -844,6 +939,19 @@ const UploadDatasetModal = ({ data, error, isLoading, onCancel, onConfirm }) => 
                     <p className="mb-[16px] text-sm text-gray-500">
                         Rows: <span className="font-medium text-gray-800">{data.rows}</span>
                     </p>
+
+                    <div className="mb-[8px] rounded-[8px] border border-[#E5E5E5] bg-[#F8F9FA] px-[12px] py-[10px] text-sm text-gray-600">
+                        Required columns:{" "}
+                        <span className="font-medium text-gray-800">
+                            {RAW_DATASET_REQUIRED_HEADERS.join(", ")}
+                        </span>
+                    </div>
+
+                    {hasMissingHeaders && (
+                        <div className="mb-[16px] rounded-[8px] border border-[#FCA5A5] bg-[#FEF2F2] px-[12px] py-[10px] text-sm text-[#B42318]">
+                            Missing required columns: {data.missingHeaders.join(", ")}
+                        </div>
+                    )}
 
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">

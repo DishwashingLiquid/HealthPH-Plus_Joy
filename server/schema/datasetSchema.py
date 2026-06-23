@@ -15,6 +15,10 @@ def individual_dataset(dataset) -> dict:
         'dataset_type': str(dataset['dataset_type']),
         "dataset_status": dataset.get("dataset_status", dataset.get("dataset_type", "RAW")),
         "description": dataset.get("description", ""),
+        "processing_error": dataset.get("processing_error", ""),
+        "processed_at": (
+            str(dataset["processed_at"]) if dataset.get("processed_at") else ""
+        ),
         "created_at": (
             str(dataset["created_at"]) if "created_at" in dataset.keys() else ""
         ),

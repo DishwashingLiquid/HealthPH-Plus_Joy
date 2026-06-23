@@ -27,6 +27,33 @@ datasets_folder = Path("public/datasets")
 
 annotated_datasets_folder = Path("public/annotated_datasets")
 
+RAW_DATASET_REQUIRED_HEADERS = [
+    "id",
+    "language",
+    "text",
+    "location",
+    "date_posted",
+    "source",
+    "date_collected",
+]
+
+def normalize_csv_header(header):
+    return str(header).strip().lower().replace(" ", "_")
+
+def is_template_dataset(raw_dataset_df):
+    if len(raw_dataset_df) != 1:
+        return False
+    
+    first_row = raw_dataset_df.iloc[0].fillna("").astype(str).str.strip()
+
+    return (
+        first_row.get("language", "").lower() == "english"
+        and first_row.get("text", "") == "Sample post text about lung-related diseases."
+        and first_row.get("location", "").lower() == "manila"
+        and first_row.get("date_posted", "") == "2026-01-15"
+        and first_row.get("source", "") == "Facebook"
+        and first_row.get("date_collected", "") == "2026-01-16"
+    )
 
 def annotate_dataset(
     dataset_data: dict,
@@ -160,22 +187,52 @@ async def upload_dataset(
     with open(full_path, "wb") as f:
         f.write(contents)
 
-    num_of_rows = len(pd.read_csv(full_path))
+    try:
+        raw_dataset_df = pd.read_csv(full_path)
+    except pd.errors.EmptyDataError:
+        os.remove(full_path)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="CSV file is empty",
+        )
+    
+    # Check if there is missing headers
+    raw_dataset_df.columns = [
+        normalize_csv_header(column) for column in raw_dataset_df.columns
+    ]
 
-    csv_headers = list(pd.read_csv((full_path), nrows=3, usecols=range(3)).columns)
+    missing_headers = [
+        header
+        for header in RAW_DATASET_REQUIRED_HEADERS
+        if header not in raw_dataset_df.columns
+    ]
 
-    csv_headers = ["region", "province", "posts"]
+    if missing_headers:
+        os.remove(full_path)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Missing required columns: {', '.join(missing_headers)}",
+        )
+    
+    # Check if uploaded is same as template
+    if is_template_dataset(raw_dataset_df):
+        os.remove(full_path)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please replace the sample template row with the real scraped data before uploading.",
+        )
 
-    preview_headers = "+".join(csv_headers)
+    # count rows
+    num_of_rows = len(raw_dataset_df)
 
-    preview_data = pd.read_csv((full_path), nrows=3, usecols=range(3)).to_json(
+    # Create preview
+    preview_headers = "+".join(RAW_DATASET_REQUIRED_HEADERS)
+
+    preview_data = raw_dataset_df[RAW_DATASET_REQUIRED_HEADERS].head(3).to_json(
         orient="records"
     )
 
-    preview_data = pd.read_csv((full_path), nrows=3, usecols=csv_headers).to_json(
-        orient="records"
-    )
-
+    # Insert metadata
     to_encode.update(
         {
             "user_name": f"{user_data['first_name']} {user_data['last_name']}",
@@ -188,6 +245,8 @@ async def upload_dataset(
             "dataset_type": "RAW",
             "dataset_status": "UPLOADED",
             "description": "",
+            "processing_error": "",
+            "processed_at": None,
             "created_at": get_ph_datetime(),
         }
     )
