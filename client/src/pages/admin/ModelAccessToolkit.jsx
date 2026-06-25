@@ -12,6 +12,7 @@ import {
     useDownloadDatasetMutation,
     useDeleteDatasetMutation,
     useUploadFileMutation,
+    useProcessDatasetMutation,
 } from "../../features/api/datasetsSlice";
 
 import { useCreateActivityLogMutation } from "../../features/api/activityLogsSlice";
@@ -344,7 +345,7 @@ const DataManagement = () => {
 
     /* API HOOKS */
     const [downloadDataset] = useDownloadDatasetMutation();
-
+    const [processDataset, { isLoading: isProcessLoading }] = useProcessDatasetMutation();
     const [deleteDataset, { isLoading: isDeleteLoading }] = useDeleteDatasetMutation();
 
     const [createActivityLog] = useCreateActivityLogMutation();
@@ -518,6 +519,20 @@ const DataManagement = () => {
         link.remove();
 
         window.URL.revokeObjectURL(url);
+    };
+
+    const handleProcessDataset = async ({ id, filename }) => {
+        try {
+            await processDataset(id).unwrap();
+
+            await createActivityLog({
+                user_id: user.id,
+                entry: `started dataset processing: ${filename}`,
+                module: "Model Access and Toolkit",
+            }).unwrap();
+        } catch (error) {
+            console.error("Failed to process dataset", error);
+        }
     };
 
     /* HELPERS */
@@ -819,6 +834,17 @@ const DataManagement = () => {
                                                 >
                                                     Download
                                                 </button>
+                                                {["UPLOADED", "FAILED"].includes(String(dataset_status || "").toUpperCase()) &&
+                                                    String(dataset_type || "").toUpperCase() === "RAW" && (
+                                                        <button
+                                                            className="text-[#4F46E5] text-sm disabled:text-gray-400"
+                                                            onClick={() => handleProcessDataset({ id, filename })}
+                                                            disabled={isProcessLoading}
+                                                        >
+                                                            {String(dataset_status).toUpperCase() === "FAILED" ? "Retry" : "Process"}
+                                                        </button>
+                                                    )
+                                                }
                                                 <button 
                                                     className="text-destructive-600 text-sm"
                                                     onClick={() => openDeleteModal({ id, filename })}

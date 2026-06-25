@@ -122,6 +122,33 @@ def annotate_dataset(
     pass
 
 
+def run_dataset_processing_job(dataset_id: str):
+    dataset_collection.update_one(
+        {"_id": ObjectId(dataset_id)},
+        {
+            "$set": {
+                "dataset_status": "PROCESSING",
+                "processing_error": "",
+                "processed_at": None,
+            }
+        },
+    )
+
+    try:
+        raise NotImplementedError("Annotation processer not connected yet.")
+    except Exception as error:
+        dataset_collection.update_one(
+            {"_id": ObjectId(dataset_id)},
+            {
+                "$set": {
+                    "dataset_status": "FAILED",
+                    "processing_error": str(error),
+                    "processed_at": get_ph_datetime(),
+                }
+            },
+        )
+
+
 """
 @desc     Upload a single dataset
 route     POST api/datasets/upload
@@ -273,6 +300,63 @@ async def upload_dataset(
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={"message": "Dataset uploaded successfully"},
+    )
+
+
+async def process_dataset(
+    background_tasks: BackgroundTasks,
+    id: str,
+    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
+):
+    if not ObjectId.is_valid(id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid dataset ID",
+        )
+    
+    dataset_data = dataset_collection.find_one({"_id": ObjectId(id)})
+
+    if not dataset_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Dataset not found",
+        )
+    
+    if current_user["user_type"] != "SUPERADMIN":
+        if str(dataset_data.get("user_id")) != str(current_user["_id"]):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to process this dataset.",
+            )
+        
+    if dataset_data.get("dataset_type") != "RAW":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only raw datasets can be processed.",
+        )
+    
+    if dataset_data.get("dataset_status") in ["QUEUED", "PROCESSING"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Dataset is already queued or processing.",
+        )
+    
+    dataset_collection.update_one(
+        {"_id": ObjectId(id)},
+        {
+            "$set": {
+                "dataset_status": "QUEUED",
+                "processing_error": "",
+                "processed_at": None,
+            }
+        },
+    )
+
+    background_tasks.add_task(run_dataset_processing_job, id)
+
+    return JSONResponse(
+        status_code=status.HTTP_202_ACCEPTED,
+        content={"message": "Dataset queued for processing"},
     )
 
 

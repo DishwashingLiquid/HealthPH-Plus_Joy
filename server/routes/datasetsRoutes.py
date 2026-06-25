@@ -5,7 +5,8 @@ from controllers.datasetsController import (
     upload_dataset,
     download_dataset,
     fetch_datasets,
-    fetch_datasets_by_user
+    fetch_datasets_by_user,
+    process_dataset,
 )
 
 router = APIRouter()
@@ -21,6 +22,9 @@ router.add_api_route("/user/{user_id}", methods=["GET"], endpoint=fetch_datasets
 
 # GET       /datasets
 router.add_api_route("/", methods=["GET"], endpoint=fetch_datasets)
+
+# POST      /datasets/process/{id}
+router.add_api_route("/process/{id}", methods=["POST"], endpoint=process_dataset)
 
 # DELETE    /datasets/all-datasets
 router.add_api_route("/all-datasets", methods=["DELETE"], endpoint=delete_all_datasets)

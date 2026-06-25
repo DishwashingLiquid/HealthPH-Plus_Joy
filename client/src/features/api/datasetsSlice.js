@@ -31,6 +31,21 @@ export const datasetsApi = baseAPI.injectEndpoints({
         responseHandler: (response) => response.blob(),
       }),
     }),
+    processDataset: builder.mutation({
+      query: (id) => ({
+        url: `/datasets/process/${id}`,
+        method: "POST",
+      }),
+      invalidatesTags: [
+        "Datasets",
+        "Points",
+        "PointsDisease",
+        "AnalyticsSuspected",
+        "AnalyticsFrequent",
+        "AnalyticsPercentage",
+        "AnalyticsWordcloud",
+      ],
+    }),
     deleteDataset: builder.mutation({
       query: (id) => ({
         url: `/datasets/${id}`,
@@ -55,4 +70,5 @@ export const {
   useFetchDatasetsByUserQuery,
   useDeleteDatasetMutation,
   useDownloadDatasetMutation,
+  useProcessDatasetMutation,
 } = datasetsApi;
