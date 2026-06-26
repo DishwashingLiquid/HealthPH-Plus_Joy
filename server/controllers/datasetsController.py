@@ -8,6 +8,7 @@ from numpy import full
 import pymongo
 from typing_extensions import Annotated
 import pandas as pd
+import math
 
 from bson import ObjectId
 from fastapi import BackgroundTasks, Depends, HTTPException, UploadFile, status
@@ -215,7 +216,7 @@ async def upload_dataset(
         f.write(contents)
 
     try:
-        raw_dataset_df = pd.read_csv(full_path)
+        raw_dataset_df = pd.read_csv(full_path, dtype=str, keep_default_na=False)
     except pd.errors.EmptyDataError:
         os.remove(full_path)
         raise HTTPException(
@@ -252,10 +253,31 @@ async def upload_dataset(
     # count rows
     num_of_rows = len(raw_dataset_df)
 
-    # Create preview
+    # capture languages
+    languages = (
+        raw_dataset_df["language"]
+        .astype(str)
+        .str.strip()
+        .replace("", pd.NA)
+        .dropna()
+        .unique()
+        .tolist()
+    )
+
+    languages = sorted(languages)
+
+    # preview atleast 5% of total rows
+    preview_row_count = 0
+    
+    if num_of_rows > 0:
+        preview_row_count = min(
+            num_of_rows,
+            max(10, math.ceil(num_of_rows * 0.05)),
+        )
+
     preview_headers = "+".join(RAW_DATASET_REQUIRED_HEADERS)
 
-    preview_data = raw_dataset_df[RAW_DATASET_REQUIRED_HEADERS].head(3).to_json(
+    preview_data = raw_dataset_df[RAW_DATASET_REQUIRED_HEADERS].head(preview_row_count).to_json(
         orient="records"
     )
 
@@ -267,6 +289,8 @@ async def upload_dataset(
             "original_filename": original_filename,
             "file_size": file_size,
             "num_of_rows": num_of_rows,
+            "languages": languages,
+            "preview_row_count": preview_row_count,
             "preview_headers": str(preview_headers),
             "preview_data": json.dumps(preview_data),
             "dataset_type": "RAW",
