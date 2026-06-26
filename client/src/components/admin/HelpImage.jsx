@@ -10,6 +10,25 @@ import AdminUserManagement from "../../assets/images/help/admin-user-management.
 import AdminAddUser from "../../assets/images/help/admin-add-user.png";
 import AdminActivityLogs from "../../assets/images/help/admin-activity-logs.png";
 import AdminSettings from "../../assets/images/help/admin-settings.png";
+import AdminOutbreakMonitoring from "../../assets/images/help/admin-outbreak-monitoring.png";
+import AdminMisinformationTracker from "../../assets/images/help/admin-Misinformation-Tracker.png";
+import AdminNLPInsights from "../../assets/images/help/admin-NLP-Insights.png";
+import AdminNLPInsightsNamedEntityRecognition from "../../assets/images/help/admin-NLP-Insights-Named-Entity-Recognition.png";
+import AdminNLPInsightsSentimentAnalysis from "../../assets/images/help/admin-NLP-Insights-Sentiment-Analysis.png";
+import AdminNLPInsightsLanguageDetection from "../../assets/images/help/admin-NLP-Insights-Language-Detection.png";
+import AdminModelAccessToolkitModelComparison from "../../assets/images/help/admin-Model-Access-Toolkit-Model-Comparison.png";
+import AdminModelAccessToolkitDataManagement from "../../assets/images/help/admin-Model-Access-Toolkit-Data-Management.png";
+import AdminModelAccessToolkitTrainingLogs from "../../assets/images/help/admin-Model-Access-Toolkit-Training-Logs.png";
+import AdminDiseaseWatchFeedRecentAlerts from "../../assets/images/help/admin-Disease-Watch-Feed-Recent-Alerts.png";
+import AdminDiseaseWatchFeedRegionalCoverage from "../../assets/images/help/admin-Disease-Watch-Feed-Regional-Coverage.png";
+import AdminDiseaseWatchFeedUserAnalytics from "../../assets/images/help/admin-Disease-Watch-Feed-User-Analytics.png";
+import AdminHealthLiteracyHubArticles from "../../assets/images/help/admin-Health-Literacy-Hub-Articles.png";
+import AdminHealthLiteracyHubVideos from "../../assets/images/help/admin-Health-Literacy-Hub-Videos.png";
+import AdminHealthLiteracyHubInfographics from "../../assets/images/help/admin-Health-Literacy-Hub-Infographics.png";
+import AdminHealthLiteracyHubAnalytics from "../../assets/images/help/admin-Health-Literacy-Hub-Analytics.png";
+import AdminSentimentPulseToolSentimentTrends from "../../assets/images/help/admin-Sentiment-Pulse-Tool-Sentiment-Trends.png";
+import AdminSentimentPulseToolRegionalAnalysis from "../../assets/images/help/admin-Sentiment-Pulse-Tool-Regional-Analysis.png";
+import AdminSentimentPulseToolMobileSurveys from "../../assets/images/help/admin-Sentiment-Pulse-Tool-Mobile-Surveys.png";
 
 import AdminNavigationMd from "../../assets/images/help/admin-navigation-md.png";
 import AdminAnalyticsMd from "../../assets/images/help/admin-analytics-md.png";
@@ -102,6 +121,38 @@ const HelpImage = ({ image }) => {
     "admin-add-user": AdminAddUser,
     "admin-activity-logs": AdminActivityLogs,
     "admin-settings": AdminSettings,
+    "admin-outbreak-monitoring": AdminOutbreakMonitoring,
+    "admin-Misinformation-Tracker": AdminMisinformationTracker,
+    "admin-NLP-Insights": AdminNLPInsights,
+    "admin-NLP-Insights-Named-Entity-Recognition":
+      AdminNLPInsightsNamedEntityRecognition,
+    "admin-NLP-Insights-Sentiment-Analysis":
+      AdminNLPInsightsSentimentAnalysis,
+    "admin-NLP-Insights-Language-Detection":
+      AdminNLPInsightsLanguageDetection,
+    "admin-Model-Access-Toolkit-Model-Comparison":
+      AdminModelAccessToolkitModelComparison,
+    "admin-Model-Access-Toolkit-Data-Management":
+      AdminModelAccessToolkitDataManagement,
+    "admin-Model-Access-Toolkit-Training-Logs":
+      AdminModelAccessToolkitTrainingLogs,
+    "admin-Disease-Watch-Feed-Recent-Alerts":
+      AdminDiseaseWatchFeedRecentAlerts,
+    "admin-Disease-Watch-Feed-Regional-Coverage":
+      AdminDiseaseWatchFeedRegionalCoverage,
+    "admin-Disease-Watch-Feed-User-Analytics":
+      AdminDiseaseWatchFeedUserAnalytics,
+    "admin-Health-Literacy-Hub-Articles": AdminHealthLiteracyHubArticles,
+    "admin-Health-Literacy-Hub-Videos": AdminHealthLiteracyHubVideos,
+    "admin-Health-Literacy-Hub-Infographics":
+      AdminHealthLiteracyHubInfographics,
+    "admin-Health-Literacy-Hub-Analytics": AdminHealthLiteracyHubAnalytics,
+    "admin-Sentiment-Pulse-Tool-Sentiment-Trends":
+      AdminSentimentPulseToolSentimentTrends,
+    "admin-Sentiment-Pulse-Tool-Regional-Analysis":
+      AdminSentimentPulseToolRegionalAnalysis,
+    "admin-Sentiment-Pulse-Tool-Mobile-Surveys":
+      AdminSentimentPulseToolMobileSurveys,
     "user-navigation": UserNavigation,
     "user-analytics": UserAnalytics,
     "user-trends-map": UserTrendsMap,
@@ -162,11 +213,11 @@ const HelpImage = ({ image }) => {
 
   const getImageSource = () => {
     if (size == "md") {
-      return imageListMd[image] || placeholderList.md;
+      return imageListMd[image] || imageList[image] || placeholderList.md;
     }
 
     if (size == "sm") {
-      return imageListSm[image] || placeholderList.sm;
+      return imageListSm[image] || imageList[image] || placeholderList.sm;
     }
 
     return imageList[image] || placeholderList.base;

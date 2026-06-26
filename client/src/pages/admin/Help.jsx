@@ -196,7 +196,7 @@ const helpSectionsAdmin = [
             sectionDesc:
               "Real-time Outbreak Monitoring displays a Philippine map of suspected disease points inside the AI Surveillance dashboard. Admins can use region, disease, and time range filters to review national outbreak signals, inspect suspected PTB, Pneumonia, COVID, and AURI markers, and interact with the shared map through zooming, panning, and location controls.",
             sectionImage: (
-              <HelpImage image="admin-ai-real-time-outbreak-monitoring" />
+              <HelpImage image="admin-outbreak-monitoring" />
             ),
           },
         ],
@@ -210,7 +210,7 @@ const helpSectionsAdmin = [
       {
         sectionDesc:
           "NLP Insights organizes multilingual text analysis into tabs for entity extraction, sentiment analysis, and language detection. Admins can review detected diseases, symptoms, locations, common words, word clouds, sentiment graphs, and language distribution charts.",
-        sectionImage: <HelpImage image="admin-nlp-insights" />,
+        sectionImage: <HelpImage image="admin-NLP-Insights" />,
       },
     ],
     subSections: [
@@ -221,7 +221,9 @@ const helpSectionsAdmin = [
           {
             sectionDesc:
               "The Named Entity Recognition tab shows disease, symptom, and location panels, a sample NER demo with highlighted health terms, a top words bar chart, and a word cloud. Use the filters to review terms by region when regional data is available.",
-            sectionImage: <HelpImage image="admin-nlp-ner" />,
+            sectionImage: (
+              <HelpImage image="admin-NLP-Insights-Named-Entity-Recognition" />
+            ),
           },
         ],
       },
@@ -232,7 +234,9 @@ const helpSectionsAdmin = [
           {
             sectionDesc:
               "The Sentiment Analysis tab summarizes positive, neutral, and negative public sentiment with a distribution pie chart, a sentiment-by-region bar chart, and a sentiment trends line chart over time.",
-            sectionImage: <HelpImage image="admin-nlp-sentiment-analysis" />,
+            sectionImage: (
+              <HelpImage image="admin-NLP-Insights-Sentiment-Analysis" />
+            ),
           },
         ],
       },
@@ -243,7 +247,9 @@ const helpSectionsAdmin = [
           {
             sectionDesc:
               "The Language Detection tab shows the language distribution pie chart, language distribution by region bar chart, and model performance cards for English, Filipino, Cebuano, Ilocano, and Hiligaynon detection accuracy.",
-            sectionImage: <HelpImage image="admin-nlp-language-detection" />,
+            sectionImage: (
+              <HelpImage image="admin-NLP-Insights-Language-Detection" />
+            ),
           },
         ],
       },
@@ -256,7 +262,7 @@ const helpSectionsAdmin = [
       {
         sectionDesc:
           "Misinformation Tracker helps admins monitor health misinformation claims. It includes time, region, impact, and search filters; summary cards for active misinformation, daily mentions, response rate, and social reach; a misinformation trend line chart; a source distribution pie chart; and a claims table with impact, status, and action controls.",
-        sectionImage: <HelpImage image="admin-misinformation-tracker" />,
+        sectionImage: <HelpImage image="admin-Misinformation-Tracker" />,
       },
     ],
   },
@@ -313,7 +319,9 @@ const helpSectionsAdmin = [
           {
             sectionDesc:
               "The Model Comparison tab includes model filters, model search, a performance comparison bar chart for F1 score, precision, recall, and accuracy, plus model cards with score summaries and comparison actions.",
-            sectionImage: <HelpImage image="admin-model-comparison" />,
+            sectionImage: (
+              <HelpImage image="admin-Model-Access-Toolkit-Model-Comparison" />
+            ),
           },
         ],
       },
@@ -324,7 +332,9 @@ const helpSectionsAdmin = [
           {
             sectionDesc:
               "The Data Management tab shows datasets used for model training, validation, and evaluation. The dataset table includes file name, size, status, uploader, upload date, and actions such as preview, download, or delete when available.",
-            sectionImage: <HelpImage image="admin-model-data-management" />,
+            sectionImage: (
+              <HelpImage image="admin-Model-Access-Toolkit-Data-Management" />
+            ),
           },
         ],
       },
@@ -335,7 +345,9 @@ const helpSectionsAdmin = [
           {
             sectionDesc:
               "The Training Logs tab tracks model runs, datasets, processing status, start time, duration, and available view or export actions. Use this tab to audit training activity and troubleshoot failed or queued runs.",
-            sectionImage: <HelpImage image="admin-model-training-logs" />,
+            sectionImage: (
+              <HelpImage image="admin-Model-Access-Toolkit-Training-Logs" />
+            ),
           },
         ],
       },
@@ -359,7 +371,9 @@ const helpSectionsAdmin = [
           {
             sectionDesc:
               "The Recent Alerts tab lists detected disease alerts with disease name, alert type, region, timestamp, and short summary. Use it to scan new warnings and recent symptom activity.",
-            sectionImage: <HelpImage image="admin-disease-recent-alerts" />,
+            sectionImage: (
+              <HelpImage image="admin-Disease-Watch-Feed-Recent-Alerts" />
+            ),
           },
         ],
       },
@@ -370,7 +384,9 @@ const helpSectionsAdmin = [
           {
             sectionDesc:
               "The Regional Coverage tab includes a registered-users-by-region bar chart, a region filter, and regional cards with user counts and percentage bars. It helps identify where the mobile network has stronger or weaker coverage.",
-            sectionImage: <HelpImage image="admin-disease-regional-coverage" />,
+            sectionImage: (
+              <HelpImage image="admin-Disease-Watch-Feed-Regional-Coverage" />
+            ),
           },
         ],
       },
@@ -381,7 +397,9 @@ const helpSectionsAdmin = [
           {
             sectionDesc:
               "The User Analytics tab summarizes total users, alert open rate, and submitted symptom reports with month-over-month trend indicators.",
-            sectionImage: <HelpImage image="admin-disease-user-analytics" />,
+            sectionImage: (
+              <HelpImage image="admin-Disease-Watch-Feed-User-Analytics" />
+            ),
           },
         ],
       },
@@ -405,7 +423,9 @@ const helpSectionsAdmin = [
           {
             sectionDesc:
               "The Articles tab supports creating, editing, previewing, publishing, archiving, and organizing written health literacy content with titles, topics, tags, summaries, and article media.",
-            sectionImage: <HelpImage image="admin-health-literacy-articles" />,
+            sectionImage: (
+              <HelpImage image="admin-Health-Literacy-Hub-Articles" />
+            ),
           },
         ],
       },
@@ -416,7 +436,9 @@ const helpSectionsAdmin = [
           {
             sectionDesc:
               "The Videos tab manages video-based resources, including metadata, audience targeting, upload or preview media, and content status controls.",
-            sectionImage: <HelpImage image="admin-health-literacy-videos" />,
+            sectionImage: (
+              <HelpImage image="admin-Health-Literacy-Hub-Videos" />
+            ),
           },
         ],
       },
@@ -427,7 +449,9 @@ const helpSectionsAdmin = [
           {
             sectionDesc:
               "The Infographics tab manages image-based educational materials with preview support, tags, descriptions, and publishing controls for quick visual health guidance.",
-            sectionImage: <HelpImage image="admin-health-literacy-infographics" />,
+            sectionImage: (
+              <HelpImage image="admin-Health-Literacy-Hub-Infographics" />
+            ),
           },
         ],
       },
@@ -438,7 +462,9 @@ const helpSectionsAdmin = [
           {
             sectionDesc:
               "The Analytics tab filters by time range, content type, and region. It shows total content interactions, content pieces, engagement rate, misinformation reports placeholder, top-performing content, and CSV or PDF export controls.",
-            sectionImage: <HelpImage image="admin-health-literacy-analytics" />,
+            sectionImage: (
+              <HelpImage image="admin-Health-Literacy-Hub-Analytics" />
+            ),
           },
         ],
       },
@@ -462,7 +488,9 @@ const helpSectionsAdmin = [
           {
             sectionDesc:
               "The Sentiment Trends tab includes a sentiment trends line chart, a sentiment categories pie chart, and a top health topics horizontal bar chart. Use it to see how concerned, proactive, misinformed, and neutral responses change over time.",
-            sectionImage: <HelpImage image="admin-sentiment-trends" />,
+            sectionImage: (
+              <HelpImage image="admin-Sentiment-Pulse-Tool-Sentiment-Trends" />
+            ),
           },
         ],
       },
@@ -473,7 +501,9 @@ const helpSectionsAdmin = [
           {
             sectionDesc:
               "The Regional Analysis tab shows a regional sentiment map and a regional sentiment comparison list with response volume bars, dominant sentiment labels, and trend indicators.",
-            sectionImage: <HelpImage image="admin-sentiment-regional-analysis" />,
+            sectionImage: (
+              <HelpImage image="admin-Sentiment-Pulse-Tool-Regional-Analysis" />
+            ),
           },
         ],
       },
@@ -484,7 +514,9 @@ const helpSectionsAdmin = [
           {
             sectionDesc:
               "The Mobile Surveys tab lists draft, scheduled, published, active, and inactive surveys. Cards show response progress, target counts, dominant sentiment, scheduled or published dates, and results or edit actions.",
-            sectionImage: <HelpImage image="admin-sentiment-mobile-surveys" />,
+            sectionImage: (
+              <HelpImage image="admin-Sentiment-Pulse-Tool-Mobile-Surveys" />
+            ),
           },
         ],
       },
