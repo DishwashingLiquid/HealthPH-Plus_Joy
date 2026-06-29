@@ -166,7 +166,7 @@ const ActivityLogs = () => {
   return (
     <>
       {isLoading ? (
-        <SkeletonTable columns={9} />
+        <SkeletonTable columns={4} />
       ) : (
         <div className="admin-wrapper flex flex-col h-full">
           <div className="header items-start sm:items-center flex-col sm:flex-row">
