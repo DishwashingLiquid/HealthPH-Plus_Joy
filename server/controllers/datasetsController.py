@@ -242,6 +242,23 @@ async def upload_dataset(
             detail=f"Missing required columns: {', '.join(missing_headers)}",
         )
     
+    # remove blank comma rows
+    raw_dataset_df = raw_dataset_df.replace(r"^\s*$", pd.NA, regex=True)
+
+    raw_dataset_df = raw_dataset_df.dropna(
+        subset=RAW_DATASET_REQUIRED_HEADERS,
+        how="all",
+    )
+
+    raw_dataset_df = raw_dataset_df.fillna("")
+
+    if raw_dataset_df.empty:
+        os.remove(full_path)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="CSV file has no data rows.",
+        )
+
     # Check if uploaded is same as template
     if is_template_dataset(raw_dataset_df):
         os.remove(full_path)

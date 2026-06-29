@@ -447,19 +447,31 @@ const DataManagement = () => {
 
         const headers = data?.[0] ? Object.keys(data[0]) : [];
 
+        const headerLookup = headers.reduce((lookup, header) => {
+            lookup[normalizeCsvHeader(header)] = header;
+            return lookup;
+        }, {});
+
         const normalizedHeaders = headers.map(normalizeCsvHeader);
 
         const missingHeaders = RAW_DATASET_REQUIRED_HEADERS.filter(
             (requiredHeader) => !normalizedHeaders.includes(requiredHeader)
         );
 
+        const validRows = data.filter((row) =>
+            RAW_DATASET_REQUIRED_HEADERS.some((requiredHeader) => {
+                const originalHeader = headerLookup[requiredHeader];
+                return String(row?.[originalHeader] ?? "").trim() !== "";
+            })
+        );
+
         setSelectedFile(originalFile);
         setUploadPreviewData({
             filename: fileInfo.name,
             fileSize: originalFile?.size || 0,
-            rows: data.length,
+            rows: validRows.length,
             headers,
-            data: data.slice(0, 10),
+            data: validRows.slice(0, 10),
             missingHeaders,
         });
         setUploadError("");
