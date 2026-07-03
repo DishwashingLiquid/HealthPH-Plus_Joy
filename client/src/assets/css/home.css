@@ -4,10 +4,7 @@
 
 @layer components {
   .home-layout {
-    background: url("../images/home-bg-ph.png");
-    background-size: cover;
-    background-repeat: no-repeat;
-    background-position: top;
+    background-color: #f2f2f2;
     height: 100vh;
     width: 100vw;
     @apply flex flex-col overflow-hidden;
@@ -46,16 +43,16 @@
   }
 
   .home-nav .home-nav-links ul li a {
-    @apply prod-b1 text-primary-50 px-[18px] py-[10px] rounded-[8px];
+    @apply prod-b1 text-gray-900 px-[18px] py-[10px] rounded-[8px];
   }
 
   .home-nav .home-nav-links ul li a:hover:not(.active) {
-    background-color: rgba(247, 249, 252, 0.2);
+    @apply text-gray-900;
+    background-color: rgba(213, 221, 229, 0.48);
   }
 
   .home-nav .home-nav-links ul li a.active {
-    @apply text-white;
-    background-color: rgba(247, 249, 252, 0.2);
+    @apply text-primary-500 bg-primary-100;
   }
 
   .home-nav.background-solid .home-nav-links ul li a {
@@ -105,7 +102,7 @@
     }
 
     .home-nav .home-nav-links ul li a {
-      @apply flex items-center text-gray-700 bg-white hover:bg-[#E8E8E8] px-[18px] py-[10px];
+      @apply flex items-center text-gray-900 bg-white hover:bg-[#E8E8E8] px-[18px] py-[10px];
     }
 
     .home-nav .home-nav-links ul li a.active {
@@ -114,7 +111,7 @@
 
     .home-nav .home-nav-links ul li a .icon {
       @apply block me-[8px];
-      fill: #465360;
+      fill: #171e26;
     }
     .home-nav .home-nav-links ul li a.active .icon {
       fill: #007aff;
@@ -139,17 +136,17 @@
   }
 
   .home-nav .hamburger-menu .menu-toggler .bar {
-    @apply block bg-white w-[20px] h-[3px] rounded-[2px];
+    @apply block bg-gray-700 w-[20px] h-[3px] rounded-[2px];
     -webkit-transition: all 0.3s cubic-bezier(0.3, 0.8, 0.5, 1.2);
     transition: all 0.3s cubic-bezier(0.3, 0.8, 0.5, 1.2);
   }
 
   .home-nav.background-solid .hamburger-menu .menu-toggler .bar {
-    @apply bg-gray-500;
+    @apply bg-gray-700;
   }
 
   .home-nav .hamburger-menu .menu-toggler.active .bar {
-    @apply bg-primary-50;
+    @apply bg-primary-500;
   }
 
   .home-nav .hamburger-menu .menu-toggler .bar:nth-child(2) {
@@ -177,12 +174,12 @@
   }
 
   .home-layout main .header .heading {
-    @apply text-[56px] leading-[64px] tracking-[-1.12px] text-center font-semibold text-white max-w-[851px];
+    @apply text-[56px] leading-[64px] tracking-[-1.12px] text-center font-semibold text-gray-900 max-w-[851px];
     @apply mb-[24px];
   }
 
   .home-layout main .header .subheading {
-    @apply web-d-p2 text-white font-normal max-w-[665px] text-center;
+    @apply web-d-p2 text-gray-700 font-normal max-w-[665px] text-center;
   }
 
   .home-layout main .art {

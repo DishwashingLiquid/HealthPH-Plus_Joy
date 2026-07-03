@@ -79,4 +79,29 @@ const ArticleItem = ({ article, articlePage, onPreviewClick }) => {
     </div>
   );
 };
+
+export const ArticleItemSkeleton = () => {
+  return (
+    <div className="article-item article-item-skeleton" aria-hidden="true">
+      <div className="article-image article-skeleton-block"></div>
+      <div className="article-body">
+        <div className="article-meta">
+          <span className="article-skeleton-block article-skeleton-chip"></span>
+          <span className="article-skeleton-block article-skeleton-date"></span>
+        </div>
+        <div className="article-skeleton-title">
+          <div className="article-skeleton-block article-skeleton-line"></div>
+          <div className="article-skeleton-block article-skeleton-line article-skeleton-line-short"></div>
+        </div>
+        <div className="article-skeleton-preview">
+          <div className="article-skeleton-block article-skeleton-line"></div>
+          <div className="article-skeleton-block article-skeleton-line"></div>
+          <div className="article-skeleton-block article-skeleton-line article-skeleton-line-medium"></div>
+        </div>
+        <div className="article-skeleton-button article-skeleton-block"></div>
+      </div>
+    </div>
+  );
+};
+
 export default ArticleItem;

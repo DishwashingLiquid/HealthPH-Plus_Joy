@@ -1,19 +1,12 @@
-import { Link, NavLink, useLocation } from "react-router-dom";
-import Logo from "../assets/images/logo.png";
-import LogoAlt from "../assets/images/logo-alt.png";
+import { Link, NavLink } from "react-router-dom";
 import WebLogo from "../assets/images/website-logo.svg";
-import WebLogoAlt from "../assets/images/website-logo-alt.svg";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import HamburgerMenu from "./HamburgerMenu";
 import Icon from "./Icon";
 
-import NULogo from "../assets/images/nu-logo.png";
-import NULogoLg from "../assets/images/nu-logo-lg.png";
 import NULogoLgAlt from "../assets/images/nu-logo-lg-alt.png";
 
 const HomeNavbar = ({ background = "transparent" }) => {
-  const location = useLocation();
-
   const [isMenuActive, setIsMenuActive] = useState(false);
 
   const [menuAnimate, setMenuAnimate] = useState("");
@@ -53,7 +46,7 @@ const HomeNavbar = ({ background = "transparent" }) => {
         <div className="flex">
           <Link to="/" className="logo-wrapper h-[44px] me-[16px]">
             <img
-              src={isMenuActive || background == "solid" ? WebLogo : WebLogoAlt}
+              src={WebLogo}
               alt=""
             />
           </Link>
@@ -82,9 +75,7 @@ const HomeNavbar = ({ background = "transparent" }) => {
           <div className="flex justify-center items-center">
             <div className="w-[152px] h-full">
               <img
-                src={
-                  isMenuActive || background == "solid" ? NULogoLgAlt : NULogoLg
-                }
+                src={NULogoLgAlt}
                 alt="national-university"
                 className="w-full h-full object-contain"
               />

@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Icon from "../components/Icon";
 import HomeNavbar from "../components/HomeNavbar";
 import HomeFooter from "../components/HomeFooter";
-import ArticleItem from "../components/about-us/ArticleItem";
+import ArticleItem, {
+  ArticleItemSkeleton,
+} from "../components/about-us/ArticleItem";
 import { useFetchWebsiteHealthLiteracyContentQuery } from "../features/api/healthLiteracyHubSlice";
 import {
   getContentMediaSource,
@@ -21,18 +23,23 @@ const Articles = () => {
   const [articlePage, setArticlePage] = useState(location.state ?? 1);
   const [previewContent, setPreviewContent] = useState(null);
   const {
-    data: websiteContent = [],
+    data: websiteContent,
+    isLoading: isLoadingWebsiteContent,
     isFetching: isFetchingWebsiteContent,
     isError: isWebsiteContentError,
   } = useFetchWebsiteHealthLiteracyContentQuery();
 
   const numOfArticlesPerPage = 9;
+  const isShowingArticleSkeletons =
+    isLoadingWebsiteContent &&
+    isFetchingWebsiteContent &&
+    typeof websiteContent === "undefined";
 
   const articles = useMemo(() => {
     const staticArticles = ArticlesList.filter((a) => a.articleTitle != "").map(
       normalizeStaticArticle
     );
-    const dashboardContent = normalizeWebsiteContent(websiteContent);
+    const dashboardContent = normalizeWebsiteContent(websiteContent ?? []);
 
     return sortNewestFirst([...dashboardContent, ...staticArticles]);
   }, [websiteContent]);
@@ -93,29 +100,31 @@ const Articles = () => {
               </Link>
             </div> */}
             <p className="section-title">Articles</p>
-            {isFetchingWebsiteContent && (
-              <p className="article-status">Loading published resources...</p>
-            )}
             {isWebsiteContentError && (
               <p className="article-status">
                 Dashboard resources could not be loaded. Showing saved articles.
               </p>
             )}
             <div className="articles">
-              {getArticles().map((a) => {
-                if (a.articleTitle != "") {
-                  return (
-                    <ArticleItem
-                      article={a}
-                      key={`${a.source}-${a.id ?? a.articleID ?? a.articleSlug}`}
-                      articlePage={articlePage}
-                      onPreviewClick={setPreviewContent}
-                    />
-                  );
-                }
-              })}
+              {isShowingArticleSkeletons
+                ? Array.from({ length: numOfArticlesPerPage }, (_, index) => (
+                    <ArticleItemSkeleton key={`article-skeleton-${index}`} />
+                  ))
+                : getArticles().map((a) => {
+                    if (a.articleTitle != "") {
+                      return (
+                        <ArticleItem
+                          article={a}
+                          key={`${a.source}-${a.id ?? a.articleID ?? a.articleSlug}`}
+                          articlePage={articlePage}
+                          onPreviewClick={setPreviewContent}
+                        />
+                      );
+                    }
+                  })}
             </div>
-            {articles.length > numOfArticlesPerPage && (
+            {!isShowingArticleSkeletons &&
+              articles.length > numOfArticlesPerPage && (
               <div className="w-full flex justify-end">
                 <button
                   className="prod-btn-lg prod-btn-secondary flex items-center justify-center me-[20px] h-[48px]"

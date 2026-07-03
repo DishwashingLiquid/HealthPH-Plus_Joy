@@ -28,17 +28,9 @@ const AuthLayout = () => {
           </footer>
         </main>
         <div className="content">
-          <div className="logo-wrapper">
+          {/*<div className="logo-wrapper">
             <img src={AuthLogo} alt="" />
-          </div>
-          <p className="heading">
-            Protecting Filipinos, One Disease at a time.
-          </p>
-          <p className="subheading">
-            Begin disease surveillance across the Philippines instantly.
-            Completely free, intelligent risk monitoring, for all 17
-            administrative regions.
-          </p>
+          </div>*/}
         </div>
         <div className="background"></div>
       </div>

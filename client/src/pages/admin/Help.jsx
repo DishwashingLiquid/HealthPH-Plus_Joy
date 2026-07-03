@@ -1,868 +1,119 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
-import Highlighter from "react-highlight-words";
-import { useSelector } from "react-redux";
 import { NavLink } from "react-router-dom";
-import HelpImage from "../../components/admin/HelpImage";
 import Icon from "../../components/Icon";
 import Input from "../../components/Input";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { useSelector } from "react-redux";
 import ScrollToTop from "../../components/ScrollToTop";
+import Highlighter from "react-highlight-words";
 import useDeviceDetect from "../../hooks/useDeviceDetect";
 
-const PWA_HIDDEN_SECTION_IDS = ["user-management", "activity-logs"];
-const PWA_HIDDEN_SUBSECTION_IDS = [];
-
-const TOCAdmin = [
-  { id: "navigation", label: "Navigation", hasSubItems: false },
-  {
-    id: "ai-surveillance",
-    label: "AI Surveillance",
-    hasSubItems: true,
-    subItems: [
-      {
-        id: "ai-real-time-outbreak-monitoring",
-        label: "Real-time Outbreak Monitoring",
-      },
-    ],
-  },
-  {
-    id: "nlp-insights",
-    label: "NLP Insights",
-    hasSubItems: true,
-    subItems: [
-      { id: "nlp-ner", label: "Named Entity Recognition" },
-      { id: "nlp-sentiment-analysis", label: "Sentiment Analysis" },
-      { id: "nlp-language-detection", label: "Language Detection" },
-    ],
-  },
-  {
-    id: "misinformation-tracker",
-    label: "Misinformation Tracker",
-    hasSubItems: false,
-  },
-  {
-    id: "user-management",
-    label: "User Management",
-    hasSubItems: true,
-    subItems: [
-      { id: "user-management-admins", label: "Admins" },
-      { id: "user-management-users", label: "Users" },
-    ],
-  },
-  {
-    id: "model-access-toolkit",
-    label: "Model Access and Toolkit",
-    hasSubItems: true,
-    subItems: [
-      { id: "model-comparison", label: "Model Comparison" },
-      { id: "model-data-management", label: "Data Management" },
-      { id: "model-training-logs", label: "Training Logs" },
-    ],
-  },
-  {
-    id: "disease-watch-feed",
-    label: "Disease Watch Feed",
-    hasSubItems: true,
-    subItems: [
-      { id: "disease-recent-alerts", label: "Recent Alerts" },
-      { id: "disease-regional-coverage", label: "Regional Coverage" },
-      { id: "disease-user-analytics", label: "User Analytics" },
-    ],
-  },
-  {
-    id: "health-literacy-hub",
-    label: "Health Literacy Hub",
-    hasSubItems: true,
-    subItems: [
-      { id: "health-literacy-articles", label: "Articles" },
-      { id: "health-literacy-videos", label: "Videos" },
-      { id: "health-literacy-infographics", label: "Infographics" },
-      { id: "health-literacy-analytics", label: "Analytics" },
-    ],
-  },
-  {
-    id: "sentiment-pulse-tool",
-    label: "Sentiment Pulse Tool",
-    hasSubItems: true,
-    subItems: [
-      { id: "sentiment-trends", label: "Sentiment Trends" },
-      { id: "sentiment-regional-analysis", label: "Regional Analysis" },
-      { id: "sentiment-mobile-surveys", label: "Mobile Surveys" },
-    ],
-  },
-  { id: "activity-logs", label: "Activity Logs", hasSubItems: false },
-  { id: "settings", label: "Settings", hasSubItems: false },
-];
-
-const TOCUser = [
-  { id: "navigation", label: "Navigation", hasSubItems: false },
-  {
-    id: "ai-surveillance",
-    label: "AI Surveillance",
-    hasSubItems: true,
-    subItems: [
-      {
-        id: "ai-real-time-outbreak-monitoring",
-        label: "Real-time Outbreak Monitoring",
-      },
-    ],
-  },
-  {
-    id: "nlp-insights",
-    label: "NLP Insights",
-    hasSubItems: true,
-    subItems: [
-      { id: "nlp-ner", label: "Named Entity Recognition" },
-      { id: "nlp-sentiment-analysis", label: "Sentiment Analysis" },
-      { id: "nlp-language-detection", label: "Language Detection" },
-    ],
-  },
-  {
-    id: "misinformation-tracker",
-    label: "Misinformation Tracker",
-    hasSubItems: false,
-  },
-  {
-    id: "model-access-toolkit",
-    label: "Model Access and Toolkit",
-    hasSubItems: true,
-    subItems: [
-      { id: "model-comparison", label: "Model Comparison" },
-      { id: "model-data-management", label: "Data Management" },
-      { id: "model-training-logs", label: "Training Logs" },
-    ],
-  },
-  {
-    id: "disease-watch-feed",
-    label: "Disease Watch Feed",
-    hasSubItems: true,
-    subItems: [
-      { id: "disease-recent-alerts", label: "Recent Alerts" },
-      { id: "disease-regional-coverage", label: "Regional Coverage" },
-      { id: "disease-user-analytics", label: "User Analytics" },
-    ],
-  },
-  {
-    id: "health-literacy-hub",
-    label: "Health Literacy Hub",
-    hasSubItems: true,
-    subItems: [
-      { id: "health-literacy-articles", label: "Articles" },
-      { id: "health-literacy-videos", label: "Videos" },
-      { id: "health-literacy-infographics", label: "Infographics" },
-      { id: "health-literacy-analytics", label: "Analytics" },
-    ],
-  },
-  {
-    id: "sentiment-pulse-tool",
-    label: "Sentiment Pulse Tool",
-    hasSubItems: true,
-    subItems: [
-      { id: "sentiment-trends", label: "Sentiment Trends" },
-      { id: "sentiment-regional-analysis", label: "Regional Analysis" },
-      { id: "sentiment-mobile-surveys", label: "Mobile Surveys" },
-    ],
-  },
-  { id: "settings", label: "Settings", hasSubItems: false },
-];
-
-const helpSectionsAdmin = [
-  {
-    sectionName: "Navigation",
-    sectionId: "navigation",
-    description: [
-      {
-        sectionDesc:
-          "The admin dashboard provides access to AI Surveillance, NLP Insights, Misinformation Tracker, User Management, Model Access and Toolkit, Disease Watch Feed, Health Literacy Hub, Sentiment Pulse Tool, Activity Logs, and Settings. Use the sidebar to move between dashboards and the top navigation to open Help, account settings, and issue reporting.",
-        sectionImage: <HelpImage image="admin-navigation" />,
-      },
-    ],
-  },
-  {
-    sectionName: "AI Surveillance",
-    sectionId: "ai-surveillance",
-    description: [
-      {
-        sectionDesc:
-          "AI Surveillance is the main overview for disease monitoring. It combines summary cards for suspected cases, active regions, respiratory alerts, and high-risk areas with a real-time outbreak map, environmental data, AI insights, a respiratory monitoring line chart, a trend forecasting area chart, and a suspected conditions percentage pie chart.",
-        sectionImage: <HelpImage image="admin-ai-surveillance" />,
-      },
-    ],
-    subSections: [
-      {
-        sectionId: "ai-real-time-outbreak-monitoring",
-        sectionName: "Real-time Outbreak Monitoring",
-        description: [
-          {
-            sectionDesc:
-              "Real-time Outbreak Monitoring displays a Philippine map of suspected disease points inside the AI Surveillance dashboard. Admins can use region, disease, and time range filters to review national outbreak signals, inspect suspected PTB, Pneumonia, COVID, and AURI markers, and interact with the shared map through zooming, panning, and location controls.",
-            sectionImage: (
-              <HelpImage image="admin-outbreak-monitoring" />
-            ),
-          },
-        ],
-      },
-    ],
-  },
-  {
-    sectionName: "NLP Insights",
-    sectionId: "nlp-insights",
-    description: [
-      {
-        sectionDesc:
-          "NLP Insights organizes multilingual text analysis into tabs for entity extraction, sentiment analysis, and language detection. Admins can review detected diseases, symptoms, locations, common words, word clouds, sentiment graphs, and language distribution charts.",
-        sectionImage: <HelpImage image="admin-NLP-Insights" />,
-      },
-    ],
-    subSections: [
-      {
-        sectionId: "nlp-ner",
-        sectionName: "Named Entity Recognition",
-        description: [
-          {
-            sectionDesc:
-              "The Named Entity Recognition tab shows disease, symptom, and location panels, a sample NER demo with highlighted health terms, a top words bar chart, and a word cloud. Use the filters to review terms by region when regional data is available.",
-            sectionImage: (
-              <HelpImage image="admin-NLP-Insights-Named-Entity-Recognition" />
-            ),
-          },
-        ],
-      },
-      {
-        sectionId: "nlp-sentiment-analysis",
-        sectionName: "Sentiment Analysis",
-        description: [
-          {
-            sectionDesc:
-              "The Sentiment Analysis tab summarizes positive, neutral, and negative public sentiment with a distribution pie chart, a sentiment-by-region bar chart, and a sentiment trends line chart over time.",
-            sectionImage: (
-              <HelpImage image="admin-NLP-Insights-Sentiment-Analysis" />
-            ),
-          },
-        ],
-      },
-      {
-        sectionId: "nlp-language-detection",
-        sectionName: "Language Detection",
-        description: [
-          {
-            sectionDesc:
-              "The Language Detection tab shows the language distribution pie chart, language distribution by region bar chart, and model performance cards for English, Filipino, Cebuano, Ilocano, and Hiligaynon detection accuracy.",
-            sectionImage: (
-              <HelpImage image="admin-NLP-Insights-Language-Detection" />
-            ),
-          },
-        ],
-      },
-    ],
-  },
-  {
-    sectionName: "Misinformation Tracker",
-    sectionId: "misinformation-tracker",
-    description: [
-      {
-        sectionDesc:
-          "Misinformation Tracker helps admins monitor health misinformation claims. It includes time, region, impact, and search filters; summary cards for active misinformation, daily mentions, response rate, and social reach; a misinformation trend line chart; a source distribution pie chart; and a claims table with impact, status, and action controls.",
-        sectionImage: <HelpImage image="admin-Misinformation-Tracker" />,
-      },
-    ],
-  },
-  {
-    sectionName: "User Management",
-    sectionId: "user-management",
-    description: [
-      {
-        sectionDesc:
-          "User Management is available to admins and super admins for maintaining HealthPH accounts. It provides Admins and Users tabs, account status controls, profile details, table search and pagination, report generation, and add-user access when permitted by role.",
-        sectionImage: <HelpImage image="admin-user-management" />,
-      },
-    ],
-    subSections: [
-      {
-        sectionId: "user-management-admins",
-        sectionName: "Admins",
-        description: [
-          {
-            sectionDesc:
-              "The Admins tab lists administrative users, their status, contact details, and available account actions. Super admins can manage elevated account privileges and remove users when allowed.",
-            sectionImage: <HelpImage image="admin-add-user" />,
-          },
-        ],
-      },
-      {
-        sectionId: "user-management-users",
-        sectionName: "Users",
-        description: [
-          {
-            sectionDesc:
-              "The Users tab lists standard dashboard users, including assigned regions and account status. Admins can review records, update eligible accounts, and generate user reports.",
-            sectionImage: <HelpImage image="admin-user-management-users" />,
-          },
-        ],
-      },
-    ],
-  },
-  {
-    sectionName: "Model Access and Toolkit",
-    sectionId: "model-access-toolkit",
-    description: [
-      {
-        sectionDesc:
-          "Model Access and Toolkit supports model evaluation and dataset operations for health surveillance workflows. It contains tabs for comparing models, managing uploaded datasets, and reviewing training logs.",
-        sectionImage: <HelpImage image="admin-model-access-toolkit" />,
-      },
-    ],
-    subSections: [
-      {
-        sectionId: "model-comparison",
-        sectionName: "Model Comparison",
-        description: [
-          {
-            sectionDesc:
-              "The Model Comparison tab includes model filters, model search, a performance comparison bar chart for F1 score, precision, recall, and accuracy, plus model cards with score summaries and comparison actions.",
-            sectionImage: (
-              <HelpImage image="admin-Model-Access-Toolkit-Model-Comparison" />
-            ),
-          },
-        ],
-      },
-      {
-        sectionId: "model-data-management",
-        sectionName: "Data Management",
-        description: [
-          {
-            sectionDesc:
-              "The Data Management tab shows datasets used for model training, validation, and evaluation. The dataset table includes file name, size, status, uploader, upload date, and actions such as preview, download, or delete when available.",
-            sectionImage: (
-              <HelpImage image="admin-Model-Access-Toolkit-Data-Management" />
-            ),
-          },
-        ],
-      },
-      {
-        sectionId: "model-training-logs",
-        sectionName: "Training Logs",
-        description: [
-          {
-            sectionDesc:
-              "The Training Logs tab tracks model runs, datasets, processing status, start time, duration, and available view or export actions. Use this tab to audit training activity and troubleshoot failed or queued runs.",
-            sectionImage: (
-              <HelpImage image="admin-Model-Access-Toolkit-Training-Logs" />
-            ),
-          },
-        ],
-      },
-    ],
-  },
-  {
-    sectionName: "Disease Watch Feed",
-    sectionId: "disease-watch-feed",
-    description: [
-      {
-        sectionDesc:
-          "Disease Watch Feed monitors mobile and community disease signals. It opens with alert distribution, early warning, and symptom report metrics, then separates alert review, regional coverage, and user engagement into tabs.",
-        sectionImage: <HelpImage image="admin-disease-watch-feed" />,
-      },
-    ],
-    subSections: [
-      {
-        sectionId: "disease-recent-alerts",
-        sectionName: "Recent Alerts",
-        description: [
-          {
-            sectionDesc:
-              "The Recent Alerts tab lists detected disease alerts with disease name, alert type, region, timestamp, and short summary. Use it to scan new warnings and recent symptom activity.",
-            sectionImage: (
-              <HelpImage image="admin-Disease-Watch-Feed-Recent-Alerts" />
-            ),
-          },
-        ],
-      },
-      {
-        sectionId: "disease-regional-coverage",
-        sectionName: "Regional Coverage",
-        description: [
-          {
-            sectionDesc:
-              "The Regional Coverage tab includes a registered-users-by-region bar chart, a region filter, and regional cards with user counts and percentage bars. It helps identify where the mobile network has stronger or weaker coverage.",
-            sectionImage: (
-              <HelpImage image="admin-Disease-Watch-Feed-Regional-Coverage" />
-            ),
-          },
-        ],
-      },
-      {
-        sectionId: "disease-user-analytics",
-        sectionName: "User Analytics",
-        description: [
-          {
-            sectionDesc:
-              "The User Analytics tab summarizes total users, alert open rate, and submitted symptom reports with month-over-month trend indicators.",
-            sectionImage: (
-              <HelpImage image="admin-Disease-Watch-Feed-User-Analytics" />
-            ),
-          },
-        ],
-      },
-    ],
-  },
-  {
-    sectionName: "Health Literacy Hub",
-    sectionId: "health-literacy-hub",
-    description: [
-      {
-        sectionDesc:
-          "Health Literacy Hub manages educational resources and monitors how audiences interact with them. Admins can work with articles, videos, infographics, and analytics for content views, content pieces, engagement rate, and top-performing resources.",
-        sectionImage: <HelpImage image="admin-health-literacy-hub" />,
-      },
-    ],
-    subSections: [
-      {
-        sectionId: "health-literacy-articles",
-        sectionName: "Articles",
-        description: [
-          {
-            sectionDesc:
-              "The Articles tab supports creating, editing, previewing, publishing, archiving, and organizing written health literacy content with titles, topics, tags, summaries, and article media.",
-            sectionImage: (
-              <HelpImage image="admin-Health-Literacy-Hub-Articles" />
-            ),
-          },
-        ],
-      },
-      {
-        sectionId: "health-literacy-videos",
-        sectionName: "Videos",
-        description: [
-          {
-            sectionDesc:
-              "The Videos tab manages video-based resources, including metadata, audience targeting, upload or preview media, and content status controls.",
-            sectionImage: (
-              <HelpImage image="admin-Health-Literacy-Hub-Videos" />
-            ),
-          },
-        ],
-      },
-      {
-        sectionId: "health-literacy-infographics",
-        sectionName: "Infographics",
-        description: [
-          {
-            sectionDesc:
-              "The Infographics tab manages image-based educational materials with preview support, tags, descriptions, and publishing controls for quick visual health guidance.",
-            sectionImage: (
-              <HelpImage image="admin-Health-Literacy-Hub-Infographics" />
-            ),
-          },
-        ],
-      },
-      {
-        sectionId: "health-literacy-analytics",
-        sectionName: "Analytics",
-        description: [
-          {
-            sectionDesc:
-              "The Analytics tab filters by time range, content type, and region. It shows total content interactions, content pieces, engagement rate, misinformation reports placeholder, top-performing content, and CSV or PDF export controls.",
-            sectionImage: (
-              <HelpImage image="admin-Health-Literacy-Hub-Analytics" />
-            ),
-          },
-        ],
-      },
-    ],
-  },
-  {
-    sectionName: "Sentiment Pulse Tool",
-    sectionId: "sentiment-pulse-tool",
-    description: [
-      {
-        sectionDesc:
-          "Sentiment Pulse Tool tracks public health sentiment from mobile and website survey signals. It includes filters, export actions, sentiment summary metrics, trend charts, regional comparisons, and mobile survey management.",
-        sectionImage: <HelpImage image="admin-sentiment-pulse-tool" />,
-      },
-    ],
-    subSections: [
-      {
-        sectionId: "sentiment-trends",
-        sectionName: "Sentiment Trends",
-        description: [
-          {
-            sectionDesc:
-              "The Sentiment Trends tab includes a sentiment trends line chart, a sentiment categories pie chart, and a top health topics horizontal bar chart. Use it to see how concerned, proactive, misinformed, and neutral responses change over time.",
-            sectionImage: (
-              <HelpImage image="admin-Sentiment-Pulse-Tool-Sentiment-Trends" />
-            ),
-          },
-        ],
-      },
-      {
-        sectionId: "sentiment-regional-analysis",
-        sectionName: "Regional Analysis",
-        description: [
-          {
-            sectionDesc:
-              "The Regional Analysis tab shows a regional sentiment map and a regional sentiment comparison list with response volume bars, dominant sentiment labels, and trend indicators.",
-            sectionImage: (
-              <HelpImage image="admin-Sentiment-Pulse-Tool-Regional-Analysis" />
-            ),
-          },
-        ],
-      },
-      {
-        sectionId: "sentiment-mobile-surveys",
-        sectionName: "Mobile Surveys",
-        description: [
-          {
-            sectionDesc:
-              "The Mobile Surveys tab lists draft, scheduled, published, active, and inactive surveys. Cards show response progress, target counts, dominant sentiment, scheduled or published dates, and results or edit actions.",
-            sectionImage: (
-              <HelpImage image="admin-Sentiment-Pulse-Tool-Mobile-Surveys" />
-            ),
-          },
-        ],
-      },
-    ],
-  },
-  {
-    sectionName: "Activity Logs",
-    sectionId: "activity-logs",
-    description: [
-      {
-        sectionDesc:
-          "Activity Logs records important user actions across HealthPH, including report generation, account activity, and module usage. Admins can search, review, and export activity records for auditing.",
-        sectionImage: <HelpImage image="admin-activity-logs" />,
-      },
-    ],
-  },
-  {
-    sectionName: "Settings",
-    sectionId: "settings",
-    description: [
-      {
-        sectionDesc:
-          "Settings lets users review and edit profile details, change email address, change password, and view account status. Inactive users can only access Settings until their account is reactivated.",
-        sectionImage: <HelpImage image="admin-settings" />,
-      },
-    ],
-  },
-];
-
-const helpSectionsUser = [
-  {
-    sectionName: "Navigation",
-    sectionId: "navigation",
-    description: [
-      {
-        sectionDesc:
-          "The user dashboard provides access to the dashboards available to your account, including AI Surveillance, NLP Insights, Misinformation Tracker, Model Access and Toolkit, Disease Watch Feed, Health Literacy Hub, Sentiment Pulse Tool, and Settings. Some data and filters may be limited to your assigned region or account permissions.",
-        sectionImage: <HelpImage image="user-navigation" />,
-      },
-    ],
-  },
-  {
-    sectionName: "AI Surveillance",
-    sectionId: "ai-surveillance",
-    description: [
-      {
-        sectionDesc:
-          "AI Surveillance provides a region-aware overview of suspected disease activity. Users can review suspected case cards, outbreak monitoring on the map, environmental data, AI insights, respiratory monitoring trends, forecasted disease signals, and the suspected conditions percentage pie chart.",
-        sectionImage: <HelpImage image="user-ai-surveillance" />,
-      },
-    ],
-    subSections: [
-      {
-        sectionId: "ai-real-time-outbreak-monitoring",
-        sectionName: "Real-time Outbreak Monitoring",
-        description: [
-          {
-            sectionDesc:
-              "Real-time Outbreak Monitoring displays suspected disease activity on the AI Surveillance map. Users can review markers for accessible regions, use region, disease, and time range filters where available, and interact with the shared map through zooming, panning, and location controls.",
-            sectionImage: (
-              <HelpImage image="user-ai-real-time-outbreak-monitoring" />
-            ),
-          },
-        ],
-      },
-    ],
-  },
-  {
-    sectionName: "NLP Insights",
-    sectionId: "nlp-insights",
-    description: [
-      {
-        sectionDesc:
-          "NLP Insights helps users understand health-related conversations through entity recognition, sentiment analysis, and language detection. Available filters and records follow the user's accessible region settings.",
-        sectionImage: <HelpImage image="user-nlp-insights" />,
-      },
-    ],
-    subSections: [
-      {
-        sectionId: "nlp-ner",
-        sectionName: "Named Entity Recognition",
-        description: [
-          {
-            sectionDesc:
-              "The Named Entity Recognition tab shows detected diseases, symptoms, locations, sample highlighted text, a top words bar chart, and a word cloud for accessible data.",
-            sectionImage: <HelpImage image="user-nlp-ner" />,
-          },
-        ],
-      },
-      {
-        sectionId: "nlp-sentiment-analysis",
-        sectionName: "Sentiment Analysis",
-        description: [
-          {
-            sectionDesc:
-              "The Sentiment Analysis tab shows sentiment distribution, sentiment by region, and sentiment trends over time to help users understand public response patterns.",
-            sectionImage: <HelpImage image="user-nlp-sentiment-analysis" />,
-          },
-        ],
-      },
-      {
-        sectionId: "nlp-language-detection",
-        sectionName: "Language Detection",
-        description: [
-          {
-            sectionDesc:
-              "The Language Detection tab displays language distribution, language distribution by region, and model performance cards for supported languages.",
-            sectionImage: <HelpImage image="user-nlp-language-detection" />,
-          },
-        ],
-      },
-    ],
-  },
-  {
-    sectionName: "Misinformation Tracker",
-    sectionId: "misinformation-tracker",
-    description: [
-      {
-        sectionDesc:
-          "Misinformation Tracker lets users review detected health misinformation with filters, summary cards, a trend line chart, source pie chart, and claims table. User access focuses on viewing and monitoring available records.",
-        sectionImage: <HelpImage image="user-misinformation-tracker" />,
-      },
-    ],
-  },
-  {
-    sectionName: "Model Access and Toolkit",
-    sectionId: "model-access-toolkit",
-    description: [
-      {
-        sectionDesc:
-          "Model Access and Toolkit gives users visibility into model performance, available datasets, and training activity. Administrative dataset actions may depend on account permissions.",
-        sectionImage: <HelpImage image="user-model-access-toolkit" />,
-      },
-    ],
-    subSections: [
-      {
-        sectionId: "model-comparison",
-        sectionName: "Model Comparison",
-        description: [
-          {
-            sectionDesc:
-              "The Model Comparison tab includes filters, model search, a comparison bar chart, and model cards showing F1 score, precision, recall, and accuracy.",
-            sectionImage: <HelpImage image="user-model-comparison" />,
-          },
-        ],
-      },
-      {
-        sectionId: "model-data-management",
-        sectionName: "Data Management",
-        description: [
-          {
-            sectionDesc:
-              "The Data Management tab lists datasets with file name, size, status, uploader, upload date, and available preview or download actions.",
-            sectionImage: <HelpImage image="user-model-data-management" />,
-          },
-        ],
-      },
-      {
-        sectionId: "model-training-logs",
-        sectionName: "Training Logs",
-        description: [
-          {
-            sectionDesc:
-              "The Training Logs tab shows model run history, dataset names, statuses, start times, durations, and available view or export actions.",
-            sectionImage: <HelpImage image="user-model-training-logs" />,
-          },
-        ],
-      },
-    ],
-  },
-  {
-    sectionName: "Disease Watch Feed",
-    sectionId: "disease-watch-feed",
-    description: [
-      {
-        sectionDesc:
-          "Disease Watch Feed provides disease alerts, coverage analytics, and mobile user engagement metrics. Users can review alerts, regional coverage, and user analytics based on the data available to their account.",
-        sectionImage: <HelpImage image="user-disease-watch-feed" />,
-      },
-    ],
-    subSections: [
-      {
-        sectionId: "disease-recent-alerts",
-        sectionName: "Recent Alerts",
-        description: [
-          {
-            sectionDesc:
-              "The Recent Alerts tab lists disease alerts with type, region, timestamp, and summary for quick situational awareness.",
-            sectionImage: <HelpImage image="user-disease-recent-alerts" />,
-          },
-        ],
-      },
-      {
-        sectionId: "disease-regional-coverage",
-        sectionName: "Regional Coverage",
-        description: [
-          {
-            sectionDesc:
-              "The Regional Coverage tab shows a registered-users-by-region bar chart, region filters, and regional cards with user counts and percentage bars.",
-            sectionImage: <HelpImage image="user-disease-regional-coverage" />,
-          },
-        ],
-      },
-      {
-        sectionId: "disease-user-analytics",
-        sectionName: "User Analytics",
-        description: [
-          {
-            sectionDesc:
-              "The User Analytics tab summarizes total users, alert open rate, and symptom reports with trend indicators.",
-            sectionImage: <HelpImage image="user-disease-user-analytics" />,
-          },
-        ],
-      },
-    ],
-  },
-  {
-    sectionName: "Health Literacy Hub",
-    sectionId: "health-literacy-hub",
-    description: [
-      {
-        sectionDesc:
-          "Health Literacy Hub provides articles, videos, infographics, and analytics for educational health resources. User access focuses on reviewing content and understanding engagement outcomes where permitted.",
-        sectionImage: <HelpImage image="user-health-literacy-hub" />,
-      },
-    ],
-    subSections: [
-      {
-        sectionId: "health-literacy-articles",
-        sectionName: "Articles",
-        description: [
-          {
-            sectionDesc:
-              "The Articles tab contains written health resources with topics, tags, summaries, and preview information.",
-            sectionImage: <HelpImage image="user-health-literacy-articles" />,
-          },
-        ],
-      },
-      {
-        sectionId: "health-literacy-videos",
-        sectionName: "Videos",
-        description: [
-          {
-            sectionDesc:
-              "The Videos tab contains video learning materials and preview details for health literacy campaigns.",
-            sectionImage: <HelpImage image="user-health-literacy-videos" />,
-          },
-        ],
-      },
-      {
-        sectionId: "health-literacy-infographics",
-        sectionName: "Infographics",
-        description: [
-          {
-            sectionDesc:
-              "The Infographics tab contains visual health guides with previews, descriptions, and content metadata.",
-            sectionImage: <HelpImage image="user-health-literacy-infographics" />,
-          },
-        ],
-      },
-      {
-        sectionId: "health-literacy-analytics",
-        sectionName: "Analytics",
-        description: [
-          {
-            sectionDesc:
-              "The Analytics tab shows content interactions, content pieces, engagement rate, top-performing content, and filter controls for time range, content type, and region.",
-            sectionImage: <HelpImage image="user-health-literacy-analytics" />,
-          },
-        ],
-      },
-    ],
-  },
-  {
-    sectionName: "Sentiment Pulse Tool",
-    sectionId: "sentiment-pulse-tool",
-    description: [
-      {
-        sectionDesc:
-          "Sentiment Pulse Tool summarizes public health sentiment from surveys and topic signals. Users can view sentiment trends, regional sentiment patterns, and mobile survey response summaries.",
-        sectionImage: <HelpImage image="user-sentiment-pulse-tool" />,
-      },
-    ],
-    subSections: [
-      {
-        sectionId: "sentiment-trends",
-        sectionName: "Sentiment Trends",
-        description: [
-          {
-            sectionDesc:
-              "The Sentiment Trends tab shows sentiment movement over time, sentiment category shares, and top health topics by number of concerns.",
-            sectionImage: <HelpImage image="user-sentiment-trends" />,
-          },
-        ],
-      },
-      {
-        sectionId: "sentiment-regional-analysis",
-        sectionName: "Regional Analysis",
-        description: [
-          {
-            sectionDesc:
-              "The Regional Analysis tab shows regional sentiment labels, response volume bars, and trend indicators for visible regions.",
-            sectionImage: <HelpImage image="user-sentiment-regional-analysis" />,
-          },
-        ],
-      },
-      {
-        sectionId: "sentiment-mobile-surveys",
-        sectionName: "Mobile Surveys",
-        description: [
-          {
-            sectionDesc:
-              "The Mobile Surveys tab lists survey cards with status, response progress, target counts, dominant sentiment, and available result actions.",
-            sectionImage: <HelpImage image="user-sentiment-mobile-surveys" />,
-          },
-        ],
-      },
-    ],
-  },
-  {
-    sectionName: "Settings",
-    sectionId: "settings",
-    description: [
-      {
-        sectionDesc:
-          "Settings lets users edit profile details, change email address, change password, review account status, and manage account access. Inactive accounts can only access Settings until reactivated.",
-        sectionImage: <HelpImage image="user-settings" />,
-      },
-    ],
-  },
-];
-
-const isAdminUser = (userType) => ["ADMIN", "SUPERADMIN"].includes(userType);
-
-const shouldHideInPWA = (id, hiddenIds) => hiddenIds.includes(id);
+import HelpImage from "../../components/admin/HelpImage";
 
 const Help = () => {
   const user = useSelector((state) => state.auth.user);
+  const isAdminUser = ["ADMIN", "SUPERADMIN"].includes(user.user_type);
 
   const { isPWA } = useDeviceDetect();
 
   const [search, setSearch] = useState("");
 
+  const TOCAdmin = useMemo(() => [
+    { id: "navigation", label: "Navigation", hasSubItems: false },
+    {
+      id: "ai-surveillance",
+      label: "AI Surveillance",
+      hasSubItems: true,
+      subItems: [
+        {
+          id: "ai-surveillance-outbreak-monitoring",
+          label: "Real-time Outbreak Monitoring",
+        },
+      ],
+    },
+    {
+      id: "nlp-insights",
+      label: "NLP Insights",
+      hasSubItems: true,
+      subItems: [
+        { id: "nlp-insights-named-entity-recognition", label: "Named Entity Recognition" },
+        { id: "nlp-insights-sentiment-analysis", label: "Sentiment Analysis" },
+        { id: "nlp-insights-language-detection", label: "Language Detection" },
+      ],
+    },
+    {
+      id: "misinformation-tracker",
+      label: "Misinformation Tracker",
+      hasSubItems: false,
+    },
+    {
+      id: "user-management",
+      label: "User Management",
+      hasSubItems: true,
+      subItems: [{ id: "user-management-add-user", label: "Add User" }],
+    },
+    {
+      id: "model-access-toolkit",
+      label: "Model Access and Toolkit",
+      hasSubItems: true,
+      subItems: [
+        { id: "model-access-toolkit-model-comparison", label: "Model Comparison" },
+        { id: "model-access-toolkit-data-management", label: "Data Management" },
+        { id: "model-access-toolkit-training-logs", label: "Training Logs" },
+      ],
+    },
+    {
+      id: "disease-watch-feed",
+      label: "Disease Watch Feed",
+      hasSubItems: true,
+      subItems: [
+        { id: "disease-watch-feed-recent-alerts", label: "Recent Alerts" },
+        { id: "disease-watch-feed-regional-coverage", label: "Regional Coverage" },
+        { id: "disease-watch-feed-user-analytics", label: "User Analytics" },
+      ],
+    },
+    {
+      id: "health-literacy-hub",
+      label: "Health Literacy Hub",
+      hasSubItems: true,
+      subItems: [
+        { id: "health-literacy-hub-articles", label: "Articles" },
+        { id: "health-literacy-hub-videos", label: "Videos" },
+        { id: "health-literacy-hub-infographics", label: "Infographics" },
+        { id: "health-literacy-hub-analytics", label: "Analytics" },
+      ],
+    },
+    {
+      id: "sentiment-pulse-tool",
+      label: "Sentiment Pulse Tool",
+      hasSubItems: true,
+      subItems: [
+        { id: "sentiment-pulse-tool-sentiment-trends", label: "Sentiment Trends" },
+        { id: "sentiment-pulse-tool-regional-analysis", label: "Regional Analysis" },
+        { id: "sentiment-pulse-tool-mobile-surveys", label: "Mobile Surveys" },
+      ],
+    },
+    { id: "activity-logs", label: "Activity Logs", hasSubItems: false },
+    { id: "settings", label: "Settings", hasSubItems: false },
+  ], []);
+
+  const TOCUser = useMemo(() => [
+    { id: "navigation", label: "Navigation", hasSubItems: false },
+    { id: "analytics", label: "Analytics", hasSubItems: false },
+    {
+      id: "trends-map",
+      label: "Trends Map",
+      hasSubItems: true,
+      subItems: [
+        { id: "map", label: "Map" },
+        { id: "list-view", label: "List View" },
+      ],
+    },
+    { id: "settings", label: "Settings", hasSubItems: false },
+  ], []);
+
   const TOC = useMemo(
-    () => (isAdminUser(user?.user_type) ? TOCAdmin : TOCUser),
-    [user?.user_type]
+    () => (isAdminUser ? TOCAdmin : TOCUser),
+    [TOCAdmin, TOCUser, isAdminUser]
   );
 
   const [tocActive, setTOCActive] = useState(false);
@@ -870,7 +121,7 @@ const Help = () => {
 
   const handleAnimationEnd = () => {
     const toc = document.getElementById("toc");
-    if (toc?.classList.contains("hide-toc")) {
+    if (toc.classList.contains("hide-toc")) {
       setTOCAnimate("");
     }
   };
@@ -882,14 +133,444 @@ const Help = () => {
 
   const handleSelectSection = (id) => {
     handleClick();
-    document.getElementById(id)?.scrollIntoView({
+    document.getElementById(id).scrollIntoView({
       behavior: "smooth",
       block: "start",
     });
   };
 
+  const helpSectionsAdmin = [
+    {
+      sectionName: "Navigation",
+      sectionId: "navigation",
+      description: [
+        {
+          sectionDesc:
+            "The application provides the user a simple navigation to go through the dashboard. The two mains modules are the Analytics and Trends Map. Moreover, the user can manage their personal information in using the application.",
+          sectionImage: <HelpImage image="admin-navigation" />,
+        },
+      ],
+    },
+    {
+      sectionName: "AI Surveillance",
+      sectionId: "ai-surveillance",
+      description: [
+        {
+          sectionDesc:
+            "AI Surveillance gives admins a dashboard for monitoring public health signals, potential outbreak activity, and regional health patterns from the main dashboard view.",
+          sectionImage: <HelpImage image="admin-outbreak-monitoring" />,
+        },
+      ],
+      subSections: [
+        {
+          sectionId: "ai-surveillance-outbreak-monitoring",
+          sectionName: "Real-time Outbreak Monitoring",
+          description: [
+            {
+              sectionDesc:
+                "Real-time Outbreak Monitoring helps admins review live outbreak indicators and location-based health signals that may require follow-up.",
+              sectionImage: <HelpImage image="admin-outbreak-monitoring" />,
+            },
+          ],
+        },
+      ],
+    },
+    {
+      sectionName: "NLP Insights",
+      sectionId: "nlp-insights",
+      description: [
+        {
+          sectionDesc:
+            "NLP Insights provides language-based analysis tools that help admins review health-related text for entities, sentiment, and language signals.",
+          sectionImage: <HelpImage image="admin-NLP-Insights" />,
+        },
+      ],
+      subSections: [
+        {
+          sectionId: "nlp-insights-named-entity-recognition",
+          sectionName: "Named Entity Recognition",
+          description: [
+            {
+              sectionDesc:
+                "Named Entity Recognition identifies important health-related names, places, organizations, and terms from submitted text.",
+              sectionImage: (
+                <HelpImage image="admin-NLP-Insights-Named-Entity-Recognition" />
+              ),
+            },
+          ],
+        },
+        {
+          sectionId: "nlp-insights-sentiment-analysis",
+          sectionName: "Sentiment Analysis",
+          description: [
+            {
+              sectionDesc:
+                "Sentiment Analysis helps admins understand the emotional tone and public response patterns found in health-related text.",
+              sectionImage: (
+                <HelpImage image="admin-NLP-Insights-Sentiment-Analysis" />
+              ),
+            },
+          ],
+        },
+        {
+          sectionId: "nlp-insights-language-detection",
+          sectionName: "Language Detection",
+          description: [
+            {
+              sectionDesc:
+                "Language Detection identifies the language used in submitted text so admins can better understand and classify multilingual reports.",
+              sectionImage: (
+                <HelpImage image="admin-NLP-Insights-Language-Detection" />
+              ),
+            },
+          ],
+        },
+      ],
+    },
+    {
+      sectionName: "Misinformation Tracker",
+      sectionId: "misinformation-tracker",
+      description: [
+        {
+          sectionDesc:
+            "Misinformation Tracker helps admins monitor active misinformation claims, review source distribution, and track misinformation trends across regions.",
+          sectionImage: <HelpImage image="admin-Misinformation-Tracker" />,
+        },
+      ],
+    },
+    {
+      sectionName: "User Management",
+      sectionId: "user-management",
+      description: [
+        {
+          sectionDesc:
+            "User Management provides admins and super admins with tools to manage user accounts, review account status, and maintain access to HealthPH+.",
+          sectionImage: <HelpImage image="admin-user-management" />,
+        },
+      ],
+      subSections: [
+        {
+          sectionId: "user-management-add-user",
+          sectionName: "Add User",
+          description: [
+            {
+              sectionDesc:
+                "The Add User form allows admins and super admins to create new accounts and assign the correct user information, status, and access details.",
+              sectionImage: <HelpImage image="admin-add-user" />,
+            },
+          ],
+        },
+      ],
+    },
+    {
+      sectionName: "Model Access and Toolkit",
+      sectionId: "model-access-toolkit",
+      description: [
+        {
+          sectionDesc:
+            "Model Access and Toolkit supports model review, dataset management, and training log monitoring for admins working with HealthPH+ model resources.",
+        },
+      ],
+      subSections: [
+        {
+          sectionId: "model-access-toolkit-model-comparison",
+          sectionName: "Model Comparison",
+          description: [
+            {
+              sectionDesc:
+                "Model Comparison lets admins compare available models and review their performance information side by side.",
+              sectionImage: (
+                <HelpImage image="admin-Model-Access-Toolkit-Model-Comparison" />
+              ),
+            },
+          ],
+        },
+        {
+          sectionId: "model-access-toolkit-data-management",
+          sectionName: "Data Management",
+          description: [
+            {
+              sectionDesc:
+                "Data Management helps admins organize datasets used by the model toolkit and review dataset records from the dashboard.",
+              sectionImage: (
+                <HelpImage image="admin-Model-Access-Toolkit-Data-Management" />
+              ),
+            },
+          ],
+        },
+        {
+          sectionId: "model-access-toolkit-training-logs",
+          sectionName: "Training Logs",
+          description: [
+            {
+              sectionDesc:
+                "Training Logs show recent model training activity and help admins review training status, dates, and related model details.",
+              sectionImage: (
+                <HelpImage image="admin-Model-Access-Toolkit-Training-Logs" />
+              ),
+            },
+          ],
+        },
+      ],
+    },
+    {
+      sectionName: "Disease Watch Feed",
+      sectionId: "disease-watch-feed",
+      description: [
+        {
+          sectionDesc:
+            "Disease Watch Feed helps admins review alert activity, regional coverage, and user engagement signals connected to mobile health reporting.",
+        },
+      ],
+      subSections: [
+        {
+          sectionId: "disease-watch-feed-recent-alerts",
+          sectionName: "Recent Alerts",
+          description: [
+            {
+              sectionDesc:
+                "Recent Alerts shows newly detected warning signals and reports that admins can review for possible response actions.",
+              sectionImage: <HelpImage image="admin-Disease-Watch-Feed-Recent-Alerts" />,
+            },
+          ],
+        },
+        {
+          sectionId: "disease-watch-feed-regional-coverage",
+          sectionName: "Regional Coverage",
+          description: [
+            {
+              sectionDesc:
+                "Regional Coverage displays disease watch activity by area so admins can compare coverage and report distribution across regions.",
+              sectionImage: (
+                <HelpImage image="admin-Disease-Watch-Feed-Regional-Coverage" />
+              ),
+            },
+          ],
+        },
+        {
+          sectionId: "disease-watch-feed-user-analytics",
+          sectionName: "User Analytics",
+          description: [
+            {
+              sectionDesc:
+                "User Analytics summarizes user engagement with alerts, reports, and disease watch activity from connected channels.",
+              sectionImage: <HelpImage image="admin-Disease-Watch-Feed-User-Analytics" />,
+            },
+          ],
+        },
+      ],
+    },
+    {
+      sectionName: "Health Literacy Hub",
+      sectionId: "health-literacy-hub",
+      description: [
+        {
+          sectionDesc:
+            "Health Literacy Hub lets admins manage educational health content and review analytics for articles, videos, and infographics.",
+        },
+      ],
+      subSections: [
+        {
+          sectionId: "health-literacy-hub-articles",
+          sectionName: "Articles",
+          description: [
+            {
+              sectionDesc:
+                "Articles provides tools for creating, editing, publishing, and managing text-based health literacy content.",
+              sectionImage: <HelpImage image="admin-Health-Literacy-Hub-Articles" />,
+            },
+          ],
+        },
+        {
+          sectionId: "health-literacy-hub-videos",
+          sectionName: "Videos",
+          description: [
+            {
+              sectionDesc:
+                "Videos allows admins to manage video-based health literacy content for public and mobile audiences.",
+              sectionImage: <HelpImage image="admin-Health-Literacy-Hub-Videos" />,
+            },
+          ],
+        },
+        {
+          sectionId: "health-literacy-hub-infographics",
+          sectionName: "Infographics",
+          description: [
+            {
+              sectionDesc:
+                "Infographics supports visual health education content management, including infographic publishing and review.",
+              sectionImage: (
+                <HelpImage image="admin-Health-Literacy-Hub-Infographics" />
+              ),
+            },
+          ],
+        },
+        {
+          sectionId: "health-literacy-hub-analytics",
+          sectionName: "Analytics",
+          description: [
+            {
+              sectionDesc:
+                "Analytics summarizes Health Literacy Hub content performance and audience engagement across content types.",
+              sectionImage: <HelpImage image="admin-Health-Literacy-Hub-Analytics" />,
+            },
+          ],
+        },
+      ],
+    },
+    {
+      sectionName: "Sentiment Pulse Tool",
+      sectionId: "sentiment-pulse-tool",
+      description: [
+        {
+          sectionDesc:
+            "Sentiment Pulse Tool helps admins monitor public sentiment, compare regional sentiment, and manage mobile survey activity.",
+        },
+      ],
+      subSections: [
+        {
+          sectionId: "sentiment-pulse-tool-sentiment-trends",
+          sectionName: "Sentiment Trends",
+          description: [
+            {
+              sectionDesc:
+                "Sentiment Trends shows changes in public sentiment over time to help admins review emerging response patterns.",
+              sectionImage: (
+                <HelpImage image="admin-Sentiment-Pulse-Tool-Sentiment-Trends" />
+              ),
+            },
+          ],
+        },
+        {
+          sectionId: "sentiment-pulse-tool-regional-analysis",
+          sectionName: "Regional Analysis",
+          description: [
+            {
+              sectionDesc:
+                "Regional Analysis compares sentiment data by region so admins can identify geographic differences in public response.",
+              sectionImage: (
+                <HelpImage image="admin-Sentiment-Pulse-Tool-Regional-Analysis" />
+              ),
+            },
+          ],
+        },
+        {
+          sectionId: "sentiment-pulse-tool-mobile-surveys",
+          sectionName: "Mobile Surveys",
+          description: [
+            {
+              sectionDesc:
+                "Mobile Surveys lets admins schedule, review, and manage survey activity used to collect public sentiment responses.",
+              sectionImage: (
+                <HelpImage image="admin-Sentiment-Pulse-Tool-Mobile-Surveys" />
+              ),
+            },
+          ],
+        },
+      ],
+    },
+    {
+      sectionName: "Activity Logs",
+      sectionId: "activity-logs",
+      description: [
+        {
+          sectionDesc:
+            "This module provides every admin to monitor the user activities of all types of users.",
+          sectionImage: <HelpImage image="admin-activity-logs" />,
+        },
+      ],
+    },
+    {
+      sectionName: "Settings",
+      sectionId: "settings",
+      description: [
+        {
+          sectionDesc:
+            "This module provides every user to edit their personal information, email address, password, and the ability to delete their account. Moreover, every user can check their current status if they can use HealthPH. If a user's status is 'active', they can use the application with their respective privilege and user type. In the case of their status labeled as 'inactive', they are unable to navigate the application can only access the Settings module.",
+          sectionImage: <HelpImage image="admin-settings" />,
+        },
+      ],
+    },
+  ];
+
+  const helpSectionsUser = [
+    {
+      sectionName: "Navigation",
+      sectionId: "navigation",
+      description: [
+        {
+          sectionDesc:
+            "The application provides the user a simple navigation to go through the dashboard. The two mains modules are the Analytics and Trends Map. Moreover, the user can manage their personal information in using the application.",
+          sectionImage: <HelpImage image="user-navigation" />,
+        },
+      ],
+    },
+    {
+      sectionName: "Analytics",
+      sectionId: "analytics",
+      description: [
+        {
+          sectionDesc:
+            "Once every user have successfully signed in to HealthPH, the user is directed to the Analytics Page that are consist of summary of data, visualization charts, and many more. The user can filter the data by region and print them in PDF form.",
+          sectionImage: <HelpImage image="user-analytics" />,
+        },
+      ],
+    },
+    {
+      sectionName: "Trends Map",
+      sectionId: "trends-map",
+      description: [
+        {
+          sectionDesc:
+            "The main module of HealthPH is the Trends Map. The admin is provided with a map of the Philippines to track suspected symptoms in all 17 administrative regions.",
+          sectionImage: <HelpImage image="user-trends-map" />,
+        },
+      ],
+      subSections: [
+        {
+          sectionId: "map",
+          sectionName: "Map",
+          description: [
+            {
+              sectionDesc:
+                "By navigating with the map, there are 4 types of colored circles called suspected symptoms. These 4 types of circles are plotted around the map of the Philippines and are categorized as PTB, Pneumonia, COVID, and AURI. In validating the date of these plotted suspected symptoms, there is a label indicating the recency of the data being displayed.",
+              sectionImage: <HelpImage image="user-map" />,
+            },
+            {
+              sectionDesc:
+                "Moreover, the map allows every users to zoom in and out of the map and redirect them to their current location.",
+              sectionImage: <HelpImage image="user-map-2" />,
+            },
+          ],
+        },
+        {
+          sectionId: "list-view",
+          sectionName: "List View",
+          description: [
+            {
+              sectionDesc:
+                "Other than viewing the data using the map, every user can view the data in list view. The list view provides the admin to filter the data by region/s, upload data sets, and view each suspected symptoms in a list.",
+              sectionImage: <HelpImage image="user-list-view" />,
+            },
+          ],
+        },
+      ],
+    },
+    {
+      sectionName: "Settings",
+      sectionId: "settings",
+      description: [
+        {
+          sectionDesc:
+            "This module provides every user to edit their personal information, email address, password, and the ability to delete their account. Moreover, every user can check their current status if they can use HealthPH. If a user's status is 'active', they can use the application with their respective privilege and user type. In the case of their status labeled as 'inactive', they are unable to navigate the application can only access the Settings module.",
+          sectionImage: <HelpImage image="user-settings" />,
+        },
+      ],
+    },
+  ];
+
   const getContent = () => {
-    return isAdminUser(user?.user_type) ? helpSectionsAdmin : helpSectionsUser;
+    return isAdminUser ? helpSectionsAdmin : helpSectionsUser;
   };
 
   const [currentTOCActive, setCurrentTOCActive] = useState("navigation");
@@ -898,57 +579,44 @@ const Help = () => {
     const handleTOCActive = () => {
       const sections = [];
 
-      TOC.forEach(({ id, hasSubItems, subItems }) => {
-        if (isPWA && shouldHideInPWA(id, PWA_HIDDEN_SECTION_IDS)) {
+      TOC.map(({ id, hasSubItems, subItems }) => {
+        if (["user-management", "activity-logs"].includes(id) && isPWA) {
           return;
         }
-
-        const section = document.getElementById(id);
-        if (section) {
-          sections.push({
-            id,
-            rect: section.getBoundingClientRect(),
-          });
-        }
-
+        sections.push({
+          id: id,
+          rect: document.getElementById(id).getBoundingClientRect(),
+        });
         if (hasSubItems) {
-          subItems.forEach(({ id }) => {
-            if (isPWA && shouldHideInPWA(id, PWA_HIDDEN_SUBSECTION_IDS)) {
+          subItems.map(({ id }) => {
+            if (["upload-dataset"].includes(id) && isPWA) {
               return;
             }
-
-            const subSection = document.getElementById(id);
-            if (subSection) {
-              sections.push({
-                id,
-                rect: subSection.getBoundingClientRect(),
-              });
-            }
+            sections.push({
+              id: id,
+              rect: document.getElementById(id).getBoundingClientRect(),
+            });
           });
         }
       });
 
       let flag = "";
 
-      sections.forEach(({ id, rect }) => {
+      sections.map(({ id, rect }) => {
         if (rect.y < 280) {
           flag = id;
         }
       });
 
-      if (currentTOCActive !== flag || flag == "navigation") {
-        setCurrentTOCActive(flag);
-      }
+      setCurrentTOCActive((current) => (current !== flag ? flag : current));
     };
 
     const el = document.getElementsByTagName("main")[0];
-    if (!el) return undefined;
 
     el.addEventListener("scroll", handleTOCActive);
-    handleTOCActive();
 
     return () => el.removeEventListener("scroll", handleTOCActive);
-  }, [TOC, currentTOCActive, isPWA]);
+  }, [TOC, isPWA]);
 
   return (
     <>
@@ -986,6 +654,19 @@ const Help = () => {
             >
               Report Issue
             </a>
+            {/* <button
+              type="button"
+              className="prod-btn-base prod-btn-secondary flex items-center flex-shrink-0 ms-0 sm:ms-[16px] mt-[16px] sm:mt-0"
+            >
+              <span>Download User Manual</span>
+              <Icon
+                iconName="Download"
+                height="20px"
+                width="20px"
+                fill="#8693A0"
+                className="ms-[8px]"
+              />
+            </button> */}
           </div>
         </div>
 
@@ -1003,26 +684,29 @@ const Help = () => {
               </div>
             </div>
 
+            {/* TOC WRAPPER */}
             <div className="toc-wrapper">
               <div className="toc-header">Modules</div>
               <ul>
-                {TOC.map(({ id, label, hasSubItems, subItems }) => {
-                  if (isPWA && shouldHideInPWA(id, PWA_HIDDEN_SECTION_IDS)) {
+                {TOC.map(({ id, label, hasSubItems, subItems }, i) => {
+                  if (
+                    ["user-management", "activity-logs"].includes(id) &&
+                    isPWA
+                  ) {
                     return null;
                   }
-
                   return !hasSubItems ? (
                     <li
                       className={`toc-item ${
                         id == currentTOCActive ? "active" : ""
                       }`}
-                      key={id}
+                      key={i}
                       onClick={() => handleSelectSection(id)}
                     >
                       {label}
                     </li>
                   ) : (
-                    <Fragment key={id}>
+                    <Fragment key={i}>
                       <li
                         className={`toc-item ${
                           id == currentTOCActive ? "active" : ""
@@ -1031,43 +715,42 @@ const Help = () => {
                       >
                         {label}
                       </li>
-                      {subItems
-                        .filter(
-                          ({ id }) =>
-                            !(
-                              isPWA &&
-                              shouldHideInPWA(id, PWA_HIDDEN_SUBSECTION_IDS)
-                            )
-                        )
-                        .map(({ id, label }, index, visibleSubItems) => {
-                          const isLast = index == visibleSubItems.length - 1;
-
-                          return (
-                            <li
-                              className={`toc-sub-item ${
-                                isLast ? "mb-[16px]" : ""
-                              } ${id == currentTOCActive ? "active" : ""}`}
-                              key={id}
-                              onClick={() => handleSelectSection(id)}
-                            >
-                              <Icon
-                                iconName={isLast ? "ListEnd" : "List"}
-                                height={isLast ? "31px" : "52px"}
-                                width="10px"
-                                fill="#CCC"
-                                className="icon"
-                              />
-                              <span>{label}</span>
-                            </li>
-                          );
-                        })}
+                      {subItems.map(({ id, label }, i) => {
+                        const arr = !isPWA
+                          ? subItems
+                          : subItems.filter(
+                              (s) => !["upload-dataset"].includes(s.id)
+                            );
+                        const isLast = i == arr.length - 1;
+                        if (["upload-dataset"].includes(id) && isPWA) {
+                          return null;
+                        }
+                        return (
+                          <li
+                            className={`toc-sub-item ${
+                              isLast ? "mb-[16px]" : ""
+                            } ${id == currentTOCActive ? "active" : ""}`}
+                            key={i}
+                            onClick={() => handleSelectSection(id)}
+                          >
+                            <Icon
+                              iconName={isLast ? "ListEnd" : "List"}
+                              height={isLast ? "31px" : "52px"}
+                              width="10px"
+                              fill="#CCC"
+                              className="icon"
+                            />
+                            <span>{label}</span>
+                          </li>
+                        );
+                      })}
                     </Fragment>
                   );
                 })}
               </ul>
             </div>
           </div>
-
+          {/* TOC Toggler */}
           <div className="toc-toggler">
             <div className="toggler-button" onClick={handleClick}>
               <Icon
@@ -1079,27 +762,22 @@ const Help = () => {
               />
             </div>
           </div>
-
+          {/* HELP CONTENT */}
           <div className="help-content" id="help-content">
             {getContent().map(
-              ({ sectionName, sectionId, description, subSections }) => {
+              ({ sectionName, sectionId, description, subSections }, i) => {
                 if (
-                  isPWA &&
-                  shouldHideInPWA(sectionId, PWA_HIDDEN_SECTION_IDS)
+                  ["user-management", "activity-logs"].includes(sectionId) &&
+                  isPWA
                 ) {
                   return null;
                 }
-
                 return (
-                  <div
-                    key={sectionId}
-                    className="help-content-section"
-                    id={sectionId}
-                  >
+                  <div key={i} className="help-content-section" id={sectionId}>
                     <p className="help-content-heading">{sectionName}</p>
-                    {description.map(({ sectionDesc, sectionImage }) => {
+                    {description.map(({ sectionDesc, sectionImage }, i) => {
                       return (
-                        <Fragment key={sectionDesc}>
+                        <Fragment key={i}>
                           <p className="help-content-desc">
                             <Highlighter
                               highlightClassName="bg-[#FFE81A] text-[#000] font-medium rounded-[2px]"
@@ -1114,19 +792,12 @@ const Help = () => {
                     })}
                     {subSections &&
                       subSections.map(
-                        ({ sectionId, sectionName, description }) => {
-                          if (
-                            isPWA &&
-                            shouldHideInPWA(
-                              sectionId,
-                              PWA_HIDDEN_SUBSECTION_IDS
-                            )
-                          ) {
+                        ({ sectionId, sectionName, description }, i) => {
+                          if (["upload-dataset"].includes(sectionId) && isPWA) {
                             return null;
                           }
-
                           return (
-                            <Fragment key={sectionId}>
+                            <Fragment key={i}>
                               <p
                                 className="help-content-subheading"
                                 id={sectionId}
@@ -1134,9 +805,9 @@ const Help = () => {
                                 {sectionName}
                               </p>
                               {description.map(
-                                ({ sectionDesc, sectionImage }) => {
+                                ({ sectionDesc, sectionImage }, i) => {
                                   return (
-                                    <Fragment key={sectionDesc}>
+                                    <Fragment key={i}>
                                       <p className="help-content-desc">
                                         <Highlighter
                                           highlightClassName="bg-[#FFE81A] text-[#000] font-medium rounded-[2px]"
