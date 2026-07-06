@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { NavLink } from "react-router-dom";
 import { toast } from "react-toastify";
+import { format } from "date-fns";
 
 import Highlighter from "react-highlight-words";
 
-import Datatable from "./Datatable";
 import EmptyState from "./EmptyState";
 import Icon from "../Icon";
 import Modal from "./Modal";
@@ -34,17 +33,12 @@ const UsersTable = ({
 
   const [tableData, setTableData] = useState([]);
 
-  const [rows, setRows] = useState([]);
-
   useEffect(() => {
     if (users) {
       setTableData(users);
       setCurrentData(users);
     }
   }, [users]);
-  useEffect(() => {
-    setRows(tableData.slice(0, 10));
-  }, [tableData]);
 
   useEffect(() => {
     if (users) {
@@ -113,6 +107,8 @@ const UsersTable = ({
   const [deleteUser] = useDeleteUsersMutation();
 
   const [log_activity] = useCreateActivityLogMutation();
+
+  const searchWords = searchQuery.split(" ").filter((search) => search.length > 0);
 
   const handleChangeStatus = async (status) => {
     setIsModalLoading(true);
@@ -404,173 +400,175 @@ const UsersTable = ({
 
   return (
     <>
-      <Datatable
-        datatableTabs={tableTabs}
-        datatableColumns={[
-          { label: "Full Name" },
-          { label: "Email", tooltip: "Sample tooltip" },
-          { label: "Regional Office " },
-          { label: "Organization ", tooltip: "Sample tooltip" },
-          { label: "Actions" },
-        ]}
-        datatableData={tableData}
-        setDatatableData={setRows}
-        rowsPerPage={10}
-        withActions={true}
-        // actionsWidth={user.user_type == "SUPERADMIN" ? "220px" : "100px"}
-        actionsWidth={"220px"}
-      >
+      <div className="overflow-x-auto">
         {users.length > 0 ? (
-          rows.length > 0 ? (
-            rows.map(
-              (
-                {
-                  id,
-                  first_name,
-                  last_name,
-                  email,
-                  region,
-                  accessible_regions,
-                  organization,
-                  role_label,
-                  is_disabled,
-                  user_type,
-                },
-                i
-              ) => {
-                const searchWords = searchQuery
-                  .split(" ")
-                  .filter((s) => s.length > 0);
-                return (
-                  <div className="content-row" key={i}>
-                    <div className="row-item">
-                      <Highlighter
-                        highlightClassName="bg-warning-500 font-medium"
-                        searchWords={searchWords}
-                        autoEscape={true}
-                        textToHighlight={`${first_name} ${last_name}`}
-                      />
-                    </div>
-                    <div className="row-item">
-                      <Highlighter
-                        highlightClassName="bg-warning-500"
-                        searchWords={searchWords}
-                        autoEscape={true}
-                        textToHighlight={email}
-                      />
-                    </div>
-                    <div className="row-item">{displayRegion(region)}</div>
-                    <div className="row-item">
-                      <Highlighter
-                        highlightClassName="bg-warning-500 font-medium"
-                        searchWords={searchWords}
-                        autoEscape={true}
-                        textToHighlight={
-                          role_label
-                            ? `${organization} (${role_label})`
-                            : organization
-                        }
-                      />
-                    </div>
-                    <div className="row-item">
-                      {user && user.user_type == "USER" ? null : (
-                        <div className="flex items-center">
-                          <button
-                            type="button"
-                            className="prod-push-btn-sm prod-btn-primary me-[8px] min-w-[63px]"
-                            onClick={() => {
-                              setUpdateModalData({
-                                id: id,
-                                name: `${first_name} ${last_name}`,
-                                accessible_regions: accessible_regions,
-                              });
-                              setUpdateModalActive(true);
-                            }}
-                          >
-                            Update
-                          </button>
-                          <button
-                            type="button"
-                            className={`prod-push-btn-sm prod-btn-${
-                              is_disabled ? "primary" : "secondary"
-                            } me-[8px]  min-w-[63px]`}
-                            onClick={() => {
-                              setModalData({
-                                id: id,
-                                name: `${first_name} ${last_name}`,
-                                user_type: user_type,
-                              });
+          tableData.length > 0 ? (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
+                  <th className="px-[10px] py-[12px] font-medium">Full Name</th>
+                  <th className="px-[10px] py-[12px] font-medium">Email</th>
+                  <th className="px-[10px] py-[12px] font-medium">Regional Office</th>
+                  <th className="px-[10px] py-[12px] font-medium">Organization</th>
+                  <th className="px-[10px] py-[12px] font-medium">Date Created</th>
+                  <th className="px-[10px] py-[12px] font-medium">Status</th>
+                  <th className="px-[10px] py-[12px] font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tableData.map(
+                  ({
+                    id,
+                    first_name,
+                    last_name,
+                    email,
+                    region,
+                    accessible_regions,
+                    organization,
+                    role_label,
+                    created_at,
+                    is_disabled,
+                    user_type,
+                  }) => {
+                    const fullName = `${first_name} ${last_name}`;
+                    const normalizedAccessibleRegions = Array.isArray(accessible_regions)
+                      ? accessible_regions
+                      : String(accessible_regions || "").split(",").filter(Boolean);
 
-                              if (is_disabled) {
-                                setEnableModalActive(true);
-                              } else {
-                                setDisableModalActive(true);
-                              }
-                            }}
+                    return (
+                      <tr
+                        key={id}
+                        className="border-b border-[#F0F0F0] hover:bg-[#F8FAFC]"
+                      >
+                        <td className="px-[10px] py-[14px] font-medium text-gray-800">
+                          <Highlighter
+                            highlightClassName="rounded-[2px] bg-[#FFE81A] p-[2px] font-medium text-[#000]"
+                            searchWords={searchWords}
+                            autoEscape={true}
+                            textToHighlight={fullName}
+                          />
+                        </td>
+                        <td className="px-[10px] py-[14px] text-gray-600">
+                          <Highlighter
+                            highlightClassName="rounded-[2px] bg-[#FFE81A] p-[2px] font-medium text-[#000]"
+                            searchWords={searchWords}
+                            autoEscape={true}
+                            textToHighlight={email}
+                          />
+                        </td>
+                        <td className="px-[10px] py-[14px] text-gray-600">
+                          {displayRegion(region)}
+                        </td>
+                        <td className="px-[10px] py-[14px] text-gray-600">
+                          <Highlighter
+                            highlightClassName="rounded-[2px] bg-[#FFE81A] p-[2px] font-medium text-[#000]"
+                            searchWords={searchWords}
+                            autoEscape={true}
+                            textToHighlight={
+                              role_label
+                                ? `${organization} (${role_label})`
+                                : organization
+                            }
+                          />
+                        </td>
+                        <td className="px-[10px] py-[14px] text-gray-600">
+                          {format(new Date(created_at), "MMM dd, yyyy hh:mm a")}
+                        </td>
+                        <td className="px-[10px] py-[14px]">
+                          <span
+                            className={`rounded-full px-[8px] py-[4px] text-xs font-medium ${
+                              is_disabled
+                                ? "bg-[#FEF2F2] text-[#B42318]"
+                                : "bg-[#ECFDF3] text-[#027A48]"
+                            }`}
                           >
-                            {is_disabled ? "Enable" : "Disable"}
-                          </button>
-                          <button
-                            type="button"
-                            className="prod-push-btn-sm prod-btn-destructive"
-                            onClick={() => {
-                              setModalData({
-                                id: id,
-                                name: `${first_name} ${last_name}`,
-                                user_type: user_type,
-                              });
-                              setDeleteModalActive(true);
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              }
-            )
+                            {is_disabled ? "Disabled" : "Active"}
+                          </span>
+                        </td>
+                        <td className="px-[10px] py-[14px]">
+                          <div className="flex flex-wrap gap-[8px]">
+                           {/*  <button
+                              type="button"
+                              className="rounded-[8px] bg-[#32418C] px-[10px] py-[7px] text-xs font-medium text-white"
+                              onClick={() => {
+                                setUpdateModalActive({
+                                  id,
+                                  name: fullName,
+                                  accessible_regions: normalizedAccessibleRegions,
+                                });
+                                setUpdateModalActive(true);
+                              }}
+                            >
+                              Update
+                            </button> */}
+                            <button
+                              type="button"
+                              className={`rounded-[8px] px-[10px] py-[7px] text-xs font-medium ${
+                                is_disabled
+                                  ? "bg-[#32418C] text-white"
+                                  : "border border-[#E5E5E5] bg-white text-gray-700"
+                              }`}
+                              onClick={() => {
+                                setModalData({
+                                  id,
+                                  name: fullName,
+                                  user_type,
+                                });
+
+                                if (is_disabled) {
+                                  setEnableModalActive(true);
+                                } else {
+                                  setDisableModalActive(true);
+                                }
+                              }}
+                            >
+                              {is_disabled ? "Enable" : "Disable"}
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-[8px] bg-[#DC2626] px-[10px] py-[7px] text-xs font-medium text-white"
+                              onClick={() => {
+                                setModalData({
+                                  id,
+                                  name: fullName,
+                                  user_type,
+                                });
+                                setDeleteModalActive(true);
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+                )}
+              </tbody>
+            </table>
           ) : (
-            searchQuery != "" && (
-              <EmptyState
-                iconName="Search"
-                heading="No Results Found"
-                content="We couldn't find any matches for your search. Please try adjusting your search terms or criteria."
+            <EmptyState
+              iconName="Search"
+              heading="No Results Found"
+              content="We couldn't find any matches for your search. Please try adjusting your search terms or criteria."
+            >
+              <button
+                type="button"
+                className="rounded-[10px] border border-[#E5E5E5] bg-white px-[14px] py-[9px] text-sm text-gray-700"
+                onClick={() => setSearchQuery("")}
               >
-                <button
-                  className="prod-btn-base prod-btn-secondary flex justify-center items-center"
-                  onClick={() => setSearchQuery("")}
-                >
-                  <span>Clear Search</span>
-                </button>
-              </EmptyState>
-            )
+                Clear Search
+              </button>
+            </EmptyState>
           )
         ) : (
           <EmptyState
             iconName="UserThree"
             heading="No Users Found"
-            content="No users are currently created. Add users to join and participate."
-          >
-            {["ADMIN", "SUPERADMIN"].includes(user.user_type) && (
-              <NavLink
-                to="/dashboard/user-management/add-user"
-                className="prod-btn-base prod-btn-primary flex justify-center items-center ms-[16px]"
-              >
-                <span>Add User</span>
-                <Icon
-                  iconName="Plus"
-                  height="20px"
-                  width="20px"
-                  fill="#FFF"
-                  className="ms-[8px]"
-                />
-              </NavLink>
-            )}
-          </EmptyState>
+            content="No users are currently created. Add users to manage the platform effectively."
+          />
         )}
-      </Datatable>
+      </div>
 
       {/* MODALS */}
 
@@ -587,7 +585,7 @@ const UsersTable = ({
             setDeleteModalActive(false);
           }}
           heading={`Are you sure you want to delete ${modalData.name}'s account?`}
-          content="This user can never use their account to HealthPH anymore."
+          content="This user can never use their account to HealthPH+ anymore."
           color="destructive"
         />
       )}
@@ -605,7 +603,7 @@ const UsersTable = ({
             setDisableModalActive(false);
           }}
           heading={`Are you sure you want to disable ${modalData.name}'s account?`}
-          content="This user will be unable to sign in to HealthPH and lose access to its modules."
+          content="This user will be unable to sign in to HealthPH+ and lose access to its modules."
           color="destructive"
         />
       )}
@@ -623,7 +621,7 @@ const UsersTable = ({
             setEnableModalActive(false);
           }}
           heading={`Are you sure you want to enable ${modalData.name}'s account?`}
-          content="This user will receive full access to HealthPH such as the Analytics, Trends Map, and other modules."
+          content="This user will receive full access to HealthPH+ such as the Analytics, Trends Map, and other modules."
           color="primary"
         />
       )}
@@ -641,7 +639,7 @@ const UsersTable = ({
             setUpdateModalActive(false);
           }}
           heading={`Update ${updateModalData.name}'s account`}
-          content="This user will receive full access to HealthPH such as the Analytics, Trends Map, and other modules."
+          content="This user will receive full access to HealthPH+ such as the Analytics, Trends Map, and other modules."
           color="primary"
         >
           <div className="p-[20px]">
