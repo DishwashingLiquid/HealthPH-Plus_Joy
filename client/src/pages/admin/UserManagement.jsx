@@ -829,7 +829,6 @@ const UserAccountModal = ({ mode, currentUser, onClose }) => {
                   setFormData({ ...formData, organization: e.target.value });
                   resetFieldError("organization");
                 }}
-                state={formErrors.organization ?}
               />
             </FieldGroup>
           </div>
