@@ -725,48 +725,51 @@ export default function SentimentPulseTool() {
         </div>
 
         {/* Tab Content */}
-        <div className="bg-white shadow-sm rounded-b-lg p-6">
-          {activeTab === "sentiment-trends" && <SentimentTrends />}
-          {activeTab === "regional-analysis" && (
-            <RegionalAnalysis
-              selectedRegions={selectedRegions}
-              regionalData={regionalData}
-            />
-          )}
-          {activeTab === "mobile-surveys" && (
-            <div className="space-y-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    Mobile Surveys
-                  </h2>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleScheduleButtonClick}
-                  disabled={isSurveysLoading || isSurveysError}
-                  className="prod-btn-base prod-btn-primary flex min-h-[40px] items-center justify-center font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                >
-                  {scheduleButtonLabel}
-                </button>
-              </div>
-              {scheduleButtonHelper && (
-                <p
-                  className={`text-sm font-medium ${
-                    isSurveysError ? "text-red-700" : "text-gray-500"
-                  }`}
-                >
-                  {scheduleButtonHelper}
-                </p>
-              )}
-              <MobileSurveys
-                surveys={surveys}
-                isLoading={isSurveysLoading}
-                isError={isSurveysError}
+        {activeTab === "sentiment-trends" ? (
+          <SentimentTrends />
+        ) : (
+          <div className="bg-white shadow-sm rounded-b-lg p-6">
+            {activeTab === "regional-analysis" && (
+              <RegionalAnalysis
+                selectedRegions={selectedRegions}
+                regionalData={regionalData}
               />
-            </div>
-          )}
-        </div>
+            )}
+            {activeTab === "mobile-surveys" && (
+              <div className="space-y-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">
+                      Mobile Surveys
+                    </h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleScheduleButtonClick}
+                    disabled={isSurveysLoading || isSurveysError}
+                    className="prod-btn-base prod-btn-primary flex min-h-[40px] items-center justify-center font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                  >
+                    {scheduleButtonLabel}
+                  </button>
+                </div>
+                {scheduleButtonHelper && (
+                  <p
+                    className={`text-sm font-medium ${
+                      isSurveysError ? "text-red-700" : "text-gray-500"
+                    }`}
+                  >
+                    {scheduleButtonHelper}
+                  </p>
+                )}
+                <MobileSurveys
+                  surveys={surveys}
+                  isLoading={isSurveysLoading}
+                  isError={isSurveysError}
+                />
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {isCreateModalOpen && (

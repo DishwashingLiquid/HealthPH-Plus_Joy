@@ -20,6 +20,7 @@ import useDeviceDetect from "../../hooks/useDeviceDetect";
 import Snackbar from "../../components/Snackbar";
 import { toast } from "react-toastify";
 import { toPng } from "html-to-image";
+import { ToolbarSearch } from "../../components/ToolbarControls";
 
 const UserManagement = () => {
   const user = useSelector((state) => state.auth.user);
@@ -198,37 +199,35 @@ const UserManagement = () => {
       {isAdminsLoading || isUsersLoading ? (
         <SkeletonTable columns={9} />
       ) : (
-        <div className="admin-wrapper flex flex-col h-full">
-          <div className="header items-start md:items-center flex-col md:flex-row">
-            <div className="breadcrumbs-wrapper">
-              <div className="breadcrumb-item">
-                <NavLink to="/dashboard/user-management">
-                  User Management
-                </NavLink>
-                <Icon
-                  iconName="ChevronRight"
-                  height="16px"
-                  width="16px"
-                  fill="#A1ACB8"
-                  className="icon"
+        <div className="flex flex-col gap-[10px]">
+          {/* PAGE HEADER */}
+          <div>
+            <h1 className="text-[24px] font-semibold text-gray-800">
+              User Management
+            </h1>
+            <p className="text-gray-500 text-[14px]">
+              Manage administrators, users, access permissions, and account status.
+            </p>
+          </div>
+
+          {/* FILTERS SECTION */}
+          <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[10px]">
+            <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-[16px]">
+              {/* LEFT */}
+              <div className="flex flex-wrap gap-[12px]">
+                <ToolbarSearch 
+                  id="search"
+                  placeholder="Search user..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  trailingIcon={searchQuery.length > 0 ? "Close" : undefined}
+                  onClickTrailing={
+                    searchQuery.length > 0 ? () => setSearchQuery("") : undefined
+                  }
                 />
               </div>
-            </div>
-            <div className="flex items-start sm:items-center flex-col sm:flex-row mt-[20[x] md:mt-0">
-              <Input
-                size="input-md"
-                id="search"
-                additionalClasses="w-full max-w-[328px]"
-                placeholder="Search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                leadingIcon="Search"
-                trailingIcon={searchQuery.length > 0 ? "Close" : undefined}
-                onClickTrailing={
-                  searchQuery.length > 0 ? () => setSearchQuery("") : undefined
-                }
-              />
-              <div className="flex flex-shrink-0 mt-[20px] sm:mt-0">
+              {/* RIGHT */}
+              <div className="flex flex-wrap gap-[5px]">
                 <button
                   className="prod-btn-base prod-btn-secondary flex justify-center items-center ms-0 sm:ms-[16px]"
                   onClick={handlePrint}

@@ -12,21 +12,23 @@ import {
     Cell,
 } from "recharts";
 
+import { ToolbarSearch } from "../../components/ToolbarControls";
+
 const MisinformationTracker = () => {
     return (
-        <div className="flex flex-col gap-[20px]">
+        <div className="flex flex-col gap-[10px]">
             {/* PAGE HEADER */}
             <div>
-                <h1 className="text-[28px] font-semibold text-gray-800">
+                <h1 className="text-[24px] font-semibold text-gray-800">
                     Misinformation Tracker
                 </h1>
-                <p className="text-gray-500 mt-[4px]">
+                <p className="text-gray-500 text-[14px]">
                     Monitor and respond to health misinformation across the Philippines.
                 </p>
             </div>
 
             {/* FILTESR SECTION */}
-            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
+            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[10px]">
                 <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-[16px]">
                     {/* LEFT */}
                     <div className="flex flex-wrap gap-[12px]">
@@ -46,34 +48,30 @@ const MisinformationTracker = () => {
                     </div>
 
                     {/* RIGHT */}
-                    <input
-                        type="text"
-                        placeholder="Search misinformation claims..."
-                        className="border border-[#E5E5E5] rounded-[10px] px-[14px] py-[10px] text-sm w-full xl:w-[320px]"
-                    />
+                    <ToolbarSearch placeholder="Search misinformation claims..." />
                 </div>
 
                 {/* SUMMARY CARDS */}
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-[16px] mt-[20px]">
-                    <MisinfoSummaryCard
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-[16px]">
+                    <SummaryCard
                         label="Active Misinformation"
                         value="18"
                         change="-23%"
                         color="#DC2626"
                     />
-                    <MisinfoSummaryCard
+                    <SummaryCard
                         label="Daily Mentions"
                         value="247"
                         change="+23%"
                         color="#2563EB"
                     />
-                    <MisinfoSummaryCard
+                    <SummaryCard
                         label="Response Rate"
                         value="72%"
                         change="+5%"
                         color="#20C997"
                     />
-                    <MisinfoSummaryCard
+                    <SummaryCard
                         label="Social Reach"
                         value="1.2M"
                         change="+23%"
@@ -83,17 +81,15 @@ const MisinformationTracker = () => {
             </div>
 
             {/* MAIN CONTENT */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-[20px]">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-[10px]">
                 {/* TRENDING MISINFORMATION */}
                 <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
-                    <div className="mb-[20px]">
-                        <h2 className="text-[20px] font-semibold text-gray-800">
-                            Trending Misinformation
-                        </h2>
-                        <p className="text-sm text-gray-500 mt-[4px]">
-                            Number of new misinformation claims over time.
-                        </p>
-                    </div>
+                    <h2 className="text-[18px] font-semibold text-gray-800">
+                        Trending Misinformation
+                    </h2>
+                    <p className="text-sm text-gray-500 mb-[12px]">
+                        Number of new misinformation claims over time.
+                    </p>
 
                     <ResponsiveContainer width="100%" height={300}>
                         <LineChart
@@ -111,12 +107,20 @@ const MisinformationTracker = () => {
                             <XAxis dataKey="date" />
                             <YAxis />
                             <Tooltip />
-                            <Legend />
+                            <Legend 
+                                verticalAlign="bottom"
+                                align="center"
+                                iconType="circle"
+                                wrapperStyle={{
+                                    paddingTop: "20px",
+                                    lineHeight: "20px",
+                                }}
+                            />
                             <Line 
                                 type="monotone"
                                 dataKey="claims"
                                 name="Misinformation Claims"
-                                stroke="#F97316"
+                                stroke="#32418C"
                                 strokeWidth={3}
                                 dot={{ r: 4 }}
                             />
@@ -126,14 +130,12 @@ const MisinformationTracker = () => {
                 
                 {/* MISINFORMATION BY SOURCE */}
                 <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
-                    <div className="mb-[20px]">
-                        <h2 className="text-[20px] font-semibold text-gray-800">
-                            Misinformation by Source
-                        </h2>
-                        <p className="text-sm text-gray-500 mt-[4px]">
-                            Distribution of misinformation by source channel.
-                        </p>
-                    </div>
+                    <h2 className="text-[18px] font-semibold text-gray-800">
+                        Misinformation by Source
+                    </h2>
+                    <p className="text-sm text-gray-500 mb-[12px]">
+                        Distribution of misinformation by source channel.
+                    </p>
 
                     <ResponsiveContainer width="100%" height={300}>
                         <PieChart>
@@ -152,10 +154,10 @@ const MisinformationTracker = () => {
                                     `${(percent * 100).toFixed(0)}%`
                                 }
                             >
-                                <Cell fill="#2563EB" />
-                                <Cell fill="#F97316" />
-                                <Cell fill="#9CA3AF" />
-                                <Cell fill="#20C997" />
+                                <Cell fill="#32418C" />
+                                <Cell fill="#2572A5" />
+                                <Cell fill="#9BCC33" />
+                                <Cell fill="#FBD117" />
                             </Pie>
                             <Tooltip />
                             <Legend
@@ -174,12 +176,12 @@ const MisinformationTracker = () => {
             </div>
             {/* ALL MISINFORMATION CLAIMS */}
             <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-[12px] mb-[20px]">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-[12px]">
                     <div>
-                        <h2 className="text-[20px] font-semibold text-gray-800">
+                        <h2 className="text-[18px] font-semibold text-gray-800">
                             All Misinformation Claims
                         </h2>
-                        <p className="text-sm text-gray-500 mt-[4px]">
+                        <p className="text-sm text-gray-500 mb-[12px]">
                             Comprehensive list of detected misinformation claims across the Philippines.
                         </p>
                     </div>
@@ -188,7 +190,7 @@ const MisinformationTracker = () => {
                         <button className="border border-[#E5E5E5] rounded-[10px] px-[14px] py-[9px] text-sm bg-[#F8F9FA]">
                             Export
                         </button>
-                        <button className="bg-[#2563EB] text-white rounded-[10px] px-[14px] py-[9px] text-sm">
+                        <button className="bg-[#32418C] text-white rounded-[10px] px-[14px] py-[9px] text-sm">
                             Create Alert
                         </button>
                     </div>
@@ -237,32 +239,11 @@ const MisinformationTracker = () => {
     );
 };
 
-const MisinfoSummaryCard = ({
-    label,
-    value,
-    change,
-    color,
-}) => {
+const SummaryCard = ({ label, value }) => {
     return (
-        <div className="bg-[#F8F9FA] border border-[#E5E5E5] rounded-[12px] p-[18px]">
-            <p className="text-sm text-gray-500 mb-[10px]">
-                {label}
-            </p>
-
-            <div className="flex items-end justify-between">
-                <h2
-                    className="text-[32px] font-semibold"
-                    style={{ color }}
-                >
-                    {value}
-                </h2>
-                <span
-                    className="text-sm font-medium"
-                    style={{ color }}
-                >
-                    {change}
-                </span>
-            </div>
+        <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[12px] mt-[10px]">
+            <p className="text-gray-500 text-sm">{label}</p>
+            <h2 className="text-[24px] font-semibold text-gray-800">{value}</h2>
         </div>
     );
 };

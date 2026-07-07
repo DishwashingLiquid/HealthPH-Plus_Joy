@@ -1,15 +1,38 @@
 import { useEffect, useRef, useState } from "react";
+import PropTypes from "prop-types";
 import {
     BarChart,
     Bar,
+    Cell,
     XAxis,
     YAxis,
     CartesianGrid,
     Tooltip,
-    Legend,
     ResponsiveContainer,
     LabelList,
 } from "recharts";
+
+const REGIONAL_COVERAGE_PALETTE = ["#32418C", "#2572A5", "#4D8FC4", "#9BCC33", "#FBD117"];
+const RECENT_ALERT_ENTITY_STYLES = {
+    disease: {
+        backgroundColor: "#32418C30",
+        color: "#32418C",
+    },
+    symptom: {
+        backgroundColor: "#2572A530",
+        color: "#2572A5",
+    },
+    location: {
+        backgroundColor: "#FBD11730",
+        color: "#FBD117",
+    },
+};
+
+const formatCompactNumber = (value) =>
+    new Intl.NumberFormat("en-US", {
+        notation: "compact",
+        maximumFractionDigits: 1,
+    }).format(value);
 
 const DiseaseWatchFeed = () => {
     const [activeTab, setActiveTab] = useState("recent-alerts");
@@ -139,8 +162,77 @@ const DiseaseWatchFeed = () => {
                   selectedRegions.includes(region.region)
               );
 
+    const getRegionAccentColor = (regionName) =>
+        REGIONAL_COVERAGE_PALETTE[
+            regionUserData.findIndex((region) => region.region === regionName) %
+                REGIONAL_COVERAGE_PALETTE.length
+        ];
+
+    const RecentAlertEntityHighlight = ({ label, tone }) => (
+        <span
+            className="px-[6px] py-[2px] rounded-[6px] text-sm font-medium"
+            style={RECENT_ALERT_ENTITY_STYLES[tone]}
+        >
+            {label}
+        </span>
+    );
+
+    const renderRecentAlertSummary = (alert) => {
+        switch (alert.id) {
+            case 1:
+                return (
+                    <>
+                        Significant spike in{" "}
+                        <RecentAlertEntityHighlight label="dengue" tone="disease" /> cases
+                        detected in{" "}
+                        <RecentAlertEntityHighlight label="Manila area" tone="location" />
+                    </>
+                );
+            case 2:
+                return (
+                    <>
+                        New variant mentions increasing across social media in{" "}
+                        <RecentAlertEntityHighlight label="Calabarzon" tone="location" />
+                    </>
+                );
+            case 3:
+                return (
+                    <>
+                        <RecentAlertEntityHighlight
+                            label="Respiratory symptoms"
+                            tone="symptom"
+                        />{" "}
+                        trending in{" "}
+                        <RecentAlertEntityHighlight
+                            label="Central Luzon region"
+                            tone="location"
+                        />
+                    </>
+                );
+            case 4:
+                return (
+                    <>
+                        Seasonal{" "}
+                        <RecentAlertEntityHighlight label="flu" tone="disease" /> activity
+                        elevated in{" "}
+                        <RecentAlertEntityHighlight label="Metro Manila" tone="location" />
+                    </>
+                );
+            case 5:
+                return (
+                    <>
+                        Outbreak potential detected in{" "}
+                        <RecentAlertEntityHighlight label="Cebu area" tone="location" /> based
+                        on community reports
+                    </>
+                );
+            default:
+                return alert.summary;
+        }
+    };
+
     // Metric Card Component
-    const MetricCard = ({ label, value, change, percentage, trend }) => (
+    const MetricCard = ({ label, value, percentage, trend }) => (
         <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
             <p className="text-gray-500 text-sm mb-[8px]">{label}</p>
             <div className="flex items-end justify-between">
@@ -166,14 +258,20 @@ const DiseaseWatchFeed = () => {
                     <div className="flex justify-between items-start gap-[16px]">
                         <div className="flex-1">
                             <div className="flex items-center gap-[8px] mb-[8px]">
-                                <h3 className="text-[16px] font-semibold text-gray-800">{alert.disease}</h3>
+                                <h3 className="text-[16px] font-semibold text-gray-800">
+                                    <RecentAlertEntityHighlight label={alert.disease} tone="disease" />
+                                </h3>
                                 <span className="px-[8px] py-[2px] bg-[#FFF3CD] text-[#856404] text-xs rounded-[4px] font-medium">
                                     {alert.type}
                                 </span>
                             </div>
-                            <p className="text-gray-600 text-sm mb-[8px]">{alert.summary}</p>
+                            <p className="text-[15px] text-gray-800 leading-[1.8] mb-[8px]">
+                                {renderRecentAlertSummary(alert)}
+                            </p>
                             <div className="flex gap-[16px] text-xs text-gray-500">
-                                <span>📍 {alert.region}</span>
+                                <span>
+                                    📍 <RecentAlertEntityHighlight label={alert.region} tone="location" />
+                                </span>
                                 <span>🕐 {alert.timestamp}</span>
                             </div>
                         </div>
@@ -185,100 +283,224 @@ const DiseaseWatchFeed = () => {
 
     // Regional Coverage Sub-page
     const RegionalCoverage = () => (
-        <div>
-            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] mb-[20px]">
-                <h3 className="text-[18px] font-semibold text-gray-800 mb-[16px]">Registered Users by Region</h3>
-                <ResponsiveContainer width="100%" height={400}>
-                    <BarChart
-                        data={regionUserData}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 100 }}
-                    >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#E5E5E5" />
-                        <XAxis
-                            dataKey="region"
-                            angle={-45}
-                            textAnchor="end"
-                            height={100}
-                            tick={{ fontSize: 12 }}
-                        />
-                        <YAxis />
-                        <Tooltip
-                            contentStyle={{
-                                backgroundColor: "#fff",
-                                border: "1px solid #E5E5E5",
-                                borderRadius: "8px",
-                            }}
-                            formatter={(value) => value.toLocaleString()}
-                        />
-                        <Bar dataKey="users" fill="#6A8EB5" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                </ResponsiveContainer>
-            </div>
+        <div className="flex flex-col gap-[18px]">
+            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] shadow-[0_10px_30px_rgba(50,65,140,0.06)]">
+                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-[14px] mb-[18px]">
+                    <div>
+                        <h3 className="text-[20px] font-semibold text-[#1F2A44]">
+                            Registered Users by Region
+                        </h3>
+                        <p className="text-sm text-gray-500 mt-[4px]">
+                            Regional distribution of registered users across the monitored coverage areas.
+                        </p>
+                    </div>
+                    <span className="inline-flex items-center rounded-full border border-[#D9E3F2] bg-[#F5F8FD] px-[12px] py-[6px] text-xs font-semibold uppercase tracking-[0.08em] text-[#32418C]">
+                        {regionUserData.length} regions tracked
+                    </span>
+                </div>
 
-            {/* Regional Grid Cards */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-[12px] mb-[16px]">
-                <h3 className="text-[18px] font-semibold text-gray-800">Regional Cards</h3>
-                <div className="relative w-full sm:w-auto" ref={regionDropdownRef}>
-                    <button
-                        type="button"
-                        onClick={() => setShowRegionDropdown((isOpen) => !isOpen)}
-                        className="w-full sm:w-auto min-h-[40px] px-[14px] py-[8px] border border-[#D8DDE3] rounded-[8px] bg-white text-gray-800 text-sm font-medium flex items-center justify-between gap-[12px] hover:border-[#6A8EB5] transition"
-                        aria-expanded={showRegionDropdown}
-                        aria-haspopup="true"
-                    >
-                        <span>
-                            Filter Regions
-                            {selectedRegions.length > 0 ? ` (${selectedRegions.length})` : ""}
-                        </span>
-                        <span className="text-gray-500 text-xs">v</span>
-                    </button>
-
-                    {showRegionDropdown && (
-                        <div className="absolute right-0 top-full mt-[6px] w-full sm:w-[240px] max-h-[280px] overflow-y-auto bg-white border border-[#D8DDE3] rounded-[8px] shadow-lg z-20">
-                            {regionUserData.map((region) => (
-                                <label
-                                    key={region.region}
-                                    className="flex items-center gap-[10px] px-[12px] py-[10px] text-sm text-gray-800 cursor-pointer hover:bg-[#F5F5F5]"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedRegions.includes(region.region)}
-                                        onChange={() => handleRegionChange(region.region)}
-                                        className="w-[16px] h-[16px] accent-[#6A8EB5]"
+                <div className="rounded-[12px] border border-[#E8EDF5] bg-[#F8FAFC] p-[14px]">
+                    <ResponsiveContainer width="100%" height={400}>
+                        <BarChart
+                            data={regionUserData}
+                            margin={{ top: 24, right: 12, left: 0, bottom: 92 }}
+                        >
+                            <CartesianGrid
+                                strokeDasharray="4 4"
+                                stroke="#D9E3F2"
+                                vertical={false}
+                            />
+                            <XAxis
+                                dataKey="region"
+                                angle={-40}
+                                textAnchor="end"
+                                height={88}
+                                tick={{ fontSize: 12, fill: "#52607A" }}
+                                tickLine={false}
+                                axisLine={false}
+                            />
+                            <YAxis
+                                tick={{ fontSize: 12, fill: "#52607A" }}
+                                tickFormatter={formatCompactNumber}
+                                tickLine={false}
+                                axisLine={false}
+                                width={52}
+                            />
+                            <Tooltip
+                                contentStyle={{
+                                    backgroundColor: "#fff",
+                                    border: "1px solid #D9E3F2",
+                                    borderRadius: "12px",
+                                    boxShadow: "0 12px 30px rgba(50, 65, 140, 0.14)",
+                                    color: "#1F2A44",
+                                }}
+                                labelStyle={{ color: "#32418C", fontWeight: 600 }}
+                                formatter={(value) => value.toLocaleString()}
+                            />
+                            <Bar dataKey="users" radius={[10, 10, 0, 0]} barSize={30}>
+                                {regionUserData.map((region) => (
+                                    <Cell
+                                        key={region.region}
+                                        fill={getRegionAccentColor(region.region)}
                                     />
-                                    <span>{region.region}</span>
-                                </label>
-                            ))}
-                        </div>
-                    )}
+                                ))}
+                                <LabelList
+                                    dataKey="users"
+                                    position="top"
+                                    offset={8}
+                                    formatter={formatCompactNumber}
+                                    className="fill-[#32418C] text-[11px] font-semibold"
+                                />
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-[12px]">
-                {visibleRegionCards.map((region) => (
+            {/* Regional Grid Cards */}
+            <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-[14px]">
+                <div>
+                    <h3 className="text-[20px] font-semibold text-[#1F2A44]">
+                        Regional Cards
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-[4px]">
+                        Detailed user totals and share of registered coverage by region.
+                    </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center gap-[12px]">
+                    <span className="inline-flex items-center rounded-full border border-[#D9E3F2] bg-[#F5F8FD] px-[12px] py-[6px] text-xs font-semibold uppercase tracking-[0.08em] text-[#2572A5]">
+                        Showing {visibleRegionCards.length} region{visibleRegionCards.length !== 1 ? "s" : ""}
+                    </span>
+                    <div className="relative w-full sm:w-auto" ref={regionDropdownRef}>
+                        <button
+                            type="button"
+                            onClick={() => setShowRegionDropdown((isOpen) => !isOpen)}
+                            className="flex min-h-[42px] w-full items-center justify-between gap-[12px] rounded-[10px] border border-[#E5E5E5] bg-white px-[14px] py-[10px] text-sm font-medium text-[#1F2A44] shadow-sm transition hover:border-[#32418C] focus:outline-none focus:ring-2 focus:ring-[#D9E3F2] sm:w-auto"
+                            aria-expanded={showRegionDropdown}
+                            aria-haspopup="true"
+                        >
+                            <span>
+                                Filter Regions
+                                {selectedRegions.length > 0 ? ` (${selectedRegions.length})` : ""}
+                            </span>
+                            <span className="text-[#32418C] text-xs">v</span>
+                        </button>
+
+                        {showRegionDropdown && (
+                            <div className="absolute right-0 top-full z-20 mt-[8px] w-full rounded-[12px] border border-[#D9E3F2] bg-white shadow-[0_18px_40px_rgba(50,65,140,0.14)] sm:w-[260px]">
+                                <div className="border-b border-[#EDF1F7] px-[14px] py-[10px]">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#32418C]">
+                                        Select regions
+                                    </p>
+                                </div>
+                                <div className="max-h-[280px] overflow-y-auto py-[6px]">
+                                    {regionUserData.map((region) => (
+                                        <label
+                                            key={region.region}
+                                            className="flex cursor-pointer items-center gap-[10px] px-[14px] py-[10px] text-sm text-[#1F2A44] transition hover:bg-[#F8FAFC]"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedRegions.includes(region.region)}
+                                                onChange={() => handleRegionChange(region.region)}
+                                                className="h-[16px] w-[16px] accent-[#32418C]"
+                                            />
+                                            <span>{region.region}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-[14px] md:grid-cols-2 xl:grid-cols-4">
+                {visibleRegionCards.map((region) => {
+                    const accentColor = getRegionAccentColor(region.region);
+
+                    return (
                     <div
                         key={region.region}
-                        className="bg-white rounded-[12px] border border-[#E5E5E5] p-[16px]"
+                        className="overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-white shadow-[0_10px_28px_rgba(37,114,165,0.08)]"
                     >
-                        <h4 className="text-[14px] font-semibold text-gray-800 mb-[12px]">{region.region}</h4>
-                        <p className="text-[20px] font-semibold text-gray-800 mb-[8px]">{region.users.toLocaleString()}</p>
-                        <p className="text-xs text-gray-500 mb-[12px]">registered users</p>
-                        
-                        {/* Percentage Bar Graph */}
-                        <div className="flex items-center gap-[8px]">
-                            <div className="flex-1 bg-[#F0F0F0] rounded-[4px] h-[6px] overflow-hidden">
-                                <div
-                                    className="bg-[#6A8EB5] h-full rounded-[4px]"
-                                    style={{ width: `${region.percentage}%` }}
-                                ></div>
+                        <div
+                            className="h-[5px] w-full"
+                            style={{ backgroundColor: accentColor }}
+                        />
+                        <div className="border-b border-[#EDF1F7] bg-[#F8FAFC] px-[16px] py-[14px]">
+                            <div className="flex items-start justify-between gap-[12px]">
+                                <div>
+                                    <h4 className="text-[16px] font-semibold text-[#1F2A44]">
+                                        {region.region}
+                                    </h4>
+                                    <p className="mt-[4px] text-xs uppercase tracking-[0.08em] text-[#6B7A90]">
+                                        Regional coverage
+                                    </p>
+                                </div>
+                                <span
+                                    className="rounded-full px-[10px] py-[4px] text-xs font-semibold"
+                                    style={{
+                                        backgroundColor: `${accentColor}18`,
+                                        color: accentColor,
+                                    }}
+                                >
+                                    {region.percentage}% share
+                                </span>
                             </div>
-                            <span className="text-xs font-semibold text-gray-700 min-w-[28px] text-right">{region.percentage}%</span>
+                        </div>
+
+                        <div className="p-[16px]">
+                            <p className="text-[28px] font-semibold leading-none text-[#1F2A44]">
+                                {region.users.toLocaleString()}
+                            </p>
+                            <p className="mt-[6px] text-sm text-gray-500">
+                                registered users
+                            </p>
+
+                            <div className="mt-[18px]">
+                                <div className="mb-[8px] flex items-center justify-between text-sm">
+                                    <span className="font-medium text-[#52607A]">
+                                        Coverage share
+                                    </span>
+                                    <span className="font-semibold text-[#1F2A44]">
+                                        {region.percentage}%
+                                    </span>
+                                </div>
+                                <div className="h-[10px] overflow-hidden rounded-full bg-[#E6EDF7]">
+                                    <div
+                                        className="h-full rounded-full"
+                                        style={{
+                                            width: `${region.percentage}%`,
+                                            backgroundColor: accentColor,
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="mt-[16px] flex items-center justify-between rounded-[10px] border border-[#EEF2F8] bg-[#FBFCFE] px-[12px] py-[10px]">
+                                <span className="text-xs font-medium uppercase tracking-[0.08em] text-[#6B7A90]">
+                                    Distribution
+                                </span>
+                                <span className="text-sm font-semibold text-[#2572A5]">
+                                    {formatCompactNumber(region.users)} users
+                                </span>
+                            </div>
                         </div>
                     </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );
+
+    MetricCard.propTypes = {
+        label: PropTypes.string.isRequired,
+        value: PropTypes.number.isRequired,
+        percentage: PropTypes.number.isRequired,
+        trend: PropTypes.oneOf(["up", "down"]).isRequired,
+    };
 
     // User Analytics Sub-page
     const UserAnalytics = () => (
