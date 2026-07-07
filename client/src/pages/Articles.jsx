@@ -1,37 +1,67 @@
-import { Link, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 
 import Icon from "../components/Icon";
 import HomeNavbar from "../components/HomeNavbar";
 import HomeFooter from "../components/HomeFooter";
-import ArticleItem from "../components/about-us/ArticleItem";
+import ArticleItem, {
+  ArticleItemSkeleton,
+} from "../components/about-us/ArticleItem";
+import { useFetchWebsiteHealthLiteracyContentQuery } from "../features/api/healthLiteracyHubSlice";
+import {
+  getContentMediaSource,
+  normalizeStaticArticle,
+  normalizeWebsiteContent,
+  sortNewestFirst,
+} from "../utils/healthLiteracyWebsiteContent";
 
 import ArticlesList from "../assets/data/articles.json";
 
 const Articles = () => {
-  const [articles, setArticles] = useState(
-    // ArticlesList.sort(
-    //   (a, b) => new Date(b.datePublished) - new Date(a.datePublished)
-    // )
-    ArticlesList.filter((a) => a.articleTitle != "").sort(
-      (a, b) => b.articleID - a.articleID
-    )
-  );
   const location = useLocation();
 
   const [articlePage, setArticlePage] = useState(location.state ?? 1);
+  const [previewContent, setPreviewContent] = useState(null);
+  const {
+    data: websiteContent,
+    isLoading: isLoadingWebsiteContent,
+    isFetching: isFetchingWebsiteContent,
+    isError: isWebsiteContentError,
+  } = useFetchWebsiteHealthLiteracyContentQuery();
 
   const numOfArticlesPerPage = 9;
+  const isShowingArticleSkeletons =
+    isLoadingWebsiteContent &&
+    isFetchingWebsiteContent &&
+    typeof websiteContent === "undefined";
+
+  const articles = useMemo(() => {
+    const staticArticles = ArticlesList.filter((a) => a.articleTitle != "").map(
+      normalizeStaticArticle
+    );
+    const dashboardContent = normalizeWebsiteContent(websiteContent ?? []);
+
+    return sortNewestFirst([...dashboardContent, ...staticArticles]);
+  }, [websiteContent]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
   useEffect(() => {
-    document
-      .getElementsByClassName("article-layout")[0]
-      .scrollTo({ top: 0, behavior: "instant" });
+    document.getElementsByClassName("article-layout")[0]?.scrollTo({
+      top: 0,
+      behavior: "instant",
+    });
   }, [articlePage]);
+
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(articles.length / numOfArticlesPerPage));
+
+    if (articlePage > maxPage) {
+      setArticlePage(maxPage);
+    }
+  }, [articlePage, articles.length]);
 
   const getArticles = () => {
     const startIndex = articlePage * numOfArticlesPerPage;
@@ -40,6 +70,13 @@ const Articles = () => {
 
     return articlesPerPage.slice(startIndex - numOfArticlesPerPage, startIndex);
   };
+
+  const previewMediaSource = getContentMediaSource(previewContent?.media);
+  const previewMediaType = previewContent?.media?.contentType ?? "";
+  const isPreviewVideo = previewMediaType.startsWith("video/");
+  const previewFilename =
+    previewContent?.media?.filename || `${previewContent?.articleTitle ?? "infographic"}`;
+  const maxArticlePage = Math.ceil(articles.length / numOfArticlesPerPage);
 
   return (
     <div className="article-layout">
@@ -63,20 +100,31 @@ const Articles = () => {
               </Link>
             </div> */}
             <p className="section-title">Articles</p>
+            {isWebsiteContentError && (
+              <p className="article-status">
+                Dashboard resources could not be loaded. Showing saved articles.
+              </p>
+            )}
             <div className="articles">
-              {getArticles().map((a, i) => {
-                if (a.articleTitle != "") {
-                  return (
-                    <ArticleItem
-                      article={a}
-                      key={i}
-                      articlePage={articlePage}
-                    />
-                  );
-                }
-              })}
+              {isShowingArticleSkeletons
+                ? Array.from({ length: numOfArticlesPerPage }, (_, index) => (
+                    <ArticleItemSkeleton key={`article-skeleton-${index}`} />
+                  ))
+                : getArticles().map((a) => {
+                    if (a.articleTitle != "") {
+                      return (
+                        <ArticleItem
+                          article={a}
+                          key={`${a.source}-${a.id ?? a.articleID ?? a.articleSlug}`}
+                          articlePage={articlePage}
+                          onPreviewClick={setPreviewContent}
+                        />
+                      );
+                    }
+                  })}
             </div>
-            {articles.length > numOfArticlesPerPage && (
+            {!isShowingArticleSkeletons &&
+              articles.length > numOfArticlesPerPage && (
               <div className="w-full flex justify-end">
                 <button
                   className="prod-btn-lg prod-btn-secondary flex items-center justify-center me-[20px] h-[48px]"
@@ -96,14 +144,9 @@ const Articles = () => {
                 </button>
                 <button
                   className="prod-btn-lg prod-btn-secondary flex items-center justify-center h-[48px]"
-                  disabled={
-                    !(articlePage < ArticlesList.length / numOfArticlesPerPage)
-                  }
+                  disabled={!(articlePage < maxArticlePage)}
                   onClick={() => {
-                    if (
-                      articlePage <
-                      ArticlesList.length / numOfArticlesPerPage
-                    ) {
+                    if (articlePage < maxArticlePage) {
                       setArticlePage((articlePage) => articlePage + 1);
                     }
                   }}
@@ -122,6 +165,64 @@ const Articles = () => {
       </section>
 
       <HomeFooter />
+
+      {previewContent && (
+        <div className="image-modal health-literacy-preview-modal">
+          <div
+            className="image-modal-backdrop"
+            onClick={() => setPreviewContent(null)}
+          ></div>
+          <div className="image-modal-container">
+            <div className="image-wrapper">
+              {previewMediaSource && isPreviewVideo ? (
+                <video src={previewMediaSource} controls autoPlay />
+              ) : previewMediaSource ? (
+                <img
+                  src={previewMediaSource}
+                  alt={previewContent.articleTitle}
+                />
+              ) : (
+                <div className="article-preview-empty">
+                  <Icon
+                    iconName="Document"
+                    height="48px"
+                    width="48px"
+                    fill="#6A8EB5"
+                  />
+                  <p>Preview is unavailable.</p>
+                </div>
+              )}
+            </div>
+            <div className="image-caption">
+              <p>{previewContent.articleTitle}</p>
+              {previewContent.resourceType === "infographic" &&
+                previewMediaSource && (
+                  <a
+                    href={previewMediaSource}
+                    download={previewFilename}
+                    className="prod-btn-lg prod-btn-secondary article-preview-download"
+                  >
+                    <span>Download</span>
+                    <Icon
+                      iconName="Download"
+                      height="20px"
+                      width="20px"
+                      fill="#8693A0"
+                    />
+                  </a>
+                )}
+            </div>
+            <div className="close-icon" onClick={() => setPreviewContent(null)}>
+              <Icon
+                iconName="Close"
+                height="24px"
+                width="24px"
+                className="icon"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -232,11 +232,7 @@
   /* ARTICLES */
 
   .article-layout:not(.about-us) {
-    /* @apply bg-gray-50; */
-    background: url("../images/home-bg-ph.png");
-    background-size: cover;
-    background-repeat: no-repeat;
-    background-position: top;
+    background-color: #f2f2f2;
     width: 100%;
     max-width: 100vw;
     height: 100vh;
@@ -253,7 +249,11 @@
   }
 
   .article-layout .section-title {
-    @apply web-d-h3 text-white mb-[24px];
+    @apply web-d-h3 text-gray-900 mb-[24px];
+  }
+
+  .article-layout .article-status {
+    @apply web-d-p3 text-gray-700 mb-[16px];
   }
 
   .article-layout .articles {
@@ -289,11 +289,31 @@
     object-position: center;
   }
 
+  .article-layout .articles .article-item .article-image video {
+    @apply w-full h-full;
+    object-fit: cover;
+    object-position: center;
+  }
+
+  .article-layout .articles .article-item .article-image .article-image-placeholder {
+    @apply h-full w-full flex items-center justify-center;
+    background: #f8fafc;
+  }
+
   .article-layout .articles .article-item .article-body {
     @apply p-[18px] w-full;
   }
+
+  .article-layout .articles .article-item .article-body .article-meta {
+    @apply min-h-[28px] flex flex-wrap items-center gap-[8px] mb-[8px];
+  }
+
+  .article-layout .articles .article-item .article-body .article-type {
+    @apply inline-flex min-h-[24px] items-center rounded-[6px] bg-primary-50 px-[8px] text-[12px] font-semibold text-primary-700;
+  }
+
   .article-layout .articles .article-item .article-body .date {
-    @apply web-d-l1 text-gray-500 mb-[8px];
+    @apply web-d-l1 text-gray-500;
   }
 
   .article-layout .articles .article-item .article-body .article-title {
@@ -316,8 +336,83 @@
     white-space: normal;
   }
 
-  .article-layout .articles .article-item .article-body a {
+  .article-layout .articles .article-item .article-body .article-action {
     @apply w-full flex items-center justify-center;
+  }
+
+  .article-layout .articles .article-item.article-item-skeleton {
+    @apply pointer-events-none;
+  }
+
+  .article-layout .articles .article-item.article-item-skeleton .article-body {
+    @apply flex flex-col;
+  }
+
+  .article-layout .articles .article-item.article-item-skeleton .article-skeleton-block {
+    @apply block rounded-[6px];
+    background: linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 50%, #e5e7eb 100%);
+    background-size: 200% 100%;
+    animation: article-skeleton-shimmer 1.6s ease-in-out infinite;
+  }
+
+  .article-layout .articles .article-item.article-item-skeleton .article-image {
+    @apply bg-transparent;
+  }
+
+  .article-layout .articles .article-item.article-item-skeleton .article-meta {
+    @apply min-h-[28px];
+  }
+
+  .article-layout .articles .article-item.article-item-skeleton .article-skeleton-chip {
+    @apply h-[24px] w-[92px] rounded-[999px];
+  }
+
+  .article-layout .articles .article-item.article-item-skeleton .article-skeleton-date {
+    @apply h-[16px] w-[108px];
+  }
+
+  .article-layout .articles .article-item.article-item-skeleton .article-skeleton-title {
+    @apply min-h-[56px] mb-[12px];
+  }
+
+  .article-layout .articles .article-item.article-item-skeleton .article-skeleton-preview {
+    @apply min-h-[78px] mb-[18px];
+  }
+
+  .article-layout .articles .article-item.article-item-skeleton .article-skeleton-line {
+    @apply h-[16px] w-full mb-[8px];
+  }
+
+  .article-layout .articles .article-item.article-item-skeleton .article-skeleton-line:last-child {
+    @apply mb-0;
+  }
+
+  .article-layout .articles .article-item.article-item-skeleton .article-skeleton-line-short {
+    @apply w-[78%];
+  }
+
+  .article-layout .articles .article-item.article-item-skeleton .article-skeleton-line-medium {
+    @apply w-[84%];
+  }
+
+  .article-layout .articles .article-item.article-item-skeleton .article-skeleton-button {
+    @apply h-[48px] w-full rounded-[8px];
+  }
+
+  @keyframes article-skeleton-shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .article-layout .articles .article-item.article-item-skeleton .article-skeleton-block {
+      animation-duration: 2.8s;
+    }
   }
 
   /* SINGLE ARTICLE  */
@@ -446,8 +541,24 @@
     object-fit: contain;
   }
 
+  .image-modal .image-modal-container .image-wrapper video {
+    height: 100%;
+    max-height: 500px;
+    width: 100%;
+    object-fit: contain;
+    background-color: #000;
+  }
+
   .image-modal .image-modal-container .image-caption {
     @apply web-d-p3 font-semibold mt-[10px] text-gray-500;
+  }
+
+  .image-modal .image-modal-container .article-preview-empty {
+    @apply min-h-[280px] flex flex-col items-center justify-center gap-[12px] text-gray-500;
+  }
+
+  .image-modal .image-modal-container .article-preview-download {
+    @apply mt-[12px] inline-flex items-center justify-center gap-[8px];
   }
 
   @media screen and (max-width: 576px) {
@@ -584,11 +695,35 @@
     object-position: center;
   }
 
+  .article-page-layout .articles .article-item .article-image video {
+    @apply w-full h-full;
+    object-fit: cover;
+    object-position: center;
+  }
+
+  .article-page-layout
+    .articles
+    .article-item
+    .article-image
+    .article-image-placeholder {
+    @apply h-full w-full flex items-center justify-center;
+    background: #f8fafc;
+  }
+
   .article-page-layout .articles .article-item .article-body {
     @apply p-[18px] w-full mb-0;
   }
+
+  .article-page-layout .articles .article-item .article-body .article-meta {
+    @apply min-h-[28px] flex flex-wrap items-center gap-[8px] mb-[8px];
+  }
+
+  .article-page-layout .articles .article-item .article-body .article-type {
+    @apply inline-flex min-h-[24px] items-center rounded-[6px] bg-primary-50 px-[8px] text-[12px] font-semibold text-primary-700;
+  }
+
   .article-page-layout .articles .article-item .article-body .date {
-    @apply web-d-l1 text-gray-500 mb-[8px];
+    @apply web-d-l1 text-gray-500;
   }
 
   .article-page-layout .articles .article-item .article-body .article-title {
@@ -611,7 +746,7 @@
     white-space: normal;
   }
 
-  .article-page-layout .articles .article-item .article-body a {
+  .article-page-layout .articles .article-item .article-body .article-action {
     @apply w-full flex items-center justify-center;
   }
 

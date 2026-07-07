@@ -1,64 +1,107 @@
-import { format } from "date-fns";
-import { useEffect, useState } from "react";
+/* eslint-disable react/prop-types */
 import { Link } from "react-router-dom";
 import Icon from "../Icon";
+import {
+  formatContentDate,
+  getResourceImageSource,
+} from "../../utils/healthLiteracyWebsiteContent";
 
-const ArticleItem = ({ article, articlePage }) => {
+const ArticleItem = ({ article, articlePage, onPreviewClick }) => {
   const {
     articleTitle,
     articleSlug,
     datePublished,
     articlePreview,
-    articleImage,
     articleImageCaption,
+    contentTypeLabel,
+    resourceType,
   } = article;
-
-  const [previewImage, setPreviewImage] = useState(null);
-
-  // useEffect(() => {
-  //   const fetchImagePreview = async () => {
-  //     try {
-  //       const response = await import(
-  //         /* @vite-ignore */
-  //         "../../assets/images/articles/preview/" + articleImage
-  //       );
-  //       setPreviewImage(response.default.replace("/@fs", ""));
-  //     } catch (err) {
-  //       console.log(err);
-  //     }
-  //   };
-  //   fetchImagePreview();
-  // }, [articleImage]);
+  const mediaSource = getResourceImageSource(article);
+  const isVideo = resourceType === "video";
+  const isPreviewContent = ["video", "infographic"].includes(resourceType);
+  const displayDate = formatContentDate(datePublished);
 
   return (
     <div className="article-item">
       <div className="article-image">
-        <img
-          src={"/assets/articles/preview/" + articleImage}
-          alt={articleImageCaption}
-        />
+        {mediaSource && isVideo ? (
+          <video src={mediaSource} muted playsInline />
+        ) : mediaSource ? (
+          <img src={mediaSource} alt={articleImageCaption || articleTitle} />
+        ) : (
+          <div className="article-image-placeholder">
+            <Icon
+              iconName="Document"
+              height="48px"
+              width="48px"
+              fill="#6A8EB5"
+            />
+          </div>
+        )}
       </div>
       <div className="article-body">
-        <p className="date">
-          {format(new Date(datePublished), "MMMM dd, yyyy")}
-        </p>
+        <div className="article-meta">
+          {contentTypeLabel && <span className="article-type">{contentTypeLabel}</span>}
+          {displayDate && <p className="date">{displayDate}</p>}
+        </div>
         <p className="article-title">{articleTitle}</p>
         <p className="article-preview">{articlePreview}</p>
-        <Link
-          state={articlePage}
-          to={"/articles/" + articleSlug}
-          className="prod-btn-lg prod-btn-secondary"
-        >
-          <span>Read More</span>
-          <Icon
-            iconName="ArrowUpRight"
-            height="24px"
-            width="24px"
-            stroke="#8693A0"
-          />
-        </Link>
+        {isPreviewContent ? (
+          <button
+            type="button"
+            onClick={() => onPreviewClick?.(article)}
+            className="prod-btn-lg prod-btn-secondary article-action"
+          >
+            <span>{isVideo ? "Watch Video" : "View Infographic"}</span>
+            <Icon
+              iconName="ArrowUpRight"
+              height="24px"
+              width="24px"
+              stroke="#8693A0"
+            />
+          </button>
+        ) : (
+          <Link
+            state={articlePage}
+            to={"/articles/" + articleSlug}
+            className="prod-btn-lg prod-btn-secondary article-action"
+          >
+            <span>Read More</span>
+            <Icon
+              iconName="ArrowUpRight"
+              height="24px"
+              width="24px"
+              stroke="#8693A0"
+            />
+          </Link>
+        )}
       </div>
     </div>
   );
 };
+
+export const ArticleItemSkeleton = () => {
+  return (
+    <div className="article-item article-item-skeleton" aria-hidden="true">
+      <div className="article-image article-skeleton-block"></div>
+      <div className="article-body">
+        <div className="article-meta">
+          <span className="article-skeleton-block article-skeleton-chip"></span>
+          <span className="article-skeleton-block article-skeleton-date"></span>
+        </div>
+        <div className="article-skeleton-title">
+          <div className="article-skeleton-block article-skeleton-line"></div>
+          <div className="article-skeleton-block article-skeleton-line article-skeleton-line-short"></div>
+        </div>
+        <div className="article-skeleton-preview">
+          <div className="article-skeleton-block article-skeleton-line"></div>
+          <div className="article-skeleton-block article-skeleton-line"></div>
+          <div className="article-skeleton-block article-skeleton-line article-skeleton-line-medium"></div>
+        </div>
+        <div className="article-skeleton-button article-skeleton-block"></div>
+      </div>
+    </div>
+  );
+};
+
 export default ArticleItem;

@@ -1,65 +1,117 @@
 import { Link, useLocation, useParams } from "react-router-dom";
-import { Fragment, useEffect, useState } from "react";
-import { format } from "date-fns";
+import { Fragment, useEffect, useMemo, useState } from "react";
 
 import Icon from "../components/Icon";
 import HomeNavbar from "../components/HomeNavbar";
 import HomeFooter from "../components/HomeFooter";
+import { useFetchWebsiteHealthLiteracyContentQuery } from "../features/api/healthLiteracyHubSlice";
+import {
+  formatContentDate,
+  getStaticArticleImageSource,
+  normalizeStaticArticle,
+  normalizeWebsiteContent,
+  sortNewestFirst,
+} from "../utils/healthLiteracyWebsiteContent";
 
 import ArticlesList from "../assets/data/articles.json";
 import ArticleItem from "../components/about-us/ArticleItem";
 
 const ArticlePage = () => {
   const { slug } = useParams();
+  const location = useLocation();
+  const [imageModalActive, setImageModalActive] = useState(false);
+  const [modalData, setModalData] = useState({ src: "", caption: "" });
 
-  const article = ArticlesList.find((a) => a.articleSlug == slug);
+  const { data: websiteArticles = [], isFetching } =
+    useFetchWebsiteHealthLiteracyContentQuery("articles");
+  const staticArticles = useMemo(
+    () =>
+      ArticlesList.filter((a) => a.articleTitle != "").map(normalizeStaticArticle),
+    []
+  );
+  const dashboardArticles = useMemo(
+    () => normalizeWebsiteContent(websiteArticles),
+    [websiteArticles]
+  );
+  const allArticles = useMemo(
+    () => sortNewestFirst([...dashboardArticles, ...staticArticles]),
+    [dashboardArticles, staticArticles]
+  );
 
-  const latestArticles = ArticlesList.sort(
-    (a, b) => new Date(b.datePublished) - new Date(a.datePublished)
-  )
+  const article = allArticles.find((a) => a.articleSlug == slug);
+  const latestArticles = allArticles
     .filter((a) => a.articleSlug != slug)
     .slice(0, 4);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [slug]);
+
+  if (!article && isFetching) {
+    return (
+      <div className="article-page-layout">
+        <HomeNavbar background="solid" />
+        <section className="article-container">
+          <div className="article-wrapper mt-[112px]">
+            <p className="article-body">Loading article...</p>
+          </div>
+        </section>
+        <HomeFooter />
+      </div>
+    );
+  }
+
+  if (!article) {
+    return (
+      <div className="article-page-layout">
+        <HomeNavbar background="solid" />
+        <section className="article-container">
+          <div className="article-wrapper mt-[112px]">
+            <div className="flex justify-start items-center mb-[24px]">
+              <Link
+                to="/articles"
+                state={location.state}
+                className="prod-btn-lg prod-btn-secondary flex items-center"
+              >
+                <Icon
+                  iconName="ArrowLeft"
+                  height="24px"
+                  width="24px"
+                  fill="#8693A0"
+                />
+                <span className="ms-[8px]">Back to Article List</span>
+              </Link>
+            </div>
+            <p className="article-body">Article not found.</p>
+          </div>
+        </section>
+        <HomeFooter />
+      </div>
+    );
+  }
 
   const {
     articleTitle,
     readDuration,
     datePublished,
     articlePreview,
-    articleImage,
-    articleImagePosition,
-    articleImageCaption,
     galleryFolder,
-    galleryImages,
+    galleryImages = [],
     articleBody,
+    contentTypeLabel,
+    tags = [],
   } = article;
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [slug]);
-
-  const [previewImage, setPreviewImage] = useState(null);
-
-  // useEffect(() => {
-  //   const fetchImagePreview = async () => {
-  //     try {
-  //       const response = await import(
-  //         /* @vite-ignore */
-  //         "../assets/images/articles/preview/" + articleImage
-  //       );
-  //       setPreviewImage(response.default.replace("/@fs", ""));
-  //     } catch (err) {
-  //       console.log(err);
-  //     }
-  //   };
-
-  //   if (articleImage) fetchImagePreview();
-  // }, [articleImage]);
-
-  const [imageModalActive, setImageModalActive] = useState(false);
-
-  const [modalData, setModalData] = useState({ src: "", caption: "" });
-
-  const location = useLocation();
+  const heroImageSource = getStaticArticleImageSource(article);
+  const articleText = articleBody || articlePreview || "";
+  const displayDate = formatContentDate(datePublished);
+  const detailMeta = [
+    contentTypeLabel,
+    readDuration,
+    displayDate,
+    tags.length > 0 ? tags.join(", ") : null,
+  ]
+    .filter(Boolean)
+    .join(" - ");
 
   return (
     <div className="article-page-layout">
@@ -67,8 +119,7 @@ const ArticlePage = () => {
       <section
         className="article-hero-wrapper"
         style={{
-          backgroundImage:
-            "url('/assets/articles/preview/" + articleImage + "')",
+          backgroundImage: heroImageSource ? `url('${heroImageSource}')` : undefined,
           backgroundRepeat: "no-repeat",
         }}
       >
@@ -91,21 +142,19 @@ const ArticlePage = () => {
           </div>
           <div className="article-header">
             <p className="article-title">{articleTitle}</p>
-            <p className="article-content my-[24px]">
-              {/* {readDuration} •{" "}
-              {format(new Date(datePublished), "MMMM dd, yyyy")} */}
-            </p>
+            {detailMeta && (
+              <p className="article-content my-[24px]">{detailMeta}</p>
+            )}
             <p className="article-content">{articlePreview}</p>
           </div>
         </div>
       </section>
       <section className="article-container">
         <div className="article-wrapper mt-[56px] ">
-          {/* ARTICLE BODY */}
           <div className="article-body">
             <p>
-              {articleBody.split("\n").map((v, i) => {
-                const isLast = i == articleBody.split("\n").length - 1;
+              {articleText.split("\n").map((v, i) => {
+                const isLast = i == articleText.split("\n").length - 1;
                 return (
                   <Fragment key={i}>
                     <span>{v}</span>
@@ -120,32 +169,32 @@ const ArticlePage = () => {
             </p>
           </div>
 
-          {/* ARTICLE GALLERY */}
-          <div className="article-gallery">
-            {galleryImages.map(({ filename, caption }, i) => {
-              const imagePath =
-                "/assets/articles/gallery/" + galleryFolder + "/";
-              return (
-                <div className="gallery-item" key={i}>
-                  <div
-                    className="image-wrapper"
-                    onClick={() => {
-                      setModalData({
-                        src: imagePath + filename,
-                        caption: caption,
-                      });
-                      setImageModalActive(true);
-                    }}
-                  >
-                    <img src={imagePath + filename} alt={caption} />
+          {galleryImages.length > 0 && (
+            <div className="article-gallery">
+              {galleryImages.map(({ filename, caption }, i) => {
+                const imagePath =
+                  "/assets/articles/gallery/" + galleryFolder + "/";
+                return (
+                  <div className="gallery-item" key={i}>
+                    <div
+                      className="image-wrapper"
+                      onClick={() => {
+                        setModalData({
+                          src: imagePath + filename,
+                          caption: caption,
+                        });
+                        setImageModalActive(true);
+                      }}
+                    >
+                      <img src={imagePath + filename} alt={caption} />
+                    </div>
+                    <p className="gallery-caption article-caption">{caption}</p>
                   </div>
-                  <p className="gallery-caption article-caption">{caption}</p>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
 
-          {/* LATEST ARTICLES */}
           <div className="latest-articles">
             <div className="flex items-center justify-start mb-[24px]">
               <p className="section-title">Latest Articles</p>
@@ -153,7 +202,12 @@ const ArticlePage = () => {
             <div className="articles mb-[24px]">
               {latestArticles.map((a, i) => {
                 if (a.articleTitle != "") {
-                  return <ArticleItem article={a} key={i} />;
+                  return (
+                    <ArticleItem
+                      article={a}
+                      key={`${a.source}-${a.id ?? a.articleID ?? i}`}
+                    />
+                  );
                 }
               })}
             </div>

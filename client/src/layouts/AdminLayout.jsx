@@ -31,7 +31,12 @@ const AdminLayout = () => {
           </main>
         )}
       </div> */}
-    <div className="admin-layout flex flex-col max-h-screen h-screen bg-[#F5F5F5] overflow-y-hidden">
+    <div
+      className="admin-layout flex flex-col max-h-screen h-screen bg-[#F5F5F5] overflow-y-hidden"
+      style={{
+        "--admin-sidebar-width": sidebarOpen ? "270px" : "72px",
+      }}
+    >
       <Navbar/>
 
       <div className="flex flex-grow overflow-hidden">
