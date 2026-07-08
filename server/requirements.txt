@@ -34,3 +34,7 @@ python-Levenshtein
 
 # Package for Survey
 surveyJS
+
+#Packages for Render 
+gunicorn==23.0.0
+uvicorn==0.30.0
