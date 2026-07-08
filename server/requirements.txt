@@ -18,7 +18,7 @@ tqdm
 
 # Packages for annotation using Electra
 transformers
-torch==2.3.0
+torch==2.10.0
 numpy==1.26.4
 accelerate
 
@@ -31,3 +31,6 @@ spacy
 # Packages for extracting symptoms
 fuzzywuzzy
 python-Levenshtein
+
+# Package for Survey
+surveyJS
