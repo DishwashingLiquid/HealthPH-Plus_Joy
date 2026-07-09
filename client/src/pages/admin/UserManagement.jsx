@@ -585,7 +585,7 @@ const UserAccountModal = ({ mode, currentUser, onClose }) => {
       toast(
         <Snackbar
           iconName="Error"
-          size="snackbar=sm"
+          size="snackbar-sm"
           color="destructive"
           message="Failed to create user"
         />,
@@ -608,7 +608,7 @@ const UserAccountModal = ({ mode, currentUser, onClose }) => {
       const detail = response.error?.data?.detail;
 
       if (Array.isArray(detail)) {
-        detail.forEach(({ field, errro }) => {
+        detail.forEach(({ field, error }) => {
           if (field in formData) {
             setFormErrors((errors) => ({
               ...errors,
@@ -767,7 +767,7 @@ const UserAccountModal = ({ mode, currentUser, onClose }) => {
               </FieldGroup>
             )}
 
-            {isAdminMode && (
+            {!isAdminMode && (
               <FieldGroup
                 label="Regional Office"
                 labelFor="region"
@@ -829,14 +829,140 @@ const UserAccountModal = ({ mode, currentUser, onClose }) => {
                   setFormData({ ...formData, organization: e.target.value });
                   resetFieldError("organization");
                 }}
+                state={formErrors.organization ? "error" : ""}
+                disabled={isAdminMode}
               />
             </FieldGroup>
+            
+            <FieldGroup
+              label="First Name"
+              labelFor="first-name"
+              additionalClasses="mb-[16px]"
+              caption={formErrors.first_name}
+              state={formErrors.first_name ? "error" : ""}
+            >
+              <Input
+                size="input-md"
+                id="first-name"
+                type="text"
+                additionalClasses="mt-[8px] w-full"
+                placeholder="Enter first name"
+                value={formData.first_name}
+                onChange={(e) => {
+                  setFormData({ ...formData, first_name: e.target.value });
+                  resetFieldError("first_name");
+                }}
+                state={formErrors.first_name ? "error" : ""}
+              />
+            </FieldGroup>
+
+            <FieldGroup
+              label="Last Name"
+              labelFor="last-name"
+              additionalClasses="mb-[16px]"
+              caption={formErrors.last_name}
+              state={formErrors.last_name ? "error" : ""}
+            >
+              <Input
+                size="input-md"
+                id="last-name"
+                type="text"
+                additionalClasses="mt-[8px] w-full"
+                placeholder="Enter last name"
+                value={formData.last_name}
+                onChange={(e) => {
+                  setFormData({ ...formData, last_name: e.target.value });
+                  resetFieldError("last_name");
+                }}
+                state={formErrors.last_name ? "error" : ""}
+              />
+            </FieldGroup>
+
+            <FieldGroup
+              label="Email"
+              labelFor="email"
+              additionalClasses="mb-[16px]"
+              caption={formErrors.email}
+              state={formErrors.email ? "error" : ""}
+            >
+              <Input
+                size="input-md"
+                id="email"
+                type="email"
+                additionalClasses="mt-[8px] w-full"
+                placeholder="Enter email"
+                value={formData.email}
+                onChange={(e) => {
+                  setFormData({ ...formData, email: e.target.value });
+                  resetFieldError("email");
+                }}
+                state={formErrors.email ? "error" : ""}
+              />
+            </FieldGroup>
+
+            <div className="md:col-span-2">
+              <FieldGroup
+                label="Password"
+                labelFor="password"
+                additionalClasses="mb-[12px]"
+                caption={formErrors.password}
+                state={formErrors.password ? "error" : ""}
+              >
+                <div className="mt-[8px] flex flex-col gap-[10px] sm:flex-row">
+                  <InputPassword
+                    size="input-md"
+                    id="password"
+                    additionalClasses="w-full"
+                    placeholder="Enter password"
+                    value={formData.password}
+                    defaultShow={true}
+                    onChange={(e) => {
+                      setFormData({ ...formData, password: e.target.value });
+                      resetFieldError("password");
+                    }}
+                    state={formErrors.password ? "error" : ""}
+                  />
+                  <button
+                    type="button"
+                    className="rounded-[8px] border border-[#D0D5DD] bg-white px-[14px] py-[9px] text-sm text-gray-700"
+                    onClick={generatePassword}
+                    disabled={isLoading}
+                  >
+                    Generate
+                  </button>
+                </div>
+              </FieldGroup>
+
+              <PasswordRequirements
+                password={formData.password}
+                pwdFlags={pwdFlags}
+                handleChange={setPWDFlags}
+              />
+            </div>
           </div>
+        </div>
+        
+        <div className="flex items-center justify-end gap-[10px] border-t border-[#E5E5E5] px-[20px] py-[14px]">
+          <button
+            type="button"
+            className="rounded-[8px] border border-[#D0D5DD] bg-white px-[14px] py-[9px] text-sm text-gray-700"
+            onClick={onClose}
+            disabled={isLoading}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="rounded-[8px] bg-[#32418C] px-[14px] py-[9px] text-sm text-white"
+            disabled={isLoading}
+          >
+            {isLoading ? "Saving..." : "Save"}
+          </button>
         </div>
       </form>
     </div>
-  )
-}
+  );
+};
 
 const UserManagementTabButton = ({ label, active, onClick }) => {
   return (

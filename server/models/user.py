@@ -66,7 +66,13 @@ class DisableUserRequest(BaseModel):
 
 
 class UpdateUserRequest(BaseModel):
+    first_name: str
+    last_name: str
+    email: str
+    region: str
+    organization: str
     accessible_regions: str
+    role_label: str | None = ""
 
 
 class AdminResult(BaseModel):

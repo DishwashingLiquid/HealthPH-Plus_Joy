@@ -8,6 +8,7 @@ import EmptyState from "./EmptyState";
 import Icon from "../Icon";
 import Modal from "./Modal";
 import Snackbar from "../Snackbar";
+import Checkbox from "../Checkbox";
 
 import {
      useDeleteAdminMutation,
@@ -24,6 +25,9 @@ const AdminsTable = ({
     const user = useSelector((state) => state.auth.user);
 
     const [tableData, setTableData] = useState([]);
+    const [selectedAdminIds, setSelectedAdminIds] = useState([]);
+    const [bulkActionModalActive, setBulkActionModalActive] = useState(false);
+    const [bulkActionType, setBulkActionType] = useState("");
 
     useEffect(() => {
         if (admins) {
@@ -58,15 +62,6 @@ const AdminsTable = ({
         }
     }, [searchQuery, admins]);
 
-    const [modalData, setModalData] = useState({
-        id: "",
-        name: "",
-        user_type: "",
-    });
-
-    const [deleteModalActive, setDeleteModalActive] = useState(false);
-    const [disableModalActive, setDisableModalActive] = useState(false);
-    const [enableModalActive, setEnableModalActive] = useState(false);
     const [isModalLoading, setIsModalLoading] = useState(false);
 
     const [updateUserStatus] = useDisableUserMutation();
@@ -75,191 +70,201 @@ const AdminsTable = ({
 
     const searchWords = searchQuery.split(" ").filter((search) => search.length > 0);
 
-    const handleChangeStatus = async (status) => {
-        setIsModalLoading(true);
+    const selectedAdmins = admins.filter((admin) =>
+        selectedAdminIds.includes(admin.id)
+    );
 
-        const response = await updateUserStatus({ id: modalData.id, status });
+    const visibleSelectableAdmins = tableData.filter((admin) => user.id != admin.id);
 
-        if (!response) {
-            toast(
-                <Snackbar
-                    iconName="Error"
-                    size="snackbar-sm"
-                    color="destructive"
-                    message={status ? "Failed to disable user" : "Failed to enable user"}
-                />,
-                {
-                    closeButton: ({ closeToast }) => (
-                        <Icon
-                            iconName="Close"
-                            className="close-icon close-icon-sm close-destructive"
-                            onClick={closeToast}
-                        />
-                    ),
-                }
-            );
+    const allVisibleAdminsSelected =
+        visibleSelectableAdmins.length > 0 &&
+        visibleSelectableAdmins.every((admin) => selectedAdminIds.includes(admin.id));
 
-            setIsModalLoading(false);
-            return;
-        }
+    const toggleAdminSelection = (id) => {
+        if (user.id == id) return;
 
-        if ("error" in response) {
-            const { detail } = response["error"]["data"];
-
-            toast(
-                <Snackbar
-                    iconName="Error"
-                    size="snackbar-sm"
-                    color="destructive"
-                    message={detail}
-                />,
-                {
-                    closeButton: ({ closeToast }) => (
-                        <Icon
-                            iconName="Close"
-                            className="close-icon close-icon-sm close-destructive"
-                            onClick={closeToast}
-                        />
-                    ),
-                }
-            );
-
-            setIsModalLoading(false);
-            return;
-        }
-
-        toast(
-            <Snackbar
-                iconName="CheckCircle"
-                size="snackbar-sm"
-                color="success"
-                message={`User ${status ? "disabled" : "enabled"} successfully`}
-            />,
-            {
-                closeButton: ({ closeToast }) => (
-                    <Icon
-                        iconName="Close"
-                        className="close-icon close-icon-sm close-success"
-                        onClick={closeToast}
-                    />
-                ),
-            }
+        setSelectedAdminIds((currentIds) =>
+            currentIds.includes(id)
+                ? currentIds.filter((currentId) => currentId !== id)
+                : [...currentIds, id]
         );
-
-        await log_activity({
-            user_id: user.id,
-            entry: `${status ? "Disabled" : "Enabled"} ${modalData.user_type} : ${
-                modalData.name
-            }`,
-            module: "User Management",
-        });
-
-        setIsModalLoading(false);
-        setModalData({ id: "", name: "", user_type: "" });
-
-        if (status) {
-            setDisableModalActive(false);
-        } else {
-            setEnableModalActive(false);
-        }
     };
 
-    const handleDeleteAdmin = async () => {
+    const toggleAllVisibleAdmins = () => {
+        const visibleIds = visibleSelectableAdmins.map((admin) => admin.id);
+
+        setSelectedAdminIds((currentIds) =>
+            allVisibleAdminsSelected
+                ? currentIds.filter((id) => !visibleIds.includes(id))
+                : [...new Set([...currentIds, ...visibleIds])]
+        );
+    };
+
+    const openBulkActionModal = (actionType) => {
+        if (selectedAdminIds.length === 0) return;
+
+        setBulkActionType(actionType);
+        setBulkActionModalActive(true);
+    };
+
+    const closeBulkActionModal = () => {
+        if (isModalLoading) return;
+
+        setBulkActionType("");
+        setBulkActionModalActive(false);
+    };
+
+    const handleBulkAction = async () => {
         setIsModalLoading(true);
 
-        const response = await deleteAdmin(modalData.id);
-
-        if (!response) {
-            toast(
-                <Snackbar
-                    iconName="Error"
-                    size="snackbar-sm"
-                    color="destructive"
-                    message="Failed to delete user"
-                />,
-                {
-                    closeButton: ({ closeToast }) => (
-                        <Icon
-                            iconName="Close"
-                            className="close-icon close-icon-sm close-destructive"
-                            onClick={closeToast}
-                        />
-                    ),
+        try {
+            if (bulkActionType === "delete") {
+                if (user.user_type === "ADMIN") {
+                    throw new Error("Admins cannot delete administrator accounts.");
                 }
-            );
 
-            setIsModalLoading(false);
-            return;
-        }
+                for (const selectedAdmin of selectedAdmins) {
+                    const response = await deleteAdmin(selectedAdmin.id);
 
-        if ("error" in response) {
-            const { detail } = response["error"]["data"];
-
-            toast(
-                <Snackbar
-                    iconName="Error"
-                    size="snackbar-sm"
-                    color="destructive"
-                    message={detail}
-                />,
-                {
-                    closeButton: ({ closeToast }) => (
-                        <Icon
-                            iconName="Close"
-                            className="close-icon close-icon-sm close-destructive"
-                            onClick={closeToast}
-                        />
-                    ),
+                    if (!response || "error" in response) {
+                        throw new Error("Failed to delete selected administrators.");
+                    }
                 }
-            );
-
-            setIsModalLoading(false);
-            return;
-        }
-
-        toast(
-            <Snackbar
-                iconName="CheckCircle"
-                size="snackbar-sm"
-                color="success"
-                message="User deleted successfully"
-            />,
-            {
-                closeButton: ({ closeToast }) => (
-                    <Icon
-                        iconName="Close"
-                        className="close-icon close-icon-sm close-success"
-                        onClick={closeToast}
-                    />
-                ),
             }
-        );
 
-        await log_activity({
-            user_id: user.id,
-            entry: `Deleted ${modalData.user_type} : ${modalData.name}`,
-            module: "User Management",
-        });
+            if (bulkActionType === "disable" || bulkActionType === "enable") {
+                const status = bulkActionType === "disable";
+
+                for (const selectedAdmin of selectedAdmins) {
+                    const response = await updateUserStatus({
+                        id: selectedAdmin.id,
+                        status,
+                    });
+
+                    if (!response || "error" in response) {
+                        throw new Error("Failed to update selected administrators.");
+                    }
+                }
+            }
+
+            const actionLabel =
+                bulkActionType === "delete"
+                    ? "Deleted"
+                    : bulkActionType === "disable"
+                    ? "Disabled"
+                    : "Enabled";
+
+            toast(
+                <Snackbar
+                    iconName="CheckCircle"
+                    size="snackbar-sm"
+                    color="success"
+                    message={`${actionLabel} ${selectedAdmins.length} selected administrator${
+                        selectedAdmins.length === 1 ? "" : "s"
+                    } successfully`}
+                />,
+                {
+                    closeButton: ({ closeToast }) => (
+                        <Icon
+                            iconName="Close"
+                            className="close-icon close-icon-sm close-success"
+                            onClick={closeToast}
+                        />
+                    ),
+                }
+            );
+
+            await log_activity({
+                user_id: user.id,
+                entry: `${actionLabel} ${selectedAdmins.length} ADMIN account${
+                    selectedAdmins.length === 1 ? "" : "s"
+                }`,
+                module: "User Management",
+            });
+
+            setSelectedAdminIds([]);
+            closeBulkActionModal();
+        } catch (error) {
+            toast(
+                <Snackbar
+                    iconName="Error"
+                    size="snackbar-sm"
+                    color="destructive"
+                    message={error.message || "Bulk action failed. Please try again."}
+                />,
+                {
+                    closeButton: ({ closeToast }) => (
+                        <Icon
+                            iconName="Close"
+                            className="close-icon close-icon-sm close-destructive"
+                            onClick={closeToast}
+                        />
+                    ),
+                }
+            );
+        }
 
         setIsModalLoading(false);
-        setModalData({ id: "", name: "", user_type: "" });
-        setDeleteModalActive(false);
     };
 
     return (
         <>
+            {selectedAdminIds.length > 0 && (
+                <div className="mb-[16px] flex flex-col gap-[10px] rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] px-[14px] py-[12px] md:flex-row md:items-center md:justify-between">
+                    <p className="text-sm text-gray-600">
+                        <span className="font-semibold text-gray-800">
+                            {selectedAdminIds.length}
+                        </span>{" "}
+                        selected
+                    </p>
+
+                    <div className="flex flex-wrap gap-[8px]">
+                        <button
+                            type="button"
+                            className="rounded-[8px] border border-[#E5E5E5] bg-white px-[12px] py-[8px] text-sm text-gray-700"
+                            onClick={() => openBulkActionModal("enable")}
+                        >
+                            Enable
+                        </button>
+                        <button
+                            type="button"
+                            className="rounded-[8px] border border-[#E5E5E5] bg-white px-[12px] py-[8px] text-sm text-gray-700"
+                            onClick={() => openBulkActionModal("disable")}
+                        >
+                            Disable
+                        </button>
+                        {user.user_type !== "ADMIN" && (
+                            <button
+                                type="button"
+                                className="rounded-[8px] bg-[#DC2626] px-[12px] py-[8px] text-sm text-white"
+                                onClick={() => openBulkActionModal("delete")}
+                            >
+                                Delete
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
             <div className="overflow-x-auto">
                 {admins.length > 0 ? (
                     tableData.length > 0 ? (
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
+                                    <th className="w-[44px] px-[10px] py-[12px]">
+                                        <div onClick={(event) => event.stopPropagation()}>
+                                            <Checkbox
+                                                size="input-checkbox-sm"
+                                                checked={allVisibleAdminsSelected}
+                                                handleChange={toggleAllVisibleAdmins}
+                                            />
+                                        </div>
+                                    </th>
                                     <th className="px-[10px] py-[12px] font-medium">Full Name</th>
                                     <th className="px-[10px] py-[12px] font-medium">Email</th>
                                     <th className="px-[10px] py-[12px] font-medium">Date Created</th>
                                     <th className="px-[10px] py-[12px] font-medium">User Type</th>
                                     <th className="px-[10px] py-[12px] font-medium">Status</th>
-                                    <th className="px-[10px] py-[12px] font-medium">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -279,8 +284,31 @@ const AdminsTable = ({
                                         return (
                                             <tr
                                                 key={id}
-                                                className="border-b border-[#F0F0F0] hover:bg-[#F8FAFC]"
+                                                className={`border-b border-[#F0F0F0] hover:bg-[#F8FAFC] ${
+                                                    isCurrentUser
+                                                        ? ""
+                                                        : "cursor-pointer"
+                                                } ${
+                                                    selectedAdminIds.includes(id)
+                                                        ? "bg-[#F8FAFC]"
+                                                        : ""
+                                                }`}
+                                                onClick={() => toggleAdminSelection(id)}
                                             >
+                                                <td
+                                                    className="px-[10px] py-[14px]"
+                                                    onClick={(event) => event.stopPropagation()}
+                                                >
+                                                    {isCurrentUser ? (
+                                                        <span className="text-sm text-gray-300">-</span>
+                                                    ) : (
+                                                        <Checkbox
+                                                            size="input-checkbox-sm"
+                                                            checked={selectedAdminIds.includes(id)}
+                                                            handleChange={() => toggleAdminSelection(id)}
+                                                        />
+                                                    )}
+                                                </td>
                                                 <td className="px-[10px] py-[14px] font-medium text-gray-800">
                                                     <Highlighter
                                                         highlightClassName="rounded-[2px] bg-[#FFE81A] p-[2px] font-medium text-[#000]"
@@ -301,9 +329,16 @@ const AdminsTable = ({
                                                     {format(new Date(created_at), "MMM dd, yyyy hh:mm a")}
                                                 </td>
                                                 <td className="px-[10px] py-[14px]">
-                                                    <span className="rounded-full bg-[#EEF2FF] px-[8px] py-[4px] text-xs font-medium text-[#4F46E5]">
-                                                        {user_type}
-                                                    </span>
+                                                    <div className="flex flex-wrap gap-[6px]">
+                                                        <span className="rounded-full bg-[#EEF2FF] px-[8px] py-[4px] text-xs font-medium text-[#4F46E5]">
+                                                            {user_type}
+                                                        </span>
+                                                        {isCurrentUser && (
+                                                            <span className="rounded-full bg-[#F2F4F7] px-[8px] py-[4px] text-xs font-medium text-gray-500">
+                                                                Current
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="px-[10px] py-[14px]">
                                                     <span
@@ -315,56 +350,6 @@ const AdminsTable = ({
                                                     >
                                                         {is_disabled ? "Disabled" : "Active"}
                                                     </span>
-                                                </td>
-                                                <td className="px-[10px] py-[14px]">
-                                                    {isCurrentUser ? (
-                                                        <span className="text-sm text-gray-400">
-                                                            Current account
-                                                        </span>
-                                                    ) : (
-                                                        <div className="flex flex-wrap gap-[8px]">
-                                                            <button
-                                                                type="button"
-                                                                className={`rounded-[8px] px-[10px] py-[7px] text-xs font-medium ${
-                                                                    is_disabled
-                                                                        ? "bg-[#32418C] text-white"
-                                                                        : "border border-[#E5E5E5] bg-white text-gray-700"
-                                                                }`}
-                                                                onClick={() => {
-                                                                    setModalData({
-                                                                        id,
-                                                                        name: fullName,
-                                                                        user_type,
-                                                                    });
-
-                                                                    if (is_disabled) {
-                                                                        setEnableModalActive(true);
-                                                                    } else {
-                                                                        setDisableModalActive(true);
-                                                                    }
-                                                                }}
-                                                            >
-                                                                {is_disabled ? "Enable" : "Disable"}
-                                                            </button>
-
-                                                            {user.user_type !== "ADMIN" && (
-                                                                <button
-                                                                    type="button"
-                                                                    className="rounded-[8px] bg-[#DC2626] px-[10px] py-[7px] text-xs font-medium text-white"
-                                                                    onClick={() => {
-                                                                        setModalData({
-                                                                            id,
-                                                                            name: fullName,
-                                                                            user_type,
-                                                                        });
-                                                                        setDeleteModalActive(true);
-                                                                    }}
-                                                                >
-                                                                    Delete
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    )}
                                                 </td>
                                             </tr>
                                         );
@@ -396,53 +381,45 @@ const AdminsTable = ({
                 )}
             </div>
 
-            {deleteModalActive && (
+            {bulkActionModalActive && (
                 <Modal
                     onLoading={isModalLoading}
-                    onLoadingLabel="Deleting..."
-                    onConfirm={handleDeleteAdmin}
-                    onConfirmLabel="Delete"
-                    onCancel={() => {
-                        setModalData({ id: "", name: "", user_type: ""});
-                        setDeleteModalActive(false);
-                    }}
-                    heading={`Are you sure you want to delete ${modalData.name}'s account?`}
-                    content="This user can never use their account to HealthPH+ anymore."
-                    color="destructive"
+                    onLoadingLabel={
+                        bulkActionType === "delete"
+                            ? "Deleting..."
+                            : bulkActionType === "disable"
+                            ? "Disabling..."
+                            : "Enabling..."
+                    }
+                    onConfirm={handleBulkAction}
+                    onConfirmLabel={
+                        bulkActionType === "delete"
+                            ? "Delete"
+                            : bulkActionType === "disable"
+                            ? "Disable"
+                            : "Enable"
+                    }
+                    onCancel={closeBulkActionModal}
+                    heading={`Are you sure you want to ${
+                        bulkActionType === "delete"
+                            ? "delete"
+                            : bulkActionType === "disable"
+                            ? "disable"
+                            : "enable"
+                    } ${selectedAdminIds.length} selected administrator${
+                        selectedAdminIds.length === 1 ? "" : "s"
+                    }?`}
+                    content={
+                        bulkActionType === "delete"
+                            ? "Selected administrators will no longer be able to use their HealthPH+ accounts."
+                            : bulkActionType === "disable"
+                            ? "Selected administrators will be unable to sign in to HealthPH+ until enabled again."
+                            : "Selected administrators will regain access to HealthPH+."
+                    }
+                    color={bulkActionType === "enable" ? "primary" : "destructive"}
                 />
             )}
 
-            {disableModalActive && (
-                <Modal
-                    onLoading={isModalLoading}
-                    onLoadingLabel="Disabling..."
-                    onConfirm={() => handleChangeStatus(true)}
-                    onConfirmLabel="Disable"
-                    onCancel={() => {
-                        setModalData({ id: "", name: "", user_type: "" });
-                        setDisableModalActive(false);
-                    }}
-                    heading={`Are you sure you want to disable ${modalData.name}'s account?`}
-                    content="This user will be unable to sign in to HealthPH+ and lose access to its modules."
-                    color="destructive"
-                />
-            )}
-
-            {enableModalActive && (
-                <Modal
-                    onLoading={isModalLoading}
-                    onLoadingLabel="Enabling..."
-                    onConfirm={() => handleChangeStatus(false)}
-                    onConfirmLabel="Enable"
-                    onCancel={() => {
-                        setModalData({ id: "", name: "", user_type: "" });
-                        setEnableModalActive(false);
-                    }}
-                    heading={`Are you sure you want to enable ${modalData.name}'s account?`}
-                    content="This user will receive full access to HealthPH+ such as the AI Surveillance, NLP Insights and other modules."
-                    color="primary"
-                />
-            )}
         </>
     );
 };
