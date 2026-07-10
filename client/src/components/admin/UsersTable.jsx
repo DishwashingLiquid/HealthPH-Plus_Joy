@@ -96,9 +96,11 @@ const UsersTable = ({
 
   const displayRoleLabel = (roleLabel) => {
     const roleLabels = {
+      ANALYST: "Analyst",
       DOH: "DOH Official",
       LGU: "LGU Worker",
       RESEARCHER: "Researcher",
+      VIEWER: "Viewer",
       FIELD_WORKER: "Field Worker",
     };
 
@@ -107,10 +109,12 @@ const UsersTable = ({
 
   const getRolePillClass = (roleLabel) => {
     const roleClasses = {
-      DOH: "bg-[#EFF6FF] text-[#1D4ED8]",
-      LGU: "bg-[#ECFDF3] text-[#027A48]",
-      RESEARCHER: "bg-[#F5F3FF] text-[#7C3AED]",
-      FIELD_WORKER: "bg-[#FFFBEB] text-[#B45309]",
+      ANALYST: "bg-[#D1FAE5] text-[#059669]",
+      DOH: "bg-[#FEF3C7] text-[#D97706]",
+      LGU: "bg-[#FEE2E2] text-[#DC2626]",
+      RESEARCHER: "bg-[#E0F2FE] text-[#0284C7]",
+      VIEWER: "bg-[#F3F4F6] text-[#4B5563]",
+      FIELD_WORKER: "bg-[#FEF3C7] text-[#B45309]",
     };
 
     return roleClasses[roleLabel] || "bg-[#F2F4F7] text-gray-600";
@@ -127,6 +131,17 @@ const UsersTable = ({
   const searchWords = searchQuery.split(" ").filter((search) => search.length > 0);
 
   const selectedUsers = users.filter((user) => selectedUserIds.includes(user.id));
+
+  const selectedDisabledUsers = selectedUsers.filter(
+    (user) => user.is_disabled
+  );
+
+  const selectedActiveUsers = selectedUsers.filter(
+    (user) => !user.is_disabled
+  );
+
+  const canEnableSelectedUsers = selectedDisabledUsers.length > 0;
+  const canDisableSelectedUsers = selectedActiveUsers.length > 0;
 
   const allVisibleUsersSelected =
     tableData.length > 0 &&
@@ -178,6 +193,8 @@ const UsersTable = ({
 
   const openBulkActionModal = (actionType) => {
     if (selectedUserIds.length === 0) return;
+    if (actionType === "enable" && !canEnableSelectedUsers) return;
+    if (actionType === "disable" && !canDisableSelectedUsers) return;
 
     setBulkActionType(actionType);
     setBulkActionModalActive(true);
@@ -481,14 +498,24 @@ const UsersTable = ({
           <div className="flex flex-wrap gap-[8px]">
             <button
               type="button"
-              className="rounded-[8px] border border-[#E5E5E5] bg-white px-[12px] py-[8px] text-sm text-gray-700"
+              disabled={!canEnableSelectedUsers}
+              className={`rounded-[8px] border px-[12px] py-[8px] text-sm ${
+                canEnableSelectedUsers
+                  ? "border-[#E5E5E5] bg-white text-gray-700 hover:bg-[#F8FAFC]"
+                  : "cursor-not-allowed border-[#E5E5E5] bg-[#F2F4F7] text-gray-400"
+              }`}
               onClick={() => openBulkActionModal("enable")}
             >
               Enable
             </button>
             <button
               type="button"
-              className="rounded-[8px] border border-[#E5E5E5] bg-white px-[12px] py-[8px] text-sm text-gray-700"
+              disabled={!canDisableSelectedUsers}
+              className={`rounded-[8px] border px-[12px] py-[8px] text-sm ${
+                canDisableSelectedUsers
+                  ? "border-[#E5E5E5] bg-white text-gray-700 hover:bg-[#F8FAFC]"
+                  : "cursor-not-allowed border-[#E5E5E5] bg-[#F2F4F7] text-gray-400"
+              }`}
               onClick={() => openBulkActionModal("disable")}
             >
               Disable
@@ -521,6 +548,7 @@ const UsersTable = ({
                   <th className="px-[10px] py-[12px] font-medium">Full Name</th>
                   <th className="px-[10px] py-[12px] font-medium">Email</th>
                   <th className="px-[10px] py-[12px] font-medium">Regional Office</th>
+                  <th className="px-[10px] py-[12px] font-medium">Role</th>
                   <th className="px-[10px] py-[12px] font-medium">Organization</th>
                   <th className="px-[10px] py-[12px] font-medium">Date Created</th>
                   <th className="px-[10px] py-[12px] font-medium">Status</th>
@@ -590,23 +618,25 @@ const UsersTable = ({
                           {displayRegion(region)}
                         </td>
                         <td className="px-[10px] py-[14px] text-gray-600">
-                          <div className="flex flex-wrap items-center gap-[6px]">
-                            <Highlighter
-                              highlightClassName="rounded-[2px] bg-[#FFE81A] p-[2px] font-medium text-[#000]"
-                              searchWords={searchWords}
-                              autoEscape={true}
-                              textToHighlight={organization || ""}
-                            />
-                            {role_label && (
-                              <span
-                                className={`rounded-full px-[8px] py-[4px] text-xs font-medium ${getRolePillClass(
-                                  role_label
-                                )}`}
-                              >
-                                {displayRoleLabel(role_label)}
-                              </span>
-                            )}
-                          </div>
+                          {role_label ? (
+                            <span
+                              className={`rounded-full px-[8px] py-[4px] text-xs font-medium ${getRolePillClass(
+                                role_label
+                              )}`}
+                            >
+                              {displayRoleLabel(role_label)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-[10px] py-[14px] text-gray-600">
+                          <Highlighter
+                            highlightClassName="rounded-[2px] bg-[#FFE81A] p-[2px] font-medium text-[#000]"
+                            searchWords={searchWords}
+                            autoEscape={true}
+                            textToHighlight={organization || ""}
+                          />
                         </td>
                         <td className="px-[10px] py-[14px] text-gray-600">
                           {format(new Date(created_at), "MMM dd, yyyy hh:mm a")}

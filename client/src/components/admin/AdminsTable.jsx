@@ -74,6 +74,17 @@ const AdminsTable = ({
         selectedAdminIds.includes(admin.id)
     );
 
+    const selectedDisabledAdmins = selectedAdmins.filter(
+        (admin) => admin.is_disabled
+    );
+
+    const selectedActiveAdmins = selectedAdmins.filter(
+        (admin => !admin.is_disabled)
+    );
+
+    const canEnableSelectedAdmins = selectedDisabledAdmins.length > 0;
+    const canDisableSelectedAdmins = selectedActiveAdmins.length > 0;
+
     const visibleSelectableAdmins = tableData.filter((admin) => user.id != admin.id);
 
     const allVisibleAdminsSelected =
@@ -102,6 +113,8 @@ const AdminsTable = ({
 
     const openBulkActionModal = (actionType) => {
         if (selectedAdminIds.length === 0) return;
+        if (actionType === "enable" && !canEnableSelectedAdmins) return;
+        if (actionType === "disable" && !canDisableSelectedAdmins) return;
 
         setBulkActionType(actionType);
         setBulkActionModalActive(true);
@@ -221,14 +234,24 @@ const AdminsTable = ({
                     <div className="flex flex-wrap gap-[8px]">
                         <button
                             type="button"
-                            className="rounded-[8px] border border-[#E5E5E5] bg-white px-[12px] py-[8px] text-sm text-gray-700"
+                            disabled={!canEnableSelectedAdmins}
+                            className={`rounded-[8px] border px-[12px] py-[8px] text-sm ${
+                                canEnableSelectedAdmins
+                                    ? "border-[#E5E5E5] bg-white text-gray-700 hover:bg-[#F8FAFC]"
+                                    : "cursor-not-allowed border-[#E5E5E5] bg-[#F2F4F7] text-gray-400"
+                            }`}
                             onClick={() => openBulkActionModal("enable")}
                         >
                             Enable
                         </button>
                         <button
                             type="button"
-                            className="rounded-[8px] border border-[#E5E5E5] bg-white px-[12px] py-[8px] text-sm text-gray-700"
+                            disabled={!canDisableSelectedAdmins}
+                            className={`rounded-[8px] border px-[12px] py-[8px] text-sm ${
+                                canDisableSelectedAdmins
+                                    ? "border-[#E5E5E5] bg-white text-gray-700 hover:bg-[#F8FAFC]"
+                                    : "cursor-not-allowed border-[#E5E5E5] bg-[#F2F4F7] text-gray-400"
+                            }`}
                             onClick={() => openBulkActionModal("disable")}
                         >
                             Disable
