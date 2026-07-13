@@ -145,9 +145,76 @@ const UserManagement = () => {
     }
   };
 
+  const getRegionLabel = (region) =>
+    Regions.regions.find(({ value }) => value == region)?.label || region || "-";
+
+  const allAccounts = [...(admins || []), ...(users || [])];
+
+  const organizationList = Object.values(
+    allAccounts.reduce((collection, account) => {
+      const organizationName = account.organization?.trim();
+
+      if (!organizationName) return collection;
+
+      if (!collection[organizationName]) {
+        collection[organizationName] = {
+          name: organizationName,
+          totalAccounts: 0,
+          admins: 0,
+          users: 0,
+          activeAccounts: 0,
+          disabledAccounts: 0,
+          regions: new Set(),
+        };
+      }
+
+      const organization = collection[organizationName];
+
+      organization.totalAccounts += 1;
+
+      if (account.user_type === "ADMIN" || account.user_type === "SUPERADMIN") {
+        organization.admins += 1;
+      } else {
+        organization.users += 1;
+      }
+
+      if (account.is_disabled) {
+        organization.disabledAccounts += 1;
+      } else {
+        organization.activeAccounts += 1;
+      }
+
+      if (account.region && account.region !== "ALL") {
+        organization.regions.add(getRegionLabel(account.region));
+      }
+
+      return collection;
+    }, {})
+  )
+    .map((organization) => ({
+      ...organization,
+      regions: Array.from(organization.regions),
+    }))
+    .sort((a, b) => b.totalAccounts - a.totalAccounts || a.name.localeCompare(b.name));
+
+  const filteredOrganizations = searchQuery.trim()
+    ? organizationList.filter((organization) => {
+      const terms = searchQuery.toLowerCase().split(" ").filter(Boolean);
+      const searchableText = [
+        organization.name,
+        ...organization.regions,
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return terms.some((term) => searchableText.includes(term));
+    })
+  : organizationList;
+
   const [tabs, setTabs] = useState([
     { label: "Admins", count: 0 },
     { label: "Users", count: 0 },
+    { label: "Organizations", count: 0 },
   ]);
 
   const [currentTableTab, setCurrentTableTab] = useState(
@@ -190,11 +257,13 @@ const UserManagement = () => {
         setTabs([
           { label: "Admins", count: filteredAdmins.length },
           { label: "Users", count: filteredUsers.length },
+          { label: "Organizations", count: filteredOrganizations.length },
         ]);
       } else {
         setTabs([
           { label: "Admins", count: admins.length },
           { label: "Users", count: users.length },
+          { label: "Organizations", count: organizationList.length },
         ]);
       }
     }
@@ -207,11 +276,20 @@ const UserManagement = () => {
   const visibleTabs =
     user.user_type == "SUPERADMIN"
       ? tabs
-      : tabs.filter((tab) => tab.label == "Users");
+      : tabs.filter((tab) => tab.label !== "Admins");
 
   const canManageUsers = ["ADMIN", "SUPERADMIN"].includes(user.user_type);
 
   const addButtonLabel = currentTableTab == "Admins" ? "Add Admin" : "Add User";
+
+  const isAccountTableTab = ["Admins", "Users"].includes(currentTableTab);
+
+  const currentTabTotal =
+    currentTableTab == "Admins"
+      ? currentAdminsData.length
+      : currentTableTab == "Users"
+      ? currentUsersData.length
+      : filteredOrganizations.length;
 
   const openAddUserModal = () => {
     setAddUserMode(currentTableTab == "Admins" ? "ADMIN" : "USER");
@@ -239,8 +317,12 @@ const UserManagement = () => {
         {/* SUBTABS */}
         <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[12px]">
           <div
-            className={`grid grid-cols-1 gap-[8px] rounded-[10px] bg-[#F5F5F5] p-[6px] ${
-              visibleTabs.length === 2 ? "md:grid-cols-2" : "md:grid-cols-1"
+            className={`grid gap-[8px] rounded-[10px] bg-[#F5F5F5] p-[6px] ${
+              visibleTabs.length === 3
+                ? "grid-cols-3"
+                : visibleTabs.length === 2
+                ? "grid-cols-2"
+                : "grid-cols-1"
             }`}
           >
             {visibleTabs.map(({ label }) => (
@@ -270,9 +352,7 @@ const UserManagement = () => {
                 <span className="ml-[4px] font-semibold text-gray-800">
                   {isCurrentTableLoading
                     ? "-"
-                    : currentTableTab == "Admins"
-                    ? currentAdminsData.length
-                    : currentUsersData.length
+                    : currentTabTotal
                   }
                 </span>
               </div>
@@ -295,7 +375,7 @@ const UserManagement = () => {
                 <span>{isPrinting ? "Printing..." : "Print"}</span>
               </button>
 
-              {canManageUsers && (
+              {canManageUsers && isAccountTableTab && (
                 <button
                   type="button"
                   className="flex items-center gap-[8px] rounded-[10px] bg-[#32418C] px-[16px] py-[10px] text-sm text-white"
@@ -401,13 +481,15 @@ const UserManagement = () => {
                 setSearchQuery={setSearchQuery}
                 setCurrentData={setCurrentAdminsData}
               />
-            ) : (
+            ) : currentTableTab == "Users" ? (
               <UsersTable
                 users={users}
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
                 setCurrentData={setCurrentUsersData}
               />
+            ) : (
+              <OrganizationsPanel organizations={filteredOrganizations} />
             )}
           </div>
         </div>
@@ -975,6 +1057,86 @@ const UserAccountModal = ({ mode, currentUser, onClose }) => {
           </button>
         </div>
       </form>
+    </div>
+  );
+};
+
+const OrganizationsPanel = ({ organizations }) => {
+  if (organizations.length === 0) {
+    return (
+      <div className="rounded-[12px] border border-dashed border-[#D0D5DD] bg-[#F8FAFC] p-[28px] text-center">
+        <p className="text-sm font-medium text-gray-800">No organizations found</p>
+        <p className="mt-[4px] text-sm text-gray-500">
+          Try adjusting your search or add users with organization details.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="mb-[16px]">
+        <h2 className="text-[18px] font-semibold text-gray-800">
+          Partnered Organizations
+        </h2>
+        <p className="text-sm text-gray-500">
+          Organizations derived from registered HealthPH+ accounts.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-[12px] md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        {organizations.map((organization) => (
+          <div
+            key={organization.name}
+            className="rounded-[12px] border border-[#E5E5E5] bg-white"
+          >
+            <div className="p-[16px]">
+              <h3 className="text-[16px] font-semibold text-gray-900">
+                {organization.name}
+              </h3>
+              <p className="mt-[4px] text-sm text-gray-500">
+                {organization.regions.length > 0
+                  ? organization.regions.join(", ")
+                  : "No region assigned"
+                }
+              </p>
+
+              <div className="mt-[14px] grid grid-cols-2 gap-[10px] text-sm">
+                <div>
+                  <p className="text-gray-500">Users</p>
+                  <p className="mt-[2px] font-semibold text-gray-900">
+                    {organization.users}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Admins</p>
+                  <p className="mt-[2px] font-semibold text-gray-900">
+                    {organization.admins}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Active</p>
+                  <p className="mt-[2px] font-semibold text-[#027A48]">
+                    {organization.activeAccounts}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-500">Disabled</p>
+                  <p className="mt-[2px] font-semibold text-[#B42318]">
+                    {organization.disabledAccounts}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-[#E5E5E5] px-[16px] py-[12px]">
+                <span className="rounded-full bg-[#ECFDF3] px-[8px] py-[4px] text-xs font-medium text-[#027A48]">
+                  Active
+                </span>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
