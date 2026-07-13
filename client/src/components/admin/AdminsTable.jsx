@@ -9,10 +9,15 @@ import Icon from "../Icon";
 import Modal from "./Modal";
 import Snackbar from "../Snackbar";
 import Checkbox from "../Checkbox";
+import ModalWithBody from "./ModalWithBody";
+import FieldGroup from "../FieldGroup";
+import Input from "../Input";
+import Regions from "../../assets/data/regions.json";
 
 import {
      useDeleteAdminMutation,
      useDisableUserMutation,
+     useUpdateUserMutation,
 } from "../../features/api/userSlice";
 import { useCreateActivityLogMutation } from "../../features/api/activityLogsSlice";
 
@@ -28,6 +33,31 @@ const AdminsTable = ({
     const [selectedAdminIds, setSelectedAdminIds] = useState([]);
     const [bulkActionModalActive, setBulkActionModalActive] = useState(false);
     const [bulkActionType, setBulkActionType] = useState("");
+
+    const emptyUpdateModalData = {
+        id: "",
+        name: "",
+        first_name: "",
+        last_name: "",
+        email: "",
+        user_type: "ADMIN",
+        region: "ALL",
+        organization: "",
+        accessible_regions: [],
+        created_at: "",
+        is_disabled: false,
+    };
+
+    const emptyUpdateModalErrors = {
+        first_name: "",
+        last_name: "",
+        email: "",
+        organization: "",
+    };
+
+    const [updateModalActive, setUpdateModalActive] = useState(false);
+    const [updateModalData, setUpdateModalData] = useState(emptyUpdateModalData);
+    const [updateModalErrors, setUpdateModalErrors] = useState(emptyUpdateModalErrors);
 
     useEffect(() => {
         if (admins) {
@@ -66,6 +96,7 @@ const AdminsTable = ({
 
     const [updateUserStatus] = useDisableUserMutation();
     const [deleteAdmin] = useDeleteAdminMutation();
+    const [updateAdmin] = useUpdateUserMutation();
     const [log_activity] = useCreateActivityLogMutation();
 
     const searchWords = searchQuery.split(" ").filter((search) => search.length > 0);
@@ -125,6 +156,118 @@ const AdminsTable = ({
 
         setBulkActionType("");
         setBulkActionModalActive(false);
+    };
+
+    const normalizeAccessibleRegions = (accessibleRegions) =>
+        Array.isArray(accessibleRegions)
+            ? accessibleRegions
+            : String(accessibleRegions || "").split(",").filter(Boolean);
+
+    const getAllRegionValues = () => Regions.regions.map(({ value }) => value);
+
+    const openUpdateModal = (row) => {
+        const fullName = `${row.first_name} ${row.last_name}`;
+
+        setUpdateModalData({
+            id: row.id,
+            name: fullName,
+            first_name: row.first_name || "",
+            last_name: row.last_name || "",
+            email: row.email || "",
+            user_type: row.user_type || "ADMIN",
+            region: row.region || "ALL",
+            organization: row.organization || "",
+            accessible_regions:
+                normalizeAccessibleRegions(row.accessible_regions).length > 0
+                    ? normalizeAccessibleRegions(row.accessible_regions)
+                    : getAllRegionValues(),
+            created_at: row.created_at || "",
+            is_disabled: row.is_disabled || false,
+        });
+
+        setUpdateModalErrors(emptyUpdateModalErrors);
+        setUpdateModalActive(true);
+    };
+
+    const handleUpdateAdmin = async () => {
+        const payload = {
+            id: updateModalData.id,
+            first_name: updateModalData.first_name.trim(),
+            last_name: updateModalData.last_name.trim(),
+            email: updateModalData.email.trim().toLowerCase(),
+            region: updateModalData.region || "ALL",
+            organization: updateModalData.organization.trim(),
+            accessible_regions:
+                updateModalData.accessible_regions.length > 0
+                    ? updateModalData.accessible_regions.join(",")
+                    : getAllRegionValues().join(","),
+            role_label: "",
+        };
+
+        const nextErrors = { ...emptyUpdateModalErrors };
+        let hasError = false;
+
+        if (!payload.first_name) {
+            nextErrors.first_name = "Must enter first name.";
+            hasError = true;
+        }
+
+        if (!payload.last_name) {
+            nextErrors.last_name = "Must enter last name.";
+            hasError = true;
+        }
+
+        if (!payload.email) {
+            nextErrors.email = "Must enter email address.";
+            hasError = true;
+        }
+
+        if (!payload.organization) {
+            nextErrors.organization = "Must enter organization.";
+            hasError = true;
+        }
+
+        if (hasError) {
+            setUpdateModalErrors(nextErrors);
+            return;
+        }
+
+        setIsModalLoading(true);
+
+        const response = await updateAdmin(payload);
+
+        if (!response || "error" in response) {
+            setIsModalLoading(false);
+            toast(
+                <Snackbar
+                    iconName="Error"
+                    size="snackbar-sm"
+                    color="destructive"
+                    message="Failed to update admnistrator."
+                />
+            );
+            return;
+        }
+
+        toast(
+            <Snackbar
+                iconName="CheckCircle"
+                size="snackbar-sm"
+                color="success"
+                message="Administrator updated successfully"
+            />
+        );
+
+        await log_activity({
+            user_id: user.id,
+            entry: `Updated ADMIN : ${updateModalData.name}`,
+            module: "User Management",
+        });
+
+        setIsModalLoading(false);
+        setUpdateModalData(emptyUpdateModalData);
+        setUpdateModalErrors(emptyUpdateModalErrors);
+        setUpdateModalActive(false);
     };
 
     const handleBulkAction = async () => {
@@ -297,6 +440,9 @@ const AdminsTable = ({
                                         first_name,
                                         last_name,
                                         email,
+                                        region,
+                                        accessible_regions,
+                                        organization,
                                         created_at,
                                         user_type,
                                         is_disabled,
@@ -316,7 +462,20 @@ const AdminsTable = ({
                                                         ? "bg-[#F8FAFC]"
                                                         : ""
                                                 }`}
-                                                onClick={() => toggleAdminSelection(id)}
+                                                onClick={() =>
+                                                    openUpdateModal({
+                                                        id,
+                                                        first_name,
+                                                        last_name,
+                                                        email,
+                                                        region,
+                                                        accessible_regions,
+                                                        organization,
+                                                        created_at,
+                                                        user_type,
+                                                        is_disabled,
+                                                    })
+                                                }
                                             >
                                                 <td
                                                     className="px-[10px] py-[14px]"
@@ -443,6 +602,122 @@ const AdminsTable = ({
                 />
             )}
 
+            {updateModalActive && (
+                <ModalWithBody
+                    onLoading={isModalLoading}
+                    onLoadingLabel="Updating"
+                    onConfirm={handleUpdateAdmin}
+                    onConfirmLabel="Update"
+                    onCancel={() => {
+                        setUpdateModalData(emptyUpdateModalData);
+                        setUpdateModalErrors(emptyUpdateModalErrors);
+                        setUpdateModalActive(false);
+                    }}
+                    heading={`Update ${updateModalData.name}'s account`}
+                    color="primary"
+                >
+                    <div className="p-[20px]">
+                        <div className="grid grid-cols-1 gap-x-[16px] p-[20px] md:grid-cols-2">
+                            <FieldGroup
+                                label="First Name"
+                                labelFor="update-admin-first-name"
+                                additionalClasses="mb-[16px]"
+                                caption={updateModalErrors.first_name}
+                                state={updateModalErrors.first_name ? "error" : ""}
+                            >
+                                <Input
+                                    size="input-md"
+                                    id="update-admin-first-name"
+                                    type="text"
+                                    additionalClasses="mt-[8px] w-full"
+                                    value={updateModalData.first_name}
+                                    onChange={(e) => setUpdateModalData({ ...updateModalData, first_name: e.target.value })}
+                                    state={updateModalErrors.first_name ? "error" : ""}
+                                />
+                            </FieldGroup>
+                            <FieldGroup
+                                label="Last Name"
+                                labelFor="update-admin-last-name"
+                                additionalClasses="mb-[16px]"
+                                caption={updateModalErrors.last_name}
+                                state={updateModalErrors.last_name ? "error" : ""}
+                            >
+                                <Input
+                                    size="input-md"
+                                    id="update-admin-last-name"
+                                    type="text"
+                                    additionalClasses="mt-[8px] w-full"
+                                    value={updateModalData.last_name}
+                                    onChange={(e) => setUpdateModalData({ ...updateModalData, last_name: e.target.value })}
+                                    state={updateModalErrors.last_name ? "error" : ""}
+                                />
+                            </FieldGroup>
+                            <FieldGroup
+                                label="Email"
+                                labelFor="update-admin-email"
+                                additionalClasses="mb-[16px]"
+                                caption={updateModalErrors.email}
+                                state={updateModalErrors.email ? "error" : ""}
+                            >
+                                <Input
+                                    size="input-md"
+                                    id="update-admin-email"
+                                    type="text"
+                                    additionalClasses="mt-[8px] w-full"
+                                    value={updateModalData.email}
+                                    onChange={(e) => setUpdateModalData({ ...updateModalData, email: e.target.value })}
+                                    state={updateModalErrors.email ? "error" : ""}
+                                />
+                            </FieldGroup>
+                            <FieldGroup
+                                label="Organization"
+                                labelFor="update-admin-organization"
+                                additionalClasses="mb-[16px]"
+                                caption={updateModalErrors.organization}
+                                state={updateModalErrors.organization ? "error" : ""}
+                            >
+                                <Input
+                                    size="input-md"
+                                    id="update-admin-organization"
+                                    type="text"
+                                    additionalClasses="mt-[8px] w-full"
+                                    value={updateModalData.organization}
+                                    onChange={(e) => setUpdateModalData({ ...updateModalData, organization: e.target.value })}
+                                    state={updateModalErrors.organization ? "error" : ""}
+                                />
+                            </FieldGroup>
+                            <FieldGroup
+                                label="Account Type"
+                                labelFor="update-admin-user-type"
+                                additionalClasses="mb-[16px]"
+                            >
+                                <Input
+                                    size="input-md"
+                                    id="update-admin-user-type"
+                                    type="text"
+                                    additionalClasses="mt-[8px] w-full"
+                                    value={updateModalData.user_type}
+                                    disabled
+                                />
+                            </FieldGroup>
+                            <FieldGroup
+                                label="Date Created"
+                                labelFor="update-admin-created-at"
+                                additionalClasses="mb-[16px]"
+                            >
+                                <Input
+                                    size="input-md"
+                                    id="update-admin-created-at"
+                                    type="text"
+                                    additionalClasses="mt-[8px] w-full"
+                                    value={updateModalData.created_at ? format(new Date(updateModalData.created_at), "MMM dd, yyyy hh:mm a") : ""}
+                                    disabled
+                                />
+                            </FieldGroup>
+                        </div>
+                    </div>
+                </ModalWithBody>
+            )}
         </>
     );
 };

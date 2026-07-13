@@ -198,7 +198,7 @@ const UserManagement = () => {
         ]);
       }
     }
-  }, [searchQuery, isAdminsLoading, isUsersLoading]);
+  }, [searchQuery, admins, users, isAdminsLoading, isUsersLoading]);
 
   const [currentAdminsData, setCurrentAdminsData] = useState([]);
 
@@ -221,7 +221,7 @@ const UserManagement = () => {
   const isCurrentTableLoading = 
     currentTableTab == "Admins" ? isAdminsLoading : isUsersLoading;
 
-  const currentTableSkeletonColumns = currentTableTab == "Admins" ? 6 : 7;
+  const currentTableSkeletonColumns = currentTableTab == "Admins" ? 6 : 8;
 
   return (
     <>
@@ -323,12 +323,14 @@ const UserManagement = () => {
                 }
                 columns={
                   currentTableTab == "Admins"
-                    ? ["FULL NAME", "EMAIL", "USER TYPE", "DATE CREATED"]
+                    ? ["FULL NAME", "EMAIL", "USER TYPE", "STATUS", "DATE CREATED"]
                     : [
                         "FULL NAME",
                         "EMAIL",
                         "REGIONAL OFFICE",
+                        "ROLE",
                         "ORGANIZATION",
+                        "STATUS",
                         "DATE CREATED",
                       ]
                 }
@@ -341,6 +343,7 @@ const UserManagement = () => {
 
                   if (currentTableTab == "Admins") {
                     data.push(value.user_type);
+                    data.push(value.is_disabled ? "Disabled" : "Active");
                   } else {
                     const regions = {
                       NCR: "National Capital Region",
@@ -362,8 +365,19 @@ const UserManagement = () => {
                       BARMM: "Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)",
                     };
 
-                    data.push(regions[value.region]);
-                    data.push(value.organization);
+                    const roleLabels = {
+                      ANALYST: "Analyst",
+                      DOH: "DOH Official",
+                      LGU: "LGU Worker",
+                      RESEARCHER: "Researcher",
+                      VIEWER: "Viewer",
+                      FIELD_WORK: "Field Worker"
+                    };
+
+                    data.push(regions[value.region] || value.region || "-");
+                    data.push(roleLabels[value.role_label] || value.role_label || "-");
+                    data.push(value.organization || "-");
+                    data.push(value.is_disabled ? "Disabled" : "Active");
                   }
 
                   data.push(
@@ -423,7 +437,7 @@ const UserAccountModal = ({ mode, currentUser, onClose }) => {
     accessible_regions: isAdminMode
       ? Regions.regions.map(({ value }) => value).join(",")
       : "",
-    organization: isAdminMode ? import.meta.env.VITE_ADMIN_ORG : "",
+    organization: "",
     first_name: "",
     last_name: "",
     email: "",
@@ -748,9 +762,11 @@ const UserAccountModal = ({ mode, currentUser, onClose }) => {
               >
                 <CustomSelect
                   options={[
-                    { label: "DOH", value: "DOH" },
-                    { label: "LGU", value: "LGU" },
+                    { label: "Analyst", value: "ANALYST" },
+                    { label: "DOH Official", value: "DOH" },
+                    { label: "LGU Worker", value: "LGU" },
                     { label: "Researcher", value: "RESEARCHER" },
+                    { label: "Viewer", value: "VIEWER" },
                     { label: "Field Worker", value: "FIELD_WORKER" },
                   ]}
                   id="role-label"
@@ -830,7 +846,6 @@ const UserAccountModal = ({ mode, currentUser, onClose }) => {
                   resetFieldError("organization");
                 }}
                 state={formErrors.organization ? "error" : ""}
-                disabled={isAdminMode}
               />
             </FieldGroup>
             

@@ -971,7 +971,7 @@ async def update_user(
     if region and region not in valid_regions:
         errors.append({"field": "region", "error": "Invalid selected region"})
 
-    valid_roles = ["", "DOH", "LGU", "RESEARCHER", "FIELD_WORKER"]
+    valid_roles = ["", "ANALYST", "DOH", "LGU", "RESEARCHER", "VIEWER", "FIELD_WORKER"]
 
     if role_label not in valid_roles:
         errors.append({"field": "role_label", "error": "Invalid selected role"})

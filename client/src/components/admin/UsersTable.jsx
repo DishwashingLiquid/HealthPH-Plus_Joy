@@ -741,33 +741,139 @@ const UsersTable = ({
         >
           <div className="p-[20px]">
             <div className="grid grid-cols-1 gap-x-[16px] p-[20px] md:grid-cols-2">
-              <FieldGroup label="First Name" labelFor="update-first-name" additionalClasses="mb-[16px]" caption={updateModalErrors.first_name} state={updateModalErrors.first_name ? "error" : ""}>
-                <Input size="input-md" id="update-first-name" type="text" additionalClasses="mt-[8px] w-full" value={updateModalData.first_name} onChange={(e) => setUpdateModalData({ ...updateModalData, first_name: e.target.value })} state={updateModalErrors.first_name ? "error" : ""} />
+              <FieldGroup 
+                label="First Name" 
+                labelFor="update-first-name" 
+                additionalClasses="mb-[16px]" 
+                caption={updateModalErrors.first_name} 
+                state={updateModalErrors.first_name ? "error" : ""}
+              >
+                <Input 
+                  size="input-md" 
+                  id="update-first-name" 
+                  type="text" 
+                  additionalClasses="mt-[8px] w-full" 
+                  value={updateModalData.first_name} 
+                  onChange={(e) => setUpdateModalData({ ...updateModalData, first_name: e.target.value })} 
+                  state={updateModalErrors.first_name ? "error" : ""} 
+                />
               </FieldGroup>
 
-              <FieldGroup label="Last Name" labelFor="update-last-name" additionalClasses="mb-[16px]" caption={updateModalErrors.last_name} state={updateModalErrors.last_name ? "error" : ""}>
-                <Input size="input-md" id="update-last-name" type="text" additionalClasses="mt-[8px] w-full" value={updateModalData.last_name} onChange={(e) => setUpdateModalData({ ...updateModalData, last_name: e.target.value })} state={updateModalErrors.last_name ? "error" : ""} />
+              <FieldGroup 
+                label="Last Name" 
+                labelFor="update-last-name" 
+                additionalClasses="mb-[16px]" 
+                caption={updateModalErrors.last_name} 
+                state={updateModalErrors.last_name ? "error" : ""}
+              >
+                <Input 
+                  size="input-md" 
+                  id="update-last-name" 
+                  type="text" 
+                  additionalClasses="mt-[8px] w-full" 
+                  value={updateModalData.last_name} 
+                  onChange={(e) => setUpdateModalData({ ...updateModalData, last_name: e.target.value })} 
+                  state={updateModalErrors.last_name ? "error" : ""}
+                />
               </FieldGroup>
 
-              <FieldGroup label="Email" labelFor="update-email" additionalClasses="mb-[16px]" caption={updateModalErrors.email} state={updateModalErrors.email ? "error" : ""}>
-                <Input size="input-md" id="update-email" type="email" additionalClasses="mt-[8px] w-full" value={updateModalData.email} onChange={(e) => setUpdateModalData({ ...updateModalData, email: e.target.value })} state={updateModalErrors.email ? "error" : ""} />
+              <FieldGroup
+                label="Email" 
+                labelFor="update-email" 
+                additionalClasses="mb-[16px]" 
+                caption={updateModalErrors.email} 
+                state={updateModalErrors.email ? "error" : ""}
+              >
+                <Input 
+                  size="input-md" 
+                  id="update-email" 
+                  type="email" 
+                  additionalClasses="mt-[8px] w-full" 
+                  value={updateModalData.email} 
+                  onChange={(e) => setUpdateModalData({ ...updateModalData, email: e.target.value })} 
+                  state={updateModalErrors.email ? "error" : ""}
+                />
               </FieldGroup>
 
-              <FieldGroup label="Regional Office" labelFor="update-region" additionalClasses="mb-[16px]" caption={updateModalErrors.region} state={updateModalErrors.region ? "error" : ""}>
-                <CustomSelect options={Regions.regions} id="update-region" placeholder="Select region" size="input-select-md" value={updateModalData.region} handleChange={(value) => setUpdateModalData({ ...updateModalData, region: value })} additionalClasses="mt-[8px] w-full" state={updateModalErrors.region ? "error" : ""} menuMaxHeight="max-h-[250px]" />
+              <FieldGroup 
+                label="Regional Office"
+                labelFor="update-region" 
+                additionalClasses="mb-[16px]" 
+                caption={updateModalErrors.region} 
+                state={updateModalErrors.region ? "error" : ""}
+              >
+                <CustomSelect 
+                  options={Regions.regions} 
+                  id="update-region" 
+                  placeholder="Select region" 
+                  size="input-select-md" 
+                  value={updateModalData.region} 
+                  handleChange={(value) => setUpdateModalData({ ...updateModalData, region: value })} additionalClasses="mt-[8px] w-full" state={updateModalErrors.region ? "error" : ""} menuMaxHeight="max-h-[250px]"
+                />
               </FieldGroup>
 
-              <FieldGroup label="Organization" labelFor="update-organization" additionalClasses="mb-[16px]" caption={updateModalErrors.organization} state={updateModalErrors.organization ? "error" : ""}>
-                <Input size="input-md" id="update-organization" type="text" additionalClasses="mt-[8px] w-full" value={updateModalData.organization} onChange={(e) => setUpdateModalData({ ...updateModalData, organization: e.target.value })} state={updateModalErrors.organization ? "error" : ""} />
+              <FieldGroup 
+                label="Organization" 
+                labelFor="update-organization" 
+                additionalClasses="mb-[16px]" 
+                caption={updateModalErrors.organization} 
+                state={updateModalErrors.organization ? "error" : ""}
+              >
+                <Input 
+                  size="input-md" 
+                  id="update-organization" 
+                  type="text" 
+                  additionalClasses="mt-[8px] w-full" 
+                  value={updateModalData.organization} 
+                  onChange={(e) => setUpdateModalData({ ...updateModalData, organization: e.target.value })} 
+                  state={updateModalErrors.organization ? "error" : ""}
+                />
               </FieldGroup>
 
-              <FieldGroup label="Role" labelFor="update-role-label" additionalClasses="mb-[16px]" caption={updateModalErrors.role_label} state={updateModalErrors.role_label ? "error" : ""}>
-                <CustomSelect options={[{ label: "DOH", value: "DOH" }, { label: "LGU", value: "LGU" }, { label: "Researcher", value: "RESEARCHER" }, { label: "Field Worker", value: "FIELD_WORKER" }]} id="update-role-label" placeholder="Select role" size="input-select-md" value={updateModalData.role_label} handleChange={(value) => setUpdateModalData({ ...updateModalData, role_label: value })} additionalClasses="mt-[8px] w-full" state={updateModalErrors.role_label ? "error" : ""} />
+              <FieldGroup 
+                label="Role" 
+                labelFor="update-role-label" 
+                additionalClasses="mb-[16px]" 
+                caption={updateModalErrors.role_label} 
+                state={updateModalErrors.role_label ? "error" : ""}
+              >
+                <CustomSelect 
+                  options={[
+                    { label: "Analyst", value: "ANALYST" }, 
+                    { label: "DOH Official", value: "DOH" }, 
+                    { label: "LGU Worker", value: "LGU" }, 
+                    { label: "Researcher", value: "RESEARCHER" }, 
+                    { label: "Viewer", value: "VIEWER" }, 
+                    { label: "Field Worker", value: "FIELD_WORKER" },
+                  ]} 
+                  id="update-role-label" 
+                  placeholder="Select role" 
+                  size="input-select-md" 
+                  value={updateModalData.role_label} 
+                  handleChange={(value) => setUpdateModalData({ ...updateModalData, role_label: value })} 
+                  additionalClasses="mt-[8px] w-full" 
+                  state={updateModalErrors.role_label ? "error" : ""}
+                />
               </FieldGroup>
 
               <div className="md:col-span-2">
-                <FieldGroup label="Accessible Regions" labelFor="accessible-regions" additionalClasses="w-full mb-[16px]" caption={updateModalErrors.accessible_regions} state={updateModalErrors.accessible_regions ? "error" : ""}>
-                  <MultiSelect options={Regions.regions} defaultValue={updateModalData.accessible_regions} placeHolder="Select Region/s" onChange={(e) => setUpdateModalData({ ...updateModalData, accessible_regions: e.map((v) => v.value) })} selectAllLabel="All Regions" selectAll={false} additionalClassname="w-full mt-[8px]" editable={true} state={updateModalErrors.accessible_regions ? "error" : ""} />
+                <FieldGroup 
+                  label="Accessible Regions" 
+                  labelFor="accessible-regions" 
+                  additionalClasses="w-full mb-[16px]" 
+                  caption={updateModalErrors.accessible_regions} 
+                  state={updateModalErrors.accessible_regions ? "error" : ""}
+                >
+                  <MultiSelect 
+                    options={Regions.regions} 
+                    defaultValue={updateModalData.accessible_regions} 
+                    placeHolder="Select Region/s" 
+                    onChange={(e) => setUpdateModalData({ ...updateModalData, accessible_regions: e.map((v) => v.value) })} selectAllLabel="All Regions" 
+                    selectAll={false} 
+                    additionalClassname="w-full mt-[8px]" 
+                    editable={true} 
+                    state={updateModalErrors.accessible_regions ? "error" : ""}
+                  />
                 </FieldGroup>
               </div>
             </div>
