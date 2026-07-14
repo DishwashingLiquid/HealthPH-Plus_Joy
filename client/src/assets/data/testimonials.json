@@ -62,34 +62,40 @@
             "image": "maria-luisa-bautista.jpg"
         },
         {
-            "name": "Mico Magtira",
-            "position": "Project Technical Specialist I",
-            "testimonial": "HealthPH is a game-changer for suspected symptoms surveillance, providing real-time analysis and multilingual support that helps us respond swiftly to potential health threats.",
-            "image": "mico-magtira.png"
+            "name": "John Carlo Aspiras",
+            "position": "Project Administrative Assistant III",
+            "testimonial": "A graduate of Bachelor of Science in Business Administration Major in Marketing Management. He has experience in administrative support and research assistance, with strong interpersonal and communication skills, as well as experience in documentation, data analysis, and time management. In his previous work, he was recognized twice as the most competitive employee. Also, he is detail-oriented and adaptable, and always eager to learn and contribute his best, especially in a fast-paced environment.",
+            "image": "John-Carlo-Aspiras.png"
         },
         {
-            "name": "Aiken Joaquin Gunay",
-            "position": "Project Technical Specialist I",
-            "testimonial": "There is not a single surveillance system that can monitor more than 2 symptoms unlike HealthPH that monitors 4 suspected symptoms in all 17 administrative regions and provides analytical data on each of them. LGU members will deeply benefit utlizing the system to protect Filipinos.",
-            "image": "aiken-joaquin-gunay.png"
+            "name": "Maria Christel J. Albay",
+            "position": "Project Administrative Assistant II",
+            "testimonial": "Ms. Albay is a Finance and Administrative Staff under a DOST-NICER Project 1: HealthPH+, where she supports budget monitoring, financial documentation, and the preparation of financial reports. She ensures proper fund utilization and contributes to efficient project implementation through accurate and organized accounting practices. She earned her Bachelor of Science in Railway Engineering (BSRE) from Polytechnic University of the Philippines-Manila (PUP-Manila). She is committed to working with integrity, excellence, and accountability in all responsibilities entrusted to her. She values discipline, continuous learning, teamwork, and service to the community. Her competencies include budget monitoring, financial reporting, documentation management, office coordination, and strong organizational skills. Outside of her professional responsibilities, she enjoys learning new skills and engaging in activities that foster personal growth.",
+            "image": "Maria-Christel-J-Albay.png"
         },
         {
-            "name": "John Carlo Jimenez",
-            "position": "Project Technical Assistant VI",
-            "testimonial": "HealthPH combines technology and public health surveillance into a useful tool that will aid health professionals across the country to make informed decisions regarding possible and arising respiratory diseases.",
-            "image": "john-carlo-jimenez.png"
+            "name": "Angelo Daniel A. Dela Paz",
+            "position": "Project Technical Specialist III",
+            "testimonial": "Angelo is a data scientist and incoming MS Data Science student at California State University, Northridge. He completed his Bachelor's degree in Computer Science at the University of Santo Tomas, where he developed a strong interest in machine learning and data analysis. His work focuses on areas such as computer vision, natural language processing, and classification models, primarily using Python and widely used machine learning libraries. He enjoys building and experimenting with models while exploring how data can be used to better understand complex problems.",
+            "image": "Angelo-Daniel-A-Dela-Paz.png"
         },
         {
-            "name": "Jean Malolos",
-            "position": "Project Technical Assistant VI",
-            "testimonial": "The HealthPH website offers a compelling visual representation of social media surveillance efforts in the Philippines.",
-            "image": "jean-malolos.jpg"
+            "name": "William Harvey C. Araza",
+            "position": "Project Technical Specialist II",
+            "testimonial": "Mr. William Harvey Araza is a Junior Mobile Developer under the DOST-NICER Project 1: HealthPH+. In this role, he is responsible for designing and developing a mobile application for symptom reporting that supports multiple Philippine languages and ensures accessibility for diverse user groups. He holds a Bachelor of Science in Information Technology from the Technological Institute of the Philippines-Quezon City. His professional interests focus on mobile application development and data science, where he explores innovative ways to create efficient, user-centered digital solutions. Through his work, he contributes to the development and implementation of technology-driven projects that support research, development, and institutional initiatives. He continues to enhance his expertise in modern mobile technologies and data analytics, aiming to leverage these fields to build impactful applications and data-driven systems. His work reflects a commitment to continuous learning, technological innovation, and contributing to the advancement of digital transformation in academic and research environments.",
+            "image": "William-Harvey-C-Araza.png"
         },
         {
-            "name": "Mathias Villacarlos",
-            "position": "Project Technical Assistant III",
-            "testimonial": "HealthPH leverages the power of social media to revolutionize disease surveillance and public health monitoring. By harnessing advanced algorithms and real-time data analysis, HealthPH provides timely and accurate insights into disease trends and outbreaks. This innovative approach enhances the ability of health authorities to respond swiftly and effectively, ultimately improving public health outcomes and ensuring the well-being of communities across the nation.",
-            "image": "mathias-villacarlos.png"
+            "name": "Denisse Joy C. Arawag",
+            "position": "Project Technical Specialist III",
+            "testimonial": "I have completed a Diploma in Information Communication Technology and a Bachelor of Science in Information Technology. I have experience in web development and AI data annotation, working on systems that support data processing and digital solutions. I am particularly interested in designing and developing management systems that automate manual tasks, improve workflow efficiency, and enhance overall system usability. I am motivated by creating practical, user-focused technologies that serve communities, promote inclusivity, and improve access to essential information and services.",
+            "image": "Dennise-Joy-C-Arawag.png"
+        },
+        {
+            "name": "Janzzen Mitz Rogelle Cuentas",
+            "position": "Project Technical Specialist II",
+            "testimonial": "I'm Janzzen Mitz Rogelle Cuentas, a junior web developer who enjoys building clean, responsive, and user-friendly websites. I work mainly with HTML, CSS, and JavaScript, and I'm continually improving my skills in React. I like turning ideas into simple, functional interfaces, paying attention to details like accessibility, performance, and maintainable code.",
+            "image": "Janzzen-Mitz-Rogelle-Cuentas.png"
         }
     ],
     "dost-pchrd": [
