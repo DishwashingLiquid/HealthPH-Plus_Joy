@@ -42,6 +42,16 @@ export const healthLiteracyHubApi = baseAPI.injectEndpoints({
         "HealthLiteracyAnalyticsOverview",
       ],
     }),
+    deleteHealthLiteracyContent: builder.mutation({
+      query: ({ contentType, contentId }) => ({
+        url: `/health-literacy-hub/${contentType}/${contentId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (result, error, { contentType }) => [
+        { type: "HealthLiteracyContent", id: contentType },
+        "HealthLiteracyAnalyticsOverview",
+      ],
+    }),
     fetchHealthLiteracyAnalyticsOverview: builder.query({
       query: ({ timeRange, contentType, region }) => ({
         url: "/health-literacy-hub/analytics/overview",
@@ -65,6 +75,7 @@ export const {
   useFetchWebsiteHealthLiteracyContentQuery,
   useCreateHealthLiteracyContentMutation,
   useUpdateHealthLiteracyContentMutation,
+  useDeleteHealthLiteracyContentMutation,
   useFetchHealthLiteracyAnalyticsOverviewQuery,
   useCreateHealthLiteracyAnalyticsEventMutation,
 } = healthLiteracyHubApi;

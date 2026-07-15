@@ -10,9 +10,9 @@ const Home = () => {
       <main className="flex-grow pb-[96px] flex justify-center items-center">
         <div className="header">
           <p className="heading">
-            HealthPH: Intelligent Disease Surveillance using Social Media
+            HealthPH+: Machine Learning and Multilingual NLP for Intelligent Public Health Surveillance
           </p>
-          <p className="subheading">The Philippines' Pulse on Health</p>
+          <p className="subheading">Innovating AI Solutions for Better Public Health</p>
           {/* <Link
             to="assets/healthph-pre-alpha.apk"
             target="_blank"

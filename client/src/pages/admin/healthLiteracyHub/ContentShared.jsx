@@ -13,6 +13,10 @@ import {
   formatNumber,
   formatVideoDuration,
 } from "./shared";
+import {
+  DASHBOARD_CARD_SUBTITLE_CLASS,
+  DASHBOARD_CARD_TITLE_CLASS,
+} from "../dashboardTypography";
 
 const LanguagesPicker = ({ selectedTags = [], onTagsChange }) => {
   const [searchValue, setSearchValue] = useState("");
@@ -105,14 +109,14 @@ const LanguagesPicker = ({ selectedTags = [], onTagsChange }) => {
                   disabled={isDisabled}
                   className={`flex min-h-[38px] items-center gap-[8px] rounded-[6px] px-[10px] py-[7px] text-left text-[13px] font-medium transition focus:outline-none focus:ring-2 focus:ring-[#6A8EB5]/30 ${
                     isSelected
-                      ? "bg-[#EAF3FF] text-[#175CD3]"
+                      ? "bg-[#32418C] text-white hover:bg-[#2A3776]"
                       : "bg-white text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
                   }`}
                 >
                   <span
                     className={`flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-[4px] border ${
                       isSelected
-                        ? "border-[#175CD3] bg-[#175CD3]"
+                        ? "border-[#32418C] bg-[#32418C]"
                         : "border-[#D0D5DD] bg-white"
                     }`}
                   >
@@ -144,6 +148,8 @@ export const ContentFormBody = ({
   onMediaChange,
   onMediaDrop,
   onRemoveMedia,
+  onDelete,
+  onDeleteDisabled = false,
 }) => {
   const uploadInputId = `health-literacy-media-upload-${mode}`;
   const hasMediaPreview = Boolean(formData.mediaPreview) && !formData.removeMedia;
@@ -355,6 +361,26 @@ export const ContentFormBody = ({
           </div>
         )}
       </div>
+      {mode === "edit" && (
+        <div className="border-t border-[#E5E5E5] pt-[16px]">
+          <div className="flex flex-col gap-[12px] sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[14px] font-medium text-gray-800">Delete Content</p>
+              <p className="text-[12px] text-gray-500">
+                Permanently remove this content item from the Health Literacy Hub.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={onDeleteDisabled}
+              className="inline-flex min-h-[36px] items-center justify-center rounded-[8px] border border-[#F04438] px-[14px] text-[13px] font-semibold text-[#B42318] hover:bg-[#FEF3F2] disabled:cursor-not-allowed disabled:border-[#FECACA] disabled:text-[#FCA5A5]"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -515,7 +541,7 @@ const ContentCard = ({
 
       <div className="p-[16px]">
         <div className="flex items-start justify-between gap-[12px] mb-[8px]">
-          <h3 className="text-[16px] font-semibold text-gray-800 line-clamp-2">
+          <h3 className={`${DASHBOARD_CARD_TITLE_CLASS} line-clamp-2`}>
             {item.title}
           </h3>
           {canEdit && (
@@ -825,10 +851,10 @@ const ArticleContentCard = ({ item, canEdit, onEditClick, onShareClick }) => {
 
   return (
     <div className="w-full rounded-[8px] border border-[#E5E5E5] bg-white p-[18px] text-left transition-shadow hover:shadow-sm">
-      <h3 className="text-left text-[18px] font-bold leading-[26px] text-gray-900">
+      <h3 className="text-left text-[18px] font-semibold leading-[26px] text-gray-800">
         {item.title}
       </h3>
-      <p className="mt-[6px] text-left text-[14px] leading-[20px] text-gray-600">
+      <p className={`${DASHBOARD_CARD_SUBTITLE_CLASS} mt-[6px] text-left leading-[20px]`}>
         {subtitle}
       </p>
 

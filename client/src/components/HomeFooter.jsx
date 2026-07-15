@@ -7,7 +7,7 @@ const HomeFooter = () => {
       </div>
 
       <p className="prod-l2 text-gray-300">
-        &#169; 2024 HealthPH. All Rights reserved.
+        &#169; 2026 HealthPH+. All Rights reserved.
       </p>
     </footer>
   );

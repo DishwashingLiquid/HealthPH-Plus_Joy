@@ -7,6 +7,10 @@ import {
   regionalSentimentData,
   sentimentColors,
 } from "../../../assets/data/sentimentMockData";
+import {
+  DASHBOARD_CARD_TITLE_CLASS,
+  DASHBOARD_SECTION_TITLE_CLASS,
+} from "../dashboardTypography";
 
 export default function RegionalAnalysis({
   selectedRegions = [],
@@ -32,7 +36,7 @@ export default function RegionalAnalysis({
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">
+        <h3 className={`${DASHBOARD_SECTION_TITLE_CLASS} mb-4`}>
           Regional Sentiment Map
         </h3>
 
@@ -49,7 +53,7 @@ export default function RegionalAnalysis({
                 key={region.value}
                 className="flex min-h-[68px] items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-sm"
               >
-                <h4 className="text-base font-semibold leading-tight text-gray-900">
+                <h4 className={`${DASHBOARD_CARD_TITLE_CLASS} leading-tight`}>
                   {region.label}
                 </h4>
 
@@ -72,7 +76,7 @@ export default function RegionalAnalysis({
       </section>
 
       <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">
+        <h3 className={`${DASHBOARD_SECTION_TITLE_CLASS} mb-4`}>
           Regional Sentiment Comparison
         </h3>
 

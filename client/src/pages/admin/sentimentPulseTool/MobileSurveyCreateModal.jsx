@@ -4,6 +4,7 @@ import { Model } from "survey-core";
 import { Survey } from "survey-react-ui";
 import "survey-core/survey-core.css";
 import ModalWithBody from "../../../components/admin/ModalWithBody";
+import { DASHBOARD_CARD_TITLE_CLASS } from "../dashboardTypography";
 
 export const QUESTION_TYPES = [
   { value: "text", label: "Text" },
@@ -163,7 +164,7 @@ export default function MobileSurveyCreateModal({
       onCancel={onClose}
       heading="Create New Mobile Survey"
       color="primary"
-      additionalClasses="health-literacy-content-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
+      additionalClasses="health-literacy-content-modal admin-brand-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
     >
       <div className="max-h-[calc(100vh-230px)] overflow-y-auto px-5 py-5">
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.85fr)]">
@@ -215,7 +216,7 @@ export default function MobileSurveyCreateModal({
 
             <div>
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                <h4 className="text-sm font-semibold text-gray-900">
+                <h4 className={DASHBOARD_CARD_TITLE_CLASS}>
                   Questions
                 </h4>
                 <div className="flex flex-wrap gap-2">
@@ -224,7 +225,7 @@ export default function MobileSurveyCreateModal({
                       key={questionType.value}
                       type="button"
                       onClick={() => onAddQuestion(questionType.value)}
-                      className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                      className="admin-module-brand-btn rounded-lg border px-3 py-2 text-xs font-semibold"
                     >
                       + {questionType.label}
                     </button>
@@ -430,7 +431,7 @@ export default function MobileSurveyCreateModal({
 
           <div className="min-w-0">
             <div className="sticky top-0 rounded-lg border border-gray-200 bg-gray-50 p-4">
-              <h4 className="mb-3 text-sm font-semibold text-gray-900">
+              <h4 className={`${DASHBOARD_CARD_TITLE_CLASS} mb-3`}>
                 SurveyJS Preview
               </h4>
               <div className="rounded-lg border border-gray-200 bg-white p-3">

@@ -19,6 +19,10 @@ import {
   topHealthTopics,
   sentimentColors,
 } from "../../../assets/data/sentimentMockData";
+import {
+  DASHBOARD_SECTION_SUBTITLE_CLASS,
+  DASHBOARD_SECTION_TITLE_CLASS,
+} from "../dashboardTypography";
 
 const NLP_SENTIMENT_PALETTE = {
   Concerned: "#32418C",
@@ -73,10 +77,10 @@ export default function SentimentTrends() {
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-[10px]">
       <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[360px]">
-        <h2 className="text-[18px] font-semibold text-gray-800">
+        <h2 className={DASHBOARD_SECTION_TITLE_CLASS}>
           Sentiment Categories
         </h2>
-        <p className="text-sm text-gray-500 mb-[12px]">
+        <p className={`${DASHBOARD_SECTION_SUBTITLE_CLASS} mb-[12px]`}>
           Distribution of current public health sentiment categories across
           monitored conversations.
         </p>
@@ -111,10 +115,10 @@ export default function SentimentTrends() {
       </div>
 
       <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[360px]">
-        <h2 className="text-[18px] font-semibold text-gray-800">
+        <h2 className={DASHBOARD_SECTION_TITLE_CLASS}>
           Top Health Topics
         </h2>
-        <p className="text-sm text-gray-500 mb-[12px]">
+        <p className={`${DASHBOARD_SECTION_SUBTITLE_CLASS} mb-[12px]`}>
           Leading health discussion topics by concern volume in recent sentiment
           pulse activity.
         </p>
@@ -172,10 +176,10 @@ export default function SentimentTrends() {
       </div>
 
       <div className="xl:col-span-2 bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[380px]">
-        <h2 className="text-[18px] font-semibold text-gray-800">
+        <h2 className={DASHBOARD_SECTION_TITLE_CLASS}>
           Sentiment Trends Over Time
         </h2>
-        <p className="text-sm text-gray-500 mb-[12px]">
+        <p className={`${DASHBOARD_SECTION_SUBTITLE_CLASS} mb-[12px]`}>
           Daily movement of public health sentiment used to monitor changes in
           ongoing conversations.
         </p>

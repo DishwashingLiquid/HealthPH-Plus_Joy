@@ -11,7 +11,7 @@ const AuthLayout = () => {
             <Outlet />
           </div>
           <footer className="auth-footer">
-            <span>&#169; HealthPH 2024</span>
+            <span>&#169; 2026 HealthPH+. All Rights reserved.</span>
             <a
               href={"mailto:" + import.meta.env.VITE_HEALTHPH_EMAIL}
               className="flex items-center"

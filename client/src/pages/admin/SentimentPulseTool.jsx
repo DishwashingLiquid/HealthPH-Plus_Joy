@@ -17,6 +17,11 @@ import MobileSurveyCreateModal, {
   emptyDraft,
   validateDraft,
 } from "./sentimentPulseTool/MobileSurveyCreateModal";
+import {
+  DASHBOARD_PAGE_SUBTITLE_CLASS,
+  DASHBOARD_PAGE_TITLE_CLASS,
+  DASHBOARD_SECTION_TITLE_CLASS,
+} from "./dashboardTypography";
 
 const getRegionLabel = (regionValue) =>
   REGIONS.find((region) => region.value === regionValue)?.label || regionValue;
@@ -563,17 +568,17 @@ export default function SentimentPulseTool() {
         {/* Page Header */}
         <div className="mb-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className={DASHBOARD_PAGE_TITLE_CLASS}>
               Sentiment Pulse Tool
             </h1>
             <button
               onClick={handleNewSurvey}
-              className="prod-btn-base prod-btn-primary flex min-h-[40px] items-center justify-center font-semibold sm:w-auto"
+              className="prod-btn-base admin-module-brand-btn flex min-h-[40px] items-center justify-center font-semibold sm:w-auto"
             >
               + New Survey
             </button>
           </div>
-          <p className="text-gray-600 mt-2">
+          <p className={`${DASHBOARD_PAGE_SUBTITLE_CLASS} mt-2`}>
             Monitor public sentiment trends, regional analysis, and mobile survey responses.
           </p>
         </div>
@@ -666,13 +671,13 @@ export default function SentimentPulseTool() {
               <div className="flex gap-2">
                 <button
                   onClick={handleExportCSV}
-                  className="prod-btn-base prod-btn-primary flex-1 min-h-[40px] flex items-center justify-center"
+                  className="prod-btn-base admin-module-brand-btn flex-1 min-h-[40px] flex items-center justify-center"
                 >
                   <span className="text-white">CSV</span>
                 </button>
                 <button
                   onClick={handleExportPDF}
-                  className="prod-btn-base prod-btn-primary flex-1 min-h-[40px] flex items-center justify-center"
+                  className="prod-btn-base admin-module-brand-btn flex-1 min-h-[40px] flex items-center justify-center"
                 >
                   <span className="text-white">PDF</span>
                 </button>
@@ -739,7 +744,7 @@ export default function SentimentPulseTool() {
               <div className="space-y-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900">
+                    <h2 className={DASHBOARD_SECTION_TITLE_CLASS}>
                       Mobile Surveys
                     </h2>
                   </div>
@@ -747,7 +752,7 @@ export default function SentimentPulseTool() {
                     type="button"
                     onClick={handleScheduleButtonClick}
                     disabled={isSurveysLoading || isSurveysError}
-                    className="prod-btn-base prod-btn-primary flex min-h-[40px] items-center justify-center font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                    className="prod-btn-base admin-module-brand-btn flex min-h-[40px] items-center justify-center font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                   >
                     {scheduleButtonLabel}
                   </button>

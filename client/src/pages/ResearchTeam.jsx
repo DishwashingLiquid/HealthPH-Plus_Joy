@@ -6,10 +6,9 @@ import HomeFooter from "../components/HomeFooter";
 const ResearchTeam = () => {
   const dostPCHRD = TestimonialsList["dost-pchrd"];
   const researchTeam = TestimonialsList["research-team"];
-  const interns = TestimonialsList["interns"];
 
   return (
-    <div className="article-layout">
+    <div className="article-layout research-team-page">
       <HomeNavbar />
 
       <section className="mt-[56px]">

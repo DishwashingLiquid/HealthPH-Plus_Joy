@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from controllers.healthLiteracyHubController import (
     create_health_literacy_analytics_event,
     create_health_literacy_content,
+    delete_health_literacy_content,
     fetch_health_literacy_media,
     fetch_health_literacy_analytics_overview,
     fetch_health_literacy_content,
@@ -83,4 +84,11 @@ router.add_api_route(
     "/{content_type}/{content_id}",
     methods=["PUT"],
     endpoint=update_health_literacy_content,
+)
+
+# DELETE    /health-literacy-hub/{content_type}/{content_id}
+router.add_api_route(
+    "/{content_type}/{content_id}",
+    methods=["DELETE"],
+    endpoint=delete_health_literacy_content,
 )
