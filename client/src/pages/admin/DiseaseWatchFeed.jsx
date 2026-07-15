@@ -11,6 +11,14 @@ import {
     ResponsiveContainer,
     LabelList,
 } from "recharts";
+import {
+    DASHBOARD_CARD_TITLE_CLASS,
+    DASHBOARD_METRIC_LABEL_CLASS,
+    DASHBOARD_PAGE_SUBTITLE_CLASS,
+    DASHBOARD_PAGE_TITLE_CLASS,
+    DASHBOARD_SECTION_SUBTITLE_CLASS,
+    DASHBOARD_SECTION_TITLE_CLASS,
+} from "./dashboardTypography";
 
 const REGIONAL_COVERAGE_PALETTE = ["#32418C", "#2572A5", "#4D8FC4", "#9BCC33", "#FBD117"];
 const RECENT_ALERT_ENTITY_STYLES = {
@@ -177,6 +185,11 @@ const DiseaseWatchFeed = () => {
         </span>
     );
 
+    RecentAlertEntityHighlight.propTypes = {
+        label: PropTypes.string.isRequired,
+        tone: PropTypes.oneOf(["disease", "symptom", "location"]).isRequired,
+    };
+
     const renderRecentAlertSummary = (alert) => {
         switch (alert.id) {
             case 1:
@@ -234,7 +247,7 @@ const DiseaseWatchFeed = () => {
     // Metric Card Component
     const MetricCard = ({ label, value, percentage, trend }) => (
         <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
-            <p className="text-gray-500 text-sm mb-[8px]">{label}</p>
+            <p className={`${DASHBOARD_METRIC_LABEL_CLASS} mb-[8px]`}>{label}</p>
             <div className="flex items-end justify-between">
                 <h2 className="text-[32px] font-semibold text-gray-800 leading-none">{value.toLocaleString()}</h2>
                 <div className="text-right">
@@ -258,7 +271,7 @@ const DiseaseWatchFeed = () => {
                     <div className="flex justify-between items-start gap-[16px]">
                         <div className="flex-1">
                             <div className="flex items-center gap-[8px] mb-[8px]">
-                                <h3 className="text-[16px] font-semibold text-gray-800">
+                                <h3 className={DASHBOARD_CARD_TITLE_CLASS}>
                                     <RecentAlertEntityHighlight label={alert.disease} tone="disease" />
                                 </h3>
                                 <span className="px-[8px] py-[2px] bg-[#FFF3CD] text-[#856404] text-xs rounded-[4px] font-medium">
@@ -287,10 +300,10 @@ const DiseaseWatchFeed = () => {
             <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] shadow-[0_10px_30px_rgba(50,65,140,0.06)]">
                 <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-[14px] mb-[18px]">
                     <div>
-                        <h3 className="text-[20px] font-semibold text-[#1F2A44]">
+                        <h3 className={DASHBOARD_SECTION_TITLE_CLASS}>
                             Registered Users by Region
                         </h3>
-                        <p className="text-sm text-gray-500 mt-[4px]">
+                        <p className={`${DASHBOARD_SECTION_SUBTITLE_CLASS} mt-[4px]`}>
                             Regional distribution of registered users across the monitored coverage areas.
                         </p>
                     </div>
@@ -360,10 +373,10 @@ const DiseaseWatchFeed = () => {
             {/* Regional Grid Cards */}
             <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-[14px]">
                 <div>
-                    <h3 className="text-[20px] font-semibold text-[#1F2A44]">
+                    <h3 className={DASHBOARD_SECTION_TITLE_CLASS}>
                         Regional Cards
                     </h3>
-                    <p className="text-sm text-gray-500 mt-[4px]">
+                    <p className={`${DASHBOARD_SECTION_SUBTITLE_CLASS} mt-[4px]`}>
                         Detailed user totals and share of registered coverage by region.
                     </p>
                 </div>
@@ -432,7 +445,7 @@ const DiseaseWatchFeed = () => {
                         <div className="border-b border-[#EDF1F7] bg-[#F8FAFC] px-[16px] py-[14px]">
                             <div className="flex items-start justify-between gap-[12px]">
                                 <div>
-                                    <h4 className="text-[16px] font-semibold text-[#1F2A44]">
+                                    <h4 className={DASHBOARD_CARD_TITLE_CLASS}>
                                         {region.region}
                                     </h4>
                                     <p className="mt-[4px] text-xs uppercase tracking-[0.08em] text-[#6B7A90]">
@@ -533,8 +546,8 @@ const DiseaseWatchFeed = () => {
         <div className="flex flex-col gap-[20px]">
             {/* PAGE HEADER */}
             <div>
-                <h1 className="text-[28px] font-semibold text-gray-800">Disease Watch Feed</h1>
-                <p className="text-gray-500 mt-[4px]">
+                <h1 className={DASHBOARD_PAGE_TITLE_CLASS}>Disease Watch Feed</h1>
+                <p className={`${DASHBOARD_PAGE_SUBTITLE_CLASS} mt-[4px]`}>
                     Real-time disease alerts, regional coverage analytics, and user engagement metrics.
                 </p>
             </div>

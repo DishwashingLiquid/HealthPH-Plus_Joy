@@ -1,3 +1,8 @@
+import {
+  DASHBOARD_CARD_TITLE_CLASS,
+  DASHBOARD_METRIC_LABEL_CLASS,
+} from "../dashboardTypography";
+
 /* eslint-disable react/prop-types */
 export const AnalyticsSelect = ({ label, value, options, onChange }) => {
   return (
@@ -21,7 +26,7 @@ export const AnalyticsSelect = ({ label, value, options, onChange }) => {
 export const AnalyticsMetricCard = ({ label, value, detail }) => {
   return (
     <div className="rounded-[8px] border border-[#E5E5E5] bg-white p-[16px]">
-      <p className="text-[13px] font-medium text-gray-500">{label}</p>
+      <p className={DASHBOARD_METRIC_LABEL_CLASS}>{label}</p>
       <p className="mt-[6px] text-[24px] font-semibold text-gray-900">{value}</p>
       {detail && <p className="mt-[4px] text-[12px] text-gray-500">{detail}</p>}
     </div>
@@ -31,7 +36,7 @@ export const AnalyticsMetricCard = ({ label, value, detail }) => {
 export const AnalyticsPanel = ({ title, children }) => {
   return (
     <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[16px]">
-      <h3 className="mb-[14px] text-[16px] font-semibold text-gray-900">
+      <h3 className={`${DASHBOARD_CARD_TITLE_CLASS} mb-[14px]`}>
         {title}
       </h3>
       {children}

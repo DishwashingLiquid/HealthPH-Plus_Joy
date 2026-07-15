@@ -653,7 +653,7 @@ const ContentTab = ({ contentTypeLabel }) => {
         />
         <button
           onClick={handleCreateClick}
-          className="prod-btn-base prod-btn-primary flex justify-center items-center whitespace-nowrap"
+          className="prod-btn-base admin-module-brand-btn flex justify-center items-center whitespace-nowrap"
         >
           <span>Create New Content</span>
           <Icon
@@ -688,7 +688,7 @@ const ContentTab = ({ contentTypeLabel }) => {
           onLoadingLabel="Creating..."
           heading={`Create New ${getContentLabel(contentTypeLabel)}`}
           color="primary"
-          additionalClasses="health-literacy-content-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
+          additionalClasses="health-literacy-content-modal admin-brand-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
         >
           <ContentFormBody
             formData={formData}
@@ -717,7 +717,7 @@ const ContentTab = ({ contentTypeLabel }) => {
           onLoadingLabel="Saving..."
           heading={`Edit ${getContentLabel(contentTypeLabel)}`}
           color="primary"
-          additionalClasses="health-literacy-content-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
+          additionalClasses="health-literacy-content-modal admin-brand-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
         >
           <ContentFormBody
             formData={formData}
@@ -740,7 +740,7 @@ const ContentTab = ({ contentTypeLabel }) => {
           onCancel={() => setSelectedMediaContent(null)}
           heading={selectedMediaContent.title}
           color="primary"
-          additionalClasses="health-literacy-content-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
+          additionalClasses="health-literacy-content-modal admin-brand-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
         >
           <MediaPreviewBody
             item={selectedMediaContent.item}

@@ -1,5 +1,9 @@
 /* eslint-disable react/prop-types */
 import ModalWithBody from "../../../components/admin/ModalWithBody";
+import {
+  DASHBOARD_CARD_SUBTITLE_CLASS,
+  DASHBOARD_CARD_TITLE_CLASS,
+} from "../dashboardTypography";
 
 const formatTargetResponses = (target) =>
   `${Number(target || 0).toLocaleString()} target responses`;
@@ -26,7 +30,7 @@ export default function MobileSurveyScheduleModal({
       onLoadingLabel="Scheduling..."
       heading="Schedule Mobile Surveys"
       color="primary"
-      additionalClasses="health-literacy-content-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
+      additionalClasses="health-literacy-content-modal admin-brand-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
     >
       <div className="space-y-5 px-5 py-5">
         {!hasScheduleItems && (
@@ -39,10 +43,10 @@ export default function MobileSurveyScheduleModal({
           <>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm font-semibold text-gray-900">
+                <p className={DASHBOARD_CARD_TITLE_CLASS}>
                   Draft Surveys
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className={DASHBOARD_CARD_SUBTITLE_CLASS}>
                   {selectedCount} of {scheduleItems.length} selected
                 </p>
               </div>

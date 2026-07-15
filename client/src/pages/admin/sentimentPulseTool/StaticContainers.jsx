@@ -1,4 +1,3 @@
-import React from "react";
 import {
   sentimentStats,
   getTrendIndicator,
@@ -6,6 +5,7 @@ import {
   formatNumber,
   getTimeDifference,
 } from "../../../assets/data/sentimentMockData";
+import { DASHBOARD_METRIC_LABEL_CLASS } from "../dashboardTypography";
 
 export default function StaticContainers() {
   const trendSentiment = getTrendIndicator(sentimentStats.comparisonRate);
@@ -16,7 +16,7 @@ export default function StaticContainers() {
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       {/* Sentiment Score Card */}
       <div className="bg-white shadow-sm rounded-lg p-6">
-        <h3 className="text-gray-600 text-sm font-semibold mb-2">Sentiment Score</h3>
+        <h3 className={`${DASHBOARD_METRIC_LABEL_CLASS} mb-2`}>Sentiment Score</h3>
         <div className="flex items-end justify-between">
           <div>
             <p className="text-3xl font-bold text-gray-900">
@@ -35,7 +35,7 @@ export default function StaticContainers() {
 
       {/* Survey Responses Card */}
       <div className="bg-white shadow-sm rounded-lg p-6">
-        <h3 className="text-gray-600 text-sm font-semibold mb-2">Survey Responses</h3>
+        <h3 className={`${DASHBOARD_METRIC_LABEL_CLASS} mb-2`}>Survey Responses</h3>
         <div className="flex items-end justify-between">
           <div>
             <p className="text-3xl font-bold text-gray-900">
@@ -54,7 +54,7 @@ export default function StaticContainers() {
 
       {/* Active Regions Card */}
       <div className="bg-white shadow-sm rounded-lg p-6">
-        <h3 className="text-gray-600 text-sm font-semibold mb-2">Active Regions</h3>
+        <h3 className={`${DASHBOARD_METRIC_LABEL_CLASS} mb-2`}>Active Regions</h3>
         <div className="flex items-end justify-between">
           <div>
             <p className="text-3xl font-bold text-gray-900">
@@ -73,7 +73,7 @@ export default function StaticContainers() {
 
       {/* Latest Update Card */}
       <div className="bg-white shadow-sm rounded-lg p-6">
-        <h3 className="text-gray-600 text-sm font-semibold mb-2">Latest Update</h3>
+        <h3 className={`${DASHBOARD_METRIC_LABEL_CLASS} mb-2`}>Latest Update</h3>
         <div className="space-y-3">
           <div>
             <p className="text-2xl font-bold text-gray-900">

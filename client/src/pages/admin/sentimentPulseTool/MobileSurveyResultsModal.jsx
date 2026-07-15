@@ -5,6 +5,11 @@ import {
   sentimentColors,
 } from "../../../assets/data/sentimentMockData";
 import { useFetchSentimentPulseSurveyResultsQuery } from "../../../features/api/sentimentPulseSlice";
+import {
+  DASHBOARD_CARD_TITLE_CLASS,
+  DASHBOARD_SECTION_SUBTITLE_CLASS,
+  DASHBOARD_SECTION_TITLE_CLASS,
+} from "../dashboardTypography";
 
 const SENTIMENT_ROWS = [
   { key: "concerned", label: "Concerned" },
@@ -80,7 +85,7 @@ export default function MobileSurveyResultsModal({ surveyId, onClose }) {
           <div className="space-y-6">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-xl font-bold text-gray-900">
+                <h3 className={DASHBOARD_SECTION_TITLE_CLASS}>
                   {survey.title}
                 </h3>
                 {survey.status && (
@@ -90,7 +95,9 @@ export default function MobileSurveyResultsModal({ surveyId, onClose }) {
                 )}
               </div>
               {survey.subtitle && (
-                <p className="mt-1 text-sm text-gray-600">{survey.subtitle}</p>
+                <p className={`${DASHBOARD_SECTION_SUBTITLE_CLASS} mt-1`}>
+                  {survey.subtitle}
+                </p>
               )}
             </div>
 
@@ -119,7 +126,7 @@ export default function MobileSurveyResultsModal({ surveyId, onClose }) {
             </div>
 
             <div className="rounded-lg border border-gray-200 bg-white p-4">
-              <h4 className="text-sm font-semibold text-gray-900">
+              <h4 className={DASHBOARD_CARD_TITLE_CLASS}>
                 Sentiment
               </h4>
               <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -163,7 +170,7 @@ export default function MobileSurveyResultsModal({ surveyId, onClose }) {
                       <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                         Question {index + 1}
                       </p>
-                      <h4 className="mt-1 text-base font-semibold text-gray-900">
+                      <h4 className={`${DASHBOARD_CARD_TITLE_CLASS} mt-1`}>
                         {question.title}
                       </h4>
                     </div>

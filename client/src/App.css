@@ -191,6 +191,64 @@
     @apply w-full sm:w-fit;
   }
 
+  .admin-module-brand-btn {
+    background-color: #32418c;
+    border-color: #32418c;
+    color: #ffffff;
+    box-shadow: 0px 0px 0px 1px #32418c, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
+  }
+
+  .admin-module-brand-btn:hover {
+    background-color: #2a3776;
+    border-color: #2a3776;
+    box-shadow: 0px 0px 0px 1px #2a3776, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
+  }
+
+  .admin-module-brand-btn:active,
+  .admin-module-brand-btn:focus-visible {
+    background-color: #2a3776;
+    border-color: #32418c;
+    box-shadow: 0px 0px 0px 4px rgba(50, 65, 140, 0.28),
+      0px 0px 0px 1px #32418c, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
+    outline: none;
+  }
+
+  .admin-module-brand-btn:disabled {
+    background-color: #98a2c7;
+    border-color: #98a2c7;
+    color: #f8fafc;
+    box-shadow: 0px 0px 0px 1px #98a2c7, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
+  }
+
+  .modal.admin-brand-modal .modal-container .modal-actions .prod-btn-primary {
+    background-color: #32418c;
+    border-color: #32418c;
+    color: #ffffff;
+    box-shadow: 0px 0px 0px 1px #32418c, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
+  }
+
+  .modal.admin-brand-modal .modal-container .modal-actions .prod-btn-primary:hover {
+    background-color: #2a3776;
+    border-color: #2a3776;
+    box-shadow: 0px 0px 0px 1px #2a3776, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
+  }
+
+  .modal.admin-brand-modal .modal-container .modal-actions .prod-btn-primary:active,
+  .modal.admin-brand-modal .modal-container .modal-actions .prod-btn-primary:focus-visible {
+    background-color: #2a3776;
+    border-color: #32418c;
+    box-shadow: 0px 0px 0px 4px rgba(50, 65, 140, 0.28),
+      0px 0px 0px 1px #32418c, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
+    outline: none;
+  }
+
+  .modal.admin-brand-modal .modal-container .modal-actions .prod-btn-primary:disabled {
+    background-color: #98a2c7;
+    border-color: #98a2c7;
+    color: #f8fafc;
+    box-shadow: 0px 0px 0px 1px #98a2c7, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
+  }
+
   .test-layout {
     width: 100vw;
     height: 100vh;
