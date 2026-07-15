@@ -78,12 +78,12 @@ export const userSlice = baseAPI.injectEndpoints({
       invalidatesTags: ["Users", "Admins"],
     }),
     updateUser: builder.mutation({
-      query: ({ id, accessible_regions }) => ({
+      query: ({ id, ...formData }) => ({
         url: `/users/update/${id}`,
         method: "PUT",
-        body: { accessible_regions: accessible_regions },
+        body: formData,
       }),
-      invalidatesTags: ["Users"],
+      invalidatesTags: ["Users", "Admins"],
     }),
   }),
 });

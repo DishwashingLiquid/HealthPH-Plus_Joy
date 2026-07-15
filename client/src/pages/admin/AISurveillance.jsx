@@ -41,18 +41,11 @@ import {
 const AISurveillance = () => {
     const user = useSelector((state) => state.auth.user);
 
-    /* SUMMARY CARD/COUNTS */
-    const { data: suspectedSymptoms, isFetching: isSuspectedSymptomsFetching } =
-        useGenerateSuspectedSymptomsQuery();
-
-    const formatCount = (value) => {
-        if (isSuspectedSymptomsFetching || !value) return "0";
-        return value["count"]?.toLocaleString() || "0";
-    };
-
-    /* MAP */
     const { data: points, isLoading: isPointsLoading } = useFetchPointsQuery();
 
+    const surveillancePoints = points || [];
+    
+    /* MAP */
     const [filters, setFilters] = useState({
         region: Regions.regions.filter((r) =>
             user.accessible_regions.includes(r.value)
@@ -75,6 +68,74 @@ const AISurveillance = () => {
 
         return [13, 122];
     };
+
+    /* FILTERS */
+    const diseaseCode = {
+        tuberculosis: "TB",
+        pneumonia: "PN",
+        covid: "COVID",
+        auri: "AURI",
+    };
+
+    const filteredSurveillancePoints = surveillancePoints.filter((point) => {
+        const regionMatches =
+            filters.region.length === Regions.regions.length ||
+            filters.region.some((region) => region.value === point.region);
+
+        const diseaseMatches =
+            filters.disease === "all" ||
+            point.annotations?.includes(diseaseCode[filters.disease]);
+
+        return regionMatches && diseaseMatches;
+    });
+
+    /* SUMMARY CARD/COUNTS */
+    const { data: suspectedSymptoms, isFetching: isSuspectedSymptomsFetching } =
+        useGenerateSuspectedSymptomsQuery();
+
+    const formatCount = (value) => Number(value || 0).toLocaleString();
+
+    const selectedDiseaseCode = diseaseCode[filters.disease];
+
+    const filteredSuspectedSymptoms = filteredSurveillancePoints.reduce(
+        (counts, point) => {
+            const pointCounts = point.annotations_count || {};
+
+            ["TB", "PN", "COVID", "AURI"].forEach((code) => {
+                const shouldIncludeDisease = 
+                    filters.disease === "all" || code === selectedDiseaseCode;
+
+                if (shouldIncludeDisease) {
+                    counts[code] += Number(pointCounts[code] || 0);
+                }
+            });
+
+            return counts;
+        },
+        {
+            TB: 0,
+            PN: 0,
+            COVID: 0,
+            AURI: 0,
+        }
+    );
+
+    filteredSuspectedSymptoms.total =
+        filteredSuspectedSymptoms.TB +
+        filteredSuspectedSymptoms.PN +
+        filteredSuspectedSymptoms.COVID +
+        filteredSuspectedSymptoms.AURI;
+
+    const filteredActiveRegionCount = new Set(
+        filteredSurveillancePoints
+            .map((point) => point.region)
+            .filter(Boolean)
+    ).size;
+
+    const filteredRespiratoryAlertCount = filteredSurveillancePoints.filter((point) => {
+        const counts = point.annotations_count || {};
+        return Object.values(counts).some((count) => Number(count) > 0);
+    }).length;
 
     /* SUSPECTED CONDITIONS PERCENTAGE */
     const [percentageFilter, setPercentageFilter] = useState(
@@ -105,17 +166,52 @@ const AISurveillance = () => {
                 <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-[16px]">
                     {/* LEFT */}
                     <div className="flex flex-wrap gap-[12px]">
-                        <ToolbarSelect>
-                            <option value="">Last 7 Days</option>
+                        <ToolbarSelect
+                            value={filters.dateRange}
+                            onChange={(event) => handleChangeFilter("dateRange", Number(event.target.value))}
+                        >
+                            <option value={7}>Last 7 Days</option>
+                            <option value={14}>Last 14 Days</option>
+                            <option value={28}>Last 28 Days</option>
                         </ToolbarSelect>
-                        <ToolbarSelect>
-                            <option value="">All Regions</option>
+                        <ToolbarSelect
+                            value={
+                                filters.region.length === Regions.regions.length
+                                    ? "all"
+                                    : filters.region[0]?.value || "all"   
+                            }
+                            onChange={(event) => {
+                                const value = event.target.value;
+
+                                handleChangeFilter(
+                                    "region",
+                                    value === "all"
+                                        ? Regions.regions.filter((region) =>
+                                            user.accessible_regions.includes(region.value)
+                                        )
+                                        : Regions.regions.filter((region) => region.value === value)
+                                );
+                            }}
+                        >
+                            <option value="all">All Regions</option>
+                            {Regions.regions
+                                .filter((region) => user.accessible_regions.includes(region.value))
+                                .map((region) => (
+                                    <option key={region.value} value={region.value}>
+                                        {region.label}
+                                    </option>
+                                ))
+                            }
                         </ToolbarSelect>
-                        <ToolbarSelect iconName="ChevronDown">
-                            <option value="">All Impacts</option>
-                        </ToolbarSelect>
-                        <ToolbarSelect iconName="List">
-                            <option value="">More Filters</option>
+                        <ToolbarSelect
+                            value={filters.disease}
+                            onChange={(event) => handleChangeFilter("disease", event.target.value)}
+                        >
+                            <option value="all">All Impacts</option>
+                            <option value="tuberculosis">Tuberculosis</option>
+                            <option value="pneumonia">Pneumonia</option>
+                            <option value="covid">COVID</option>
+                            <option value="auri">AURI</option>
                         </ToolbarSelect>
                     </div>
                     {/* RIGHT */}
@@ -138,7 +234,7 @@ const AISurveillance = () => {
                             filters={filters}
                             data={DummyData}
                             mapCenter={getCenter}
-                            points={points || []}
+                            points={filteredSurveillancePoints}
                             isPointsLoading={isPointsLoading}
                         />
                     </div>
@@ -154,35 +250,35 @@ const AISurveillance = () => {
                                 {/* LEFT */}
                                 <div className="flex flex-col justify-center">
                                     <p className="text-gray-500 text-sm mb-[8px]">Suspected Cases</p>
-                                    <h2 className="text-[24px] font-semibold text-gray-800 leading-none">{formatCount(suspectedSymptoms?.total)}</h2>
+                                    <h2 className="text-[24px] font-semibold text-gray-800 leading-none">{formatCount(filteredSuspectedSymptoms?.total)}</h2>
                                 </div>
                                 {/* RIGHT */}
                                 <div className="grid grid-cols-2 gap-x-[32px] gap-y-[8px]">
                                     <div>
                                         <p className="text-xs text-gray-500 uppercase">TB</p>
-                                        <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.TB)}</p>
+                                        <p className="text-[12px] font-semibold text-gray-800">{formatCount(filteredSuspectedSymptoms?.TB)}</p>
                                     </div>
                                     <div>
                                         <p className="text-xs text-gray-500 uppercase">COVID</p>
-                                        <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.COVID)}</p>
+                                        <p className="text-[12px] font-semibold text-gray-800">{formatCount(filteredSuspectedSymptoms?.COVID)}</p>
                                     </div>
                                     <div>
                                         <p className="text-xs text-gray-500 uppercase">Pneumonia</p>
-                                        <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.PN)}</p>
+                                        <p className="text-[12px] font-semibold text-gray-800">{formatCount(filteredSuspectedSymptoms?.PN)}</p>
                                     </div>
                                     <div>
                                         <p className="text-xs text-gray-500 uppercase">AURI</p>
-                                        <p className="text-[12px] font-semibold text-gray-800">{formatCount(suspectedSymptoms?.AURI)}</p>
+                                        <p className="text-[12px] font-semibold text-gray-800">{formatCount(filteredSuspectedSymptoms?.AURI)}</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         {/* ACTIVE REGIONS */}
-                        <SummaryCard label="Active Regions" value="15" />
+                        <SummaryCard label="Active Regions" value={filteredActiveRegionCount} />
                         {/* RESPIRATORY ALERTS */}
-                        <SummaryCard label="Respiratory Alerts" value="3" />
+                        <SummaryCard label="Respiratory Alerts" value={filteredRespiratoryAlertCount} />
                         {/* HIGH RISK AREAS */}
-                        <SummaryCard label="High Risk Areas" value="5" />
+                        <SummaryCard label="High Risk Areas" value="TBD" />
                     </div>
                     <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
                         <h2 className="text-[18px] font-semibold text-gray-800 mb-[12px]">Environmental Data</h2>

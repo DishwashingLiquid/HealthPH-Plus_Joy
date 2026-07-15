@@ -1,459 +1,725 @@
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { NavLink } from "react-router-dom";
 import { toast } from "react-toastify";
 import Highlighter from "react-highlight-words";
+import { format } from "date-fns";
 
-import Datatable from "./Datatable";
 import EmptyState from "./EmptyState";
 import Icon from "../Icon";
 import Modal from "./Modal";
 import Snackbar from "../Snackbar";
+import Checkbox from "../Checkbox";
+import ModalWithBody from "./ModalWithBody";
+import FieldGroup from "../FieldGroup";
+import Input from "../Input";
+import Regions from "../../assets/data/regions.json";
 
 import {
-  useDeleteAdminMutation,
-  useDeleteUsersMutation,
-  useDisableUserMutation,
+     useDeleteAdminMutation,
+     useDisableUserMutation,
+     useUpdateUserMutation,
 } from "../../features/api/userSlice";
 import { useCreateActivityLogMutation } from "../../features/api/activityLogsSlice";
-import { format } from "date-fns";
 
 const AdminsTable = ({
-  admins,
-  setCurrentData,
-  tableTabs,
-  searchQuery,
-  setSearchQuery,
+    admins = [],
+    setCurrentData,
+    searchQuery,
+    setSearchQuery,
 }) => {
-  const user = useSelector((state) => state.auth.user);
+    const user = useSelector((state) => state.auth.user);
 
-  const [tableData, setTableData] = useState([]);
+    const [tableData, setTableData] = useState([]);
+    const [selectedAdminIds, setSelectedAdminIds] = useState([]);
+    const [bulkActionModalActive, setBulkActionModalActive] = useState(false);
+    const [bulkActionType, setBulkActionType] = useState("");
 
-  const [rows, setRows] = useState([]);
+    const emptyUpdateModalData = {
+        id: "",
+        name: "",
+        first_name: "",
+        last_name: "",
+        email: "",
+        user_type: "ADMIN",
+        region: "ALL",
+        organization: "",
+        accessible_regions: [],
+        created_at: "",
+        is_disabled: false,
+    };
 
-  useEffect(() => {
-    if (admins) {
-      setTableData(admins);
-      setCurrentData(admins);
-    }
-  }, [admins]);
+    const emptyUpdateModalErrors = {
+        first_name: "",
+        last_name: "",
+        email: "",
+        organization: "",
+    };
 
-  useEffect(() => {
-    setRows(tableData.slice(0, 10));
-  }, [tableData]);
+    const [updateModalActive, setUpdateModalActive] = useState(false);
+    const [updateModalData, setUpdateModalData] = useState(emptyUpdateModalData);
+    const [updateModalErrors, setUpdateModalErrors] = useState(emptyUpdateModalErrors);
 
-  useEffect(() => {
-    if (admins) {
-      let searchQuerySplit = searchQuery.split(" ");
-      searchQuerySplit = searchQuerySplit.filter((s) => s.length > 0);
+    useEffect(() => {
+        if (admins) {
+            setTableData(admins);
+            setCurrentData(admins);
+        }
+    }, [admins]);
 
-      const filteredRows = admins.filter((admin) => {
-        return searchQuerySplit.some((s) => {
-          const reg = new RegExp("^.*" + s + ".*$", "i");
-          if (
-            reg.test(admin["last_name"]) ||
-            reg.test(admin["first_name"]) ||
-            reg.test(admin["email"])
-          ) {
-            return true;
-          }
+    useEffect(() => {
+        if (admins) {
+            const searchQuerySplit = searchQuery
+                .split(" ")
+                .filter((search) => search.length > 0);
+
+            const filteredRows = admins.filter((admin) => {
+                return searchQuerySplit.some((search) => {
+                    const reg = new RegExp("^.*" + search + ".*$", "i");
+
+                    return (
+                        reg.test(admin["last_name"]) ||
+                        reg.test(admin["first_name"]) ||
+                        reg.test(admin["email"]) ||
+                        reg.test(admin["user_type"])
+                    );
+                });
+            });
+
+            const nextData = searchQuery.length > 0 ? filteredRows : admins;
+
+            setTableData(nextData);
+            setCurrentData(nextData);
+        }
+    }, [searchQuery, admins]);
+
+    const [isModalLoading, setIsModalLoading] = useState(false);
+
+    const [updateUserStatus] = useDisableUserMutation();
+    const [deleteAdmin] = useDeleteAdminMutation();
+    const [updateAdmin] = useUpdateUserMutation();
+    const [log_activity] = useCreateActivityLogMutation();
+
+    const searchWords = searchQuery.split(" ").filter((search) => search.length > 0);
+
+    const selectedAdmins = admins.filter((admin) =>
+        selectedAdminIds.includes(admin.id)
+    );
+
+    const selectedDisabledAdmins = selectedAdmins.filter(
+        (admin) => admin.is_disabled
+    );
+
+    const selectedActiveAdmins = selectedAdmins.filter(
+        (admin => !admin.is_disabled)
+    );
+
+    const canEnableSelectedAdmins = selectedDisabledAdmins.length > 0;
+    const canDisableSelectedAdmins = selectedActiveAdmins.length > 0;
+
+    const visibleSelectableAdmins = tableData.filter((admin) => user.id != admin.id);
+
+    const allVisibleAdminsSelected =
+        visibleSelectableAdmins.length > 0 &&
+        visibleSelectableAdmins.every((admin) => selectedAdminIds.includes(admin.id));
+
+    const toggleAdminSelection = (id) => {
+        if (user.id == id) return;
+
+        setSelectedAdminIds((currentIds) =>
+            currentIds.includes(id)
+                ? currentIds.filter((currentId) => currentId !== id)
+                : [...currentIds, id]
+        );
+    };
+
+    const toggleAllVisibleAdmins = () => {
+        const visibleIds = visibleSelectableAdmins.map((admin) => admin.id);
+
+        setSelectedAdminIds((currentIds) =>
+            allVisibleAdminsSelected
+                ? currentIds.filter((id) => !visibleIds.includes(id))
+                : [...new Set([...currentIds, ...visibleIds])]
+        );
+    };
+
+    const openBulkActionModal = (actionType) => {
+        if (selectedAdminIds.length === 0) return;
+        if (actionType === "enable" && !canEnableSelectedAdmins) return;
+        if (actionType === "disable" && !canDisableSelectedAdmins) return;
+
+        setBulkActionType(actionType);
+        setBulkActionModalActive(true);
+    };
+
+    const closeBulkActionModal = () => {
+        if (isModalLoading) return;
+
+        setBulkActionType("");
+        setBulkActionModalActive(false);
+    };
+
+    const normalizeAccessibleRegions = (accessibleRegions) =>
+        Array.isArray(accessibleRegions)
+            ? accessibleRegions
+            : String(accessibleRegions || "").split(",").filter(Boolean);
+
+    const getAllRegionValues = () => Regions.regions.map(({ value }) => value);
+
+    const openUpdateModal = (row) => {
+        const fullName = `${row.first_name} ${row.last_name}`;
+
+        setUpdateModalData({
+            id: row.id,
+            name: fullName,
+            first_name: row.first_name || "",
+            last_name: row.last_name || "",
+            email: row.email || "",
+            user_type: row.user_type || "ADMIN",
+            region: row.region || "ALL",
+            organization: row.organization || "",
+            accessible_regions:
+                normalizeAccessibleRegions(row.accessible_regions).length > 0
+                    ? normalizeAccessibleRegions(row.accessible_regions)
+                    : getAllRegionValues(),
+            created_at: row.created_at || "",
+            is_disabled: row.is_disabled || false,
         });
-      });
 
-      setTableData(searchQuery.length > 0 ? filteredRows : admins);
-      setCurrentData(searchQuery.length > 0 ? filteredRows : admins);
-    }
-  }, [searchQuery]);
+        setUpdateModalErrors(emptyUpdateModalErrors);
+        setUpdateModalActive(true);
+    };
 
-  const [modalData, setModalData] = useState({
-    id: "",
-    name: "",
-    user_type: "",
-  });
+    const handleUpdateAdmin = async () => {
+        const payload = {
+            id: updateModalData.id,
+            first_name: updateModalData.first_name.trim(),
+            last_name: updateModalData.last_name.trim(),
+            email: updateModalData.email.trim().toLowerCase(),
+            region: updateModalData.region || "ALL",
+            organization: updateModalData.organization.trim(),
+            accessible_regions:
+                updateModalData.accessible_regions.length > 0
+                    ? updateModalData.accessible_regions.join(",")
+                    : getAllRegionValues().join(","),
+            role_label: "",
+        };
 
-  const [deleteModalActive, setDeleteModalActive] = useState(false);
+        const nextErrors = { ...emptyUpdateModalErrors };
+        let hasError = false;
 
-  const [disableModalActive, setDisableModalActive] = useState(false);
-
-  const [enableModalActive, setEnableModalActive] = useState(false);
-
-  const [isModalLoading, setIsModalLoading] = useState(false);
-
-  const [updateUserStatus] = useDisableUserMutation();
-
-  const [deleteAdmin] = useDeleteAdminMutation();
-
-  const [log_activity] = useCreateActivityLogMutation();
-
-  const handleChangeStatus = async (status) => {
-    setIsModalLoading(true);
-
-    const response = await updateUserStatus({ id: modalData.id, status });
-
-    if (!response) {
-      toast(
-        <Snackbar
-          iconName="Error"
-          size="snackbar-sm"
-          color="destructive"
-          message={status ? "Failed to disable user" : "Failed to enable user"}
-        />,
-        {
-          closeButton: ({ closeToast }) => (
-            <Icon
-              iconName="Close"
-              className="close-icon close-icon-sm close-destructive"
-              onClick={closeToast}
-            />
-          ),
+        if (!payload.first_name) {
+            nextErrors.first_name = "Must enter first name.";
+            hasError = true;
         }
-      );
-      setIsModalLoading(false);
-      return;
-    }
 
-    if ("error" in response) {
-      const { detail } = response["error"]["data"];
-
-      toast(
-        <Snackbar
-          iconName="Error"
-          size="snackbar-sm"
-          color="destructive"
-          message={detail}
-        />,
-        {
-          closeButton: ({ closeToast }) => (
-            <Icon
-              iconName="Close"
-              className="close-icon close-icon-sm close-destructive"
-              onClick={closeToast}
-            />
-          ),
+        if (!payload.last_name) {
+            nextErrors.last_name = "Must enter last name.";
+            hasError = true;
         }
-      );
-      return;
-    }
 
-    toast(
-      <Snackbar
-        iconName="CheckCircle"
-        size="snackbar-sm"
-        color="success"
-        message={`User ${status ? "disabled" : "enabled"} successfully`}
-      />,
-      {
-        closeButton: ({ closeToast }) => (
-          <Icon
-            iconName="Close"
-            className="close-icon close-icon-sm close-success"
-            onClick={closeToast}
-          />
-        ),
-      }
-    );
-
-    await log_activity({
-      user_id: user.id,
-      entry: `${status ? "Disabled" : "Enabled"} ${modalData.user_type} : ${
-        modalData.name
-      }`,
-      module: "User Management",
-    });
-
-    setIsModalLoading(false);
-    setModalData({ id: "", name: "", user_type: "" });
-    if (status) {
-      setDisableModalActive(false);
-    } else {
-      setEnableModalActive(false);
-    }
-  };
-
-  const handleDeleteAdmin = async () => {
-    setIsModalLoading(true);
-
-    const response = await deleteAdmin(modalData.id);
-
-    if (!response) {
-      toast(
-        <Snackbar
-          iconName="Error"
-          size="snackbar-sm"
-          color="destructive"
-          message={`Failed to delete user`}
-        />,
-        {
-          closeButton: ({ closeToast }) => (
-            <Icon
-              iconName="Close"
-              className="close-icon close-icon-sm close-destructive"
-              onClick={closeToast}
-            />
-          ),
+        if (!payload.email) {
+            nextErrors.email = "Must enter email address.";
+            hasError = true;
         }
-      );
-      setIsModalLoading(false);
-      return;
-    }
 
-    if ("error" in response) {
-      const { detail } = response["error"]["data"];
-
-      toast(
-        <Snackbar
-          iconName="Error"
-          size="snackbar-sm"
-          color="destructive"
-          message={detail}
-        />,
-        {
-          closeButton: ({ closeToast }) => (
-            <Icon
-              iconName="Close"
-              className="close-icon close-icon-sm close-destructive"
-              onClick={closeToast}
-            />
-          ),
+        if (!payload.organization) {
+            nextErrors.organization = "Must enter organization.";
+            hasError = true;
         }
-      );
 
-      setIsModalLoading(false);
-      return;
-    }
+        if (hasError) {
+            setUpdateModalErrors(nextErrors);
+            return;
+        }
 
-    toast(
-      <Snackbar
-        iconName="CheckCircle"
-        size="snackbar-sm"
-        color="success"
-        message={`User deleted successfully`}
-      />,
-      {
-        closeButton: ({ closeToast }) => (
-          <Icon
-            iconName="Close"
-            className="close-icon close-icon-sm close-success"
-            onClick={closeToast}
-          />
-        ),
-      }
-    );
+        setIsModalLoading(true);
 
-    await log_activity({
-      user_id: user.id,
-      entry: `Deleted ${modalData.user_type} : ${modalData.name}`,
-      module: "User Management",
-    });
+        const response = await updateAdmin(payload);
 
-    setIsModalLoading(false);
-    setModalData({ id: "", name: "", user_type: "" });
-    setDeleteModalActive(false);
-  };
-
-  return (
-    <>
-      <Datatable
-        datatableTabs={tableTabs}
-        datatableColumns={[
-          { label: "Full Name" },
-          { label: "Email", tooltip: "Sample tooltip" },
-          { label: "Date Created" },
-          { label: "User Type", tooltip: "Sample tooltip" },
-          { label: "Actions" },
-        ]}
-        datatableData={tableData}
-        setDatatableData={setRows}
-        rowsPerPage={10}
-        withActions={true}
-        actionsWidth={user.user_type == "SUPERADMIN" ? "170px" : "100px"}
-      >
-        {admins.length > 0 ? (
-          rows.length > 0 ? (
-            rows.map(
-              (
-                {
-                  id,
-                  first_name,
-                  last_name,
-                  email,
-                  created_at,
-                  user_type,
-                  is_disabled,
-                },
-                i
-              ) => {
-                const searchWords = searchQuery
-                  .split(" ")
-                  .filter((s) => s.length > 0);
-
-                return (
-                  <div className="content-row" key={i}>
-                    <div className="row-item">
-                      <Highlighter
-                        highlightClassName="bg-[#FFE81A] text-[#000] font-medium rounded-[2px] p-[2px]"
-                        searchWords={searchWords}
-                        autoEscape={true}
-                        textToHighlight={`${first_name} ${last_name}`}
-                      />
-                    </div>
-                    <div className="row-item">
-                      <Highlighter
-                        highlightClassName="bg-[#FFE81A] text-[#000] font-medium  rounded-[2px] p-[2px]"
-                        searchWords={searchWords}
-                        autoEscape={true}
-                        textToHighlight={email}
-                      />
-                    </div>
-                    <div className="row-item">
-                      {format(new Date(created_at), "MMM dd, yyyy hh:mm a")}
-                    </div>
-                    <div className="row-item">{user_type}</div>
-                    <div className="row-item">
-                      {user && user.user_type == "USER" ? null : (
-                        <div className="flex items-center">
-                          {user.id != id && (
-                            <button
-                              className={`prod-push-btn-sm prod-btn-${
-                                is_disabled ? "primary" : "secondary"
-                              } me-[8px]  min-w-[63px]`}
-                              onClick={() => {
-                                setModalData({
-                                  id: id,
-                                  name: `${first_name} ${last_name}`,
-                                  user_type: user_type,
-                                });
-
-                                if (is_disabled) {
-                                  setEnableModalActive(true);
-                                } else {
-                                  setDisableModalActive(true);
-                                }
-                              }}
-                            >
-                              {is_disabled ? "Enable" : "Disable"}
-                            </button>
-                          )}
-                          {user.id != id && user.user_type !== "ADMIN" && (
-                            <button
-                              className="prod-push-btn-sm prod-btn-destructive"
-                              onClick={() => {
-                                setModalData({
-                                  id: id,
-                                  name: `${first_name} ${last_name}`,
-                                  user_type: user_type,
-                                });
-                                setDeleteModalActive(true);
-                              }}
-                            >
-                              Delete
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              }
-            )
-          ) : (
-            searchQuery != "" && (
-              <EmptyState
-                iconName="Search"
-                heading="No Results Found"
-                content="We couldn't find any matches for your search. Please try adjusting your search terms or criteria."
-              >
-                <button
-                  className="prod-btn-base prod-btn-secondary flex justify-center items-center"
-                  onClick={() => setSearchQuery("")}
-                >
-                  <span>Clear Search</span>
-                </button>
-              </EmptyState>
-            )
-          )
-        ) : (
-          <EmptyState
-            iconName="UserTwo"
-            heading="No Administrators Found"
-            content="There are currently no administrators listed. Add new administrators to manage the platform effectively."
-          >
-            {["ADMIN", "SUPERADMIN"].includes(user.user_type) && (
-              <NavLink
-                to="/dashboard/user-management/add-user"
-                className="prod-btn-base prod-btn-primary flex justify-center items-center ms-[16px]"
-              >
-                <span>Add Admin</span>
-                <Icon
-                  iconName="Plus"
-                  height="20px"
-                  width="20px"
-                  fill="#FFF"
-                  className="ms-[8px]"
+        if (!response || "error" in response) {
+            setIsModalLoading(false);
+            toast(
+                <Snackbar
+                    iconName="Error"
+                    size="snackbar-sm"
+                    color="destructive"
+                    message="Failed to update admnistrator."
                 />
-              </NavLink>
+            );
+            return;
+        }
+
+        toast(
+            <Snackbar
+                iconName="CheckCircle"
+                size="snackbar-sm"
+                color="success"
+                message="Administrator updated successfully"
+            />
+        );
+
+        await log_activity({
+            user_id: user.id,
+            entry: `Updated ADMIN : ${updateModalData.name}`,
+            module: "User Management",
+        });
+
+        setIsModalLoading(false);
+        setUpdateModalData(emptyUpdateModalData);
+        setUpdateModalErrors(emptyUpdateModalErrors);
+        setUpdateModalActive(false);
+    };
+
+    const handleBulkAction = async () => {
+        setIsModalLoading(true);
+
+        try {
+            if (bulkActionType === "delete") {
+                if (user.user_type === "ADMIN") {
+                    throw new Error("Admins cannot delete administrator accounts.");
+                }
+
+                for (const selectedAdmin of selectedAdmins) {
+                    const response = await deleteAdmin(selectedAdmin.id);
+
+                    if (!response || "error" in response) {
+                        throw new Error("Failed to delete selected administrators.");
+                    }
+                }
+            }
+
+            if (bulkActionType === "disable" || bulkActionType === "enable") {
+                const status = bulkActionType === "disable";
+
+                for (const selectedAdmin of selectedAdmins) {
+                    const response = await updateUserStatus({
+                        id: selectedAdmin.id,
+                        status,
+                    });
+
+                    if (!response || "error" in response) {
+                        throw new Error("Failed to update selected administrators.");
+                    }
+                }
+            }
+
+            const actionLabel =
+                bulkActionType === "delete"
+                    ? "Deleted"
+                    : bulkActionType === "disable"
+                    ? "Disabled"
+                    : "Enabled";
+
+            toast(
+                <Snackbar
+                    iconName="CheckCircle"
+                    size="snackbar-sm"
+                    color="success"
+                    message={`${actionLabel} ${selectedAdmins.length} selected administrator${
+                        selectedAdmins.length === 1 ? "" : "s"
+                    } successfully`}
+                />,
+                {
+                    closeButton: ({ closeToast }) => (
+                        <Icon
+                            iconName="Close"
+                            className="close-icon close-icon-sm close-success"
+                            onClick={closeToast}
+                        />
+                    ),
+                }
+            );
+
+            await log_activity({
+                user_id: user.id,
+                entry: `${actionLabel} ${selectedAdmins.length} ADMIN account${
+                    selectedAdmins.length === 1 ? "" : "s"
+                }`,
+                module: "User Management",
+            });
+
+            setSelectedAdminIds([]);
+            closeBulkActionModal();
+        } catch (error) {
+            toast(
+                <Snackbar
+                    iconName="Error"
+                    size="snackbar-sm"
+                    color="destructive"
+                    message={error.message || "Bulk action failed. Please try again."}
+                />,
+                {
+                    closeButton: ({ closeToast }) => (
+                        <Icon
+                            iconName="Close"
+                            className="close-icon close-icon-sm close-destructive"
+                            onClick={closeToast}
+                        />
+                    ),
+                }
+            );
+        }
+
+        setIsModalLoading(false);
+    };
+
+    return (
+        <>
+            {selectedAdminIds.length > 0 && (
+                <div className="mb-[16px] flex flex-col gap-[10px] rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] px-[14px] py-[12px] md:flex-row md:items-center md:justify-between">
+                    <p className="text-sm text-gray-600">
+                        <span className="font-semibold text-gray-800">
+                            {selectedAdminIds.length}
+                        </span>{" "}
+                        selected
+                    </p>
+
+                    <div className="flex flex-wrap gap-[8px]">
+                        <button
+                            type="button"
+                            disabled={!canEnableSelectedAdmins}
+                            className={`rounded-[8px] border px-[12px] py-[8px] text-sm ${
+                                canEnableSelectedAdmins
+                                    ? "border-[#E5E5E5] bg-white text-gray-700 hover:bg-[#F8FAFC]"
+                                    : "cursor-not-allowed border-[#E5E5E5] bg-[#F2F4F7] text-gray-400"
+                            }`}
+                            onClick={() => openBulkActionModal("enable")}
+                        >
+                            Enable
+                        </button>
+                        <button
+                            type="button"
+                            disabled={!canDisableSelectedAdmins}
+                            className={`rounded-[8px] border px-[12px] py-[8px] text-sm ${
+                                canDisableSelectedAdmins
+                                    ? "border-[#E5E5E5] bg-white text-gray-700 hover:bg-[#F8FAFC]"
+                                    : "cursor-not-allowed border-[#E5E5E5] bg-[#F2F4F7] text-gray-400"
+                            }`}
+                            onClick={() => openBulkActionModal("disable")}
+                        >
+                            Disable
+                        </button>
+                        {user.user_type !== "ADMIN" && (
+                            <button
+                                type="button"
+                                className="rounded-[8px] bg-[#DC2626] px-[12px] py-[8px] text-sm text-white"
+                                onClick={() => openBulkActionModal("delete")}
+                            >
+                                Delete
+                            </button>
+                        )}
+                    </div>
+                </div>
             )}
-          </EmptyState>
-        )}
-      </Datatable>
+            <div className="overflow-x-auto">
+                {admins.length > 0 ? (
+                    tableData.length > 0 ? (
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
+                                    <th className="w-[44px] px-[10px] py-[12px]">
+                                        <div onClick={(event) => event.stopPropagation()}>
+                                            <Checkbox
+                                                size="input-checkbox-sm"
+                                                checked={allVisibleAdminsSelected}
+                                                handleChange={toggleAllVisibleAdmins}
+                                            />
+                                        </div>
+                                    </th>
+                                    <th className="px-[10px] py-[12px] font-medium">Full Name</th>
+                                    <th className="px-[10px] py-[12px] font-medium">Email</th>
+                                    <th className="px-[10px] py-[12px] font-medium">Date Created</th>
+                                    <th className="px-[10px] py-[12px] font-medium">User Type</th>
+                                    <th className="px-[10px] py-[12px] font-medium">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {tableData.map(
+                                    ({
+                                        id,
+                                        first_name,
+                                        last_name,
+                                        email,
+                                        region,
+                                        accessible_regions,
+                                        organization,
+                                        created_at,
+                                        user_type,
+                                        is_disabled,
+                                    }) => {
+                                        const fullName = `${first_name} ${last_name}`;
+                                        const isCurrentUser = user.id == id;
 
-      {/* MODALS */}
+                                        return (
+                                            <tr
+                                                key={id}
+                                                className={`border-b border-[#F0F0F0] hover:bg-[#F8FAFC] ${
+                                                    isCurrentUser
+                                                        ? ""
+                                                        : "cursor-pointer"
+                                                } ${
+                                                    selectedAdminIds.includes(id)
+                                                        ? "bg-[#F8FAFC]"
+                                                        : ""
+                                                }`}
+                                                onClick={() =>
+                                                    openUpdateModal({
+                                                        id,
+                                                        first_name,
+                                                        last_name,
+                                                        email,
+                                                        region,
+                                                        accessible_regions,
+                                                        organization,
+                                                        created_at,
+                                                        user_type,
+                                                        is_disabled,
+                                                    })
+                                                }
+                                            >
+                                                <td
+                                                    className="px-[10px] py-[14px]"
+                                                    onClick={(event) => event.stopPropagation()}
+                                                >
+                                                    {isCurrentUser ? (
+                                                        <span className="text-sm text-gray-300">-</span>
+                                                    ) : (
+                                                        <Checkbox
+                                                            size="input-checkbox-sm"
+                                                            checked={selectedAdminIds.includes(id)}
+                                                            handleChange={() => toggleAdminSelection(id)}
+                                                        />
+                                                    )}
+                                                </td>
+                                                <td className="px-[10px] py-[14px] font-medium text-gray-800">
+                                                    <Highlighter
+                                                        highlightClassName="rounded-[2px] bg-[#FFE81A] p-[2px] font-medium text-[#000]"
+                                                        searchWords={searchWords}
+                                                        autoEscape={true}
+                                                        textToHighlight={fullName}
+                                                    />
+                                                </td>
+                                                <td className="px-[10px] py-[14px] text-gray-600">
+                                                    <Highlighter
+                                                        highlightClassName="rounded-[2px] bg-[#FFE81A] p-[2px] font-medium text-[#000]"
+                                                        searchWords={searchWords}
+                                                        autoEscape={true}
+                                                        textToHighlight={email}
+                                                    />
+                                                </td>
+                                                <td className="px-[10px] py-[14px] text-gray-600">
+                                                    {format(new Date(created_at), "MMM dd, yyyy hh:mm a")}
+                                                </td>
+                                                <td className="px-[10px] py-[14px]">
+                                                    <div className="flex flex-wrap gap-[6px]">
+                                                        <span className="rounded-full bg-[#EEF2FF] px-[8px] py-[4px] text-xs font-medium text-[#4F46E5]">
+                                                            {user_type}
+                                                        </span>
+                                                        {isCurrentUser && (
+                                                            <span className="rounded-full bg-[#F2F4F7] px-[8px] py-[4px] text-xs font-medium text-gray-500">
+                                                                Current
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-[10px] py-[14px]">
+                                                    <span
+                                                        className={`rounded-full px-[8px] py-[4px] text-xs font-medium ${
+                                                            is_disabled
+                                                                ? "bg-[#FEF2F2] text-[#B42318]"
+                                                                : "bg-[#ECFDF3] text-[#027A48]"
+                                                        }`}
+                                                    >
+                                                        {is_disabled ? "Disabled" : "Active"}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    }
+                                )}
+                            </tbody>
+                        </table>
+                    ) : (
+                        <EmptyState
+                            iconName="Search"
+                            heading="No Results Found"
+                            content="We couldn't find any matches for your search. Please try adjusting your search terms or criteria."
+                        >
+                            <button
+                                type="button"
+                                className="rounded-[10px] border border-[#E5E5E5] bg-white px-[14px] py-[9px] text-sm text-gray-700"
+                                onClick={() => setSearchQuery("")}
+                            >
+                                Clear Search
+                            </button>
+                        </EmptyState>
+                    )
+                ) : (
+                    <EmptyState
+                        iconName="UserTwo"
+                        heading="No Administrators Found"
+                        content="There are currently no administrators listed. Add new administrators to manage the platform effectively."
+                    />
+                )}
+            </div>
 
-      {deleteModalActive && (
-        <Modal
-          onLoading={isModalLoading}
-          onLoadingLabel="Deleting..."
-          onConfirm={() => {
-            handleDeleteAdmin();
-          }}
-          onConfirmLabel="Delete"
-          onCancel={() => {
-            setModalData({ id: "", name: "", user_type: "" });
-            setDeleteModalActive(false);
-          }}
-          heading={`Are you sure you want to delete ${modalData.name}'s account?`}
-          content="This user can never use their account to HealthPH anymore."
-          color="destructive"
-        />
-      )}
+            {bulkActionModalActive && (
+                <Modal
+                    onLoading={isModalLoading}
+                    onLoadingLabel={
+                        bulkActionType === "delete"
+                            ? "Deleting..."
+                            : bulkActionType === "disable"
+                            ? "Disabling..."
+                            : "Enabling..."
+                    }
+                    onConfirm={handleBulkAction}
+                    onConfirmLabel={
+                        bulkActionType === "delete"
+                            ? "Delete"
+                            : bulkActionType === "disable"
+                            ? "Disable"
+                            : "Enable"
+                    }
+                    onCancel={closeBulkActionModal}
+                    heading={`Are you sure you want to ${
+                        bulkActionType === "delete"
+                            ? "delete"
+                            : bulkActionType === "disable"
+                            ? "disable"
+                            : "enable"
+                    } ${selectedAdminIds.length} selected administrator${
+                        selectedAdminIds.length === 1 ? "" : "s"
+                    }?`}
+                    content={
+                        bulkActionType === "delete"
+                            ? "Selected administrators will no longer be able to use their HealthPH+ accounts."
+                            : bulkActionType === "disable"
+                            ? "Selected administrators will be unable to sign in to HealthPH+ until enabled again."
+                            : "Selected administrators will regain access to HealthPH+."
+                    }
+                    color={bulkActionType === "enable" ? "primary" : "destructive"}
+                />
+            )}
 
-      {disableModalActive && (
-        <Modal
-          onLoading={isModalLoading}
-          onLoadingLabel={"Disabling"}
-          onConfirm={() => {
-            handleChangeStatus(true);
-          }}
-          onConfirmLabel="Disable"
-          onCancel={() => {
-            setModalData({ id: "", name: "", user_type: "" });
-            setDisableModalActive(false);
-          }}
-          heading={`Are you sure you want to disable ${modalData.name}'s account?`}
-          content="This user will be unable to sign in to HealthPH and lose access to its modules."
-          color="destructive"
-        />
-      )}
-
-      {enableModalActive && (
-        <Modal
-          onLoading={isModalLoading}
-          onLoadingLabel={"Enabling"}
-          onConfirm={() => {
-            handleChangeStatus(false);
-          }}
-          onConfirmLabel="Enable"
-          onCancel={() => {
-            setModalData({ id: "", name: "", user_type: "" });
-            setEnableModalActive(false);
-          }}
-          heading={`Are you sure you want to enable ${modalData.name}'s account?`}
-          content="This user will receive full access to HealthPH such as the Analytics, Trends Map, and other modules."
-          color="primary"
-        />
-      )}
-    </>
-  );
+            {updateModalActive && (
+                <ModalWithBody
+                    onLoading={isModalLoading}
+                    onLoadingLabel="Updating"
+                    onConfirm={handleUpdateAdmin}
+                    onConfirmLabel="Update"
+                    onCancel={() => {
+                        setUpdateModalData(emptyUpdateModalData);
+                        setUpdateModalErrors(emptyUpdateModalErrors);
+                        setUpdateModalActive(false);
+                    }}
+                    heading={`Update ${updateModalData.name}'s account`}
+                    color="primary"
+                >
+                    <div className="p-[20px]">
+                        <div className="grid grid-cols-1 gap-x-[16px] p-[20px] md:grid-cols-2">
+                            <FieldGroup
+                                label="First Name"
+                                labelFor="update-admin-first-name"
+                                additionalClasses="mb-[16px]"
+                                caption={updateModalErrors.first_name}
+                                state={updateModalErrors.first_name ? "error" : ""}
+                            >
+                                <Input
+                                    size="input-md"
+                                    id="update-admin-first-name"
+                                    type="text"
+                                    additionalClasses="mt-[8px] w-full"
+                                    value={updateModalData.first_name}
+                                    onChange={(e) => setUpdateModalData({ ...updateModalData, first_name: e.target.value })}
+                                    state={updateModalErrors.first_name ? "error" : ""}
+                                />
+                            </FieldGroup>
+                            <FieldGroup
+                                label="Last Name"
+                                labelFor="update-admin-last-name"
+                                additionalClasses="mb-[16px]"
+                                caption={updateModalErrors.last_name}
+                                state={updateModalErrors.last_name ? "error" : ""}
+                            >
+                                <Input
+                                    size="input-md"
+                                    id="update-admin-last-name"
+                                    type="text"
+                                    additionalClasses="mt-[8px] w-full"
+                                    value={updateModalData.last_name}
+                                    onChange={(e) => setUpdateModalData({ ...updateModalData, last_name: e.target.value })}
+                                    state={updateModalErrors.last_name ? "error" : ""}
+                                />
+                            </FieldGroup>
+                            <FieldGroup
+                                label="Email"
+                                labelFor="update-admin-email"
+                                additionalClasses="mb-[16px]"
+                                caption={updateModalErrors.email}
+                                state={updateModalErrors.email ? "error" : ""}
+                            >
+                                <Input
+                                    size="input-md"
+                                    id="update-admin-email"
+                                    type="text"
+                                    additionalClasses="mt-[8px] w-full"
+                                    value={updateModalData.email}
+                                    onChange={(e) => setUpdateModalData({ ...updateModalData, email: e.target.value })}
+                                    state={updateModalErrors.email ? "error" : ""}
+                                />
+                            </FieldGroup>
+                            <FieldGroup
+                                label="Organization"
+                                labelFor="update-admin-organization"
+                                additionalClasses="mb-[16px]"
+                                caption={updateModalErrors.organization}
+                                state={updateModalErrors.organization ? "error" : ""}
+                            >
+                                <Input
+                                    size="input-md"
+                                    id="update-admin-organization"
+                                    type="text"
+                                    additionalClasses="mt-[8px] w-full"
+                                    value={updateModalData.organization}
+                                    onChange={(e) => setUpdateModalData({ ...updateModalData, organization: e.target.value })}
+                                    state={updateModalErrors.organization ? "error" : ""}
+                                />
+                            </FieldGroup>
+                            <FieldGroup
+                                label="Account Type"
+                                labelFor="update-admin-user-type"
+                                additionalClasses="mb-[16px]"
+                            >
+                                <Input
+                                    size="input-md"
+                                    id="update-admin-user-type"
+                                    type="text"
+                                    additionalClasses="mt-[8px] w-full"
+                                    value={updateModalData.user_type}
+                                    disabled
+                                />
+                            </FieldGroup>
+                            <FieldGroup
+                                label="Date Created"
+                                labelFor="update-admin-created-at"
+                                additionalClasses="mb-[16px]"
+                            >
+                                <Input
+                                    size="input-md"
+                                    id="update-admin-created-at"
+                                    type="text"
+                                    additionalClasses="mt-[8px] w-full"
+                                    value={updateModalData.created_at ? format(new Date(updateModalData.created_at), "MMM dd, yyyy hh:mm a") : ""}
+                                    disabled
+                                />
+                            </FieldGroup>
+                        </div>
+                    </div>
+                </ModalWithBody>
+            )}
+        </>
+    );
 };
 
 export default AdminsTable;

@@ -148,6 +148,8 @@ export const ContentFormBody = ({
   onMediaChange,
   onMediaDrop,
   onRemoveMedia,
+  onDelete,
+  onDeleteDisabled = false,
 }) => {
   const uploadInputId = `health-literacy-media-upload-${mode}`;
   const hasMediaPreview = Boolean(formData.mediaPreview) && !formData.removeMedia;
@@ -359,6 +361,26 @@ export const ContentFormBody = ({
           </div>
         )}
       </div>
+      {mode === "edit" && (
+        <div className="border-t border-[#E5E5E5] pt-[16px]">
+          <div className="flex flex-col gap-[12px] sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[14px] font-medium text-gray-800">Delete Content</p>
+              <p className="text-[12px] text-gray-500">
+                Permanently remove this content item from the Health Literacy Hub.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={onDeleteDisabled}
+              className="inline-flex min-h-[36px] items-center justify-center rounded-[8px] border border-[#F04438] px-[14px] text-[13px] font-semibold text-[#B42318] hover:bg-[#FEF3F2] disabled:cursor-not-allowed disabled:border-[#FECACA] disabled:text-[#FCA5A5]"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

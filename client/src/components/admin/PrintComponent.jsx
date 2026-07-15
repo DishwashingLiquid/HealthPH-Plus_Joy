@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useState } from "react";
+import { forwardRef, useMemo } from "react";
 import { useSelector } from "react-redux";
 
 const PrintComponent = forwardRef(
@@ -16,10 +16,9 @@ const PrintComponent = forwardRef(
     ref
   ) => {
     const user = useSelector((state) => state.auth.user);
-    const [pageData, setPageData] = useState([]);
-    useEffect(() => {
-      let splitArray = [];
 
+    const pageData = useMemo(() => {
+      const splitArray = [];
       let currentSubArray = [];
 
       data.forEach((v, i) => {
@@ -33,8 +32,8 @@ const PrintComponent = forwardRef(
         }
       });
 
-      setPageData(splitArray);
-    }, [data]);
+      return splitArray;
+    }, [data, rowsPerPage]);
 
     const formatDataLength = (value, minDigit) => {
       return value.length > minDigit

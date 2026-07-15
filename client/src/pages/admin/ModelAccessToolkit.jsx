@@ -1,14 +1,21 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { format } from "date-fns";
 
-import Datatable from "../../components/admin/Datatable";
+import CSVReader from "react-csv-reader";
+
 import EmptyState from "../../components/admin/EmptyState";
 import SkeletonBody from "../../components/SkeletonBody";
 
 import {
     useFetchDatasetsByUserQuery,
+    useDownloadDatasetMutation,
+    useDeleteDatasetMutation,
+    useUploadFileMutation,
+    useProcessDatasetMutation,
 } from "../../features/api/datasetsSlice";
+
+import { useCreateActivityLogMutation } from "../../features/api/activityLogsSlice";
 
 import {
     ResponsiveContainer,
@@ -26,7 +33,8 @@ import {
     Radar,  
 } from "recharts";
 
-import { ToolbarButton, ToolbarSearch } from "../../components/ToolbarControls";
+import { ToolbarButton, ToolbarSearch, ToolbarSelect } from "../../components/ToolbarControls";
+import { popup } from "leaflet";
 
 const ModelAccessToolkit = () => {
     const [activeTab, setActiveTab] = useState("comparison");
@@ -319,17 +327,259 @@ const ModelComparison = () => {
     ); 
 };
 
+const RAW_DATASET_REQUIRED_HEADERS = [
+    "id",
+    "language",
+    "text",
+    "location",
+    "date_posted",
+    "source",
+    "date_collected",
+];
+
+const normalizeCsvHeader = (header) =>
+    String(header || "").trim().toLowerCase().replace(/\s+/g, "_");    
+
+const formatBytes = (size = 0) => {
+    if (size < 1024) return `${size} B`;
+
+    const kb = size / 1024;
+    if (kb < 1024) return `${kb.toFixed(2).replace(/\.?0+$/, "")} KB`;
+
+    return `${(kb / 1024).toFixed(2).replace(/\.?0+$/, "")} MB`;
+}
+
 /* SUBTAB 2 = DATA MANAGEMENT */
 const DataManagement = () => {
     const user = useSelector((state) => state.auth.user);
+
+    /* API HOOKS */
+    const [downloadDataset] = useDownloadDatasetMutation();
+    const [processDataset, { isLoading: isProcessLoading }] = useProcessDatasetMutation();
+    const [deleteDataset, { isLoading: isDeleteLoading }] = useDeleteDatasetMutation();
+
+    const [createActivityLog] = useCreateActivityLogMutation();
 
     const {
         data: datasetsByUser,
         isFetching: isDatasetsByUserFetching,
     } = useFetchDatasetsByUserQuery(user.id);
 
-    const [rows, setRows] = useState([]);
+    const datasets = datasetsByUser || [];
 
+    const [datasetSearch, setDatasetSearch] = useState("");
+    const [datasetStatusFilter, setDatasetStatusFilter] = useState("all");
+    const [selectedDatasetIds, setSelectedDatasetIds] = useState([]);
+
+    /* UPLOAD MODAL STATE */
+    const inputFile = useRef(null);
+    const [uploadFile, { isLoading: isUploadLoading }] = useUploadFileMutation();
+
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [uploadModalActive, setUploadModalActive] = useState(false);
+    const [uploadError, setUploadError] = useState("");
+    const [uploadPreviewData, setUploadPreviewData] = useState({
+        filename: "",
+        fileSize: 0,
+        rows: 0,
+        headers: [],
+        data: [],
+        missingHeaders: [],
+    });
+
+    /* DELETE MODAL STATE */
+    const [deleteModalActive, setDeleteModalActive] = useState(false);
+    const [deleteModalData, setDeleteModalData] = useState({
+        id: "",
+        filename: "",
+    });
+    const [deleteError, setDeleteError] = useState("");
+
+    /* PREVIEW MODAL STATE */
+    const [previewModalActive, setPreviewModalActive] = useState(false);
+
+    const [previewModalData, setPreviewModalData] = useState({
+        id: "",
+        filename: "",
+        dataset_type: "",
+        num_of_rows: 0,
+        dataset_status: "",
+        processing_error: "",
+        processed_at: "",
+        preview_headers: [],
+        preview_data: [],
+    });
+
+    /* BULK MODAL STATE */
+    const [bulkActionModalActive, setBulkActionModalActive] = useState(false);
+    const [bulkActionType, setBulkActionType] = useState("");
+    const [bulkActionError, setBulkActionError] = useState("");
+
+    /* UPLOAD HANDLER */
+    const resetUploadState = () => {
+        setSelectedFile(null);
+        setUploadModalActive(false);
+        setUploadError("");
+        setUploadPreviewData({
+            filename: "",
+            fileSize: 0,
+            rows: 0,
+            headers: [],
+            data: [],
+            missingHeaders: [],
+        });
+
+        if (inputFile.current) {
+            inputFile.current.value = "";
+        }
+    };
+
+    const onFileSelect = (data, fileInfo, originalFile) => {
+        const isCsv =
+            fileInfo?.type === "text/csv" ||
+            fileInfo?.name?.toLowerCase().endsWith(".csv");
+
+        if (!isCsv) {
+            setUploadError("Please select a valid CSV file.");
+            resetUploadState();
+            return;
+        }
+
+        const headers = data?.[0] ? Object.keys(data[0]) : [];
+
+        const headerLookup = headers.reduce((lookup, header) => {
+            lookup[normalizeCsvHeader(header)] = header;
+            return lookup;
+        }, {});
+
+        const normalizedHeaders = headers.map(normalizeCsvHeader);
+
+        const missingHeaders = RAW_DATASET_REQUIRED_HEADERS.filter(
+            (requiredHeader) => !normalizedHeaders.includes(requiredHeader)
+        );
+
+        const validRows = data.filter((row) =>
+            RAW_DATASET_REQUIRED_HEADERS.some((requiredHeader) => {
+                const originalHeader = headerLookup[requiredHeader];
+                return String(row?.[originalHeader] ?? "").trim() !== "";
+            })
+        );
+
+        setSelectedFile(originalFile);
+        setUploadPreviewData({
+            filename: fileInfo.name,
+            fileSize: originalFile?.size || 0,
+            rows: validRows.length,
+            headers,
+            data: validRows.slice(0, 10),
+            missingHeaders,
+        });
+        setUploadError("");
+        setUploadModalActive(true);
+    };
+
+    const handleUploadDataset = async () => {
+        if (!selectedFile) {
+            setUploadError("No CSV file selected.");
+            return;
+        }
+
+        if (uploadPreviewData.missingHeaders.length > 0) {
+            setUploadError(
+                `Missing required columns: ${uploadPreviewData.missingHeaders.join(", ")}`
+            );
+            return;
+        }
+
+        try {
+            const payload = new FormData();
+            payload.append("file", selectedFile);
+
+            await uploadFile(payload).unwrap();
+
+            await createActivityLog({
+                user_id: user.id,
+                entry:  `Uploaded dataset: ${uploadPreviewData.filename}`,
+                module: "Model Access and Toolkit",
+            }).unwrap();
+
+            resetUploadState();
+        } catch (error) {
+            const message =
+                error?.data?.detail ||
+                error?.error ||
+                "Failed to upload dataset. Please try again.";
+
+            setUploadError(message);
+            console.error("Failed to upload dataset", error);
+        }
+    };
+
+    const handleDownloadTemplate = () => {
+        const sampleRows = [
+            {
+                id: "0001",
+                language: "english",
+                text: "Sample post text about lung-related diseases.",
+                location: "Manila",
+                date_posted: "2026-01-15",
+                source: "Facebook",
+                date_collected: "2026-01-16",
+            },  
+        ];
+
+        const headers = RAW_DATASET_REQUIRED_HEADERS;
+        const csvRows = [
+            headers.join(","),
+            ...sampleRows.map((row) =>
+                headers
+                    .map((header) => `"${String(row[header] ?? "").replace(/"/g, '""')}"`)
+                    .join(",")
+            ),
+        ];
+
+        const blob = new Blob([csvRows.join("\n")], {
+            type: "text/csv;charset=utf-8;",
+        });
+
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+
+        link.href = url;
+        link.download = "healthph-plus-raw-dataset-template.csv";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
+        window.URL.revokeObjectURL(url);
+    };
+
+    const handleProcessDataset = async ({ id, filename }) => {
+        try {
+            await processDataset(id).unwrap();
+
+            setPreviewModalData((currentData) =>
+                currentData.id === id
+                    ? {
+                        ...currentData,
+                        dataset_status: "QUEUED",
+                        processing_error: "",
+                        processed_at: "",
+                    }
+                    : currentData
+            );
+
+            await createActivityLog({
+                user_id: user.id,
+                entry: `started dataset processing: ${filename}`,
+                module: "Model Access and Toolkit",
+            }).unwrap();
+        } catch (error) {
+            console.error("Failed to process dataset", error);
+        }
+    };
+
+    /* HELPERS */
     const displayFileSize = (size) => {
         if (size < 1024) return `${size} B`;
 
@@ -338,10 +588,247 @@ const DataManagement = () => {
         if (newSize >= 1024) {
             return `${(newSize / 1024).toFixed(2).replace(/\.?0+$/, "")} MB`;
         }
-        return `${newSize.toFixed(2).replace(/\.?0+$/, "")} KB`;
+        return `${newSize.toFixed(2).replace(/\.?0+$/, "")} KB`; 
+    };
+
+    const getDatasetStatus = (dataset) =>
+        String(dataset.dataset_status || dataset.dataset_type || "UNKNOWN").toUpperCase();
+
+    const filteredDatasets = datasets.filter((dataset) => {
+        const searchValue = datasetSearch.trim().toLowerCase();
+        const status = getDatasetStatus(dataset);
+
+        const matchesSearch =
+            !searchValue ||
+            [
+                dataset.filename,
+                dataset.original_filename,
+                dataset.user_name,
+                dataset.dataset_status,
+                dataset.dataset_type,
+            ]
+                .filter(Boolean)
+                .some((value) => String(value).toLowerCase().includes(searchValue));
+
+        const matchesStatus =
+            datasetStatusFilter === "all" || status === datasetStatusFilter;
+
+        return matchesSearch && matchesStatus;
+    });
+
+    const getDatasetLanguages = (dataset) => {
+        if (Array.isArray(dataset.languages) && dataset.languages.length > 0) {
+            return dataset.languages;
+        }
+
+        const previewRows = normalizePreviewRows(dataset.preview_data);
+
+        return [
+            ...new Set(
+                previewRows
+                    .map((row) => row.language)
+                    .filter(Boolean)
+            ),
+        ];
+    };
+
+    const toggleDatasetSelection = (id) => {
+        setSelectedDatasetIds((currentIds) =>
+            currentIds.includes(id)
+                ? currentIds.filter((currentId) => currentId !== id)
+                : [...currentIds, id]
+        );
+    };
+
+    const toggleAllVisibleDatasets = () => {
+        const visibleIds = filteredDatasets.map((dataset) => dataset.id);
+
+        const allVisibleSelected =
+            visibleIds.length > 0 &&
+            visibleIds.every((id) => selectedDatasetIds.includes(id));
+
+        setSelectedDatasetIds((currentIds) =>
+            allVisibleSelected
+                ? currentIds.filter((id) => !visibleIds.includes(id))
+                : [...new Set([...currentIds, ...visibleIds])]
+        );
+    };
+
+    const allVisibleDatasetsSelected =
+        filteredDatasets.length > 0 &&
+        filteredDatasets.every((dataset) => selectedDatasetIds.includes(dataset.id));
+
+    const selectedDatasets = datasets.filter((dataset) =>
+        selectedDatasetIds.includes(dataset.id)
+    );
+
+    const selectedProcessableDatasets = selectedDatasets.filter((dataset) => {
+        const status = String(dataset.dataset_status || "").toUpperCase();
+        const type = String(dataset.dataset_type || "").toUpperCase();
+
+        return type === "RAW" && ["UPLOADED", "FAILED"].includes(status);
+    });
+
+    const hasSelectedDatasets = selectedDatasetIds.length > 0;
+
+    const normalizePreviewHeaders = (headers) => {
+        if (Array.isArray(headers)) return headers;
+        if (typeof headers === "string") return headers.split("+").filter(Boolean);
+        return [];
+    };
+
+    const normalizePreviewRows = (rows) => {
+        let value = rows;
+
+        for (let i = 0; i < 2; i += 1) {
+            if (Array.isArray(value)) return value;
+            if (typeof value !== "string") return [];
+
+            try {
+                value = JSON.parse(value);
+            } catch {
+                return [];
+            }
+        }
+        return Array.isArray(value) ? value : [];
+    };
+
+    /* ACTION HANDLERS */
+    const handleDownloadDataset = async ({ id, filename }) => {
+        try {
+            const blob = await downloadDataset(id).unwrap();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+
+            link.href = url;
+            link.download = filename || "dataset.csv";
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error("Failed to download dataset", error);
+        }
+    };
+
+    const openPreviewModal = (dataset) => {
+        setPreviewModalData({
+            id: dataset.id,
+            filename: dataset.original_filename || dataset.filename || "Dataset",
+            dataset_type: dataset.dataset_type || "RAW",
+            num_of_rows: dataset.num_of_rows ?? 0,
+            dataset_status: dataset.dataset_status || dataset.dataset_type || "Unknown",
+            processing_error: dataset.processing_error || "",
+            processed_at: dataset.processed_at || "",
+            preview_headers: normalizePreviewHeaders(dataset.preview_headers),
+            preview_data: normalizePreviewRows(dataset.preview_data),
+        });
+
+        setPreviewModalActive(true);
+    };
+
+    const openDeleteModal = ({ id, filename }) => {
+        setDeleteModalData({ id, filename });
+        setDeleteError("");
+        setDeleteModalActive(true);
+    };
+
+    const closeDeleteModal = () => {
+        if (isDeleteLoading) return;
+
+        setDeleteModalActive(false);
+        setDeleteModalData({ id: "", filename: ""});
+        setDeleteError("");
+    };
+
+    const handleDeleteDataset = async () => {
+        try {
+            await deleteDataset(deleteModalData.id).unwrap();
+
+            await createActivityLog({
+                user_id: user.id,
+                entry: `Deleted dataset: ${deleteModalData.filename}`,
+                module: "Model Access and Toolkit",
+            }).unwrap();
+
+            closeDeleteModal();
+        } catch (error) {
+            setDeleteError("Failed to delete dataset. Please try again.");
+            console.error("Failed to delete dataset", error);
+        }
+    };
+
+    const openBulkActionModal = (actionType) => {
+        if (!hasSelectedDatasets) return;
+
+        setBulkActionType(actionType);
+        setBulkActionError("");
+        setBulkActionModalActive(true);
+    };
+
+    const closeBulkActionModal = () => {
+        setBulkActionModalActive(false);
+        setBulkActionType("");
+        setBulkActionError("");
+    };
+
+    const handleConfirmBulkAction = async () => {
+        try {
+            if (bulkActionType === "download") {
+                for (const dataset of selectedDatasets) {
+                    await handleDownloadDataset({
+                        id: dataset.id,
+                        filename: dataset.filename,
+                    });
+                }
+
+                await createActivityLog({
+                    user_id: user.id,
+                    entry: `Downloaded ${selectedDatasets.length} datasets`,
+                    module: "Model Access and Toolkit",
+                }).unwrap();
+            }
+
+            if (bulkActionType === "process") {
+                if (selectedProcessableDatasets.length === 0) {
+                    setBulkActionError("No selected datasets are ready for processing.");
+                    return;
+                }
+
+                for (const dataset of selectedProcessableDatasets) {
+                    await processDataset(dataset.id).unwrap();
+                }
+
+                await createActivityLog({
+                    user_id: user.id,
+                    entry: `Started processing ${selectedProcessableDatasets.length} datasets`,
+                    module: "Model Access and Toolkit",
+                }).unwrap();
+            }
+
+            if (bulkActionType === "delete") {
+                for (const dataset of selectedDatasets) {
+                    await deleteDataset(dataset.id).unwrap();
+                }
+
+                await createActivityLog({
+                    user_id: user.id,
+                    entry: `Deleted ${selectedDatasets.length} datasets`,
+                    module: "Model Access and Toolkit",
+                }).unwrap();
+            }
+
+            setSelectedDatasetIds([]);
+            closeBulkActionModal();
+        } catch (error) {
+            setBulkActionError("Bulk action failed. Please try again.");
+            console.error("Bulk action failed", error);
+        }
     };
 
     return (
+        <>
         <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
             <div className="flex justify-between items-start mb-[20px]">
                 <div>
@@ -352,90 +839,786 @@ const DataManagement = () => {
                         Datasets available for model training, validation, and evaluation.
                     </p>
                 </div>
-                <button className="bg-[#2563EB] text-white rounded-[10px] px-[14px] py-[9px] text-sm">
-                    Upload Dataset
-                </button>
+                <div className="flex flex-wrap justify-end gap-[10px]">
+                    <ToolbarButton
+                        iconName="Download"
+                        variant="primary"
+                        onClick={handleDownloadTemplate}
+                    >
+                        Download Template
+                    </ToolbarButton>
+                    <ToolbarButton 
+                        iconName="Upload"
+                        variant="primary"
+                        onClick={() => inputFile.current.click()}    
+                    >
+                        Upload Dataset
+                    </ToolbarButton>
+                    <CSVReader
+                        parserOptions={{ header: true }}
+                        onFileLoaded={onFileSelect}
+                        ref={inputFile}
+                        cssInputClass="hidden"
+                    />
+                </div>
             </div>
+
+            {/* SEARCH*/}
+            <div className="mb-[16px] flex flex-col gap-[10px] xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex flex-col gap-[10px] md:flex-row md:items-center"> 
+                    <ToolbarSearch
+                        placeholder="Search datasets..."
+                        value={datasetSearch}
+                        onChange={(event) => setDatasetSearch(event.target.value)}
+                    />
+
+                    <p className="text-sm text-gray-500">
+                        Total datasets:{" "}
+                        <span className="font-semibold text-gray-800">
+                            {filteredDatasets.length}
+                        </span>
+                    </p>
+                </div>
+                <ToolbarSelect
+                    value={datasetStatusFilter}
+                    onChange={(event) => setDatasetStatusFilter(event.target.value)}
+                    className="w-full md:w-[180px]"
+                >
+                    <option value="all">All Status</option>
+                    <option value="UPLOADED">Uploaded</option>
+                    <option value="RAW">Raw</option>
+                    <option value="QUEUED">Queued</option>
+                    <option value="PROCESSING">Processing</option>
+                    <option value="ANNOTATED">Annotated</option>
+                    <option value="FAILED">Failed</option>
+                </ToolbarSelect>
+            </div>
+
+            {hasSelectedDatasets && (
+                <div className="mb-[16px] flex flex-col gap-[10px] rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] px-[14px] py-[12px] md:flex-row md:items-center md:justify-between">
+                    <p className="text-sm text-gray-600">
+                        <span className="font-semibold text-gray-800">
+                            {selectedDatasetIds.length}
+                        </span>{" "}
+                        selected
+                    </p>
+                    <div className="flex flex-wrap gap-[8px]">
+                        <button
+                            type="button"
+                            className="rounded-[8px] border border-[#E5E5E5] bg-white px-[12px] py-[8px] text-sm text-gray-700"
+                            onClick={() => openBulkActionModal("download")}
+                        >
+                            Download
+                        </button>
+                        <button
+                            type="button"
+                            className="rounded-[8px] border border-[#E5E5E5] bg-white px-[12px] py-[8px] text-sm text-[#4F46E5]"
+                            onClick={() => openBulkActionModal("process")}
+                        >
+                            Process
+                        </button>
+                        <button
+                            type="button"
+                            className="rounded-[8px] bg-[#DC2626] px-[12px] py-[8px] text-sm text-white"
+                            onClick={() => openBulkActionModal("delete")}
+                        >
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {isDatasetsByUserFetching ? (
                 <div className="overflow-y-hidden min-w-full h-[500px]">
-                    <SkeletonBody columns={5} />
+                    <SkeletonBody columns={7} />
                 </div>
             ) : (
-                <div className="h-[500px] overflow-hidden">
-                    <Datatable
-                        datatableHeader="Datasets"
-                        datatableColumns={[
-                            { label: "File Name" },
-                            { label: "File Size (Status)" },
-                            { label: "Uploaded By" },
-                            { label: "Date Uploaded" },
-                            { label: "Actions" },
-                        ]}
-                        datatableData={datasetsByUser || []}
-                        setDatatableData={setRows}
-                        rowsPerPage={10}
-                        withActions={true}
-                        actionsWidth="260px"
-                    >
-                        {datasetsByUser?.length > 0 ? (
-                            rows.map(
-                                ({
+                <div className="overflow-x-auto">
+                    {filteredDatasets.length > 0 ? (
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
+                                    <th className="w-[44px] py-[12px] px-[10px] font-medium">
+                                        <input
+                                            type="checkbox"
+                                            checked={allVisibleDatasetsSelected}
+                                            onChange={toggleAllVisibleDatasets}
+                                        />
+                                    </th>
+                                    <th className="py-[12px] px-[10px] font-medium">File Name</th>
+                                    <th className="py-[12px] px-[10px] font-medium">Records</th>
+                                    <th className="py-[12px] px-[10px] font-medium">Languages</th>
+                                    <th className="py-[12px] px-[10px] font-medium">Data Uploaded</th>
+                                    <th className="py-[12px] px-[10px] font-medium">Uploaded By</th>
+                                    <th className="py-[12px] px-[10px] font-medium">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredDatasets.map(({
                                     id,
                                     user_name,
                                     filename,
-                                    file_size,
+                                    languages,
                                     dataset_status,
                                     created_at,
+                                    original_filename,
+                                    dataset_type,
+                                    num_of_rows,
+                                    processing_error,
+                                    processed_at,
+                                    preview_headers,
+                                    preview_data,
                                 }) => (
-                                    <div className="content-row" key={id}>
-                                        <div className="row-item">{filename}</div>
-
-                                        <div className="row-item">
-                                            {displayFileSize(file_size)}
-                                            <span className="font-medium ms-1">
-                                                ({dataset_status})
-                                            </span>
-                                        </div>
-
-                                        <div className="row-item">{user_name}</div>
-                                        
-                                        <div className="row-item">
-                                            {format(new Date(created_at), "MMM dd, yyyy hh:mm a")}
-                                        </div>
-                                            
-                                        <div className="row-item">
-                                            <div className="flex items-center">
-                                                <button className="prod-push-btn-sm prod-btn-primary me-[8px] min-w-[70px]">
-                                                    Preview
-                                                </button>
-                                                <button className="prod-push-btn-sm prod-btn-secondary me-[8px] min-w-[70px]">
-                                                    Download
-                                                </button>
-                                                <button className="prod-push-btn-sm prod-btn-destructive min-w-[70px]">
-                                                    Delete
-                                                </button>
+                                    <tr 
+                                        className="cursor-pointer border-b border-[#F0F0F0] hover:bg-[#F8FAFC]" 
+                                        key={id}
+                                        onClick={() =>
+                                            openPreviewModal({
+                                                id,
+                                                original_filename,
+                                                filename,
+                                                languages,
+                                                dataset_type,
+                                                dataset_status,
+                                                num_of_rows,
+                                                processing_error,
+                                                processed_at,
+                                                preview_headers,
+                                                preview_data,
+                                            })
+                                        }
+                                    >
+                                        <td 
+                                            className="py-[14px] px-[10px]"
+                                            onClick={(event) => event.stopPropagation()}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedDatasetIds.includes(id)}
+                                                onChange={() => toggleDatasetSelection(id)}
+                                            />
+                                        </td>
+                                        <td className="max-w-[260px] truncate py-[14px] px-[10px] font-medium text-gray-800">
+                                            {original_filename || filename}
+                                        </td>
+                                        <td className="py-[14px] px-[10px] text-gray-600">
+                                            {Number(num_of_rows || 0).toLocaleString()}
+                                        </td>
+                                        <td className="py-[14px] px-[10px]">
+                                            <div className="flex flex-wrap gap-[6px]">
+                                                {getDatasetLanguages({ languages, preview_data }).length > 0 ? (
+                                                    getDatasetLanguages({ languages, preview_data }).map((language) => (
+                                                        <span
+                                                            key={language}
+                                                            className="rounded-full bg-[#EEF2FF] px-[8px] py-[4px] text-xs font-medium text-[#4F46E5]"
+                                                        >
+                                                            {language}
+                                                        </span>
+                                                    ))
+                                                ) : (
+                                                    <span className="text-sm text-gray-400">No language data</span>
+                                                )}
                                             </div>
-                                        </div>
-                                    </div>
-                                )
-                            )
-                        ) : (
-                            <EmptyState
-                                iconName="Document"
-                                heading="No Datasets Uploaded"
-                                content="There are no datasets uploaded. Upload a dataset to prepare it for model processing."
-                            />
-                        )}
-                    </Datatable>
+                                        </td>
+                                        <td className="py-[14px] px-[10px] text-gray-600">
+                                            {format(new Date(created_at), "MMM dd, yyyy hh:mm a")}
+                                        </td>
+                                        <td className="py-[14px] px-[10px] text-gray-600">
+                                            {user_name}
+                                        </td>
+                                        <td className="py-[14px] px-[10px]">
+                                            <DatasetStatusBadge status={dataset_status} />
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    ) : (
+                        <EmptyState
+                            iconName="Document"
+                            heading={datasets.length > 0 ? "No Matching Datasets" : "No Datasets Uploaded"}
+                            content={
+                                datasets.length > 0
+                                    ? "Try adjusting your search or status filter."
+                                    : "There are no datasets uploaded. Upload a dataset to prepare it for model processing."
+                            }
+                        />
+                    )}
                 </div>
             )}
+        </div>
+        {bulkActionModalActive && (
+            <BulkDatasetActionModal
+                actionType={bulkActionType}
+                selectedCount={selectedDatasetIds.length}
+                processableCount={selectedProcessableDatasets.length}
+                error={bulkActionError}
+                isLoading={isDeleteLoading || isProcessLoading}
+                onCancel={closeBulkActionModal}
+                onConfirm={handleConfirmBulkAction}
+            />
+        )}
+        {previewModalActive && (
+            <DatasetPreviewModal
+                data={previewModalData}
+                isProcessLoading={isProcessLoading}
+                onClose={() => setPreviewModalActive(false)}
+                onDownload={() =>
+                    handleDownloadDataset({
+                        id: previewModalData.id,
+                        filename: previewModalData.filename,
+                    })
+                }
+                onDelete={() => {
+                    setPreviewModalActive(false);
+                    openDeleteModal({
+                        id: previewModalData.id,
+                        filename: previewModalData.filename,
+                    });
+                }}
+                onProcess={() =>
+                    handleProcessDataset({
+                        id: previewModalData.id,
+                        filename: previewModalData.filename,
+                    })
+                }
+            />
+        )}
+        {deleteModalActive && (
+            <DeleteDatasetModal
+                filename={deleteModalData.filename}
+                error={deleteError}
+                isLoading={isDeleteLoading}
+                onCancel={closeDeleteModal}
+                onConfirm={handleDeleteDataset}
+            />
+        )}
+        {uploadModalActive && (
+            <UploadDatasetModal
+                data={uploadPreviewData}
+                error={uploadError}
+                isLoading={isUploadLoading}
+                onCancel={resetUploadState}
+                onConfirm={handleUploadDataset}
+            />
+        )}
+        </>
+    );
+};
+
+const DatasetStatusBadge = ({ status }) => {
+    const label = status || "Unknown";
+    const statusColor = {
+        UPLOADED: {
+            backgroundColor: "#DBEAFE",
+            color: "#2563EB",
+        },
+        RAW: {
+            backgroundColor: "#F3F4F6",
+            color: "#6B7280",
+        },
+        QUEUED: {
+            backgroundColor: "#E0E7FF",
+            color: "#4F46E5",
+        },
+        PROCESSING: {
+            backgroundColor: "#FEF3C7",
+            color: "#D97706",
+        },
+        ANNOTATED: {
+            backgroundColor: "#D1FAE5",
+            color: "#059669",
+        },
+        FAILED: {
+            backgroundColor: "#FEE2E2",
+            color: "#DC2626",
+        },
+    };
+
+    return (
+        <span
+            className="px-[8px] py-[4px] rounded-full text-xs font-medium"
+            style={statusColor[label.toUpperCase()] ?? statusColor.RAW}
+        >
+            {label}
+        </span>
+    );
+};
+
+/* MODALS */
+const BulkDatasetActionModal = ({
+    actionType,
+    selectedCount,
+    processableCount,
+    error,
+    isLoading,
+    onCancel,
+    onConfirm,
+}) => {
+    const config = {
+        download: {
+            title: "Download Selected Datasets",
+            message: `Download ${selectedCount} selected dataset${selectedCount === 1 ? "" : "s"}?`,
+            confirmLabel: "Download",
+            confirmClass: "prod-btn-base prod-btn-primary",
+        },
+        process: {
+            title: "Process Selected Datasets",
+            message: `Process ${processableCount} of ${selectedCount} selected dataset${selectedCount === 1 ? "" : "s"}? Only uploaded or failed raw datasets can be processed.`,
+            confirmLabel: "Process",
+            confirmClass: "prod-btn-base prod-btn-primary",
+        },
+        delete: {
+            title: "Delete Selected Datasets",
+            message: `Delete ${selectedCount} selected dataset${selectedCount === 1 ? "" : "s"}? This action cannot be undone.`,
+            confirmLabel: "Delete",
+            confirmClass: "prod-btn-base bg-[#DC2626] text-white",
+        },
+    };
+
+    const action = config[actionType] || config.download;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-[20px] py-[24px]">
+            <button
+                type="button"
+                className="absolute inset-0 bg-[#34405499] backdrop-blur-sm"
+                onClick={onCancel}
+                aria-label="Close bulk action confirmation"
+                disabled={isLoading}
+            />
+            <div className="relative w-full max-w-[460px] overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-white shadow-xl">
+                <div className="border-b border-[#E5E5E5] px-[20px] py-[16px]">
+                    <h3 className="text-[18px] font-semibold text-gray-800">
+                        {action.title}
+                    </h3>
+                </div>
+                <div className="p-[20px]">
+                    <p className="text-sm text-gray-600">
+                        {action.message}
+                    </p>
+                    {error && (
+                        <p className="mt-[12px] text-sm text-desctructive-600">
+                            {error}
+                        </p>
+                    )}
+                </div>
+                <div className="flex justify-end gap-[10px] border-t border-[#E5E5E5] px-[20px] py-[16px]">
+                    <button
+                        type="button"
+                        className="prod-btn-base prod-btn-secondary"
+                        onClick={onCancel}
+                        disabled={isLoading}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        className={action.confirmClass}
+                        onClick={onConfirm}
+                        disabled={isLoading}
+                    >
+                        {isLoading ? "Working..." : action.confirmLabel}
+                    </button>
+                </div>
+            </div>
         </div>
     );
 };
 
+const DatasetPreviewModal = ({ 
+    data,
+    isProcessLoading,
+    onClose,
+    onDownload,
+    onDelete,
+    onProcess,
+}) => {
+    const columns = data.preview_headers;
+    const status = String(data.dataset_status || "").toUpperCase();
+
+    const canProcess =
+        String(data.dataset_type || "").toUpperCase() === "RAW" &&
+        ["UPLOADED", "FAILED"].includes(String(data.dataset_status || "").toUpperCase());
+
+    const processLabel =
+        String(data.dataset_status || "").toUpperCase() === "FAILED"
+            ? "Retry Processing"
+            : "Process Dataset";
+
+    const statusMessage = {
+        UPLOADED: {
+            text: "Dataset uploaded and ready for processing.",
+            className: "border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]",
+        },
+        QUEUED: {
+            text: "Dataset has been queued for processing.",
+            className: "border-[#C7D2FE] bg-[#EEF2FF] text-[#4F46E5]",
+        },
+        PROCESSING: {
+            text: "Dataset processing is currently in progress.",
+            className: "border-[#FDE68A] bg-[#FFFBEB] text-[#B45309]",
+        },
+        ANNOTATED: {
+            text: "Dataset has been processed and is ready for dashboard use.",
+            className: "border-[#A7F3D0] bg-[#ECFDF5] text-[#047857]",
+        },
+        FAILED: {
+            text: "Dataset processing failed. Review the error below or retry processing.",
+            className: "border-[#FCA5A5] bg-[#FEF2F2] text-[#B42318]",
+        },
+    };
+
+    const currentStatusMessage = statusMessage[status];
+
+    return (
+        <div className="fixed inset-x-0 bottom-0 top-[49px] z-50 flex items-center justify-center px-[20px] py-[32px]">
+            <button
+                type="button"
+                className="absolute inset-0 bg-[#34405499] backdrop-blur-sm"
+                onClick={onClose}
+                aria-label="Close dataset preview"
+            />
+
+            <div className="relative flex max-h-[calc(100vh-113px)] w-full max-w-[1100px] flex-col overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-white shadow-xl">
+                <div className="border-b border-[#E5E5E5] px-[20px] py-[16px]">
+                    <div className="flex items-start justify-between gap-[20px]">
+                        <h3 className="shrink-0 text-[18px] font-semibold text-gray-800">
+                            Dataset Preview
+                        </h3>
+                        <div className="min-w-0 text-right">
+                            <p className="truncate text-sm font-medium text-gray-800">
+                                {data.filename}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                                Previewing {data.preview_data.length} of{" "}
+                                {Number(data.num_of_rows || 0).toLocaleString()} records.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto p-[20px]">
+                    <div className="mb-[16px] flex flex-col gap-[8px] rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] px-[12px] py-[10px] text-sm sm:flex-row sm:items-center">
+                        <span className="text-gray-500">Status:</span>
+                        <DatasetStatusBadge status={data.dataset_status} />
+                        {currentStatusMessage && (
+                            <span className="text-gray-500">
+                                {currentStatusMessage.text}
+                            </span>
+                        )}
+                    </div>
+
+                    {status === "FAILED" && data.processing_error && (
+                        <div className="mb-[16px] rounded-[8px] border border-[#FCA5A5] bg-[#FEF2F2] px-[12px] py-[10px] text-sm text-[#B42318]">
+                            {data.processing_error}
+                        </div>
+                    )}
+
+                    {columns.length > 0 && data.preview_data.length > 0 ? (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
+                                        {columns.map((column) => (
+                                            <th
+                                                key={column}
+                                                className="py-[12px] px-[10px] font-medium capitalize"
+                                            >
+                                                {column}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {data.preview_data.map((row, index) => (
+                                        <tr
+                                            key={index}
+                                            className="border-b border-[#F0F0F0]"
+                                        >
+                                            {columns.map((column) => (
+                                                <td
+                                                    key={column}
+                                                    className="max-w-[220px] truncate py-[14px] px-[10px] text-gray-600"
+                                                >
+                                                    {row?.[column] ?? ""}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div className="rounded-[8px] border border-[#E5E5E5] bg-white px-[14px] py-[18px] text-sm text-gray-500">
+                            No preview data available.
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex flex-wrap justify-end gap-[10px] border-t border-[#E5E5E5] px-[20px] py-[16px]">
+                    <button
+                        type="button"
+                        className="prod-btn-base prod-btn-secondary"
+                        onClick={onClose}
+                    >
+                        Close
+                    </button>
+                    <button
+                        type="button"
+                        className="prod-btn-base prod-btn-secondary"
+                        onClick={onDownload}
+                    >
+                        Download
+                    </button>
+                    {canProcess && (
+                        <button
+                            type="button"
+                            className="prod-btn-base prod-btn-primary"
+                            onClick={onProcess}
+                            disabled={isProcessLoading}
+                        >
+                            {isProcessLoading ? "Processing..." : processLabel}
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        className="prod-btn-base bg-[#DC2626] text-white"
+                        onClick={onDelete}
+                    >
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const DeleteDatasetModal = ({
+    filename,
+    error,
+    isLoading,
+    onCancel,
+    onConfirm,
+}) => {
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-[20px] py-[24px]">
+            <button
+                type="button"
+                className="absolute inset-0 bg-[#32205499] backdrop-blur-sm"
+                onClick={onCancel}
+                aria-label="Close delete dataset confirmation"
+                disabled={isLoading}
+            />
+
+            <div className="relative w-full max-w-[480px] overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-white shadow-xl">
+                <div className="border-b border-[#E5E5E5] px-[20px] py-[16px]">
+                    <h3 className="text-[18px] font-semibold text-gray-800">
+                        Delete Dataset
+                    </h3>
+                    <p className="mt-[4px] text-sm text-gray-500">
+                        This action cannot be undone.
+                    </p>
+                </div>
+
+                <div className="p-[20px] text-sm text-gray-600">
+                    <p>
+                        Are you sure you want to delete{" "}
+                        <span className="font-medium text-gray-800">
+                            {filename}
+                        </span>
+                        ?
+                    </p>
+
+                    {error && (
+                        <p className="mt-[12px] text-sm text-destructive-600">
+                            {error}
+                        </p>
+                    )}
+                </div>
+
+                <div className="flex justify-end gap-[10px] border-t border-[#E5E5E5] px-[20px] py-[16px]">
+                    <button
+                        type="button"
+                        className="prod-btn-base prod-btn-secondary"
+                        onClick={onCancel}
+                        disabled={isLoading}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        className="prod-btn-base prod-btn-destructive"
+                        onClick={onConfirm}
+                        disabled={isLoading}
+                    >
+                        {isLoading ? "Deleting..." : "Delete"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const UploadDatasetModal = ({ data, error, isLoading, onCancel, onConfirm }) => {
+    const columns = data.headers;
+    const hasMissingHeaders = data.missingHeaders?.length > 0;
+
+    return (
+        <div className="fixed inset-x-0 bottom-0 top-[49px] z-50 flex items-center justify-center px-[20px] py-[32px]">
+            <button
+                type="button"
+                className="absolute inset-0 bg-[#34405499] backdrop-blur-sm"
+                onClick={onCancel}
+                aria-label="Close upload dataset preview"
+                disabled={isLoading}
+            />
+
+            <div className="relative flex max-h-[calc(100vh-113px)] w-full max-w-[1100px] flex-col overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-white shadow-xl">
+                <div className="border-b border-[#E5E5E5] px-[20px] py-[16px]">
+                    <div className="flex items-start justify-between gap-[20px]">
+                        <h3 className="shrink-0 text-[18px] font-semibold text-gray-800">
+                            Upload Dataset
+                        </h3>
+                        <div className="min-w-0 text-right">
+                            <p className="truncate text-sm font-medium text-gray-800">
+                                {data.filename}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                                Previewing {data.data.length} of{" "}
+                                {Number(data.rows || 0).toLocaleString()} records.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto p-[20px]">
+                    <div className="mb-[8px] rounded-[8px] border border-[#E5E5E5] bg-[#F8F9FA] px-[12px] py-[10px] text-sm text-gray-600">
+                        Required columns:{" "}
+                        <span className="font-medium text-gray-800">
+                            {RAW_DATASET_REQUIRED_HEADERS.join(", ")}
+                        </span>
+                    </div>
+
+                    {hasMissingHeaders && (
+                        <div className="mb-[16px] rounded-[8px] border border-[#FCA5A5] bg-[#FEF2F2] px-[12px] py-[10px] text-sm text-[#B42318]">
+                            Missing required columns: {data.missingHeaders.join(", ")}
+                        </div>
+                    )}
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
+                                    {columns.map ((column) => (
+                                        <th 
+                                            key={column}
+                                            className="py-[12px] px-[10px] font-medium"
+                                        >
+                                            {column}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {data.data.map((row, index) => (
+                                    <tr
+                                        key={index}
+                                        className="border-b border-[#F0F0F0]"
+                                    >   
+                                        {columns.map((column) => (
+                                            <td
+                                                key={column}
+                                                className="max-w-[220px] truncate py-[14px] px-[10px] text-gray-600"
+                                            >
+                                                {row?.[column] ?? ""}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div className="flex justify-end gap-[10px] border-t border-[#E5E5E5] px-[20px] py-[16px]">
+                    <button 
+                        className="prod-btn-base prod-btn-secondary"
+                        onClick={onCancel}
+                        disabled={isLoading}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        className="prod-btn-base prod-btn-primary"
+                        onClick={onConfirm}
+                        disabled={isLoading}
+                    >
+                        {isLoading ? "Uploading..." : "Upload"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+
 /* SUBTAB 3 = TRAINING LOGS */
 const TrainingLogs = () => {
+    const user = useSelector((state) => state.auth.user);
+
+    const {
+        data: datasetsByUser,
+        isFetching: isTrainingLogsFetching,
+    } = useFetchDatasetsByUserQuery(user.id);
+
+    const datasets = datasetsByUser || [];
+
+    const getTrainingStatus = (status) => {
+        const normalizedStatus = String(status || "").toUpperCase();
+
+        if (normalizedStatus === "ANNOTATED") return "Completed";
+        if (normalizedStatus === "PROCESSING") return "Running";
+        if (normalizedStatus === "FAILED") return "Failed";
+        if (normalizedStatus === "QUEUED") return "Queued";
+        if (normalizedStatus === "UPLOADED") return "Uploaded";
+
+        return "Queued";
+    };
+
+    const getDuration = ({ created_at, processed_at, dataset_status }) => {
+        const normalizedStatus = String(dataset_status || "").toUpperCase();
+
+        if (normalizedStatus === "PROCESSING") return "In progress";
+        if (["UPLOADED", "QUEUED"].includes(normalizedStatus)) return "Pending";
+        if (!created_at || !processed_at) return "-";
+
+        const started = new Date(created_at);
+        const ended = new Date(processed_at);
+        const diffInMinutes = Math.max(1, Math.round((ended - started) / 60000));
+
+        if (diffInMinutes >= 60) {
+            const hours = Math.floor(diffInMinutes / 60);
+            const minutes = diffInMinutes % 60;
+
+            return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+        }
+
+        return `${diffInMinutes}m`;
+    };
+
+    const trainingLogs = datasets.map((dataset) => ({
+        runId: `TRN-${String(dataset.id).slice(-6).toUpperCase()}`,
+        model: "HealthPH+ NLP Pipeline",
+        dataset: dataset.original_filename || dataset.filename,
+        status: getTrainingStatus(dataset.dataset_status),
+        started: dataset.created_at
+            ? format(new Date(dataset.created_at), "MMM dd, yyyy hh:mm a")
+            : "Pending",
+        duration: getDuration(dataset),
+    }));
+
     return (
         <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-[12px] mb-[20px]">
@@ -447,66 +1630,58 @@ const TrainingLogs = () => {
                         Track model training activity, evaluation runs, and dataset processing history.
                     </p>
                 </div>
-                <button className="border border-[#E5E5E5] rounded-[10px] px-[14px] py-[9px] text-sm text-white bg-[#32418C]">
-                    Download Logs
-                </button>
+                <ToolbarButton iconName="Upload" variant="primary">
+                    Export Logs
+                </ToolbarButton>
             </div>
 
-            <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                    <thead>
-                        <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
-                            <th className="py-[12px] px-[10px] font-medium">Run ID</th>
-                            <th className="py-[12px] px-[10px] font-medium">Model</th>
-                            <th className="py-[12px] px-[10px] font-medium">Dataset</th>
-                            <th className="py-[12px] px-[10px] font-medium">Status</th>
-                            <th className="py-[12px] px-[10px] font-medium">Started</th>
-                            <th className="py-[12px] px-[10px] font-medium">Duration</th>
-                            <th className="py-[12px] px-[10px] font-medium">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <TrainingLogRow
-                            runId="TRN-001"
-                            model="mBERT"
-                            dataset="DOH Disease Reports"
-                            status="Completed"
-                            started="May 08, 2026 09:10 AM"
-                            duration="14m"
+            {isTrainingLogsFetching ? (
+                <div className="overflow-y-hidden min-w-full h-[300px]">
+                    <SkeletonBody columns={7} />
+                </div>
+            ) : (
+                <div className="overflow-x-auto">
+                    {trainingLogs.length > 0 ? (
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
+                                    <th className="py-[12px] px-[10px] font-medium">Run ID</th>
+                                    <th className="py-[12px] px-[10px] font-medium">Model</th>
+                                    <th className="py-[12px] px-[10px] font-medium">Dataset</th>
+                                    <th className="py-[12px] px-[10px] font-medium">Status</th>
+                                    <th className="py-[12px] px-[10px] font-medium">Started</th>
+                                    <th className="py-[12px] px-[10px] font-medium">Duration</th>
+                                    <th className="py-[12px] px-[10px] font-medium">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {trainingLogs.map((log) => (
+                                    <TrainingLogRow
+                                        key={log.runId}
+                                        runId={log.runId}
+                                        model={log.model}
+                                        dataset={log.dataset}
+                                        status={log.status}
+                                        started={log.started}
+                                        duration={log.duration}
+                                    />
+                                ))}
+                            </tbody>
+                        </table>
+                    ) : (
+                        <EmptyState
+                            iconName={Document}
+                            heading="No training Logs"
+                            content="Upload and process a dataset to create pipeline activity logs."
                         />
-                        <TrainingLogRow
-                            runId="TRN-002"
-                            model="XLM-RoBERTa"
-                            dataset="Social Media Health Mentions"
-                            status="Running"
-                            started="May 08, 2026 10:24 AM"
-                            duration="7m"
-                        />
-                        <TrainingLogRow
-                            runId="TRN-003"
-                            model="GPT-based Classifier"
-                            dataset="COVID-19 Symptoms Database"
-                            status="Failed"
-                            started="May 08, 2026 11:03 AM"
-                            duration="2m"
-                        />
-                        <TrainingLogRow
-                            runId="TRN-004"
-                            model="LSTM Model"
-                            dataset="TB Cases 2022"
-                            status="Queued"
-                            started="Pending"
-                            duration="—"
-                        />
-                    </tbody>
-                </table>
-            </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };
 
 /* HELPERS */
-
 const ModelCard = ({ 
     name,
     description,
@@ -635,6 +1810,10 @@ const TrainingLogRow = ({
             backgroundColor: "#F3F4F6",
             color: "#6B7280",
         },
+        Uploaded: {
+            backgroundColor: "#DBEAFE",
+            color: "#2563EB"
+        }
     };
 
     return (
