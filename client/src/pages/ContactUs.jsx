@@ -14,7 +14,7 @@ const ContactUs = () => {
       icon: "Mail",
       iconFill: true,
       label: "Email",
-      desc: "HealthPH is here to communicate!",
+      desc: "HealthPH+ is here to communicate!",
       linkText: import.meta.env.VITE_HEALTHPH_EMAIL,
       link: "mailto:" + import.meta.env.VITE_HEALTHPH_EMAIL,
     },
