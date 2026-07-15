@@ -470,6 +470,7 @@ const UploadDataset = () => {
                         original_filename,
                         file_size,
                         dataset_type,
+                        dataset_status,
                         num_of_rows,
                         preview_data,
                         preview_headers,
@@ -488,7 +489,7 @@ const UploadDataset = () => {
                           <div className="row-item">
                             {displayFileSize(file_size)}
                             <span className="font-medium ms-1">
-                              ({dataset_type})
+                              ({dataset_status})
                             </span>
                           </div>
                           <div className="row-item">{user_name}</div>
@@ -506,7 +507,7 @@ const UploadDataset = () => {
                                   setPreviewModalData({
                                     filename: original_filename,
                                     num_of_rows: num_of_rows,
-                                    dataset_type: dataset_type,
+                                    dataset_status: dataset_status,
                                     preview_headers: preview_headers,
                                     preview_data: JSON.parse(preview_data),
                                   });
@@ -666,7 +667,7 @@ const UploadDataset = () => {
                 Filename: <span>{previewModalData.filename}</span>
               </p>
               <p className="mb-[8px]">
-                Dataset Type: <span>{previewModalData.dataset_type}</span>
+                Dataset Status: <span>{previewModalData.dataset_status}</span>
               </p>
               <p>
                 Number of Rows: <span>{previewModalData.num_of_rows}</span>

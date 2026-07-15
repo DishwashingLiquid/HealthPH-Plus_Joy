@@ -1,4 +1,4 @@
-from fastapi import HTTPException, status, Depends
+from fastapi import HTTPException, status, Depends, Request
 from fastapi.responses import JSONResponse
 from bson import ObjectId
 import pymongo
@@ -9,6 +9,17 @@ from models.activityLogs import ActivityLog
 from schema.activityLogSchema import list_activity_logs
 from helpers.miscHelpers import get_ph_datetime
 from middleware.requireAuth import require_auth
+
+def get_client_ip(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for")
+
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    
+    if request.client:
+        return request.client.host
+    
+    return ""
 
 """
 @desc     Fetch all activity logs
@@ -67,7 +78,7 @@ route     POST api/activity_logs
 """
 
 
-async def create_activity_log(data: ActivityLog):
+async def create_activity_log(data: ActivityLog, request: Request):
     # Create a copy of request data
     to_encode = dict(data).copy()
 
@@ -92,6 +103,7 @@ async def create_activity_log(data: ActivityLog):
         {
             "user_name": f"{user_data['first_name']} {user_data['last_name']}",
             "user_type": user_data["user_type"],
+            "ip_address": get_client_ip(request),
             "created_at": get_ph_datetime(),
         }
     )

@@ -1,6 +1,4 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import Logo from "../../assets/images/test-logo.png";
-import DashboardLogo from "../../assets/images/dashboard-logo.svg";
 import Divider from "../Divider";
 import Icon from "../Icon";
 import { useEffect, useRef, useState } from "react";
@@ -14,6 +12,30 @@ import useDeviceDetect from "../../hooks/useDeviceDetect";
 
 const Navbar = () => {
   const user = useSelector((state) => state.auth.user);
+
+  const analyticsRoles = [
+    "DOH_OFFICIAL",
+    "ANALYST",
+    "LGU_WORKER",
+    "RESEARCHER",
+    "VIEWER",
+  ];
+
+  const researchRoles = [
+    "RESEARCHER",
+    "ANALYST",
+  ];
+
+  const managementRoles = [
+    "DOH_OFFICIAL",
+  ];
+
+  const isSystemAdmin = user && ["ADMIN", "SUPERADMIN"].includes(user.user_type);
+
+  const hasRoleLabel = (allowedRoles) => {
+    if (!user?.role_label) return false;
+    return allowedRoles.includes(user.role_label);
+  };
 
   const { isPWA } = useDeviceDetect();
 
@@ -56,81 +78,18 @@ const Navbar = () => {
 
   return (
     <nav className="bg-white border-b-[2px] border-[#E5E5E5] h-[68px] flex-shrink-0  px-[20px] py-[16px]">
-      <div className="flex justify-between items-center max-w-[1326px] mx-auto">
+      <div className="flex justify-between items-center w-full">
         {/* LOGO */}
-        <Link to="/dashboard" className="logo-wrapper h-[36px] me-[16px]">
-          <img src={DashboardLogo} alt="" />
-        </Link>
-
+        <div className="h-[36px] flex items-center">
+          <p className="prod-12 font-semibold text-gray-700">HealthPH+</p>
+        </div>
         {/* NAVIGATION */}
         <div
           className={
-            "navigation h-full hidden md:flex flex-col md:flex-row justify-between items-center flex-grow " +
+            "navigation h-full hidden md:flex items-center ms-auto" +
             menuAnimate
           }
         >
-          <ul className="nav-links flex flex-col md:flex-row items-start w-full">
-            <li>
-              <NavLink
-                to="/dashboard"
-                end
-                onClick={() => {
-                  if (isMenuActive) {
-                    handleOpenMenu();
-                  }
-                }}
-              >
-                <Icon
-                  iconName="Analytics"
-                  height="20px"
-                  width="20px"
-                  className="icon"
-                />
-                <span>Analytics</span>
-              </NavLink>
-            </li>
-            <li>
-              <NavLink
-                to="/dashboard/trends-map"
-                onClick={() => {
-                  if (isMenuActive) {
-                    handleOpenMenu();
-                  }
-                }}
-              >
-                <Icon
-                  iconName="TrendsMap"
-                  height="20px"
-                  width="20px"
-                  className="icon icon-stroke"
-                />
-                <span>Trends Map</span>
-              </NavLink>
-            </li>
-            {!isPWA &&
-              user &&
-              ["ADMIN", "SUPERADMIN"].includes(user.user_type) && (
-                <li>
-                  <NavLink
-                    to="/dashboard/user-management"
-                    onClick={() => {
-                      if (isMenuActive) {
-                        handleOpenMenu();
-                      }
-                    }}
-                  >
-                    <Icon
-                      iconName="UserThree"
-                      height="20px"
-                      width="20px"
-                      className="icon"
-                    />
-                    <span>User Management</span>
-                  </NavLink>
-                </li>
-              )}
-          </ul>
-
           {/* SETTINGS */}
           <div className="features flex flex-col md:flex-row justify-center items-center md:h-full flex-shrink-0">
             <ul

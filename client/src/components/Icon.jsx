@@ -12,16 +12,18 @@ const Icon = ({
 }) => {
   const RawIcon = Icons[iconName];
 
-  return RawIcon ? (
+  if (!RawIcon) return null;
+
+  return (
     <RawIcon
-      fill={fill ?? "#FFF"}
+      fill={fill}
       stroke={stroke}
       height={height ?? "48px"}
       width={width ?? "48px"}
       className={className}
       onClick={onClick}
     />
-  ) : null;
+  );
 };
 
 export default Icon;

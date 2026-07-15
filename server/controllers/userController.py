@@ -29,6 +29,8 @@ from models.user import (
 from middleware.requireAuth import require_auth
 from middleware.requireAdmin import require_admin
 from middleware.requireSuperadmin import require_superadmin
+from middleware.requireRole import require_role
+
 from schema.userSchema import individual_user, list_users
 from helpers.miscHelpers import get_ph_datetime
 
@@ -448,7 +450,9 @@ route     GET api/users/admins/
 """
 
 
-async def fetch_admins():
+async def fetch_admins(
+    user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))]
+):
     admins = list_users(
         user_collection.find(
             {"$or": [{"user_type": "ADMIN"}, {"user_type": "SUPERADMIN"}]}
@@ -466,17 +470,19 @@ route     POST api/users
 
 async def create_user(
     user: CreateUserRequest,
-    is_admin: Annotated[AdminResult, Depends(require_admin)],
+    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
 ):
     errors = []
 
     # Check if user is an admin or superadmin
-    if not is_admin.result:
+    #commented this - moved to a centralized checking of user which is the code current_user
+    #not duplicated checking
+    """if not is_admin.result:
         errors.append({"field": "snackbar", "error": "Not authorized to add a user."})
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=errors,
-        )
+        ) """
 
     # Check fields if empty
     if (
@@ -571,12 +577,14 @@ async def create_user(
         )
 
     to_encode = dict(user).copy()
+    # Add role_label (future-ready for role classification)
+    to_encode.update({"role_label": to_encode.get("role_label", "")})
     # Set is_disabled status to False
     to_encode.update({"is_disabled": False})
     # Generate hashed password
     to_encode.update({"password": generate_hashed_password(to_encode["password"])})
     # Set id of admin who adds the user
-    to_encode.update({"user_who_added": is_admin.id})
+    to_encode.update({"user_who_added": str(current_user["_id"])})
 
     new_user = user_collection.insert_one(dict(to_encode))
 
@@ -710,14 +718,14 @@ route     DELETE api/users/admins/{id}
 
 
 async def delete_admin(
-    id: str, is_superadmin: Annotated[SuperadminResult, Depends(require_superadmin)]
+    id: str, current_user: Annotated[dict, Depends(require_role(["SUPERADMIN"]))]
 ):
     # Check if user / verifier is an admin or superadmin
-    if not is_superadmin.result:
+    """if not is_superadmin.result:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authorized to delete admin.",
-        )
+        ) """
 
     # Check if there is an id
     if not id:
@@ -733,7 +741,7 @@ async def delete_admin(
             detail="Failed to delete admin.",
         )
 
-    if id == is_superadmin.id:
+    if id == str(current_user["_id"]):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot delete own account.",
@@ -781,10 +789,10 @@ route     PUT api/users/disable/{id}
 async def set_disable_status(
     id: str,
     data: DisableUserRequest,
-    is_admin: Annotated[AdminResult, Depends(require_admin)],
+    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))]
 ):
     # Check if user is an admin or superadmin
-    if not is_admin.result:
+    """ if not is_admin.result:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=(
@@ -792,7 +800,7 @@ async def set_disable_status(
                 if data.disable_status
                 else "Failed to enable user."
             ),
-        )
+        ) """
 
     # Check if there is an id
     if not id:
@@ -884,46 +892,20 @@ async def update_user(
     data: UpdateUserRequest,
     is_admin: Annotated[AdminResult, Depends(require_admin)],
 ):
-
     errors = []
 
-    # Check if user is an admin or superadmin
     if not is_admin.result:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=("Failed to update user."),
+            detail="Failed to update user.",
         )
-
-    # Check fields if empty
-    if not data.accessible_regions:
-        if not data.accessible_regions:
-            errors.append(
-                {
-                    "field": "accessible_regions",
-                    "error": "Must choose at least one accessible region",
-                }
-            )
-
+    
+    if not id or not ObjectId.is_valid(id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=errors,
+            detail="Failed to update user.",
         )
-
-    # Check if there is an id
-    if not id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=("Failed to update user."),
-        )
-
-    # Check if id is a valid ObjectId
-    if not ObjectId.is_valid(id):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=("Failed to update user."),
-        )
-
-    # Check if user exists with id
+    
     user_data = user_collection.find_one({"_id": ObjectId(id)})
 
     if not user_data:
@@ -931,29 +913,115 @@ async def update_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User does not exist.",
         )
+    
+    first_name = data.first_name.strip() if data.first_name else ""
+    last_name = data.last_name.strip() if data.last_name else ""
+    email = data.email.strip().lower() if data.email else ""
+    region = data.region.strip() if data.region else ""
+    organization = data.organization.strip() if data.organization else ""
+    accessible_regions = (
+        data.accessible_regions.strip() if data.accessible_regions else ""
+    )
+    role_label = data.role_label.strip() if data.role_label else ""
 
-    # Update user data
+    if not first_name:
+        errors.append({"field": "first_name", "error": "Must enter first name"})
+
+    if not last_name:
+        errors.append({"field": "last_name", "error": "Must enter last name"})
+
+    if not email:
+        errors.append({"field": "email", "error": "Must enter email address"})
+
+    if not region:
+        errors.append({"field": "region", "error": "Must choose region"})
+
+    if not organization:
+        errors.append({"field": "organization", "error": "Must enter organization"})
+
+    if not accessible_regions:
+        errors.append(
+            {
+                "field": "accessible_regions", 
+                "error": "Must choose at least one accessible region",
+            }
+        )
+
+    valid_regions = [
+        "NCR",
+        "I",
+        "II",
+        "III",
+        "CAR",
+        "IVA",
+        "IVB",
+        "V",
+        "VI",
+        "VII",
+        "VIII",
+        "IX",
+        "X",
+        "XI",
+        "XII",
+        "XIII",
+        "BARMM",
+        "ALL",
+    ]
+
+    if region and region not in valid_regions:
+        errors.append({"field": "region", "error": "Invalid selected region"})
+
+    valid_roles = ["", "ANALYST", "DOH", "LGU", "RESEARCHER", "VIEWER", "FIELD_WORKER"]
+
+    if role_label not in valid_roles:
+        errors.append({"field": "role_label", "error": "Invalid selected role"})
+
+    valid_email = re.compile(
+        r"^([a-z0-9]+[a-z0-9!#$%&'*+/=?^_`{|}~-]?(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)$",
+        re.IGNORECASE,
+    )
+
+    if email and not valid_email.match(email):
+        errors.append({"field": "email", "error": "Must enter valid email address"})
+
+    email_user = user_collection.find_one({"email": email})
+
+    if email_user and str(email_user["_id"]) != id:
+        errors.append({"field": "email", "error": "Email address already exists"})
+
+    if errors:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=errors,
+        )
+    
     updated_user = user_collection.find_one_and_update(
         {"_id": ObjectId(id)},
         {
             "$set": {
-                "accessible_regions": data.accessible_regions,
+                "first_name": first_name,
+                "last_name": last_name,
+                "email": email,
+                "region": region,
+                "organization": organization,
+                "accessible_regions": accessible_regions,
+                "role_label": role_label,
                 "updated_at": get_ph_datetime(),
             }
         },
         return_document=ReturnDocument.AFTER,
     )
 
-    # If update failed
     if not updated_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=("Failed to update user."),
+            detail="Failed to update user.",
         )
-
+    
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={
-            "message": "User updated successfully.",
+            "message": " User updated successfully.",
+            "user": individual_user(updated_user),
         },
     )

@@ -35,6 +35,7 @@ class CreateUserRequest(BaseModel):
     password: str
     is_disabled: bool | None = False
     user_type: str
+    role_label: str | None = ""
     created_at: datetime = get_ph_datetime()
     updated_at: datetime = get_ph_datetime()
 
@@ -65,7 +66,13 @@ class DisableUserRequest(BaseModel):
 
 
 class UpdateUserRequest(BaseModel):
+    first_name: str
+    last_name: str
+    email: str
+    region: str
+    organization: str
     accessible_regions: str
+    role_label: str | None = ""
 
 
 class AdminResult(BaseModel):

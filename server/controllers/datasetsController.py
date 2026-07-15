@@ -8,6 +8,7 @@ from numpy import full
 import pymongo
 from typing_extensions import Annotated
 import pandas as pd
+import math
 
 from bson import ObjectId
 from fastapi import BackgroundTasks, Depends, HTTPException, UploadFile, status
@@ -16,6 +17,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from config.database import user_collection, dataset_collection
 from models.user import AdminResult
 from middleware.requireAdmin import require_admin
+from middleware.requireRole import require_role
 from schema.datasetSchema import individual_dataset, list_datasets
 from helpers.datasetsHelpers import annotation
 from helpers.miscHelpers import get_ph_datetime
@@ -26,10 +28,38 @@ datasets_folder = Path("public/datasets")
 
 annotated_datasets_folder = Path("public/annotated_datasets")
 
+RAW_DATASET_REQUIRED_HEADERS = [
+    "id",
+    "language",
+    "text",
+    "location",
+    "date_posted",
+    "source",
+    "date_collected",
+]
+
+def normalize_csv_header(header):
+    return str(header).strip().lower().replace(" ", "_")
+
+def is_template_dataset(raw_dataset_df):
+    if len(raw_dataset_df) != 1:
+        return False
+    
+    first_row = raw_dataset_df.iloc[0].fillna("").astype(str).str.strip()
+
+    return (
+        first_row.get("language", "").lower() == "english"
+        and first_row.get("text", "") == "Sample post text about lung-related diseases."
+        and first_row.get("location", "").lower() == "manila"
+        and first_row.get("date_posted", "") == "2026-01-15"
+        and first_row.get("source", "") == "Facebook"
+        and first_row.get("date_collected", "") == "2026-01-16"
+    )
 
 def annotate_dataset(
     dataset_data: dict,
     raw_dataset_filename: str,
+    raw_dataset_path: str,
     original_filename: str,
     user_name: str,
 ):
@@ -44,7 +74,10 @@ def annotate_dataset(
     )
 
     # Annotated dataset
-    annotated_datasets_path: str = annotation(raw_dataset_filename, result_filename)
+    # temp comment = needs to stop annotation for a moment 
+    #annotated_datasets_path: str = annotation(raw_dataset_filename, result_filename)
+
+    annotated_datasets_path = raw_dataset_path
 
     file_size = os.stat(annotated_datasets_path).st_size
 
@@ -90,6 +123,33 @@ def annotate_dataset(
     pass
 
 
+def run_dataset_processing_job(dataset_id: str):
+    dataset_collection.update_one(
+        {"_id": ObjectId(dataset_id)},
+        {
+            "$set": {
+                "dataset_status": "PROCESSING",
+                "processing_error": "",
+                "processed_at": None,
+            }
+        },
+    )
+
+    try:
+        raise NotImplementedError("Annotation processer not connected yet.")
+    except Exception as error:
+        dataset_collection.update_one(
+            {"_id": ObjectId(dataset_id)},
+            {
+                "$set": {
+                    "dataset_status": "FAILED",
+                    "processing_error": str(error),
+                    "processed_at": get_ph_datetime(),
+                }
+            },
+        )
+
+
 """
 @desc     Upload a single dataset
 route     POST api/datasets/upload
@@ -100,16 +160,16 @@ route     POST api/datasets/upload
 async def upload_dataset(
     background_tasks: BackgroundTasks,
     file: UploadFile,
-    is_admin: Annotated[AdminResult, Depends(require_admin)],
+    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
 ):
     # Check if user is an admin or superadmin
-    if not is_admin.result:
+    """if not is_admin.result:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authorized to upload a dataset.",
-        )
+        ) """
 
-    dataset_data = {"user_id": is_admin.id}
+    dataset_data = {"user_id": str(current_user["_id"])}
 
     to_encode = dict(dataset_data).copy()
 
@@ -155,22 +215,90 @@ async def upload_dataset(
     with open(full_path, "wb") as f:
         f.write(contents)
 
-    num_of_rows = len(pd.read_csv(full_path))
+    try:
+        raw_dataset_df = pd.read_csv(full_path, dtype=str, keep_default_na=False)
+    except pd.errors.EmptyDataError:
+        os.remove(full_path)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="CSV file is empty",
+        )
+    
+    # Check if there is missing headers
+    raw_dataset_df.columns = [
+        normalize_csv_header(column) for column in raw_dataset_df.columns
+    ]
 
-    csv_headers = list(pd.read_csv((full_path), nrows=3, usecols=range(3)).columns)
+    missing_headers = [
+        header
+        for header in RAW_DATASET_REQUIRED_HEADERS
+        if header not in raw_dataset_df.columns
+    ]
 
-    csv_headers = ["region", "province", "posts"]
+    if missing_headers:
+        os.remove(full_path)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Missing required columns: {', '.join(missing_headers)}",
+        )
+    
+    # remove blank comma rows
+    raw_dataset_df = raw_dataset_df.replace(r"^\s*$", pd.NA, regex=True)
 
-    preview_headers = "+".join(csv_headers)
+    raw_dataset_df = raw_dataset_df.dropna(
+        subset=RAW_DATASET_REQUIRED_HEADERS,
+        how="all",
+    )
 
-    preview_data = pd.read_csv((full_path), nrows=3, usecols=range(3)).to_json(
+    raw_dataset_df = raw_dataset_df.fillna("")
+
+    if raw_dataset_df.empty:
+        os.remove(full_path)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="CSV file has no data rows.",
+        )
+
+    # Check if uploaded is same as template
+    if is_template_dataset(raw_dataset_df):
+        os.remove(full_path)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please replace the sample template row with the real scraped data before uploading.",
+        )
+
+    # count rows
+    num_of_rows = len(raw_dataset_df)
+
+    # capture languages
+    languages = (
+        raw_dataset_df["language"]
+        .astype(str)
+        .str.strip()
+        .replace("", pd.NA)
+        .dropna()
+        .unique()
+        .tolist()
+    )
+
+    languages = sorted(languages)
+
+    # preview atleast 5% of total rows
+    preview_row_count = 0
+    
+    if num_of_rows > 0:
+        preview_row_count = min(
+            num_of_rows,
+            max(10, math.ceil(num_of_rows * 0.05)),
+        )
+
+    preview_headers = "+".join(RAW_DATASET_REQUIRED_HEADERS)
+
+    preview_data = raw_dataset_df[RAW_DATASET_REQUIRED_HEADERS].head(preview_row_count).to_json(
         orient="records"
     )
 
-    preview_data = pd.read_csv((full_path), nrows=3, usecols=csv_headers).to_json(
-        orient="records"
-    )
-
+    # Insert metadata
     to_encode.update(
         {
             "user_name": f"{user_data['first_name']} {user_data['last_name']}",
@@ -178,9 +306,15 @@ async def upload_dataset(
             "original_filename": original_filename,
             "file_size": file_size,
             "num_of_rows": num_of_rows,
+            "languages": languages,
+            "preview_row_count": preview_row_count,
             "preview_headers": str(preview_headers),
             "preview_data": json.dumps(preview_data),
             "dataset_type": "RAW",
+            "dataset_status": "UPLOADED",
+            "description": "",
+            "processing_error": "",
+            "processed_at": None,
             "created_at": get_ph_datetime(),
         }
     )
@@ -193,17 +327,77 @@ async def upload_dataset(
             detail="Failed to upload dataset",
         )
 
-    background_tasks.add_task(
+    #TEMP: disable automatic annotation during upload
+    #HealthPH+ will process annotation as a separate dataset action/job
+    """ background_tasks.add_task(
         annotate_dataset,
         dataset_data,
         filename,
+        str(full_path),
         original_filename,
         f"{user_data['first_name']} {user_data['last_name']}",
-    )
+    ) """
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={"message": "Dataset uploaded successfully"},
+    )
+
+
+async def process_dataset(
+    background_tasks: BackgroundTasks,
+    id: str,
+    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
+):
+    if not ObjectId.is_valid(id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid dataset ID",
+        )
+    
+    dataset_data = dataset_collection.find_one({"_id": ObjectId(id)})
+
+    if not dataset_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Dataset not found",
+        )
+    
+    if current_user["user_type"] != "SUPERADMIN":
+        if str(dataset_data.get("user_id")) != str(current_user["_id"]):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to process this dataset.",
+            )
+        
+    if dataset_data.get("dataset_type") != "RAW":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only raw datasets can be processed.",
+        )
+    
+    if dataset_data.get("dataset_status") in ["QUEUED", "PROCESSING"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Dataset is already queued or processing.",
+        )
+    
+    dataset_collection.update_one(
+        {"_id": ObjectId(id)},
+        {
+            "$set": {
+                "dataset_status": "QUEUED",
+                "processing_error": "",
+                "processed_at": None,
+            }
+        },
+    )
+
+    background_tasks.add_task(run_dataset_processing_job, id)
+
+    return JSONResponse(
+        status_code=status.HTTP_202_ACCEPTED,
+        content={"message": "Dataset queued for processing"},
     )
 
 
@@ -214,7 +408,11 @@ route     GET api/datasets/download/{filename}
 """
 
 
-async def download_dataset(id: str):
+async def download_dataset(
+    id: str,
+    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
+
+):
     # Check if there is id
     if not id:
         raise HTTPException(
@@ -235,6 +433,13 @@ async def download_dataset(id: str):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found"
         )
+
+    if current_user["user_type"] != "SUPERADMIN":
+        if str(dataset_data.get("user_id")) != str(current_user["_id"]):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to download this dataset.",
+            )
 
     filename = dataset_data["filename"]
 
@@ -342,7 +547,11 @@ route     DELETE api/datasets/{id}
 """
 
 
-async def delete_dataset(background_tasks: BackgroundTasks, id: str):
+async def delete_dataset(
+    background_tasks: BackgroundTasks, 
+    id: str,
+    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))]
+):
     # Check if there is id
     if not id:
         raise HTTPException(
@@ -363,6 +572,13 @@ async def delete_dataset(background_tasks: BackgroundTasks, id: str):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found"
         )
+    
+    if current_user["user_type"] != "SUPERADMIN":
+        if str(dataset_data.get("user_id")) != str(current_user["_id"]):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to delete this dataset.",
+            )
 
     deleted_dataset = dataset_collection.find_one_and_delete({"_id": ObjectId(id)})
 
@@ -401,7 +617,9 @@ route     DELETE api/datasets/all-datasets
 """
 
 
-async def delete_all_datasets():
+async def delete_all_datasets(
+        current_user: Annotated[dict, Depends(require_role(["SUPERADMIN"]))]
+):
     deleted = dataset_collection.delete_many({})
 
     if not deleted:
