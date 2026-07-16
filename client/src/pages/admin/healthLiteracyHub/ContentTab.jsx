@@ -1,8 +1,8 @@
 ﻿/* eslint-disable react/prop-types */
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import Input from "../../../components/Input";
 import Icon from "../../../components/Icon";
+import { ToolbarSearch } from "../../../components/ToolbarControls";
 import ModalWithBody from "../../../components/admin/ModalWithBody";
 import {
   useCreateHealthLiteracyAnalyticsEventMutation,
@@ -674,18 +674,10 @@ const ContentTab = ({ contentTypeLabel }) => {
   return (
     <>
       <div className="flex flex-col sm:flex-row gap-[12px] items-start sm:items-center">
-        <Input
-          size="input-md"
-          id={`search-${contentTypeLabel.toLowerCase()}`}
-          additionalClasses="flex-1"
+        <ToolbarSearch
           placeholder={`Search ${contentTypeLabel.toLowerCase()}...`}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          leadingIcon="Search"
-          trailingIcon={searchQuery.length > 0 ? "Close" : undefined}
-          onClickTrailing={
-            searchQuery.length > 0 ? () => setSearchQuery("") : undefined
-          }
         />
         <button
           onClick={handleCreateClick}
