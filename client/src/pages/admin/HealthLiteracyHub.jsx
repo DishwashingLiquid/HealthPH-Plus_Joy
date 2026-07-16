@@ -5,6 +5,11 @@ import ArticlesTab from "./healthLiteracyHub/ArticlesTab";
 import InfographicsTab from "./healthLiteracyHub/InfographicsTab";
 import VideosTab from "./healthLiteracyHub/VideosTab";
 import { ILLUSTRATIONS } from "./healthLiteracyHub/shared";
+import {
+  DASHBOARD_PAGE_SUBTITLE_CLASS,
+  DASHBOARD_PAGE_TITLE_CLASS,
+  DASHBOARD_SECTION_TITLE_CLASS,
+} from "./dashboardTypography";
 
 const TABS = [
   { id: "Articles", label: "Articles", Component: ArticlesTab },
@@ -21,10 +26,10 @@ const HealthLiteracyHub = () => {
   return (
     <div className="flex flex-col gap-[20px]">
       <div>
-        <h1 className="text-[28px] font-semibold text-gray-800">
+        <h1 className={DASHBOARD_PAGE_TITLE_CLASS}>
           Health Literacy Hub
         </h1>
-        <p className="text-gray-500 mt-[4px]">
+        <p className={`${DASHBOARD_PAGE_SUBTITLE_CLASS} mt-[4px]`}>
           Access educational resources, multilingual content, and community
           insights to enhance your health knowledge.
         </p>
@@ -44,7 +49,7 @@ const HealthLiteracyHub = () => {
                 fill="#6A8EB5"
               />
             </div>
-            <h3 className="text-[18px] font-semibold text-gray-800 mb-[8px]">
+            <h3 className={`${DASHBOARD_SECTION_TITLE_CLASS} mb-[8px]`}>
               {illustration.title}
             </h3>
             <p className="text-[14px] text-gray-500">

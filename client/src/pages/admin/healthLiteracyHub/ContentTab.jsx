@@ -7,6 +7,7 @@ import ModalWithBody from "../../../components/admin/ModalWithBody";
 import {
   useCreateHealthLiteracyAnalyticsEventMutation,
   useCreateHealthLiteracyContentMutation,
+  useDeleteHealthLiteracyContentMutation,
   useFetchHealthLiteracyContentQuery,
   useUpdateHealthLiteracyContentMutation,
 } from "../../../features/api/healthLiteracyHubSlice";
@@ -241,6 +242,7 @@ const ContentTab = ({ contentTypeLabel }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedMediaContent, setSelectedMediaContent] = useState(null);
   const [editingContent, setEditingContent] = useState(null);
   const [formData, setFormData] = useState(INITIAL_FORM_DATA);
@@ -256,6 +258,8 @@ const ContentTab = ({ contentTypeLabel }) => {
     useCreateHealthLiteracyContentMutation();
   const [updateHealthLiteracyContent, { isLoading: isUpdatingContent }] =
     useUpdateHealthLiteracyContentMutation();
+  const [deleteHealthLiteracyContent, { isLoading: isDeletingContent }] =
+    useDeleteHealthLiteracyContentMutation();
   const [createHealthLiteracyAnalyticsEvent] =
     useCreateHealthLiteracyAnalyticsEventMutation();
 
@@ -287,6 +291,13 @@ const ContentTab = ({ contentTypeLabel }) => {
 
   const resetForm = () => {
     setFormData(INITIAL_FORM_DATA);
+  };
+
+  const closeEditModal = () => {
+    setIsDeleteModalOpen(false);
+    setIsEditModalOpen(false);
+    setEditingContent(null);
+    resetForm();
   };
 
   const filterContent = (content) => {
@@ -530,9 +541,7 @@ const ContentTab = ({ contentTypeLabel }) => {
         message: `${getContentLabel(contentTypeLabel)} updated successfully`,
       });
 
-      setIsEditModalOpen(false);
-      setEditingContent(null);
-      resetForm();
+      closeEditModal();
     } catch (error) {
       showToast({
         iconName: "Error",
@@ -550,6 +559,33 @@ const ContentTab = ({ contentTypeLabel }) => {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
+  };
+
+  const handleDeleteSubmit = async () => {
+    if (!editingContent) return;
+
+    try {
+      await deleteHealthLiteracyContent({
+        contentType,
+        contentId: editingContent.id,
+      }).unwrap();
+
+      showToast({
+        iconName: "CheckCircle",
+        color: "success",
+        message: `${getContentLabel(contentTypeLabel)} deleted successfully`,
+      });
+
+      closeEditModal();
+    } catch (error) {
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message:
+          error?.data?.detail ??
+          `Failed to delete ${getContentLabel(contentTypeLabel).toLowerCase()}`,
+      });
+    }
   };
 
   const handleTagsChange = (tags) => {
@@ -653,7 +689,7 @@ const ContentTab = ({ contentTypeLabel }) => {
         />
         <button
           onClick={handleCreateClick}
-          className="prod-btn-base prod-btn-primary flex justify-center items-center whitespace-nowrap"
+          className="prod-btn-base admin-module-brand-btn flex justify-center items-center whitespace-nowrap"
         >
           <span>Create New Content</span>
           <Icon
@@ -688,7 +724,7 @@ const ContentTab = ({ contentTypeLabel }) => {
           onLoadingLabel="Creating..."
           heading={`Create New ${getContentLabel(contentTypeLabel)}`}
           color="primary"
-          additionalClasses="health-literacy-content-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
+          additionalClasses="health-literacy-content-modal admin-brand-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
         >
           <ContentFormBody
             formData={formData}
@@ -708,16 +744,12 @@ const ContentTab = ({ contentTypeLabel }) => {
         <ModalWithBody
           onConfirm={handleEditSubmit}
           onConfirmLabel="Save"
-          onCancel={() => {
-            setIsEditModalOpen(false);
-            setEditingContent(null);
-            resetForm();
-          }}
+          onCancel={closeEditModal}
           onLoading={isUpdatingContent}
           onLoadingLabel="Saving..."
           heading={`Edit ${getContentLabel(contentTypeLabel)}`}
           color="primary"
-          additionalClasses="health-literacy-content-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
+          additionalClasses="health-literacy-content-modal admin-brand-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
         >
           <ContentFormBody
             formData={formData}
@@ -729,7 +761,28 @@ const ContentTab = ({ contentTypeLabel }) => {
             onMediaChange={handleMediaChange}
             onMediaDrop={handleMediaDrop}
             onRemoveMedia={handleRemoveMedia}
+            onDelete={() => setIsDeleteModalOpen(true)}
+            onDeleteDisabled={isUpdatingContent || isDeletingContent}
           />
+        </ModalWithBody>
+      )}
+
+      {isDeleteModalOpen && editingContent && (
+        <ModalWithBody
+          onConfirm={handleDeleteSubmit}
+          onConfirmLabel="Delete"
+          onCancel={() => setIsDeleteModalOpen(false)}
+          onLoading={isDeletingContent}
+          onLoadingLabel="Deleting..."
+          heading="Delete Content"
+          color="destructive"
+          additionalClasses="!z-[70]"
+        >
+          <div className="p-[20px]">
+            <p className="text-[14px] text-gray-700">
+              Are you sure you want to delete this content?
+            </p>
+          </div>
         </ModalWithBody>
       )}
 
@@ -740,7 +793,7 @@ const ContentTab = ({ contentTypeLabel }) => {
           onCancel={() => setSelectedMediaContent(null)}
           heading={selectedMediaContent.title}
           color="primary"
-          additionalClasses="health-literacy-content-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
+          additionalClasses="health-literacy-content-modal admin-brand-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
         >
           <MediaPreviewBody
             item={selectedMediaContent.item}

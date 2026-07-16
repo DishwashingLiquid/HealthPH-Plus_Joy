@@ -37,7 +37,7 @@ CONTENT_MEDIA_PREFIXES = {
     "videos": ("video/",),
 }
 
-health_literacy_folder = Path("public/health-literacy-hub")
+health_literacy_folder = Path(__file__).resolve().parent.parent / "public" / "health-literacy-hub"
 health_literacy_media_folder = health_literacy_folder / "media"
 _migrated_content_types = set()
 
@@ -113,6 +113,8 @@ FACT_CHECK_VERIFIERS = {
     "Medical Expert",
     "Project Researcher",
 }
+
+
 def _get_content_path(content_type: str) -> Path:
     if content_type not in CONTENT_FILES:
         raise HTTPException(
@@ -363,6 +365,7 @@ def _write_content(content_type: str, content: list) -> None:
 
     _ensure_content_indexes()
     content_documents = []
+    json_content = []
 
     for item in content:
         if not isinstance(item, dict):
@@ -377,7 +380,15 @@ def _write_content(content_type: str, content: list) -> None:
         content_document["id"] = str(content_document.get("id") or uuid4())
         content_documents.append(content_document)
 
+        json_document = dict(content_document)
+        json_document.pop("contentType", None)
+        json_content.append(json_document)
+
     content_ids = [item["id"] for item in content_documents]
+    _get_content_path(content_type).write_text(
+        json.dumps(json_content, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
     for content_document in content_documents:
         health_literacy_content_collection.replace_one(
@@ -419,6 +430,38 @@ def _get_content_document(content_type: str, content_id: str) -> dict:
         )
 
     return content_item
+
+
+def _get_stored_media_filename(media: Optional[dict]) -> Optional[str]:
+    if not isinstance(media, dict):
+        return None
+
+    stored_filename = str(media.get("storedFilename") or "").strip()
+    if stored_filename:
+        safe_filename = Path(stored_filename).name
+        if safe_filename == stored_filename:
+            return safe_filename
+
+    media_url = str(media.get("url") or "").strip()
+    if not media_url:
+        return None
+
+    return Path(media_url).name or None
+
+
+def _delete_media_file(content_type: str, media: Optional[dict]) -> None:
+    stored_filename = _get_stored_media_filename(media)
+    if not stored_filename:
+        return
+
+    media_folder = _get_media_folder(content_type).resolve()
+    media_path = (media_folder / stored_filename).resolve()
+
+    if media_folder not in media_path.parents:
+        return
+
+    if media_path.exists() and media_path.is_file():
+        media_path.unlink()
 
 
 def _get_published_mobile_match(content_type: Optional[str] = None) -> dict:
@@ -1488,5 +1531,41 @@ async def update_health_literacy_content(
         content={
             "message": "Health Literacy Hub content updated successfully",
             "content": updated_content,
+        },
+    )
+
+
+"""
+@desc     Delete Health Literacy Hub content
+route     DELETE api/health-literacy-hub/{content_type}/{content_id}
+@access   Private
+"""
+
+
+async def delete_health_literacy_content(
+    content_type: str,
+    content_id: str,
+    current_user: Annotated[
+        dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))
+    ],
+):
+    if content_type not in CONTENT_FILES:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Health Literacy Hub content type not found",
+        )
+
+    content = _read_content(content_type)
+    content_index = _find_content_index(content, content_id)
+    deleted_content = content.pop(content_index)
+
+    _delete_media_file(content_type, deleted_content.get("media"))
+    _write_content(content_type, content)
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "message": "Health Literacy Hub content deleted successfully",
+            "content": deleted_content,
         },
     )

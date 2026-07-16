@@ -5,6 +5,10 @@ import {
   formatNumber,
 } from "../../../assets/data/sentimentMockData";
 import MobileSurveyResultsModal from "./MobileSurveyResultsModal";
+import {
+  DASHBOARD_CARD_SUBTITLE_CLASS,
+  DASHBOARD_CARD_TITLE_CLASS,
+} from "../dashboardTypography";
 
 const statusStyles = {
   Draft: "bg-blue-50 text-blue-700",
@@ -98,7 +102,7 @@ export default function MobileSurveys({ surveys = [], isLoading, isError }) {
               <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className={DASHBOARD_CARD_TITLE_CLASS}>
                       {survey.title}
                     </h3>
                     <span
@@ -107,7 +111,7 @@ export default function MobileSurveys({ surveys = [], isLoading, isError }) {
                       {survey.status}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className={`${DASHBOARD_CARD_SUBTITLE_CLASS} mt-1`}>
                     {survey.subtitle}
                   </p>
                   {(scheduledAtLabel || publishedAtLabel) && (
@@ -189,8 +193,8 @@ export default function MobileSurveys({ surveys = [], isLoading, isError }) {
                   </button>
                   <button
                     onClick={() => handleEdit(survey.id)}
-                    className="min-h-[40px] px-3 py-2 bg-[#2563EB] text-white border border-[#1D4ED8] shadow-sm font-semibold rounded-lg hover:bg-[#1D4ED8] transition-colors duration-200 text-sm"
-                    style={{ backgroundColor: "#2563EB", color: "#FFFFFF" }}
+                    className="admin-module-brand-btn min-h-[40px] rounded-lg border px-3 py-2 text-sm font-semibold transition-colors duration-200"
+                    style={{ color: "#FFFFFF" }}
                   >
                     Edit
                   </button>

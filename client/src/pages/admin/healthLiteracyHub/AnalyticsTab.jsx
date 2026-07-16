@@ -20,6 +20,10 @@ import {
   showToast,
   slugify,
 } from "./shared";
+import {
+  DASHBOARD_PAGE_SUBTITLE_CLASS,
+  DASHBOARD_SECTION_TITLE_CLASS,
+} from "../dashboardTypography";
 
 const ANALYTICS_DASHBOARD_LABEL = "Analytics Dashboard";
 
@@ -125,10 +129,10 @@ const AnalyticsTab = () => {
       <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[16px]">
         <div className="flex flex-col gap-[14px] lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="text-[22px] font-semibold text-gray-900">
+            <h2 className={DASHBOARD_SECTION_TITLE_CLASS}>
               Health Literacy Analytics
             </h2>
-            <p className="mt-[4px] text-[14px] text-gray-500">
+            <p className={`${DASHBOARD_PAGE_SUBTITLE_CLASS} mt-[4px]`}>
               Monitor content usage, engagement, and top-performing health
               literacy resources.
             </p>
@@ -137,7 +141,7 @@ const AnalyticsTab = () => {
             <button
               type="button"
               onClick={handleExportCsv}
-              className="prod-btn-base prod-btn-primary flex min-h-[40px] items-center justify-center gap-[8px] px-[14px]"
+              className="prod-btn-base admin-module-brand-btn flex min-h-[40px] items-center justify-center gap-[8px] px-[14px]"
             >
               <Icon iconName="Download" height="18px" width="18px" fill="#FFF" />
               <span>CSV</span>
@@ -145,7 +149,7 @@ const AnalyticsTab = () => {
             <button
               type="button"
               onClick={handleExportPdf}
-              className="prod-btn-base prod-btn-primary flex min-h-[40px] items-center justify-center gap-[8px] px-[14px]"
+              className="prod-btn-base admin-module-brand-btn flex min-h-[40px] items-center justify-center gap-[8px] px-[14px]"
             >
               <Icon iconName="Printer" height="18px" width="18px" fill="#FFF" />
               <span>PDF</span>
