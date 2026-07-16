@@ -18,11 +18,27 @@ import MultiSelect from "../../components/MultiSelect";
 import Regions from "../../assets/data/regions.json";
 
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+
+import {
   useFetchAdminsQuery,
   useFetchUsersQuery,
   useCreateUserMutation,
 } from "../../features/api/userSlice";
-import { useCreateActivityLogMutation } from "../../features/api/activityLogsSlice";
+import {
+  useCreateActivityLogMutation,
+  useFetchActivityLogsQuery,
+} from "../../features/api/activityLogsSlice";
 import useDeviceDetect from "../../hooks/useDeviceDetect";
 import Snackbar from "../../components/Snackbar";
 import { toast } from "react-toastify";
@@ -33,6 +49,11 @@ const UserManagement = () => {
   const user = useSelector((state) => state.auth.user);
 
   const [log_activity] = useCreateActivityLogMutation();
+
+  const {
+    data: activityLogs = [],
+    isLoading: isActivityLogsLoading,
+  } = useFetchActivityLogsQuery();
 
   let {
     data: admins,
@@ -215,6 +236,7 @@ const UserManagement = () => {
     { label: "Admins", count: 0 },
     { label: "Users", count: 0 },
     { label: "Organizations", count: 0 },
+    { label: "User Analytics", count: 0 },
   ]);
 
   const [currentTableTab, setCurrentTableTab] = useState(
@@ -258,12 +280,14 @@ const UserManagement = () => {
           { label: "Admins", count: filteredAdmins.length },
           { label: "Users", count: filteredUsers.length },
           { label: "Organizations", count: filteredOrganizations.length },
+          { label: "User Analytics", count: allAccounts.length },
         ]);
       } else {
         setTabs([
           { label: "Admins", count: admins.length },
           { label: "Users", count: users.length },
           { label: "Organizations", count: organizationList.length },
+          { label: "User Analytics", count: allAccounts.length },
         ]);
       }
     }
@@ -289,15 +313,21 @@ const UserManagement = () => {
       ? currentAdminsData.length
       : currentTableTab == "Users"
       ? currentUsersData.length
-      : filteredOrganizations.length;
+      : currentTableTab == "Organizations"
+      ? filteredOrganizations.length
+      : allAccounts.length;
 
   const openAddUserModal = () => {
     setAddUserMode(currentTableTab == "Admins" ? "ADMIN" : "USER");
     setAddUserModalActive(true);
   };
 
-  const isCurrentTableLoading = 
-    currentTableTab == "Admins" ? isAdminsLoading : isUsersLoading;
+  const isCurrentTableLoading =
+    currentTableTab == "Admins"
+      ? isAdminsLoading
+      : currentTableTab == "Users"
+      ? isUsersLoading
+      : isAdminsLoading || isUsersLoading;
 
   const currentTableSkeletonColumns = currentTableTab == "Admins" ? 6 : 8;
 
@@ -318,7 +348,9 @@ const UserManagement = () => {
         <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[12px]">
           <div
             className={`grid gap-[8px] rounded-[10px] bg-[#F5F5F5] p-[6px] ${
-              visibleTabs.length === 3
+              visibleTabs.length === 4
+                ? "grid-cols-4"
+                : visibleTabs.length === 3
                 ? "grid-cols-3"
                 : visibleTabs.length === 2
                 ? "grid-cols-2"
@@ -451,7 +483,7 @@ const UserManagement = () => {
                       LGU: "LGU Worker",
                       RESEARCHER: "Researcher",
                       VIEWER: "Viewer",
-                      FIELD_WORK: "Field Worker"
+                      FIELD_WORKER: "Field Worker",
                     };
 
                     data.push(regions[value.region] || value.region || "-");
@@ -488,8 +520,16 @@ const UserManagement = () => {
                 setSearchQuery={setSearchQuery}
                 setCurrentData={setCurrentUsersData}
               />
-            ) : (
+            ) : currentTableTab == "Organizations" ? (
               <OrganizationsPanel organizations={filteredOrganizations} />
+            ) : (
+              <UserAnalyticsPanel
+                users={users || []}
+                organizations={organizationList}
+                activityLogs={activityLogs || []}
+                isActivityLogsLoading={isActivityLogsLoading}
+                getRegionLabel={getRegionLabel}
+              />
             )}
           </div>
         </div>
@@ -1141,6 +1181,260 @@ const OrganizationsPanel = ({ organizations }) => {
   );
 };
 
+const UserAnalyticsPanel = ({
+  users = [],
+  organizations = [],
+  activityLogs = [],
+  isActivityLogsLoading,
+  getRegionLabel,
+}) => {
+  const disabledUsers = users.filter((user) => user.is_disabled).length;
+  const activeUsers = users.length - disabledUsers;
+  const userActivityLogs = activityLogs.filter((log) => log.user_type === "USER");
+
+  const roleDefinitions = [
+    { value: "ANALYST", label: "Analyst", color: "#32418C" },
+    { value: "DOH", label: "DOH Official", color: "#2572A5" },
+    { value: "LGU", label: "LGU Worker", color: "#9BCC33" },
+    { value: "RESEARCHER", label: "Researcher", color: "#FBD117" },
+    { value: "VIEWER", label: "Viewer", color: "#4B5563" },
+    { value: "FIELD_WORKER", label: "Field Worker", color: "#F97316" },
+  ];
+
+  const roleRegionDistribution = Object.values(
+    users.reduce((collection, user) => {
+      const region = getRegionLabel(user.region);
+
+      if (!collection[region]) {
+        collection[region] = { region };
+        roleDefinitions.forEach((role) => {
+          collection[region][role.value] = 0;
+        });
+      }
+
+      if (user.role_label in collection[region]) {
+        collection[region][user.role_label] += 1;
+      }
+
+      return collection;
+    }, {})
+  );
+
+  const activityByDay = Array.from({ length: 7 }).map((_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (6 - index));
+
+    return {
+      key: format(date, "yyyy-MM-dd"),
+      day: format(date, "EEE"),
+      actions: 0,
+    };
+  });
+
+  userActivityLogs.forEach((log) => {
+    const logDate = new Date(log.created_at);
+    if (Number.isNaN(logDate.getTime())) return;
+
+    const match = activityByDay.find(
+      (day) => day.key === format(logDate, "yyyy-MM-dd")
+    );
+
+    if (match) {
+      match.actions += 1;
+    }
+  });
+
+  const recentActivityLogs = [...userActivityLogs]
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 8);
+
+  const formatLoggedAt = (value) => {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? "-"
+      : format(date, "MMM dd, yyyy hh:mm a");
+  };
+
+  const getRelativeTime = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "-";
+
+    const diffMs = Date.now() - date.getTime();
+    const diffMinutes = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMinutes < 1) return "Just now";
+    if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes === 1 ? "" : "s"} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+
+    return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+  };
+
+  return (
+    <div className="flex flex-col gap-[16px]">
+      <div className="grid grid-cols-1 gap-[12px] md:grid-cols-2 xl:grid-cols-4">
+        <AnalyticsSummaryCard label="Total Users" value={users.length} helper={`${activeUsers} active`} />
+        <AnalyticsSummaryCard label="Organizations" value={organizations.length} helper="Derived from accounts" />
+        <AnalyticsSummaryCard label="Roles" value={roleDefinitions.length} helper="Configured user roles" />
+        <AnalyticsSummaryCard label="Disabled Users" value={`${disabledUsers} of ${users.length}`} helper="Users without access" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-[16px] xl:grid-cols-2">
+        <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
+          <h2 className="text-[18px] font-semibold text-gray-800">User Activity</h2>
+          <p className="text-sm text-gray-500">User activity log volume over the past week.</p>
+
+          <div className="mt-[16px] h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={activityByDay}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="day" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Line
+                  type="monotone"
+                  dataKey="actions"
+                  name="User Actions"
+                  stroke="#32418C"
+                  strokeWidth={3}
+                  dot={{ r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
+          <h2 className="text-[18px] font-semibold text-gray-800">
+            User Role Distribution by Region
+          </h2>
+          <p className="text-sm text-gray-500">
+            Regional user counts grouped by assigned role.
+          </p>
+
+          <div className="mt-[16px] h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={roleRegionDistribution}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="region" tick={{ fontSize: 12 }} />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Legend
+                  verticalAlign="bottom"
+                  align="center"
+                  iconType="circle"
+                  wrapperStyle={{
+                    paddingTop: "12px",
+                    lineHeight: "20px",
+                  }}
+                />
+                {roleDefinitions.map((role) => (
+                  <Bar
+                    key={role.value}
+                    dataKey={role.value}
+                    name={role.label}
+                    stackId="roles"
+                    fill={role.color}
+                  />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
+        <h2 className="text-[18px] font-semibold text-gray-800">
+          Recent User Activity
+        </h2>
+        <p className="text-sm text-gray-500">
+          Latest recorded actions from activity logs.
+        </p>
+
+        <div className="mt-[16px] overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
+                <th className="px-[10px] py-[12px] font-medium">User</th>
+                <th className="px-[10px] py-[12px] font-medium">
+                  <div className="flex items-center gap-[6px]">
+                    <span>Entry</span>
+                    <span title="Entry means the action performed by the user.">
+                      <Icon
+                        iconName="Information"
+                        height="14px"
+                        width="14px"
+                        fill="#8693A0"
+                      />
+                    </span>
+                  </div>
+                </th>
+                <th className="px-[10px] py-[12px] font-medium">Module</th>
+                <th className="px-[10px] py-[12px] font-medium">Time</th>
+                <th className="px-[10px] py-[12px] font-medium">IP Address</th>
+                <th className="px-[10px] py-[12px] font-medium">Logged At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isActivityLogsLoading ? (
+                <tr>
+                  <td className="px-[10px] py-[14px] text-gray-500" colSpan={6}>
+                    Loading activity logs...
+                  </td>
+                </tr>
+              ) : recentActivityLogs.length > 0 ? (
+                recentActivityLogs.map((log) => (
+                  <tr key={log.id} className="border-b border-[#F0F0F0]">
+                    <td className="px-[10px] py-[14px] font-medium text-gray-800">
+                      <div>{log.user_name || "-"}</div>
+                      <div className="text-xs font-normal text-gray-500">
+                        {log.user_type || "-"}
+                      </div>
+                    </td>
+                    <td className="px-[10px] py-[14px] text-gray-600">
+                      <div className="flex max-w-[360px] items-center gap-[6px]">
+                        <span className="truncate">{log.entry || "-"}</span>
+                      </div>
+                    </td>
+                    <td className="px-[10px] py-[14px] text-gray-600">
+                      {log.module || "-"}
+                    </td>
+                    <td className="px-[10px] py-[14px] text-gray-600">
+                      {getRelativeTime(log.created_at)}
+                    </td>
+                    <td className="px-[10px] py-[14px] text-gray-600">
+                      {log.ip_address || log.ip || "-"}
+                    </td>
+                    <td className="px-[10px] py-[14px] text-gray-600">
+                      {formatLoggedAt(log.created_at)}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td className="px-[10px] py-[14px] text-gray-500" colSpan={6}>
+                    No user activity logs found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+  
+const AnalyticsSummaryCard = ({ label, value, helper }) => (
+  <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[16px]">
+    <p className="text-sm text-gray-500">{label}</p>
+    <p className="mt-[6px] text-[28px] font-semibold text-gray-900">{value}</p>
+    <p className="mt-[2px] text-sm text-gray-500">{helper}</p>
+  </div>
+);
+
 const UserManagementTabButton = ({ label, active, onClick }) => {
   return (
     <button
@@ -1158,4 +1452,3 @@ const UserManagementTabButton = ({ label, active, onClick }) => {
 };
 
 export default UserManagement;
-

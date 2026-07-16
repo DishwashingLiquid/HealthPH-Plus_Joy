@@ -7,6 +7,7 @@ def individual_activity_log(log) -> dict:
         "user_type": log["user_type"] ,
         "entry": log["entry"],
         "module": log["module"],
+        "ip_address": log.get("ip_address", ""),
         "created_at": str(log["created_at"]) if "created_at" in log.keys() else "",
     }
 
