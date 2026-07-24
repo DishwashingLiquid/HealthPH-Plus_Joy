@@ -1,5 +1,5 @@
 import "./App.css";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { ToastContainer } from "react-toastify";
@@ -12,26 +12,19 @@ import AdminLayout from "./layouts/AdminLayout";
 import DashboardMiddleware from "./middlewares/DashboardMiddleware";
 import AuthMiddleware from "./middlewares/AuthMiddleware";
 
-import Home from "./pages/Home";
-import AboutUs from "./pages/AboutUs";
-import ResearchTeam from "./pages/ResearchTeam";
 import Articles from "./pages/Articles";
 import ArticlePage from "./pages/ArticlePage";
 import ContactUs from "./pages/ContactUs";
 
-import Login from "./pages/auth/Login";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
 
 import AISurveillance from "./pages/admin/AISurveillance";
-import HealthLiteracyHub from "./pages/admin/HealthLiteracyHub";
-import DiseaseWatchFeed from "./pages/admin/DiseaseWatchFeed";
 import NLPInsights from "./pages/admin/NLPInsights";
 import MisinformationTracker from "./pages/admin/MisinformationTracker";
 import ModelAccessToolkit from "./pages/admin/ModelAccessToolkit";
 import Analytics from "./pages/admin/Analytics";
 import TrendsMap from "./pages/admin/TrendsMap";
-import SentimentPulseTool from "./pages/admin/SentimentPulseTool";
 import UploadDataset from "./pages/admin/UploadDataset";
 import UserManagement from "./pages/admin/UserManagement";
 import AddUser from "./pages/admin/AddUser";
@@ -50,6 +43,14 @@ import useDeviceDetect from "./hooks/useDeviceDetect";
 import FullMap from "./pages/admin/FullMap";
 import Print from "./pages/Print";
 
+const Home = lazy(() => import("./pages/Home"));
+const AboutUs = lazy(() => import("./pages/AboutUs"));
+const ResearchTeam = lazy(() => import("./pages/ResearchTeam"));
+const Login = lazy(() => import("./pages/auth/Login"));
+const HealthLiteracyHub = lazy(() => import("./pages/admin/HealthLiteracyHub"));
+const DiseaseWatchFeed = lazy(() => import("./pages/admin/DiseaseWatchFeed"));
+const SentimentPulseTool = lazy(() => import("./pages/admin/SentimentPulseTool"));
+
 function App() {
   const user = useSelector((state) => state.auth.user);
 
@@ -67,6 +68,15 @@ function App() {
     setIsLoading(false);
   }, []);
 
+  const renderLazyRoute = (title, Component) => (
+    <>
+      <HelmetTitle title={title} />
+      <Suspense fallback={<p>...</p>}>
+        <Component />
+      </Suspense>
+    </>
+  );
+
   return isLoading ? (
     <p>...</p>
   ) : (
@@ -78,10 +88,7 @@ function App() {
             index
             element={
               !isPWA ? (
-                <>
-                  <HelmetTitle title="HealthPH" />
-                  <Home />
-                </>
+                renderLazyRoute("HealthPH", Home)
               ) : (
                 <Navigate to="/login" />
               )
@@ -91,10 +98,7 @@ function App() {
             path="about-the-project"
             element={
               !isPWA ? (
-                <>
-                  <HelmetTitle title="HealthPH | About Us" />
-                  <AboutUs />
-                </>
+                renderLazyRoute("HealthPH | About Us", AboutUs)
               ) : (
                 <Navigate to="/login" />
               )
@@ -130,10 +134,7 @@ function App() {
             path="research-team"
             element={
               !isPWA ? (
-                <>
-                  <HelmetTitle title="HealthPH | Research Team" />
-                  <ResearchTeam />
-                </>
+                renderLazyRoute("HealthPH | Research Team", ResearchTeam)
               ) : (
                 <Navigate to="/login" />
               )
@@ -165,10 +166,7 @@ function App() {
             <Route
               path="login"
               element={
-                <>
-                  <HelmetTitle title="HealthPH | Sign In" />
-                  <Login />
-                </>
+                renderLazyRoute("HealthPH | Sign In", Login)
               }
             ></Route>
             <Route
@@ -206,10 +204,10 @@ function App() {
             <Route
               path="health-literacy-hub"
               element={
-                <>
-                  <HelmetTitle title="HealthPH | Health Literacy Hub" />
-                  <HealthLiteracyHub />
-                </>
+                renderLazyRoute(
+                  "HealthPH | Health Literacy Hub",
+                  HealthLiteracyHub
+                )
               }
             />
             <Route
@@ -221,13 +219,13 @@ function App() {
                 </>
               }
             />
-             <Route
+            <Route
               path="disease-watch-feed"
               element={
-                <>
-                  <HelmetTitle title="HealthPH | Disease Watch Feed" />
-                  <DiseaseWatchFeed />
-                </>
+                renderLazyRoute(
+                  "HealthPH | Disease Watch Feed",
+                  DiseaseWatchFeed
+                )
               }
             />
             <Route
@@ -260,10 +258,10 @@ function App() {
             <Route
               path="sentiment-pulse"
               element={
-                <>
-                  <HelmetTitle title="HealthPH | Sentiment Pulse Tool" />
-                  <SentimentPulseTool />
-                </>
+                renderLazyRoute(
+                  "HealthPH | Sentiment Pulse Tool",
+                  SentimentPulseTool
+                )
               }
             />
             <Route

@@ -410,7 +410,7 @@ const UserManagement = () => {
               {canManageUsers && isAccountTableTab && (
                 <button
                   type="button"
-                  className="flex items-center gap-[8px] rounded-[10px] bg-[#32418C] px-[16px] py-[10px] text-sm text-white"
+                  className="admin-module-brand-btn flex items-center gap-[8px] rounded-[10px] border px-[16px] py-[10px] text-sm text-white"
                   onClick={openAddUserModal}
                 >
                   <Icon
@@ -1090,7 +1090,7 @@ const UserAccountModal = ({ mode, currentUser, onClose }) => {
           </button>
           <button
             type="submit"
-            className="rounded-[8px] bg-[#32418C] px-[14px] py-[9px] text-sm text-white"
+            className="admin-module-brand-btn rounded-[8px] border px-[14px] py-[9px] text-sm text-white"
             disabled={isLoading}
           >
             {isLoading ? "Saving..." : "Save"}

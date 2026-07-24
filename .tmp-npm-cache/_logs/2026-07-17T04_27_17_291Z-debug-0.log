@@ -1,0 +1,21 @@
+0 verbose cli C:\Program Files\nodejs\node.exe C:\Users\Janzzen\AppData\Roaming\npm\node_modules\npm\bin\npm-cli.js
+1 info using npm@11.12.1
+2 info using node@v22.14.0
+3 silly config load:file:C:\Users\Janzzen\AppData\Roaming\npm\node_modules\npm\npmrc
+4 silly config load:file:C:\Users\Janzzen\Desktop\HealthPH-Plus_Joy\.npmrc
+5 silly config load:file:C:\Users\Janzzen\.npmrc
+6 silly config load:file:C:\Users\Janzzen\AppData\Roaming\npm\etc\npmrc
+7 verbose title npm exec node -e const { chromium } = require('playwright'); (async()=>{ const browser = await chromium.launch({ channel: 'msedge', headless: true }); const page = await browser.newPage(); await page.goto('http://localhost:5174/login', { waitUntil: 'networkidle' }); console.log(await page.title()); console.log((await page.textContent('body')).slice(0,120)); await browser.close(); })().catch(err=>{ console.error(err); process.exit(1); });
+8 verbose argv "exec" "--package" "playwright" "--" "node" "-e" "const { chromium } = require('playwright'); (async()=>{ const browser = await chromium.launch({ channel: 'msedge', headless: true }); const page = await browser.newPage(); await page.goto('http://localhost:5174/login', { waitUntil: 'networkidle' }); console.log(await page.title()); console.log((await page.textContent('body')).slice(0,120)); await browser.close(); })().catch(err=>{ console.error(err); process.exit(1); });"
+9 verbose logfile logs-max:10 dir:C:\Users\Janzzen\Desktop\HealthPH-Plus_Joy\.tmp-npm-cache\_logs\2026-07-17T04_27_17_291Z-
+10 verbose logfile C:\Users\Janzzen\Desktop\HealthPH-Plus_Joy\.tmp-npm-cache\_logs\2026-07-17T04_27_17_291Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+13 http fetch GET 200 https://registry.npmjs.org/playwright 283ms (cache revalidated)
+14 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+15 verbose cwd C:\Users\Janzzen\Desktop\HealthPH-Plus_Joy
+16 verbose os Windows_NT 10.0.26200
+17 verbose node v22.14.0
+18 verbose npm  v11.12.1
+19 verbose exit 1
+20 verbose code 1

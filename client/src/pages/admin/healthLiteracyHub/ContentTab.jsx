@@ -1,4 +1,4 @@
-﻿/* eslint-disable react/prop-types */
+/* eslint-disable react/prop-types */
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import Icon from "../../../components/Icon";
@@ -12,230 +12,32 @@ import {
   useUpdateHealthLiteracyContentMutation,
 } from "../../../features/api/healthLiteracyHubSlice";
 import { ContentFormBody, ContentGrid } from "./ContentShared";
+import ContentMediaPreviewBody from "./ContentMediaPreviewBody";
+import {
+  downloadMediaFile,
+  getVideoFileDuration,
+  readFileAsDataUrl,
+} from "./contentTabFileMedia";
+import { getFilteredContentItems } from "./contentTabFiltering";
+import {
+  buildContentFormPayload,
+  createEditFormData,
+  createMediaPreviewContent,
+  getShareUrl,
+} from "./contentTabModalHelpers";
 import {
   INITIAL_FORM_DATA,
   TAB_CONTENT_TYPES,
   UPLOAD_RULES,
-  formatNumber,
   getAnalyticsRegionValue,
   getContentFormValidationError,
   getContentLabel,
   getContentMediaSource,
-  getContentViewCount,
   getHealthLiteracyVisitorId,
   getLimitedContentTags,
-  formatVideoDuration,
   isAllowedMediaType,
-  normalizeContentTags,
-  normalizeApiContent,
   showToast,
 } from "./shared";
-
-const readFileAsDataUrl = (file) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onloadend = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-
-const getVideoFileDuration = (file) =>
-  new Promise((resolve) => {
-    const video = document.createElement("video");
-    const objectUrl = URL.createObjectURL(file);
-
-    const cleanup = () => {
-      video.removeAttribute("src");
-      video.load();
-      URL.revokeObjectURL(objectUrl);
-    };
-
-    video.preload = "metadata";
-    video.onloadedmetadata = () => {
-      const duration = formatVideoDuration(video.duration);
-      cleanup();
-      resolve(duration);
-    };
-    video.onerror = () => {
-      cleanup();
-      resolve("");
-    };
-    video.src = objectUrl;
-  });
-
-const MediaPreviewBody = ({
-  item,
-  title,
-  description,
-  media,
-  contentType,
-  tags = [],
-  viewCount,
-  uploadDate,
-  publishToMobile,
-  publishToWebsite,
-  canEdit = false,
-  onDownloadClick,
-  onEditClick,
-}) => {
-  const mediaType = media?.contentType ?? "";
-  const mediaSource = getContentMediaSource(media);
-  const isVideo = mediaType.startsWith("video/");
-  const isInfographic = contentType === "Infographics";
-  const publishTargets = [
-    publishToMobile ? "Mobile" : null,
-    publishToWebsite ? "Website" : null,
-  ]
-    .filter(Boolean)
-    .join(", ");
-  const publishStatus = publishTargets || "Not selected";
-
-  if (isInfographic) {
-    return (
-      <div className="flex max-h-[calc(100vh-230px)] flex-col overflow-y-auto">
-        <div className="flex flex-wrap items-center justify-end gap-[8px] border-b-2 border-gray-50 p-[16px] sm:p-[20px]">
-          <button
-            type="button"
-            onClick={() => onDownloadClick?.(item)}
-            disabled={!mediaSource}
-            className="inline-flex min-h-[34px] items-center justify-center gap-[6px] rounded-[6px] border border-[#D0D5DD] bg-white px-[10px] text-[12px] font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#6A8EB5] disabled:cursor-not-allowed disabled:text-gray-400"
-          >
-            <Icon iconName="Download" height="14px" width="14px" fill="#344054" />
-            <span>Download</span>
-          </button>
-          {canEdit && (
-            <button
-              type="button"
-              onClick={() => onEditClick?.(item)}
-              className="inline-flex min-h-[34px] items-center justify-center rounded-[6px] border border-[#D0D5DD] bg-white px-[12px] text-[12px] font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#6A8EB5]"
-            >
-              Edit
-            </button>
-          )}
-        </div>
-
-        <div className="flex min-h-[280px] items-center justify-center overflow-auto bg-gray-900 p-[12px] sm:p-[20px]">
-          {mediaSource && mediaType.startsWith("image/") ? (
-            <img
-              src={mediaSource}
-              alt={title}
-              className="max-h-[calc(100vh-360px)] w-auto max-w-full object-contain"
-            />
-          ) : (
-            <div className="flex min-h-[260px] flex-col items-center justify-center text-center text-white">
-              <Icon
-                iconName="Image"
-                height="64px"
-                width="64px"
-                fill="#FFFFFF"
-                opacity="0.5"
-                className="mb-[12px]"
-              />
-              <p className="text-[14px] font-medium">
-                This infographic cannot be previewed.
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-col items-start gap-[8px] border-t-2 border-gray-50 p-[16px] text-left sm:p-[20px]">
-          <p className="max-h-[110px] overflow-y-auto pr-[4px] text-[14px] text-gray-700">
-            {description}
-          </p>
-          <p className="text-[12px] font-medium text-gray-500">
-            Date Created: {uploadDate || "--"}
-          </p>
-          <p className="text-[12px] font-medium text-gray-500">
-            Publish Status: {publishStatus}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex max-h-[calc(100vh-230px)] flex-col overflow-y-auto">
-      {canEdit && (
-        <div className="flex items-center justify-end border-b-2 border-gray-50 p-[16px] sm:p-[20px]">
-          <button
-            type="button"
-            onClick={() => onEditClick?.(item)}
-            className="inline-flex min-h-[34px] items-center justify-center rounded-[6px] border border-[#D0D5DD] bg-white px-[12px] text-[12px] font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#6A8EB5]"
-          >
-            Edit
-          </button>
-        </div>
-      )}
-
-      <div className="flex min-h-[280px] items-center justify-center overflow-auto bg-gray-900 p-[12px] sm:p-[20px]">
-        {mediaSource && mediaType.startsWith("image/") ? (
-          <img
-            src={mediaSource}
-            alt={title}
-            className="max-h-[calc(100vh-320px)] w-auto max-w-full object-contain"
-          />
-        ) : mediaSource && mediaType.startsWith("video/") ? (
-          <video
-            key={mediaSource}
-            src={mediaSource}
-            className="max-h-[calc(100vh-320px)] w-full max-w-full rounded-[4px] bg-black"
-            controls
-          />
-        ) : (
-          <div className="flex min-h-[260px] flex-col items-center justify-center text-center text-white">
-            <Icon
-              iconName="Image"
-              height="64px"
-              width="64px"
-              fill="#FFFFFF"
-              opacity="0.5"
-              className="mb-[12px]"
-            />
-            <p className="text-[14px] font-medium">
-              This media type cannot be previewed.
-            </p>
-          </div>
-        )}
-      </div>
-
-      <div className="border-t-2 border-gray-50 p-[16px] sm:p-[20px]">
-        <p className="max-h-[110px] overflow-y-auto pr-[4px] text-[14px] text-gray-700">
-          {description}
-        </p>
-        {isVideo ? (
-          <div className="mt-[14px] flex flex-col gap-[12px] sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex flex-col items-start gap-[10px]">
-              <p className="text-left text-[12px] font-medium text-gray-500">
-                Publish: {publishStatus}
-              </p>
-              {tags.length > 0 && (
-                <div className="flex flex-wrap items-center justify-start gap-[6px]">
-                  {tags.map((tag, index) => (
-                    <span
-                      key={`${tag}-${index}`}
-                      className="inline-flex min-h-[26px] items-center rounded-[6px] bg-[#16A34A] px-[9px] text-[11px] font-semibold text-white"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="flex flex-col items-start gap-[6px] text-[12px] font-semibold text-gray-600 sm:items-end">
-              <span>Views: {formatNumber(viewCount)}</span>
-              {uploadDate && <span>Uploaded: {uploadDate}</span>}
-            </div>
-          </div>
-        ) : (
-          <p className="mt-[10px] text-[12px] font-medium text-gray-500">
-            Publish: {publishStatus}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-};
 
 const ContentTab = ({ contentTypeLabel }) => {
   const user = useSelector((state) => state.auth.user);
@@ -300,23 +102,6 @@ const ContentTab = ({ contentTypeLabel }) => {
     resetForm();
   };
 
-  const filterContent = (content) => {
-    if (!searchQuery) return content;
-
-    const searchTerms = searchQuery
-      .toLowerCase()
-      .split(" ")
-      .filter((term) => term.length > 0);
-
-    return content.filter((item) => {
-      const searchableText = `${item.title} ${item.description} ${
-        item.tags ? item.tags.join(" ") : ""
-      }`.toLowerCase();
-
-      return searchTerms.some((term) => searchableText.includes(term));
-    });
-  };
-
   const handleCreateClick = () => {
     resetForm();
     setEditingContent(null);
@@ -327,25 +112,7 @@ const ContentTab = ({ contentTypeLabel }) => {
     if (item.source !== "api") return;
 
     setEditingContent(item);
-    setFormData({
-      title: item.title ?? "",
-      description: item.description ?? "",
-      tags:
-        contentTypeLabel === "Infographics"
-          ? []
-          : getLimitedContentTags(item.tags),
-      media: null,
-      mediaPreview: getContentMediaSource(item.media) || null,
-      existingMedia: item.media ?? null,
-      duration: item.duration ?? "",
-      removeMedia: false,
-      publishToMobile: Boolean(item.publishToMobile),
-      publishToWebsite: Boolean(item.publishToWebsite),
-      isFactCheck: Boolean(item.isFactCheck),
-      claim: item.claim ?? "",
-      claimStatus: item.claimStatus ?? "Needs Expert Review",
-      verifiedBy: item.verifiedBy ?? "Project Researcher",
-    });
+    setFormData(createEditFormData({ item, contentTypeLabel }));
     setIsEditModalOpen(true);
   };
 
@@ -363,25 +130,7 @@ const ContentTab = ({ contentTypeLabel }) => {
       visitorId: getHealthLiteracyVisitorId(user?.id),
     }).catch(() => {});
 
-    setSelectedMediaContent({
-      item,
-      title: item.title,
-      description: item.description,
-      media: item.media,
-      contentType: contentTypeLabel,
-      tags: item.tags ?? [],
-      viewCount: getContentViewCount(item),
-      uploadDate: item.date,
-      publishToMobile: item.publishToMobile,
-      publishToWebsite: item.publishToWebsite,
-      canEdit:
-        item.source === "api" &&
-        ["Videos", "Infographics"].includes(contentTypeLabel),
-    });
-  };
-
-  const getShareUrl = (item) => {
-    return item.publicUrl || item.shareUrl || getContentMediaSource(item.media);
+    setSelectedMediaContent(createMediaPreviewContent({ item, contentTypeLabel }));
   };
 
   const handleShareClick = async (item) => {
@@ -434,49 +183,10 @@ const ContentTab = ({ contentTypeLabel }) => {
       return;
     }
 
-    const filename = item.media?.filename || `${item.title || "infographic"}`;
-    const downloadLink = document.createElement("a");
-    downloadLink.href = mediaSource;
-    downloadLink.download = filename;
-    downloadLink.rel = "noopener noreferrer";
-    downloadLink.style.display = "none";
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    document.body.removeChild(downloadLink);
-  };
-
-  const buildContentPayload = ({ includeRemoveMedia = false } = {}) => {
-    const payload = new FormData();
-    payload.append("title", formData.title);
-    payload.append("description", formData.description);
-    payload.append(
-      "tags",
-      JSON.stringify(
-        contentTypeLabel === "Infographics"
-          ? []
-          : normalizeContentTags(formData.tags)
-      )
-    );
-    payload.append("publishToMobile", String(formData.publishToMobile));
-    payload.append("publishToWebsite", String(formData.publishToWebsite));
-    payload.append("isFactCheck", String(formData.isFactCheck));
-    payload.append("claim", formData.claim);
-    payload.append("claimStatus", formData.claimStatus);
-    payload.append("verifiedBy", formData.verifiedBy);
-
-    if (contentTypeLabel === "Videos") {
-      payload.append("duration", formData.duration || "");
-    }
-
-    if (includeRemoveMedia) {
-      payload.append("removeMedia", String(formData.removeMedia));
-    }
-
-    if (contentTypeLabel !== "Articles" && formData.media) {
-      payload.append("file", formData.media);
-    }
-
-    return payload;
+    downloadMediaFile({
+      url: mediaSource,
+      filename: item.media?.filename || `${item.title || "infographic"}`,
+    });
   };
 
   const validateForm = () => {
@@ -503,7 +213,7 @@ const ContentTab = ({ contentTypeLabel }) => {
     try {
       await createHealthLiteracyContent({
         contentType,
-        data: buildContentPayload(),
+        data: buildContentFormPayload({ formData, contentTypeLabel }),
       }).unwrap();
 
       showToast({
@@ -532,7 +242,11 @@ const ContentTab = ({ contentTypeLabel }) => {
       await updateHealthLiteracyContent({
         contentType,
         contentId: editingContent.id,
-        data: buildContentPayload({ includeRemoveMedia: true }),
+        data: buildContentFormPayload({
+          formData,
+          contentTypeLabel,
+          includeRemoveMedia: true,
+        }),
       }).unwrap();
 
       showToast({
@@ -553,8 +267,8 @@ const ContentTab = ({ contentTypeLabel }) => {
     }
   };
 
-  const handleFormChange = (e) => {
-    const { name, value, type, checked } = e.target;
+  const handleFormChange = (event) => {
+    const { name, value, type, checked } = event.target;
     setFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
@@ -638,15 +352,15 @@ const ContentTab = ({ contentTypeLabel }) => {
     }
   };
 
-  const handleMediaChange = async (e) => {
-    const file = e.target.files?.[0];
+  const handleMediaChange = async (event) => {
+    const file = event.target.files?.[0];
     await setMediaFile(file);
-    e.target.value = "";
+    event.target.value = "";
   };
 
-  const handleMediaDrop = async (e) => {
-    e.preventDefault();
-    await setMediaFile(e.dataTransfer.files?.[0]);
+  const handleMediaDrop = async (event) => {
+    event.preventDefault();
+    await setMediaFile(event.dataTransfer.files?.[0]);
   };
 
   const handleRemoveMedia = () => {
@@ -660,28 +374,23 @@ const ContentTab = ({ contentTypeLabel }) => {
     }));
   };
 
-  const getFilteredContent = () => {
-    const apiContent = normalizeApiContent(fetchedContent).map((item) => ({
-      ...item,
-      contentType: contentTypeLabel,
-      region: getAnalyticsRegionValue(contentTypeLabel, item),
-      tags: contentTypeLabel === "Infographics" ? [] : item.tags,
-    }));
-
-    return filterContent(apiContent);
-  };
+  const filteredContent = getFilteredContentItems({
+    fetchedContent,
+    contentTypeLabel,
+    searchQuery,
+  });
 
   return (
     <>
-      <div className="flex flex-col sm:flex-row gap-[12px] items-start sm:items-center">
+      <div className="flex flex-col items-start gap-[12px] sm:flex-row sm:items-center">
         <ToolbarSearch
           placeholder={`Search ${contentTypeLabel.toLowerCase()}...`}
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(event) => setSearchQuery(event.target.value)}
         />
         <button
           onClick={handleCreateClick}
-          className="prod-btn-base admin-module-brand-btn flex justify-center items-center whitespace-nowrap"
+          className="prod-btn-base admin-module-brand-btn flex items-center justify-center whitespace-nowrap"
         >
           <span>Create New Content</span>
           <Icon
@@ -695,7 +404,7 @@ const ContentTab = ({ contentTypeLabel }) => {
       </div>
 
       <ContentGrid
-        content={getFilteredContent()}
+        content={filteredContent}
         contentType={contentTypeLabel}
         isLoading={isFetchingContent}
         onMediaClick={handleMediaPreviewClick}
@@ -787,7 +496,7 @@ const ContentTab = ({ contentTypeLabel }) => {
           color="primary"
           additionalClasses="health-literacy-content-modal admin-brand-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
         >
-          <MediaPreviewBody
+          <ContentMediaPreviewBody
             item={selectedMediaContent.item}
             title={selectedMediaContent.title}
             description={selectedMediaContent.description}
@@ -812,4 +521,3 @@ const ContentTab = ({ contentTypeLabel }) => {
 };
 
 export default ContentTab;
-

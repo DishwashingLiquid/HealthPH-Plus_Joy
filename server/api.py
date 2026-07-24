@@ -20,6 +20,7 @@ from routes.pointRoutes import router as pointRouter
 from routes.miscRoutes import router as miscRouter
 from routes.healthLiteracyHubRoutes import router as healthLiteracyHubRouter
 from routes.sentimentPulseRoutes import router as sentimentPulseRouter
+from routes.diseaseWatchFeedRoutes import router as diseaseWatchFeedRouter
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -71,6 +72,11 @@ api_app.include_router(
     router=sentimentPulseRouter,
     tags=["Sentiment Pulse"],
     prefix="/sentiment-pulse",
+)
+api_app.include_router(
+    router=diseaseWatchFeedRouter,
+    tags=["Disease Watch Feed"],
+    prefix="/disease-watch-feed/mobile",
 )
 
 app.mount("/api", api_app, name="api")

@@ -1,0 +1,40 @@
+0 verbose cli C:\Program Files\nodejs\node.exe C:\Users\Janzzen\AppData\Roaming\npm\node_modules\npm\bin\npm-cli.js
+1 info using npm@11.12.1
+2 info using node@v22.14.0
+3 silly config load:file:C:\Users\Janzzen\AppData\Roaming\npm\node_modules\npm\npmrc
+4 silly config load:file:C:\Users\Janzzen\Desktop\HealthPH-Plus_Joy\.tmp-playwright\.npmrc
+5 silly config load:file:C:\Users\Janzzen\.npmrc
+6 silly config load:file:C:\Users\Janzzen\AppData\Roaming\npm\etc\npmrc
+7 verbose title npm install playwright
+8 verbose argv "install" "playwright"
+9 verbose logfile logs-max:10 dir:C:\Users\Janzzen\Desktop\HealthPH-Plus_Joy\.tmp-npm-cache\_logs\2026-07-17T04_27_40_353Z-
+10 verbose logfile C:\Users\Janzzen\Desktop\HealthPH-Plus_Joy\.tmp-npm-cache\_logs\2026-07-17T04_27_40_353Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+13 silly idealTree buildDeps
+14 silly fetch manifest playwright@*
+15 silly packumentCache full:https://registry.npmjs.org/playwright cache-miss
+16 http cache https://registry.npmjs.org/playwright 38ms (cache hit)
+17 silly packumentCache full:https://registry.npmjs.org/playwright set size:16500283 disposed:false
+18 silly placeDep ROOT playwright@1.61.1 OK for:  want: *
+19 silly fetch manifest playwright-core@1.61.1
+20 silly packumentCache full:https://registry.npmjs.org/playwright-core cache-miss
+21 silly fetch manifest fsevents@2.3.2
+22 silly packumentCache full:https://registry.npmjs.org/fsevents cache-miss
+23 http cache https://registry.npmjs.org/fsevents 45ms (cache hit)
+24 silly packumentCache full:https://registry.npmjs.org/fsevents set size:182472 disposed:false
+25 http cache https://registry.npmjs.org/playwright-core 72ms (cache hit)
+26 silly packumentCache full:https://registry.npmjs.org/playwright-core set size:18219769 disposed:false
+27 silly placeDep ROOT fsevents@2.3.2 OK for: playwright@1.61.1 want: 2.3.2
+28 silly placeDep ROOT playwright-core@1.61.1 OK for: playwright@1.61.1 want: 1.61.1
+29 silly reify moves {}
+30 http cache playwright-core@https://registry.npmjs.org/playwright-core/-/playwright-core-1.61.1.tgz 0ms (cache hit)
+31 http cache playwright@https://registry.npmjs.org/playwright/-/playwright-1.61.1.tgz 0ms (cache hit)
+32 silly ADD node_modules/playwright-core
+33 silly ADD node_modules/playwright
+34 verbose cwd C:\Users\Janzzen\Desktop\HealthPH-Plus_Joy\.tmp-playwright
+35 verbose os Windows_NT 10.0.26200
+36 verbose node v22.14.0
+37 verbose npm  v11.12.1
+38 verbose exit 0
+39 info ok

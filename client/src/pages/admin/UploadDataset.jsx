@@ -1,6 +1,7 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import Icon from "../../components/Icon";
 import { useEffect, useRef, useState } from "react";
+import "../../assets/css/map.css";
 import Datatable from "../../components/admin/Datatable";
 import {
   useCreateActivityLogMutation,

@@ -143,7 +143,7 @@ const AnalyticsTab = () => {
               onClick={handleExportCsv}
               className="prod-btn-base admin-module-brand-btn flex min-h-[40px] items-center justify-center gap-[8px] px-[14px]"
             >
-              <Icon iconName="Download" height="18px" width="18px" fill="#FFF" />
+              <Icon iconName="Download" height="18px" width="18px" fill="#32418C" />
               <span>CSV</span>
             </button>
             <button
@@ -151,7 +151,7 @@ const AnalyticsTab = () => {
               onClick={handleExportPdf}
               className="prod-btn-base admin-module-brand-btn flex min-h-[40px] items-center justify-center gap-[8px] px-[14px]"
             >
-              <Icon iconName="Printer" height="18px" width="18px" fill="#FFF" />
+              <Icon iconName="Printer" height="18px" width="18px" fill="#32418C" />
               <span>PDF</span>
             </button>
           </div>

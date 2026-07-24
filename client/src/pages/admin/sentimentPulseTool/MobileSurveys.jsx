@@ -4,6 +4,7 @@ import {
   sentimentColors,
   formatNumber,
 } from "../../../assets/data/sentimentMockData";
+import { formatSurveyDate } from "./dateUtils";
 import MobileSurveyResultsModal from "./MobileSurveyResultsModal";
 import {
   DASHBOARD_CARD_SUBTITLE_CLASS,
@@ -18,32 +19,16 @@ const statusStyles = {
   Inactive: "bg-gray-100 text-gray-700",
 };
 
-const formatSurveyDate = (value) => {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return date.toLocaleString("en-PH", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-};
-
-export default function MobileSurveys({ surveys = [], isLoading, isError }) {
+export default function MobileSurveys({
+  surveys = [],
+  isLoading,
+  isError,
+  onEdit = () => {},
+}) {
   const [selectedResultsSurveyId, setSelectedResultsSurveyId] = useState("");
 
   const handleResults = (surveyId) => {
     setSelectedResultsSurveyId(surveyId);
-  };
-
-  const handleEdit = (surveyId) => {
-    alert(`Edit Survey ID: ${surveyId} - Coming soon`);
   };
 
   if (isLoading) {
@@ -192,7 +177,7 @@ export default function MobileSurveys({ surveys = [], isLoading, isError }) {
                     Results
                   </button>
                   <button
-                    onClick={() => handleEdit(survey.id)}
+                    onClick={() => onEdit(survey)}
                     className="admin-module-brand-btn min-h-[40px] rounded-lg border px-3 py-2 text-sm font-semibold transition-colors duration-200"
                     style={{ color: "#FFFFFF" }}
                   >

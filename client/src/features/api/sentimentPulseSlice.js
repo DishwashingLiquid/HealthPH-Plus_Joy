@@ -20,6 +20,27 @@ export const sentimentPulseApi = baseAPI.injectEndpoints({
       }),
       invalidatesTags: ["SentimentPulseSurveys"],
     }),
+    updateSentimentPulseSurvey: builder.mutation({
+      query: ({ surveyId, data }) => ({
+        url: `/sentiment-pulse/surveys/${surveyId}`,
+        method: "PATCH",
+        body: data,
+      }),
+      invalidatesTags: (_result, _error, { surveyId }) => [
+        "SentimentPulseSurveys",
+        { type: "SentimentPulseSurveys", id: surveyId },
+      ],
+    }),
+    deleteSentimentPulseSurvey: builder.mutation({
+      query: (surveyId) => ({
+        url: `/sentiment-pulse/surveys/${surveyId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, surveyId) => [
+        "SentimentPulseSurveys",
+        { type: "SentimentPulseSurveys", id: surveyId },
+      ],
+    }),
     scheduleSentimentPulseSurvey: builder.mutation({
       query: ({ surveyId, scheduledAt }) => ({
         url: `/sentiment-pulse/surveys/${surveyId}/schedule`,
@@ -58,10 +79,12 @@ export const sentimentPulseApi = baseAPI.injectEndpoints({
 
 export const {
   useCreateSentimentPulseSurveyMutation,
+  useDeleteSentimentPulseSurveyMutation,
   useFetchSentimentPulseSurveyResultsQuery,
   useFetchPublicSentimentPulseSurveysQuery,
   useFetchSentimentPulseRegionalAnalysisQuery,
   useFetchSentimentPulseSurveysQuery,
   useScheduleSentimentPulseSurveyMutation,
   useSubmitPublicSentimentPulseSurveyResponseMutation,
+  useUpdateSentimentPulseSurveyMutation,
 } = sentimentPulseApi;

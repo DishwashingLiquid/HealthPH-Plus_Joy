@@ -1,0 +1,59 @@
+0 verbose cli C:\Program Files\nodejs\node.exe C:\Users\Janzzen\AppData\Roaming\npm\node_modules\npm\bin\npm-cli.js
+1 info using npm@11.12.1
+2 info using node@v22.14.0
+3 silly config load:file:C:\Users\Janzzen\AppData\Roaming\npm\node_modules\npm\npmrc
+4 silly config load:file:C:\Users\Janzzen\Desktop\HealthPH-Plus_Joy\client\.npmrc
+5 silly config load:file:C:\Users\Janzzen\.npmrc
+6 silly config load:file:C:\Users\Janzzen\AppData\Roaming\npm\etc\npmrc
+7 verbose title npm exec playwright --version
+8 verbose argv "exec" "--" "playwright" "--version"
+9 verbose logfile logs-max:10 dir:C:\Users\Janzzen\Desktop\HealthPH-Plus_Joy\.tmp-npm-cache\_logs\2026-07-17T04_26_49_479Z-
+10 verbose logfile C:\Users\Janzzen\Desktop\HealthPH-Plus_Joy\.tmp-npm-cache\_logs\2026-07-17T04_26_49_479Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+13 http fetch GET 200 https://registry.npmjs.org/npm 456ms
+14 http fetch GET 200 https://registry.npmjs.org/playwright 512ms (cache miss)
+15 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+16 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+17 warn exec The following package was not found and will be installed: playwright@1.61.1
+18 silly idealTree buildDeps
+19 silly fetch manifest playwright@1.61.1
+20 silly packumentCache full:https://registry.npmjs.org/playwright cache-miss
+21 http fetch GET 200 https://registry.npmjs.org/playwright 490ms (cache miss)
+22 silly packumentCache full:https://registry.npmjs.org/playwright set size:undefined disposed:false
+23 silly placeDep ROOT playwright@1.61.1 OK for:  want: 1.61.1
+24 silly fetch manifest playwright-core@1.61.1
+25 silly packumentCache full:https://registry.npmjs.org/playwright-core cache-miss
+26 silly fetch manifest fsevents@2.3.2
+27 silly packumentCache full:https://registry.npmjs.org/fsevents cache-miss
+28 http fetch GET 200 https://registry.npmjs.org/fsevents 84ms (cache miss)
+29 silly packumentCache full:https://registry.npmjs.org/fsevents set size:undefined disposed:false
+30 http fetch GET 200 https://registry.npmjs.org/playwright-core 461ms (cache miss)
+31 silly packumentCache full:https://registry.npmjs.org/playwright-core set size:undefined disposed:false
+32 silly placeDep ROOT fsevents@2.3.2 OK for: playwright@1.61.1 want: 2.3.2
+33 silly placeDep ROOT playwright-core@1.61.1 OK for: playwright@1.61.1 want: 1.61.1
+34 silly reify moves {}
+35 silly audit bulk request {
+35 silly audit   playwright: [ '1.61.1' ],
+35 silly audit   fsevents: [ '2.3.2' ],
+35 silly audit   'playwright-core': [ '1.61.1' ]
+35 silly audit }
+36 http cache playwright-core@https://registry.npmjs.org/playwright-core/-/playwright-core-1.61.1.tgz 0ms (cache hit)
+37 http cache playwright@https://registry.npmjs.org/playwright/-/playwright-1.61.1.tgz 0ms (cache hit)
+38 silly tarball no local data for playwright-core@https://registry.npmjs.org/playwright-core/-/playwright-core-1.61.1.tgz. Extracting by manifest.
+39 silly tarball no local data for playwright@https://registry.npmjs.org/playwright/-/playwright-1.61.1.tgz. Extracting by manifest.
+40 http fetch POST 200 https://registry.npmjs.org/-/npm/v1/security/advisories/bulk 255ms
+41 silly audit report {}
+42 http fetch GET 200 https://registry.npmjs.org/playwright/-/playwright-1.61.1.tgz 690ms (cache miss)
+43 http fetch GET 200 https://registry.npmjs.org/playwright-core/-/playwright-core-1.61.1.tgz 811ms (cache miss)
+44 verbose cwd C:\Users\Janzzen\Desktop\HealthPH-Plus_Joy\client
+45 verbose os Windows_NT 10.0.26200
+46 verbose node v22.14.0
+47 verbose npm  v11.12.1
+48 notice
+48 notice New minor version of npm available! 11.12.1 -> 11.18.0
+48 notice Changelog: https://github.com/npm/cli/releases/tag/v11.18.0
+48 notice To update run: npm install -g npm@11.18.0
+48 notice  { force: true, [Symbol(proc-log.meta)]: true }
+49 verbose exit 0
+50 info ok

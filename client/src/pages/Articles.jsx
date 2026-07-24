@@ -1,5 +1,6 @@
 import { useLocation } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
+import "../assets/css/about.css";
 
 import Icon from "../components/Icon";
 import HomeNavbar from "../components/HomeNavbar";

@@ -29,6 +29,33 @@ export const createQuestion = (type = "text") => ({
   rateMax: 5,
 });
 
+const normalizeQuestion = (question = {}, index = 0) => ({
+  id:
+    question.id ||
+    question.name ||
+    `question-${Date.now()}-${index}-${Math.random().toString(16).slice(2)}`,
+  type: question.type || "text",
+  title: question.title || "",
+  required: Boolean(question.required),
+  choices:
+    question.type === "multipleChoice"
+      ? Array.isArray(question.choices) && question.choices.length > 0
+        ? question.choices
+        : ["Option 1", "Option 2"]
+      : ["Option 1", "Option 2"],
+  rateMin: question.type === "rating" ? Number(question.rateMin) || 1 : 1,
+  rateMax: question.type === "rating" ? Number(question.rateMax) || 5 : 5,
+});
+
+export const createDraftFromSurvey = (survey = {}) => ({
+  title: survey.title || "",
+  subtitle: survey.subtitle || "",
+  target: Number(survey.target) || emptyDraft.target,
+  questions: Array.isArray(survey.questions)
+    ? survey.questions.map((question, index) => normalizeQuestion(question, index))
+    : [],
+});
+
 const getQuestionTypeLabel = (type) =>
   QUESTION_TYPES.find((questionType) => questionType.value === type)?.label ??
   "Question";
@@ -145,8 +172,14 @@ export default function MobileSurveyCreateModal({
   onAddChoice,
   onRemoveChoice,
   onRemoveQuestion,
-  onCreateSurvey,
-  isCreating,
+  onSubmitSurvey,
+  submitLabel = "Create Draft",
+  submitLoadingLabel = "Creating...",
+  heading = "Create New Mobile Survey",
+  mode = "create",
+  onDelete,
+  onDeleteDisabled,
+  isSubmitting,
   onClose,
 }) {
   const surveyModel = useMemo(() => {
@@ -154,17 +187,81 @@ export default function MobileSurveyCreateModal({
     model.showCompleteButton = false;
     return model;
   }, [draft]);
+  const secondaryButtonStyle = {
+    backgroundColor: "#ffffff",
+    color: "#465360",
+    boxShadow:
+      "0px 0px 0px 1px rgba(70, 83, 96, 0.16), 0px 1px 1px 0px rgba(0, 0, 0, 0.1)",
+  };
+  const submitButtonStyle = isSubmitting
+    ? {
+        backgroundColor: "#98a2c7",
+        borderColor: "#98a2c7",
+        color: "#f8fafc",
+        boxShadow:
+          "0px 0px 0px 1px #98a2c7, 0px 1px 1px 0px rgba(0, 0, 0, 0.1)",
+      }
+    : {
+        backgroundColor: "#32418c",
+        borderColor: "#32418c",
+        color: "#ffffff",
+        boxShadow:
+          "0px 0px 0px 1px #32418c, 0px 1px 1px 0px rgba(0, 0, 0, 0.1)",
+      };
+  const destructiveButtonStyle =
+    isSubmitting || onDeleteDisabled
+      ? {
+          backgroundColor: "#e87d7d",
+          borderColor: "#e87d7d",
+          color: "#fef2f2",
+          boxShadow:
+            "0px 0px 0px 1px #e87d7d, 0px 1px 1px 0px rgba(0, 0, 0, 0.1)",
+        }
+      : {
+          backgroundColor: "#d82727",
+          borderColor: "#d82727",
+          color: "#ffffff",
+          boxShadow:
+            "0px 0px 0px 1px #d82727, 0px 1px 1px 0px rgba(0, 0, 0, 0.1)",
+        };
+  const addQuestionButtonStyle = {
+    backgroundColor: "#32418c",
+    borderColor: "#32418c",
+    color: "#ffffff",
+    boxShadow:
+      "0px 0px 0px 1px #32418c, 0px 1px 1px 0px rgba(0, 0, 0, 0.1)",
+  };
+  const questionRemoveButtonStyle = {
+    backgroundColor: "#ffffff",
+    borderColor: "#fecaca",
+    color: "#dc2626",
+  };
 
   return (
     <ModalWithBody
-      onConfirm={onCreateSurvey}
-      onConfirmLabel="Create Draft"
-      onLoading={isCreating}
-      onLoadingLabel="Creating..."
+      onConfirm={onSubmitSurvey}
+      onConfirmLabel={submitLabel}
+      confirmButtonStyle={submitButtonStyle}
+      cancelButtonStyle={secondaryButtonStyle}
+      onLoading={isSubmitting}
+      onLoadingLabel={submitLoadingLabel}
       onCancel={onClose}
-      heading="Create New Mobile Survey"
+      heading={heading}
       color="primary"
       additionalClasses="health-literacy-content-modal admin-brand-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
+      leadingActions={
+        mode === "edit" && onDelete ? (
+          <button
+            type="button"
+            className="prod-btn-base prod-btn-destructive"
+            onClick={onDelete}
+            disabled={isSubmitting || onDeleteDisabled}
+            style={destructiveButtonStyle}
+          >
+            Delete
+          </button>
+        ) : null
+      }
     >
       <div className="max-h-[calc(100vh-230px)] overflow-y-auto px-5 py-5">
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.85fr)]">
@@ -226,6 +323,7 @@ export default function MobileSurveyCreateModal({
                       type="button"
                       onClick={() => onAddQuestion(questionType.value)}
                       className="admin-module-brand-btn rounded-lg border px-3 py-2 text-xs font-semibold"
+                      style={addQuestionButtonStyle}
                     >
                       + {questionType.label}
                     </button>
@@ -258,7 +356,8 @@ export default function MobileSurveyCreateModal({
                       <button
                         type="button"
                         onClick={() => onRemoveQuestion(question.id)}
-                        className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+                        className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600"
+                        style={questionRemoveButtonStyle}
                       >
                         Remove
                       </button>
@@ -336,7 +435,8 @@ export default function MobileSurveyCreateModal({
                             <button
                               type="button"
                               onClick={() => onAddChoice(question.id)}
-                              className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                              className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700"
+                              style={secondaryButtonStyle}
                             >
                               + Option
                             </button>
@@ -365,8 +465,9 @@ export default function MobileSurveyCreateModal({
                                   onClick={() =>
                                     onRemoveChoice(question.id, choiceIndex)
                                   }
-                                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
                                   disabled={question.choices.length <= 2}
+                                  style={secondaryButtonStyle}
                                 >
                                   Delete
                                 </button>
