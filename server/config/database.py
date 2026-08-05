@@ -27,6 +27,7 @@ db = client[os.getenv("DB_NAME")]
 # Tables / Collections
 user_collection = db['users']
 organization_collection = db["organizations"]
+role_label_collection = db["role_labels"]
 activity_logs_collection = db['activity_logs']
 dataset_collection = db["datasets"]
 point_collection = db['points']

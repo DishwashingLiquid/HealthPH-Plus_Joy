@@ -431,7 +431,7 @@ route     GET api/sentiment-pulse/surveys
 
 async def fetch_surveys(
     _current_user: Annotated[
-        dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))
+        dict, Depends(require_role(["Admin", "SUPERADMIN"]))
     ],
 ):
     _ensure_survey_indexes()
@@ -452,7 +452,7 @@ route     GET api/sentiment-pulse/surveys/{survey_id}/results
 async def fetch_survey_results(
     survey_id: str,
     _current_user: Annotated[
-        dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))
+        dict, Depends(require_role(["Admin", "SUPERADMIN"]))
     ],
 ):
     survey = _get_survey_or_404(survey_id)
@@ -497,7 +497,7 @@ route     POST api/sentiment-pulse/surveys
 async def create_survey(
     data: SentimentPulseSurveyDraft,
     current_user: Annotated[
-        dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))
+        dict, Depends(require_role(["Admin", "SUPERADMIN"]))
     ],
 ):
     _ensure_survey_indexes()
@@ -566,7 +566,7 @@ async def schedule_survey(
     survey_id: str,
     data: SentimentPulseSurveySchedule,
     current_user: Annotated[
-        dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))
+        dict, Depends(require_role(["Admin", "SUPERADMIN"]))
     ],
 ):
     scheduled_at = _parse_ph_datetime(data.scheduledAt)

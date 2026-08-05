@@ -14,6 +14,7 @@ load_dotenv()
 from routes.authRoutes import router as authRouter
 from routes.userRoutes import router as userRouter
 from routes.organizationRoutes import router as organizationRouter
+from routes.roleLabelRoutes import router as roleLabelRouter
 from routes.activityLogRoutes import router as activityLogRouter
 from routes.analyticsRoutes import router as analyticsRouter
 from routes.datasetsRoutes import router as datasetsRouter
@@ -57,6 +58,7 @@ api_app.add_middleware(
 api_app.include_router(router=authRouter, tags=["Auth"], prefix="/auth")
 api_app.include_router(router=userRouter, tags=["Users"], prefix="/users")
 api_app.include_router(router=organizationRouter, tags=["Organizations"], prefix="/organizations")
+api_app.include_router(router=roleLabelRouter, tags=["Role Labels"], prefix="/role-labels")
 api_app.include_router(router=activityLogRouter, tags=["Activity Logs"], prefix="/activity-logs")
 api_app.include_router(router=datasetsRouter, tags=["Datasets"], prefix="/datasets")
 api_app.include_router(router=pointRouter, tags=["Points"], prefix="/points")

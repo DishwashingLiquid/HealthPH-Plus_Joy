@@ -256,7 +256,10 @@ const OTPCode = ({ email }) => {
         return;
       }
 
-      if (["SUPERADMIN", "ADMIN"].includes(response.data.user.user_type)) {
+      if (
+        response.data.user.user_type === "SUPERADMIN" ||
+        response.data.user.role_label === "Admin"
+      ) {
         await log_activity({
           user_id: response.data.user.id,
           entry: "Login",

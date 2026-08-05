@@ -48,6 +48,8 @@ import {
   useDeleteOrganizationMutation,
 } from "../../features/api/organizationSlice";
 
+import { useFetchRoleLabelsQuery } from "../../features/api/roleLabelsSlice";
+
 import {
   useCreateActivityLogMutation,
   useFetchAccountAnalyticsQuery,
@@ -58,8 +60,38 @@ import useDeviceDetect from "../../hooks/useDeviceDetect";
 import { toast } from "react-toastify";
 import { toPng } from "html-to-image";
 
+const ADMIN_ROLE_LABEL = "Admin";
+
+const DEFAULT_ROLE_LABELS = [
+  { name: "Admin", description: "Administrative platform access", is_active: true },
+  { name: "Analyst", description: "Access to analytics and analysis tools", is_active: true },
+  { name: "DOH Official", description: "Official DOH representative", is_active: true },
+  { name: "LGU Worker", description: "Local government health worker", is_active: true },
+  { name: "Researcher", description: "Academic or research institution member", is_active: true },
+  { name: "Viewer", description: "Read-only dashboard access", is_active: true },
+];
+
+const ROLE_COLORS = [
+  "#32418C",
+  "#2572A5",
+  "#9BCC33",
+  "#FBD117",
+  "#4B5563",
+  "#F97316",
+  "#14B8A6",
+  "#A855F7",
+];
+
 const UserManagement = () => {
   const user = useSelector((state) => state.auth.user);
+
+  const isSuperadmin = user?.user_type == "SUPERADMIN";
+  const isUserAccount = user?.user_type == "USER";
+  const isAdminRole = user?.role_label == ADMIN_ROLE_LABEL;
+
+  const canViewUsers = isSuperadmin || isUserAccount;
+  const canManageUsers = isSuperadmin || isAdminRole;
+  const canManageSuperadmins = isSuperadmin;
 
   const [log_activity] = useCreateActivityLogMutation();
 
@@ -69,21 +101,29 @@ const UserManagement = () => {
   } = useFetchAccountAnalyticsQuery();
 
   let {
-    data: admins,
+    data: admins = [],
     isLoading: isAdminsLoading,
     isError: isAdminsError,
-  } = useFetchAdminsQuery();
+    refetch: refetchAdmins,
+  } = useFetchAdminsQuery(undefined, { skip: !canManageSuperadmins });
 
   let {
-    data: users,
+    data: users = [],
     isLoading: isUsersLoading,
     isError: isUsersError,
-  } = useFetchUsersQuery();
+    refetch: refetchUsers,
+  } = useFetchUsersQuery(undefined, { skip: !canViewUsers });
 
   const {
     data: organizations = [],
     isLoading: isOrganizationsLoading,
   } = useFetchOrganizationsQuery();
+
+  const {
+    data: roleLabels = [],
+    isLoading: isRoleLabelsLoading,
+    isError: isRoleLabelsError,
+  } = useFetchRoleLabelsQuery();
 
   const [createOrganization, { isLoading: isCreateOrganizationLoading }] =
     useCreateOrganizationMutation();
@@ -220,7 +260,7 @@ const UserManagement = () => {
         collection[organizationName] = {
           name: organizationName,
           totalAccounts: 0,
-          admins: 0,
+          superadmins: 0,
           users: 0,
           activeAccounts: 0,
           disabledAccounts: 0,
@@ -232,9 +272,11 @@ const UserManagement = () => {
 
       organization.totalAccounts += 1;
 
-      if (account.user_type === "ADMIN" || account.user_type === "SUPERADMIN") {
-        organization.admins += 1;
-      } else {
+      if (account.user_type === "SUPERADMIN") {
+        organization.superadmins += 1;
+      }
+
+      if (account.user_type === "USER") {
         organization.users += 1;
       }
 
@@ -271,7 +313,7 @@ const UserManagement = () => {
         region_coverage: organization.region_coverage || [],
         partnership_status: organization.partnership_status || "ACTIVE",
         totalAccounts: accountStats?.totalAccounts || 0,
-        admins: accountStats?.admins || 0,
+        superadmins: accountStats?.superadmins || 0,
         users: accountStats?.users || 0,
         activeAccounts: accountStats?.activeAccounts || 0,
         disabledAccounts: accountStats?.disabledAccounts || 0,
@@ -292,6 +334,36 @@ const UserManagement = () => {
     }))
     .sort((a, b) => a.label.localeCompare(b.label));
 
+  const defaultRoleLabelNames = DEFAULT_ROLE_LABELS.map((roleLabel) =>
+    roleLabel.name.toLowerCase()
+  );
+
+  const effectiveRoleLabels = [
+    ...DEFAULT_ROLE_LABELS,
+    ...roleLabels.filter(
+      (roleLabel) =>
+        roleLabel?.name &&
+        !defaultRoleLabelNames.includes(roleLabel.name.toLowerCase())
+    ),
+  ];
+
+  const activeRoleLabels = effectiveRoleLabels.filter(
+    (roleLabel) => roleLabel?.name && roleLabel.is_active !== false
+  );
+
+  const roleLabelOptions = activeRoleLabels
+    .map((roleLabel) => ({
+      label: roleLabel.name,
+      value: roleLabel.name,
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  const accountRoleDefinitions = activeRoleLabels.map((roleLabel, index) => ({
+    value: roleLabel.name,
+    label: roleLabel.name,
+    color: ROLE_COLORS[index % ROLE_COLORS.length],
+  }));
+
   const filteredOrganizations = searchQuery.trim()
     ? organizationList.filter((organization) => {
       const terms = searchQuery.toLowerCase().split(" ").filter(Boolean);
@@ -307,15 +379,19 @@ const UserManagement = () => {
   : organizationList;
 
   const [tabs, setTabs] = useState([
-    { label: "Admins", count: 0 },
+    { label: "Superadmins", count: 0 },
     { label: "Users", count: 0 },
     { label: "Organizations", count: 0 },
     { label: "Account Analytics", count: 0 },
   ]);
 
-  const [currentTableTab, setCurrentTableTab] = useState(
-    user.user_type == "SUPERADMIN" ? "Admins" : "Users"
-  );
+  const getDefaultTab = () => {
+    if (isSuperadmin) return "Superadmins";
+    if (canViewUsers) return "Users";
+    return "Account Analytics";
+  };
+
+  const [currentTableTab, setCurrentTableTab] = useState(getDefaultTab);
 
   useEffect(() => {
     if (admins && users) {
@@ -351,36 +427,50 @@ const UserManagement = () => {
         });
 
         setTabs([
-          { label: "Admins", count: filteredAdmins.length },
+          { label: "Superadmins", count: filteredAdmins.length },
           { label: "Users", count: filteredUsers.length },
           { label: "Organizations", count: filteredOrganizations.length },
           { label: "Account Analytics", count: allAccounts.length },
         ]);
       } else {
         setTabs([
-          { label: "Admins", count: admins.length },
+          { label: "Superadmins", count: admins.length },
           { label: "Users", count: users.length },
           { label: "Organizations", count: organizationList.length },
           { label: "Account Analytics", count: allAccounts.length },
         ]);
       }
     }
-  }, [searchQuery, admins, users, isAdminsLoading, isUsersLoading]);
+  }, [
+    searchQuery,
+    admins,
+    users,
+    filteredOrganizations.length,
+    organizationList.length,
+    allAccounts.length,
+    isAdminsLoading,
+    isUsersLoading,
+  ]);
 
   const [currentAdminsData, setCurrentAdminsData] = useState([]);
 
   const [currentUsersData, setCurrentUsersData] = useState([]);
 
-  const visibleTabs =
-    user.user_type == "SUPERADMIN"
-      ? tabs
-      : tabs.filter((tab) => tab.label !== "Admins");
+  const visibleTabs = isSuperadmin
+    ? tabs
+    : canViewUsers
+    ? tabs.filter((tab) => tab.label !== "Superadmins")
+    : tabs.filter((tab) => tab.label === "Account Analytics");
 
-  const canManageUsers = ["ADMIN", "SUPERADMIN"].includes(user.user_type);
+  useEffect(() => {
+    if (!visibleTabs.some((tab) => tab.label === currentTableTab)) {
+      setCurrentTableTab(getDefaultTab());
+    }
+  }, [visibleTabs, currentTableTab]);
 
-  const addButtonLabel = currentTableTab == "Admins" ? "Add Admin" : "Add User";
+  const addButtonLabel = currentTableTab == "Superadmins" ? "Add Superadmin" : "Add User";
 
-  const isAccountTableTab = ["Admins", "Users"].includes(currentTableTab);
+  const isAccountTableTab = ["Superadmins", "Users"].includes(currentTableTab);
   const isOrganizationsTab = currentTableTab == "Organizations";
   const isAnalyticsTab = currentTableTab == "Account Analytics";
 
@@ -395,17 +485,30 @@ const UserManagement = () => {
   };
 
   const currentTabTotal =
-    currentTableTab == "Admins"
+    currentTableTab == "Superadmins"
       ? currentAdminsData.length
       : currentTableTab == "Users"
       ? currentUsersData.length
       : currentTableTab == "Organizations"
       ? filteredOrganizations.length
-      : allAccounts.length;
+      : 0;
+
+  const toolbarTotalLabel = `Total ${currentTableTab.toLowerCase()}`;
 
   const openAddUserModal = () => {
-    setAddUserMode(currentTableTab == "Admins" ? "ADMIN" : "USER");
+    setAddUserMode(currentTableTab == "Superadmins" ? "SUPERADMIN" : "USER");
     setAddUserModalActive(true);
+  };
+
+  const handleAccountCreated = async (createdUserType) => {
+    if (createdUserType == "SUPERADMIN" && canManageSuperadmins) {
+      await refetchAdmins();
+      return;
+    }
+
+    if (createdUserType == "USER" && canManageUsers) {
+      await refetchUsers();
+    }
   };
 
   const openCreateOrganizationModal = () => {
@@ -449,15 +552,20 @@ const UserManagement = () => {
   };
 
   const isCurrentTableLoading =
-    currentTableTab == "Admins"
-      ? isAdminsLoading
+    currentTableTab == "Superadmins"
+      ? canManageSuperadmins && isAdminsLoading
       : currentTableTab == "Users"
-      ? isUsersLoading
+      ? canViewUsers && isUsersLoading
       : currentTableTab == "Organizations"
-      ? isAdminsLoading || isUsersLoading || isOrganizationsLoading
-      : isAdminsLoading || isUsersLoading;
+      ? (canManageSuperadmins && isAdminsLoading) ||
+        (canViewUsers && isUsersLoading) ||
+        isOrganizationsLoading
+      : false;
 
-  const currentTableSkeletonColumns = currentTableTab == "Admins" ? 6 : 8;
+  const isToolbarTotalLoading =
+    isCurrentTableLoading || (isAnalyticsTab && isAccountAnalyticsLoading);
+
+  const currentTableSkeletonColumns = currentTableTab == "Superadmins" ? 6 : 8;
 
   const handleSaveOrganization = async (payload) => {
     const isEditMode = organizationFormMode === "edit" && selectedOrganization?.id;
@@ -554,7 +662,7 @@ const UserManagement = () => {
             User Management
           </h1>
           <p className="text-gray-500 text-[14px]">
-            Manage administrators, users, access permissions, and account status.
+            Manage superadmins, users, access permissions, and account status.
           </p>
         </div>
 
@@ -586,22 +694,26 @@ const UserManagement = () => {
         <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
           <div className="mb-[20px] flex flex-col gap-[16px] xl:flex-row xl:items-center xl:justify-between">
             <div className="flex flex-wrap gap-[12px]">
-              <ToolbarSearch
-                id="search"
-                placeholder={searchPlaceholder}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+              {!isAnalyticsTab && (
+                <ToolbarSearch
+                  id="search"
+                  placeholder={searchPlaceholder}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              )}
 
-              <div className="flex items-center text-sm text-gray-500">
-                Total {currentTableTab.toLowerCase()}:{" "}
-                <span className="ml-[4px] font-semibold text-gray-800">
-                  {isCurrentTableLoading
-                    ? "-"
-                    : currentTabTotal
-                  }
-                </span>
-              </div>
+              {!isAnalyticsTab && (
+                <div className="flex items-center text-sm text-gray-500">
+                  {toolbarTotalLabel}:{" "}
+                  <span className="ml-[4px] font-semibold text-gray-800">
+                    {isToolbarTotalLoading
+                      ? "-"
+                      : currentTabTotal
+                    }
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap gap-[8px]">
@@ -659,13 +771,13 @@ const UserManagement = () => {
                 pageName="User Management"
                 tableName={currentTableTab}
                 data={
-                  currentTableTab == "Admins"
+                  currentTableTab == "Superadmins"
                     ? currentAdminsData
                     : currentUsersData
                 }
                 columns={
-                  currentTableTab == "Admins"
-                    ? ["FULL NAME", "EMAIL", "USER TYPE", "STATUS", "DATE CREATED"]
+                  currentTableTab == "Superadmins"
+                    ? ["FULL NAME", "EMAIL", "ACCOUNT TYPE", "STATUS", "DATE CREATED"]
                     : [
                         "FULL NAME",
                         "EMAIL",
@@ -683,8 +795,8 @@ const UserManagement = () => {
 
                   let data = [full_name, value.email];
 
-                  if (currentTableTab == "Admins") {
-                    data.push(value.user_type);
+                  if (currentTableTab == "Superadmins") {
+                    data.push("SUPERADMIN");
                     data.push(value.is_disabled ? "Disabled" : "Active");
                   } else {
                     const regions = {
@@ -707,17 +819,8 @@ const UserManagement = () => {
                       BARMM: "Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)",
                     };
 
-                    const roleLabels = {
-                      ANALYST: "Analyst",
-                      DOH: "DOH Official",
-                      LGU: "LGU Worker",
-                      RESEARCHER: "Researcher",
-                      VIEWER: "Viewer",
-                      FIELD_WORKER: "Field Worker",
-                    };
-
                     data.push(regions[value.region] || value.region || "-");
-                    data.push(roleLabels[value.role_label] || value.role_label || "-");
+                    data.push(value.role_label || "-");
                     data.push(value.organization || "-");
                     data.push(value.is_disabled ? "Disabled" : "Active");
                   }
@@ -736,7 +839,7 @@ const UserManagement = () => {
           <div>
             {isCurrentTableLoading ? (
               <SkeletonBody columns={currentTableSkeletonColumns} rows={6} />
-            ) : currentTableTab == "Admins" ? (
+            ) : currentTableTab == "Superadmins" ? (
               <AdminsTable
                 admins={admins}
                 searchQuery={searchQuery}
@@ -751,10 +854,12 @@ const UserManagement = () => {
                 setSearchQuery={setSearchQuery}
                 setCurrentData={setCurrentUsersData}
                 organizationOptions={organizationOptions}
+                roleLabelOptions={roleLabelOptions}
               />
             ) : currentTableTab == "Organizations" ? (
               <OrganizationsPanel 
                 organizations={filteredOrganizations}
+                isSuperadmin={isSuperadmin}
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
                 onCreateOrganization={openCreateOrganizationModal}
@@ -767,8 +872,11 @@ const UserManagement = () => {
                 accountAnalytics={accountAnalytics}
                 organizations={organizationList}
                 isAccountAnalyticsLoading={isAccountAnalyticsLoading}
-                viewerType={user.user_type}
+                viewerType={
+                  isSuperadmin ? "SUPERADMIN" : isAdminRole ? "Admin" : "USER"
+                }
                 getRegionLabel={getRegionLabel}
+                roleDefinitions={accountRoleDefinitions}
               />
             )}
           </div>
@@ -779,6 +887,10 @@ const UserManagement = () => {
             mode={addUserMode}
             currentUser={user}
             organizationOptions={organizationOptions}
+            roleLabelOptions={roleLabelOptions}
+            isRoleLabelsLoading={isRoleLabelsLoading && roleLabels.length > 0}
+            isRoleLabelsError={isRoleLabelsError}
+            onCreated={handleAccountCreated}
             onClose={() => setAddUserModalActive(false)}
           />
         )}
@@ -796,6 +908,7 @@ const UserManagement = () => {
         {organizationDetailsModalActive && selectedOrganization && (
           <OrganizationDetailsModal
             organization={selectedOrganization}
+            isSuperadmin={isSuperadmin}
             getRegionLabel={getRegionLabel}
             onClose={closeOrganizationDetailsModal}
             onEdit={() => {
@@ -830,18 +943,22 @@ const UserAccountModal = ({
   mode,
   currentUser,
   organizationOptions = [],
+  roleLabelOptions = [],
+  isRoleLabelsLoading = false,
+  isRoleLabelsError = false,
+  onCreated,
   onClose,
 }) => {
-  const isAdminMode = mode == "ADMIN";
+  const isSuperadminMode = mode == "SUPERADMIN";
 
   const [createUser] = useCreateUserMutation();
   const [log_activity] = useCreateActivityLogMutation();
 
   const initialFormData = {
-    user_type: isAdminMode ? "ADMIN" : "USER",
+    user_type: isSuperadminMode ? "SUPERADMIN" : "USER",
     role_label: "",
-    region: isAdminMode ? "ALL" : "",
-    accessible_regions: isAdminMode
+    region: isSuperadminMode ? "ALL" : "",
+    accessible_regions: isSuperadminMode
       ? Regions.regions.map(({ value }) => value).join(",")
       : "",
     organization: "",
@@ -876,9 +993,10 @@ const UserAccountModal = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const title = isAdminMode ? "Add Admin" : "Add User";
+  const title = isSuperadminMode ? "Add Superadmin" : "Add User";
 
   const hasOrganizationOptions = organizationOptions.length > 0;
+  const hasAvailableRoleOptions = isSuperadminMode || roleLabelOptions.length > 0;
 
   const resetFieldError = (field) => {
     setFormErrors((errors) => ({
@@ -948,6 +1066,10 @@ const UserAccountModal = ({
       nextErrors.user_type = "Must choose user type.";
       hasError = true;
     }
+    if (!isSuperadminMode && !formData.role_label) {
+      nextErrors.role_label = "Must choose role.";
+      hasError = true;
+    }
     if (!formData.region) {
       nextErrors.region = "Must choose region.";
       hasError = true;
@@ -1002,7 +1124,12 @@ const UserAccountModal = ({
 
     setIsLoading(true);
 
-    const response = await createUser(formData);
+    const payload = {
+      ...formData,
+      role_label: isSuperadminMode ? "" : formData.role_label,
+    };
+
+    const response = await createUser(payload);
 
     if (!response) {
       toast(
@@ -1076,7 +1203,7 @@ const UserAccountModal = ({
         iconName="CheckCircle"
         size="snackbar-sm"
         color="success"
-        message={`${isAdminMode ? "Admin" : "User"} added successfully`}
+        message={`${isSuperadminMode ? "Superadmin" : "User"} added successfully`}
       />,
       {
         closeButton: ({ closeToast }) => (
@@ -1091,9 +1218,13 @@ const UserAccountModal = ({
 
     await log_activity({
       user_id: currentUser.id,
-      entry: `Added ${formData.user_type} : ${formData.first_name} ${formData.last_name}`,
+      entry: `Added ${isSuperadminMode ? "SUPERADMIN" : formData.role_label} account: ${formData.first_name} ${formData.last_name}`,
       module: "User Management",
     });
+
+    if (onCreated) {
+      await onCreated(payload.user_type);
+    }
 
     setIsLoading(false);
     onClose();
@@ -1119,8 +1250,8 @@ const UserAccountModal = ({
             {title}
           </h3>
           <p className="mt-[2px] text-sm text-gray-500">
-            {isAdminMode
-              ? "Create an administrator account."
+            {isSuperadminMode
+              ? "Create a superadmin account with full platform access."
               : "Create a personnel account."
             }
           </p>
@@ -1143,9 +1274,12 @@ const UserAccountModal = ({
             >
               <CustomSelect
                 options={
-                  isAdminMode
-                    ? [{ label: "ADMIN", value: "ADMIN" }]
-                    : [{ label: "USER", value: "USER" }]
+                  [
+                    {
+                      label: isSuperadminMode ? "SUPERADMIN" : "USER",
+                      value: isSuperadminMode ? "SUPERADMIN" : "USER",
+                    },
+                  ]
                 }
                 id="user-type"
                 placeholder="Select user type"
@@ -1161,23 +1295,31 @@ const UserAccountModal = ({
               />
             </FieldGroup>
 
-            {!isAdminMode && (
+            {!isSuperadminMode && (
               <FieldGroup
                 label="Role"
                 labelFor="role-label"
                 additionalClasses="mb-[16px]"
-                caption={formErrors.role_label}
-                state={formErrors.role_label ? "error" : ""}
+                caption={
+                  formErrors.role_label ||
+                  (isRoleLabelsLoading
+                    ? "Loading role labels..."
+                    : isRoleLabelsError
+                    ? "Using default role labels until the role label list refreshes."
+                    : !hasAvailableRoleOptions
+                    ? "No role labels available."
+                    : "")
+                }
+                state={
+                  formErrors.role_label
+                    ? "error"
+                    : isRoleLabelsLoading || !hasAvailableRoleOptions
+                    ? "warning"
+                    : ""
+                }
               >
                 <CustomSelect
-                  options={[
-                    { label: "Analyst", value: "ANALYST" },
-                    { label: "DOH Official", value: "DOH" },
-                    { label: "LGU Worker", value: "LGU" },
-                    { label: "Researcher", value: "RESEARCHER" },
-                    { label: "Viewer", value: "VIEWER" },
-                    { label: "Field Worker", value: "FIELD_WORKER" },
-                  ]}
+                  options={roleLabelOptions}
                   id="role-label"
                   placeholder="Select role"
                   size="input-select-md"
@@ -1192,7 +1334,7 @@ const UserAccountModal = ({
               </FieldGroup>
             )}
 
-            {!isAdminMode && (
+            {!isSuperadminMode && (
               <FieldGroup
                 label="Regional Office"
                 labelFor="region"
@@ -1229,9 +1371,9 @@ const UserAccountModal = ({
                 placeHolder="Select region/s"
                 onChange={handleChangeAccessibleRegions}
                 selectAllLabel="All Regions"
-                selectAll={isAdminMode}
+                selectAll={isSuperadminMode}
                 additionalClassname="mt-[8px] w-full"
-                editable={!isAdminMode}
+                editable={!isSuperadminMode}
                 state={formErrors.accessible_regions ? "error" : ""}
               />
             </FieldGroup>
@@ -1395,7 +1537,7 @@ const UserAccountModal = ({
           <button
             type="submit"
             className="rounded-[8px] bg-[#32418C] px-[14px] py-[9px] text-sm text-white disabled:cursor-not-allowed disabled:bg-[#98A2B3]"
-            disabled={isLoading || !hasOrganizationOptions}
+            disabled={isLoading || !hasOrganizationOptions || !hasAvailableRoleOptions}
           >
             {isLoading ? "Saving..." : "Save"}
           </button>
@@ -1692,6 +1834,7 @@ const OrganizationFormModal = ({
 
 const OrganizationDetailsModal = ({
   organization,
+  isSuperadmin,
   getRegionLabel,
   onClose,
   onEdit,
@@ -1723,8 +1866,14 @@ const OrganizationDetailsModal = ({
           <div className="grid grid-cols-1 gap-[12px] md:grid-cols-2">
             <DetailItem label="Main Region" value={getRegionLabel(organization.main_region)} />
             <DetailItem label="Partnership Status" value={organization.partnership_status === "INACTIVE" ? "Inactive" : "Active"} />
-            <DetailItem label="Users" value={organization.users} />
-            <DetailItem label="Admins" value={organization.admins} />
+            <DetailItem
+              label="Users"
+              value={organization.users}
+              className={isSuperadmin ? "" : "md:col-span-2"}
+            />
+            {isSuperadmin && (
+              <DetailItem label="Superadmins" value={organization.superadmins} />
+            )}
             <DetailItem label="Active Accounts" value={organization.activeAccounts} />
             <DetailItem label="Disabled Accounts" value={organization.disabledAccounts} />
           </div>
@@ -1776,8 +1925,8 @@ const OrganizationDetailsModal = ({
   );
 };
 
-const DetailItem = ({ label, value }) => (
-  <div className="rounded-[10px] border border-[#E5E5E5] bg-white p-[14px]">
+const DetailItem = ({ label, value, className = "" }) => (
+  <div className={`rounded-[10px] border border-[#E5E5E5] bg-white p-[14px] ${className}`}>
     <p className="text-xs font-medium uppercase tracking-[0.04em] text-gray-500">
       {label}
     </p>
@@ -1789,6 +1938,7 @@ const DetailItem = ({ label, value }) => (
 
 const OrganizationsPanel = ({ 
   organizations, 
+  isSuperadmin,
   searchQuery,
   setSearchQuery,
   onCreateOrganization,
@@ -1859,18 +2009,20 @@ const OrganizationsPanel = ({
               </p>
 
               <div className="mt-[14px] grid grid-cols-2 gap-[10px] text-sm">
-                <div>
+                <div className={isSuperadmin ? "" : "col-span-2"}>
                   <p className="text-gray-500">Users</p>
                   <p className="mt-[2px] font-semibold text-gray-900">
                     {organization.users}
                   </p>
                 </div>
-                <div>
-                  <p className="text-gray-500">Admins</p>
-                  <p className="mt-[2px] font-semibold text-gray-900">
-                    {organization.admins}
-                  </p>
-                </div>
+                {isSuperadmin && (
+                  <div>
+                    <p className="text-gray-500">Superadmins</p>
+                    <p className="mt-[2px] font-semibold text-gray-900">
+                      {organization.superadmins}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <p className="text-gray-500">Active</p>
                   <p className="mt-[2px] font-semibold text-[#027A48]">
@@ -1942,16 +2094,8 @@ const AccountAnalyticsPanel = ({
   isAccountAnalyticsLoading,
   viewerType,
   getRegionLabel,
+  roleDefinitions = [],
 }) => {
-  const roleDefinitions = [
-    { value: "ANALYST", label: "Analyst", color: "#32418C" },
-    { value: "DOH", label: "DOH Official", color: "#2572A5" },
-    { value: "LGU", label: "LGU Worker", color: "#9BCC33" },
-    { value: "RESEARCHER", label: "Researcher", color: "#FBD117" },
-    { value: "VIEWER", label: "Viewer", color: "#4B5563" },
-    { value: "FIELD_WORKER", label: "Field Worker", color: "#F97316" },
-  ];
-
   const activityByDay = accountAnalytics.activity_by_day || [];
 
   const roleRegionDistribution = (
@@ -1970,7 +2114,7 @@ const AccountAnalyticsPanel = ({
     0
   );
 
-  const totalUserAccounts = roleRegionDistribution.reduce((total, row) => {
+  const derivedTotalUserAccounts = roleRegionDistribution.reduce((total, row) => {
     return (
       total +
       roleDefinitions.reduce(
@@ -1980,12 +2124,34 @@ const AccountAnalyticsPanel = ({
     );
   }, 0);
 
+  const reportedTotalUserAccounts = Number(accountAnalytics.total_user_accounts);
+  const totalUserAccounts = Number.isFinite(reportedTotalUserAccounts)
+    ? reportedTotalUserAccounts
+    : derivedTotalUserAccounts;
+
+  const hasUserAccounts = totalUserAccounts > 0;
+
+  const hasRoleDistribution = roleRegionDistribution.some((row) =>
+    roleDefinitions.some((role) => Number(row[role.value] || 0) > 0)
+  );
+
+  const recentActivityEmptyState =
+    viewerType === "SUPERADMIN"
+      ? {
+        heading: "No Recent Account Activity",
+        content: "No account activity has been recorded yet.",
+        }
+      : {
+        heading: "No Organization Activity Yet",
+        content: "No account activity has been recorded for users in your organization yet.",
+        };
+ 
   const scopeDescription = 
     viewerType === "SUPERADMIN"
       ? "Graphs show all user activity and role distribution. Recent Activity includes superadmins, admins, and users."
-      : viewerType === "ADMIN"
+      : viewerType === "Admin"
       ? "Graphs show all user activity and role distribution. Recent activity is limited to users in your organization."
-      : "Graphs show all user activity and role distribution. Detailed recent activity is hidden for user acccounts.";
+      : "Graphs show all user activity and role distribution. Detailed recent activity is hidden for user accounts.";
 
   const formatLoggedAt = (value) => {
     const date = new Date(value);
@@ -2025,7 +2191,7 @@ const AccountAnalyticsPanel = ({
         <AnalyticsSummaryCard
           label="Total User Accounts"
           value={totalUserAccounts}
-          helper="Across all user roles"
+          helper="User accounts only"
         />
         <AnalyticsSummaryCard
           label="Organizations"
@@ -2076,9 +2242,13 @@ const AccountAnalyticsPanel = ({
               </ResponsiveContainer>
             ) : (
               <EmptyState
-                iconName="ActivityLog"
-                heading="No Activity This Week"
-                content="No account activity has been recorded in the last seven days."
+                iconName={hasUserAccounts ? "ActivityLog" : "Users"}
+                heading={hasUserAccounts ? "No Activity This Week" : "No User Accounts Yet"}
+                content={
+                  hasUserAccounts
+                    ? "User accounts exist, but no account activity has been recorded in the last seven days."
+                    : "Add user accounts to begin tracking account activity."
+                }
               />
             )}
           </div>
@@ -2093,7 +2263,11 @@ const AccountAnalyticsPanel = ({
           </p>
 
           <div className="mt-[16px] h-[300px]">
-            {roleRegionDistribution.length > 0 ? (
+            {isActivityLogsLoading ? (
+              <div className="flex h-full items-center">
+                <SkeletonBody columns={4} rows={4} />
+              </div>
+            ) : hasRoleDistribution ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={roleRegionDistribution}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -2123,8 +2297,12 @@ const AccountAnalyticsPanel = ({
             ) : (
               <EmptyState
                 iconName="Users"
-                heading="No User Distribution Yet"
-                content="Add user accounts with assigned roles and regions to generate this chart."
+                heading={hasUserAccounts ? "No Regional Distribution Yet" : "No User Accounts Yet"}
+                content={
+                  hasUserAccounts
+                    ? "User accounts exist, but role and region data is not ready for charting yet."
+                    : "Add user accounts with assigned roles and regions to generate this chart." 
+                }
               />
             )}
           </div>
@@ -2163,7 +2341,9 @@ const AccountAnalyticsPanel = ({
                       <td className="px-[10px] py-[14px] font-medium text-gray-800">
                         <div>{log.user_name || "-"}</div>
                         <div className="text-xs font-normal text-gray-500">
-                          {log.user_type || "-"}
+                          {log.user_type === "SUPERADMIN"
+                            ? "SUPERADMIN"
+                            : log.role_label || log.user_type || "-"}
                         </div>
                       </td>
                       <td className="px-[10px] py-[14px] text-gray-600">
@@ -2191,8 +2371,8 @@ const AccountAnalyticsPanel = ({
           ) : (
             <EmptyState
               iconName="ActivityLog"
-              heading="No User Activity This Week"
-              content="No user account activity has been recorded in the last seven days."
+              heading={recentActivityEmptyState.heading}
+              content={recentActivityEmptyState.content}
             />
           )}
         </div>

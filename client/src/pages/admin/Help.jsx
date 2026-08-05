@@ -11,7 +11,8 @@ import HelpImage from "../../components/admin/HelpImage";
 
 const Help = () => {
   const user = useSelector((state) => state.auth.user);
-  const isAdminUser = ["ADMIN", "SUPERADMIN"].includes(user.user_type);
+  const isAdminUser =
+    user.user_type === "SUPERADMIN" || user.role_label === "Admin";
 
   const { isPWA } = useDeviceDetect();
 

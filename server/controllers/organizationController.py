@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from config.database import organization_collection, user_collection
 from helpers.miscHelpers import get_ph_datetime
+from middleware.requireAuth import require_auth
 from middleware.requireRole import require_role
 from models.organization import OrganizationRequest
 from schema.organizationSchema import individual_organization, list_organizations
@@ -88,7 +89,7 @@ def validate_organization_payload(data: OrganizationRequest):
     }
 
 async def fetch_organizations(
-    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))]
+    user_id: Annotated[str, Depends(require_auth)]
 ):
     organizations = organization_collection.find().sort([("name", pymongo.ASCENDING)])
 
@@ -96,7 +97,7 @@ async def fetch_organizations(
 
 async def create_organization(
     data: OrganizationRequest,
-    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))]
+    current_user: Annotated[dict, Depends(require_role(["Admin", "SUPERADMIN"]))]
 ):
     validation = validate_organization_payload(data)
 
@@ -148,7 +149,7 @@ async def create_organization(
 async def update_organization(
     id: str,
     data: OrganizationRequest,
-    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))]
+    current_user: Annotated[dict, Depends(require_role(["Admin", "SUPERADMIN"]))]
 ):
     if not id or not ObjectId.is_valid(id):
         raise HTTPException(
@@ -201,7 +202,7 @@ async def update_organization(
 
 async def delete_organization(
     id: str,
-    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))]
+    current_user: Annotated[dict, Depends(require_role(["Admin", "SUPERADMIN"]))]
 ):
     if not id or not ObjectId.is_valid(id):
         raise HTTPException(

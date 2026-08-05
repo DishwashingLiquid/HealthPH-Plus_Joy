@@ -8,7 +8,7 @@ export const activityLogApi = baseAPI.injectEndpoints({
     }),
     fetchAccountAnalytics: builder.query({
       query: () => "/activity-logs/account-analytics",
-      providesTags: ["ActivityLogs"],
+      providesTags: ["AccountAnalytics"],
     }),
     createActivityLog: builder.mutation({
       query: (data) => ({
@@ -16,7 +16,7 @@ export const activityLogApi = baseAPI.injectEndpoints({
         method: "POST",
         body: data,
       }),
-      invalidatesTags: ["ActivityLogs"],
+      invalidatesTags: ["ActivityLogs", "AccountAnalytics"],
     }),
   }),
 });
