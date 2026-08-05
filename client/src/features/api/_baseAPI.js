@@ -25,6 +25,8 @@ export const baseAPI = createApi({
     "User",
     "Admins",
     "Admin",
+    "Organizations",
+    "Organization",
     "ActivityLogs",
     "ActivityLog",
     "AnalyticsSuspected",

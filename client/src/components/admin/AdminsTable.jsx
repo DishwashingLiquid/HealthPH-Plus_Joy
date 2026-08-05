@@ -12,6 +12,9 @@ import Checkbox from "../Checkbox";
 import ModalWithBody from "./ModalWithBody";
 import FieldGroup from "../FieldGroup";
 import Input from "../Input";
+import CustomSelect from "../CustomSelect";
+import MultiSelect from "../MultiSelect";
+
 import Regions from "../../assets/data/regions.json";
 
 import {
@@ -26,6 +29,7 @@ const AdminsTable = ({
     setCurrentData,
     searchQuery,
     setSearchQuery,
+    organizationOptions = [],
 }) => {
     const user = useSelector((state) => state.auth.user);
 
@@ -118,6 +122,13 @@ const AdminsTable = ({
 
     const visibleSelectableAdmins = tableData.filter((admin) => user.id != admin.id);
 
+    const hasOrganizationOptions = organizationOptions.length > 0;
+
+    const normalizeOrganizationValue = (organizationName) =>
+        organizationOptions.some((option) => option.value === organizationName)
+            ? organizationName
+            : "";
+
     const allVisibleAdminsSelected =
         visibleSelectableAdmins.length > 0 &&
         visibleSelectableAdmins.every((admin) => selectedAdminIds.includes(admin.id));
@@ -176,7 +187,7 @@ const AdminsTable = ({
             email: row.email || "",
             user_type: row.user_type || "ADMIN",
             region: row.region || "ALL",
-            organization: row.organization || "",
+            organization: normalizeOrganizationValue(row.organization || ""),
             accessible_regions:
                 normalizeAccessibleRegions(row.accessible_regions).length > 0
                     ? normalizeAccessibleRegions(row.accessible_regions)
@@ -223,7 +234,7 @@ const AdminsTable = ({
         }
 
         if (!payload.organization) {
-            nextErrors.organization = "Must enter organization.";
+            nextErrors.organization = "Must choose organization.";
             hasError = true;
         }
 
@@ -608,6 +619,7 @@ const AdminsTable = ({
                     onLoadingLabel="Updating"
                     onConfirm={handleUpdateAdmin}
                     onConfirmLabel="Update"
+                    onConfirmDisabled={!hasOrganizationOptions}
                     onCancel={() => {
                         setUpdateModalData(emptyUpdateModalData);
                         setUpdateModalErrors(emptyUpdateModalErrors);
@@ -673,17 +685,38 @@ const AdminsTable = ({
                                 label="Organization"
                                 labelFor="update-admin-organization"
                                 additionalClasses="mb-[16px]"
-                                caption={updateModalErrors.organization}
-                                state={updateModalErrors.organization ? "error" : ""}
+                                caption={
+                                    updateModalErrors.organization ||
+                                    (!hasOrganizationOptions
+                                        ? "Add an organization first from the Organizations tab."
+                                        : ""
+                                    )
+                                }
+                                state={
+                                    updateModalErrors.organization
+                                        ? "error"
+                                        : !hasOrganizationOptions
+                                        ? "warning"
+                                        : ""
+                                }
                             >
-                                <Input
-                                    size="input-md"
+                                <CustomSelect
+                                    options={organizationOptions}
                                     id="update-admin-organization"
-                                    type="text"
-                                    additionalClasses="mt-[8px] w-full"
+                                    placeholder={
+                                        hasOrganizationOptions
+                                            ? "Select organization"
+                                            : "No organizations available"   
+                                    }
+                                    size="input-select-md"
                                     value={updateModalData.organization}
-                                    onChange={(e) => setUpdateModalData({ ...updateModalData, organization: e.target.value })}
+                                    handleChange={(value) => {
+                                        setUpdateModalData({ ...updateModalData, organization: value });
+                                        setUpdateModalErrors({ ...updateModalErrors, organization: ""});
+                                    }}
+                                    additionalClasses="mt-[8px] w-full"
                                     state={updateModalErrors.organization ? "error" : ""}
+                                    editable={hasOrganizationOptions}
                                 />
                             </FieldGroup>
                             <FieldGroup
@@ -700,6 +733,25 @@ const AdminsTable = ({
                                     disabled
                                 />
                             </FieldGroup>
+                            <div className="md:col-span-2">
+                                <FieldGroup
+                                    label="Accessible Regions"
+                                    labelFor="update-admin-accessible-regions"
+                                    additionalClasses="mb-[16px]"
+                                >
+                                    <MultiSelect
+                                        options={Regions.regions}
+                                        defaultValue={updateModalData.accessible_regions}
+                                        placeHolder="Select region/s"
+                                        onChange={() => {}}
+                                        selectAllLabel="All Regions"
+                                        selectAll={false}
+                                        additionalClassname="mt-[8px] w-full"
+                                        editable={false}
+                                        selectable={false}
+                                    />
+                                </FieldGroup>
+                            </div>
                             <FieldGroup
                                 label="Date Created"
                                 labelFor="update-admin-created-at"

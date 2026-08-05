@@ -15,6 +15,11 @@ import CustomSelect from "../../components/CustomSelect";
 import InputPassword from "../../components/InputPassword";
 import PasswordRequirements from "../../components/auth/PasswordRequirements";
 import MultiSelect from "../../components/MultiSelect";
+import Snackbar from "../../components/Snackbar";
+import { ToolbarSearch } from "../../components/ToolbarControls";
+import EmptyState from "../../components/admin/EmptyState";
+import Modal from "../../components/admin/Modal";
+
 import Regions from "../../assets/data/regions.json";
 
 import {
@@ -35,15 +40,23 @@ import {
   useFetchUsersQuery,
   useCreateUserMutation,
 } from "../../features/api/userSlice";
+
+import {
+  useFetchOrganizationsQuery,
+  useCreateOrganizationMutation,
+  useUpdateOrganizationMutation,
+  useDeleteOrganizationMutation,
+} from "../../features/api/organizationSlice";
+
 import {
   useCreateActivityLogMutation,
-  useFetchActivityLogsQuery,
+  useFetchAccountAnalyticsQuery,
 } from "../../features/api/activityLogsSlice";
+
+
 import useDeviceDetect from "../../hooks/useDeviceDetect";
-import Snackbar from "../../components/Snackbar";
 import { toast } from "react-toastify";
 import { toPng } from "html-to-image";
-import { ToolbarSearch } from "../../components/ToolbarControls";
 
 const UserManagement = () => {
   const user = useSelector((state) => state.auth.user);
@@ -51,9 +64,9 @@ const UserManagement = () => {
   const [log_activity] = useCreateActivityLogMutation();
 
   const {
-    data: activityLogs = [],
-    isLoading: isActivityLogsLoading,
-  } = useFetchActivityLogsQuery();
+    data: accountAnalytics = {},
+    isLoading: isAccountAnalyticsLoading,
+  } = useFetchAccountAnalyticsQuery();
 
   let {
     data: admins,
@@ -66,6 +79,32 @@ const UserManagement = () => {
     isLoading: isUsersLoading,
     isError: isUsersError,
   } = useFetchUsersQuery();
+
+  const {
+    data: organizations = [],
+    isLoading: isOrganizationsLoading,
+  } = useFetchOrganizationsQuery();
+
+  const [createOrganization, { isLoading: isCreateOrganizationLoading }] =
+    useCreateOrganizationMutation();
+
+  const [updateOrganization, { isLoading: isUpdateOrganizationLoading }] =
+    useUpdateOrganizationMutation();
+
+  const [deleteOrganization, { isLoading: isDeleteOrganizationLoading }] =
+    useDeleteOrganizationMutation();
+
+  const [organizationFormModalActive, setOrganizationFormModalActive] =
+    useState(false);
+
+  const [organizationFormMode, setOrganizationFormMode] = useState("create");
+  const [selectedOrganization, setSelectedOrganization] = useState(null);
+
+  const [organizationDetailsModalActive, setOrganizationDetailsModalActive] =
+    useState(false);
+
+  const [organizationDeleteModalActive, setOrganizationDeleteModalActive] =
+    useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -171,7 +210,7 @@ const UserManagement = () => {
 
   const allAccounts = [...(admins || []), ...(users || [])];
 
-  const organizationList = Object.values(
+  const accountOrganizationStats = Object.values(
     allAccounts.reduce((collection, account) => {
       const organizationName = account.organization?.trim();
 
@@ -211,12 +250,47 @@ const UserManagement = () => {
 
       return collection;
     }, {})
-  )
-    .map((organization) => ({
-      ...organization,
-      regions: Array.from(organization.regions),
-    }))
+  ).map((organization) => ({
+    ...organization,
+    regions: Array.from(organization.regions),
+  }));
+
+  const organizationList = organizations
+    .map((organization) => {
+      const accountStats = accountOrganizationStats.find(
+        (stats) =>
+          stats.name.trim().toLowerCase() ===
+          organization.name.trim().toLowerCase()
+      );
+
+      return {
+        id: organization.id,
+        name: organization.name,
+        description: organization.description,
+        main_region: organization.main_region,
+        region_coverage: organization.region_coverage || [],
+        partnership_status: organization.partnership_status || "ACTIVE",
+        totalAccounts: accountStats?.totalAccounts || 0,
+        admins: accountStats?.admins || 0,
+        users: accountStats?.users || 0,
+        activeAccounts: accountStats?.activeAccounts || 0,
+        disabledAccounts: accountStats?.disabledAccounts || 0,
+        regions:
+          accountStats?.regions?.length > 0
+            ? accountStats.regions
+            : (organization.region_coverage || []).map(getRegionLabel),
+        source: "ORGANIZATION",
+      };
+    })
     .sort((a, b) => b.totalAccounts - a.totalAccounts || a.name.localeCompare(b.name));
+
+  const organizationOptions = organizations
+    .filter((organization) => organization?.name?.trim())
+    .map((organization) => ({
+      label: organization.name,
+      value: organization.name,
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   const filteredOrganizations = searchQuery.trim()
     ? organizationList.filter((organization) => {
@@ -236,7 +310,7 @@ const UserManagement = () => {
     { label: "Admins", count: 0 },
     { label: "Users", count: 0 },
     { label: "Organizations", count: 0 },
-    { label: "User Analytics", count: 0 },
+    { label: "Account Analytics", count: 0 },
   ]);
 
   const [currentTableTab, setCurrentTableTab] = useState(
@@ -280,14 +354,14 @@ const UserManagement = () => {
           { label: "Admins", count: filteredAdmins.length },
           { label: "Users", count: filteredUsers.length },
           { label: "Organizations", count: filteredOrganizations.length },
-          { label: "User Analytics", count: allAccounts.length },
+          { label: "Account Analytics", count: allAccounts.length },
         ]);
       } else {
         setTabs([
           { label: "Admins", count: admins.length },
           { label: "Users", count: users.length },
           { label: "Organizations", count: organizationList.length },
-          { label: "User Analytics", count: allAccounts.length },
+          { label: "Account Analytics", count: allAccounts.length },
         ]);
       }
     }
@@ -307,6 +381,18 @@ const UserManagement = () => {
   const addButtonLabel = currentTableTab == "Admins" ? "Add Admin" : "Add User";
 
   const isAccountTableTab = ["Admins", "Users"].includes(currentTableTab);
+  const isOrganizationsTab = currentTableTab == "Organizations";
+  const isAnalyticsTab = currentTableTab == "Account Analytics";
+
+  const searchPlaceholder =
+    currentTableTab == "Organizations"
+      ? "Search organizations..."
+      : `Search ${currentTableTab.toLowerCase()}...`;
+
+  const handleChangeTab = (label) => {
+    setCurrentTableTab(label);
+    setSearchQuery("");
+  };
 
   const currentTabTotal =
     currentTableTab == "Admins"
@@ -322,14 +408,142 @@ const UserManagement = () => {
     setAddUserModalActive(true);
   };
 
+  const openCreateOrganizationModal = () => {
+    setSelectedOrganization(null);
+    setOrganizationFormMode("create");
+    setOrganizationFormModalActive(true);
+  };
+
+  const openEditOrganizationModal = (organization) => {
+    setSelectedOrganization(organization);
+    setOrganizationFormMode("edit");
+    setOrganizationFormModalActive(true);
+  };
+
+  const openViewOrganizationModal = (organization) => {
+    setSelectedOrganization(organization);
+    setOrganizationDetailsModalActive(true);
+  };
+
+  const openDeleteOrganizationModal = (organization) => {
+    setSelectedOrganization(organization);
+    setOrganizationDeleteModalActive(true);
+  };
+
+  const closeOrganizationFormModal = () => {
+    setOrganizationFormModalActive(false);
+    setSelectedOrganization(null);
+    setOrganizationFormMode("create");
+  };
+
+  const closeOrganizationDetailsModal = () => {
+    setOrganizationDetailsModalActive(false);
+    setSelectedOrganization(null);
+  };
+
+  const closeOrganizationDeleteModal = () => {
+    if (isDeleteOrganizationLoading) return;
+
+    setOrganizationDeleteModalActive(false);
+    setSelectedOrganization(null);
+  };
+
   const isCurrentTableLoading =
     currentTableTab == "Admins"
       ? isAdminsLoading
       : currentTableTab == "Users"
       ? isUsersLoading
+      : currentTableTab == "Organizations"
+      ? isAdminsLoading || isUsersLoading || isOrganizationsLoading
       : isAdminsLoading || isUsersLoading;
 
   const currentTableSkeletonColumns = currentTableTab == "Admins" ? 6 : 8;
+
+  const handleSaveOrganization = async (payload) => {
+    const isEditMode = organizationFormMode === "edit" && selectedOrganization?.id;
+
+    const response = isEditMode
+      ? await updateOrganization({
+          id: selectedOrganization.id,
+          ...payload,
+        })
+      : await createOrganization(payload);
+
+    if ("error" in response) {
+      const detail = response.error?.data?.detail;
+
+      return {
+        ok: false,
+        errors: Array.isArray(detail)
+          ? detail
+          : [{ field: "error", error: detail || "Failed to save organization." }],
+      };
+    }
+
+    toast(
+      <Snackbar
+        iconName="CheckCircle"
+        size="snackbar-sm"
+        color="success"
+        message={
+          isEditMode
+            ? "Organization updated successfully"
+            : "Organization added successfully" 
+        }
+      />
+    );
+
+    await log_activity({
+      user_id: user.id,
+      entry: isEditMode
+        ? `Updated organization: ${payload.name}`
+        : `Added organization: ${payload.name}`,
+      module: "User Management",
+    });
+
+    return { ok: true };
+  };
+
+  const handleDeleteOrganization = async () => {
+    if (!selectedOrganization?.id) return;
+
+    const response = await deleteOrganization(selectedOrganization.id);
+
+    if ("error" in response) {
+      const detail = response.error?.data?.detail;
+      const message = Array.isArray(detail)
+        ? detail[0]?.error || "Failed to delete organization."
+        : detail || "Failed to delete organization.";
+
+      toast(
+        <Snackbar
+          iconName="Error"
+          size="snackbar-sm"
+          color="destructive"
+          message={message}
+        />
+      );
+
+      return;
+    }
+
+    toast(
+      <Snackbar
+        iconName="CheckCircle"
+        size="snackbar-sm"
+        color="success"
+        message="Organization deleted successfully"
+      />
+    );
+
+    await log_activity({
+      user_id: user.id,
+      entry: `Deleted organization: ${selectedOrganization.name}`,
+      module: "User Management",
+    });
+
+    closeOrganizationDeleteModal();
+  };
 
   return (
     <>
@@ -349,11 +563,11 @@ const UserManagement = () => {
           <div
             className={`grid gap-[8px] rounded-[10px] bg-[#F5F5F5] p-[6px] ${
               visibleTabs.length === 4
-                ? "grid-cols-4"
+                ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4"
                 : visibleTabs.length === 3
-                ? "grid-cols-3"
+                ? "grid-cols-1 sm:grid-cols-3"
                 : visibleTabs.length === 2
-                ? "grid-cols-2"
+                ? "grid-cols-1 sm:grid-cols-2"
                 : "grid-cols-1"
             }`}
           >
@@ -362,7 +576,7 @@ const UserManagement = () => {
                 key={label}
                 label={label}
                 active={currentTableTab == label}
-                onClick={() => setCurrentTableTab(label)}
+                onClick={() => handleChangeTab(label)}
               />
             ))}
           </div>
@@ -374,7 +588,7 @@ const UserManagement = () => {
             <div className="flex flex-wrap gap-[12px]">
               <ToolbarSearch
                 id="search"
-                placeholder={`Search ${currentTableTab.toLowerCase()}...`}
+                placeholder={searchPlaceholder}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -395,7 +609,7 @@ const UserManagement = () => {
                 type="button"
                 className="flex items-center gap-[8px] rounded-[10px] border border-[#E5E5E5] bg-[#F8F9FA] px-[16px] py-[10px] text-sm text-gray-800"
                 onClick={handlePrint}
-                disabled={isPrinting}
+                disabled={isPrinting || !isAccountTableTab}
               >
                 <Icon
                   iconName="Printer"
@@ -420,6 +634,22 @@ const UserManagement = () => {
                     fill="#FFF"
                   />
                   <span>{addButtonLabel}</span>
+                </button>
+              )}
+
+              {canManageUsers && isOrganizationsTab && (
+                <button
+                  type="button"
+                  className="flex items-center gap-[8px] rounded-[10px] bg-[#32418C] px-[16px] py-[10px] text-sm text-white"
+                  onClick={() => openCreateOrganizationModal()}
+                >
+                  <Icon
+                    iconName="Plus"
+                    height="16px"
+                    width="16px"
+                    fill="#FFF"
+                  />
+                  <span>Add Organization</span>
                 </button>
               )}
 
@@ -512,6 +742,7 @@ const UserManagement = () => {
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
                 setCurrentData={setCurrentAdminsData}
+                organizationOptions={organizationOptions}
               />
             ) : currentTableTab == "Users" ? (
               <UsersTable
@@ -519,15 +750,24 @@ const UserManagement = () => {
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
                 setCurrentData={setCurrentUsersData}
+                organizationOptions={organizationOptions}
               />
             ) : currentTableTab == "Organizations" ? (
-              <OrganizationsPanel organizations={filteredOrganizations} />
+              <OrganizationsPanel 
+                organizations={filteredOrganizations}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                onCreateOrganization={openCreateOrganizationModal}
+                onViewOrganization={openViewOrganizationModal}
+                onEditOrganization={openEditOrganizationModal}
+                onDeleteOrganization={openDeleteOrganizationModal}
+              />
             ) : (
-              <UserAnalyticsPanel
-                users={users || []}
+              <AccountAnalyticsPanel
+                accountAnalytics={accountAnalytics}
                 organizations={organizationList}
-                activityLogs={activityLogs || []}
-                isActivityLogsLoading={isActivityLogsLoading}
+                isAccountAnalyticsLoading={isAccountAnalyticsLoading}
+                viewerType={user.user_type}
                 getRegionLabel={getRegionLabel}
               />
             )}
@@ -538,7 +778,47 @@ const UserManagement = () => {
           <UserAccountModal
             mode={addUserMode}
             currentUser={user}
+            organizationOptions={organizationOptions}
             onClose={() => setAddUserModalActive(false)}
+          />
+        )}
+
+        {organizationFormModalActive && (
+          <OrganizationFormModal
+            mode={organizationFormMode}
+            organization={selectedOrganization}
+            isLoading={isCreateOrganizationLoading || isUpdateOrganizationLoading}
+            onClose={closeOrganizationFormModal}
+            onSubmit={handleSaveOrganization}
+          />
+        )}
+
+        {organizationDetailsModalActive && selectedOrganization && (
+          <OrganizationDetailsModal
+            organization={selectedOrganization}
+            getRegionLabel={getRegionLabel}
+            onClose={closeOrganizationDetailsModal}
+            onEdit={() => {
+              setOrganizationDetailsModalActive(false);
+              openEditOrganizationModal(selectedOrganization);
+            }}
+          />
+        )}
+
+        {organizationDeleteModalActive && selectedOrganization && (
+          <Modal
+            onLoading={isDeleteOrganizationLoading}
+            onLoadingLabel="Deleting"
+            onConfirm={handleDeleteOrganization}
+            onConfirmLabel="Delete"
+            onCancel={closeOrganizationDeleteModal}
+            heading={`Delete ${selectedOrganization.name}?`}
+            content={
+              selectedOrganization.totalAccounts > 0
+                ? `This organization has ${selectedOrganization.totalAccounts} connected account(s). Remove or transfer those accounts before deleting this organization.`
+                : "This will permanently remove the organization from the official organization list."
+            }
+            color="destructive"
           />
         )}
       </div>
@@ -546,7 +826,12 @@ const UserManagement = () => {
   );
 };
 
-const UserAccountModal = ({ mode, currentUser, onClose }) => {
+const UserAccountModal = ({ 
+  mode,
+  currentUser,
+  organizationOptions = [],
+  onClose,
+}) => {
   const isAdminMode = mode == "ADMIN";
 
   const [createUser] = useCreateUserMutation();
@@ -592,6 +877,8 @@ const UserAccountModal = ({ mode, currentUser, onClose }) => {
   const [error, setError] = useState("");
 
   const title = isAdminMode ? "Add Admin" : "Add User";
+
+  const hasOrganizationOptions = organizationOptions.length > 0;
 
   const resetFieldError = (field) => {
     setFormErrors((errors) => ({
@@ -670,7 +957,7 @@ const UserAccountModal = ({ mode, currentUser, onClose }) => {
       hasError = true;
     }
     if (!formData.organization || formData.organization.trim().length == 0) {
-      nextErrors.organization = "Must enter organization.";
+      nextErrors.organization = "Must choose organization.";
       hasError = true;
     }
     if (!formData.first_name || formData.first_name.trim().length == 0) {
@@ -953,21 +1240,38 @@ const UserAccountModal = ({ mode, currentUser, onClose }) => {
               label="Organization"
               labelFor="organization"
               additionalClasses="mb-[16px]"
-              caption={formErrors.organization}
-              state={formErrors.organization ? "error" : ""}
+              caption={
+                formErrors.organization ||
+                (!hasOrganizationOptions
+                  ? "Add an organization first from the Organizations tab."
+                  : "If the organization is not listed, add it in the Organizations tab first."
+                )
+              }
+              state={
+                formErrors.organization
+                  ? "error"
+                  : !hasOrganizationOptions
+                  ? "warning"
+                  : "" 
+              }
             >
-              <Input
-                size="input-md"
+              <CustomSelect
+                options={organizationOptions}
                 id="organization"
-                type="text"
-                additionalClasses="mt-[8px] w-full"
-                placeholder="Enter organization"
+                placeholder={
+                  hasOrganizationOptions
+                    ? "Select organization"
+                    : "No organizations available" 
+                }
+                size="input-select-md"
                 value={formData.organization}
-                onChange={(e) => {
-                  setFormData({ ...formData, organization: e.target.value });
+                handleChange={(value) => {
+                  setFormData({ ...formData, organization: value });
                   resetFieldError("organization");
                 }}
+                additionalClasses="mt-[8px] w-full"
                 state={formErrors.organization ? "error" : ""}
+                editable={hasOrganizationOptions}
               />
             </FieldGroup>
             
@@ -1090,8 +1394,8 @@ const UserAccountModal = ({ mode, currentUser, onClose }) => {
           </button>
           <button
             type="submit"
-            className="rounded-[8px] bg-[#32418C] px-[14px] py-[9px] text-sm text-white"
-            disabled={isLoading}
+            className="rounded-[8px] bg-[#32418C] px-[14px] py-[9px] text-sm text-white disabled:cursor-not-allowed disabled:bg-[#98A2B3]"
+            disabled={isLoading || !hasOrganizationOptions}
           >
             {isLoading ? "Saving..." : "Save"}
           </button>
@@ -1101,15 +1405,428 @@ const UserAccountModal = ({ mode, currentUser, onClose }) => {
   );
 };
 
-const OrganizationsPanel = ({ organizations }) => {
-  if (organizations.length === 0) {
-    return (
-      <div className="rounded-[12px] border border-dashed border-[#D0D5DD] bg-[#F8FAFC] p-[28px] text-center">
-        <p className="text-sm font-medium text-gray-800">No organizations found</p>
-        <p className="mt-[4px] text-sm text-gray-500">
-          Try adjusting your search or add users with organization details.
-        </p>
+const OrganizationFormModal = ({
+  mode = "create",
+  organization,
+  isLoading,
+  onClose,
+  onSubmit,
+}) => {
+  const regionOptions = Regions.regions.filter(
+    (region) => region.value !== "N/A"
+  );
+
+  const isEditMode = mode === "edit";
+
+  const initialFormErrors = {
+    name: "",
+    description: "",
+    main_region: "",
+    region_coverage: "",
+    partnership_status: "",
+  };
+
+  const [formData, setFormData] = useState({
+    name: organization?.name || "",
+    description: organization?.description || "",
+    main_region: organization?.main_region || "",
+    region_coverage: organization?.region_coverage || [],
+    partnership_status: organization?.partnership_status || "ACTIVE",
+  });
+
+  const [formErrors, setFormErrors] = useState(initialFormErrors);
+  const [error, setError] = useState("");
+
+  const resetFieldError = (field) => {
+    setFormErrors((errors) => ({
+      ...errors,
+      [field]: "",
+    }));
+    setError("");
+  };
+
+  const handleCoverageChange = (value) => {
+    setFormData((data) => ({
+      ...data,
+      region_coverage: value.map((region) => region.value),
+    }));
+
+    resetFieldError("region_coverage");
+  };
+
+  const checkError = () => {
+    let hasError = false;
+    const nextErrors = { ...initialFormErrors };
+
+    if (!formData.name.trim()) {
+      nextErrors.name = "Must enter organization name.";
+      hasError = true;
+    }
+
+    if (!formData.main_region) {
+      nextErrors.main_region = "Must choose main region.";
+      hasError = true;
+    }
+
+    if (formData.region_coverage.length === 0) {
+      nextErrors.region_coverage = "Must choose at least one covered region.";
+      hasError = true;
+    }
+
+    if (!formData.partnership_status) {
+      nextErrors.partnership_status = "Must choose partnership status.";
+      hasError = true;
+    }
+
+    setFormErrors(nextErrors);
+    return hasError;
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    if (checkError()) return;
+
+    const response = await onSubmit({
+      name: formData.name.trim(),
+      description: formData.description.trim(),
+      main_region: formData.main_region,
+      region_coverage: formData.region_coverage.join(","),
+      partnership_status: formData.partnership_status,
+    });
+
+    if (response.ok) {
+      onClose();
+      return;
+    }
+
+    const nextErrors = { ...initialFormErrors };
+    let nextError = "";
+
+    response.errors.forEach(({ field, error }) => {
+      if (field in nextErrors) {
+        nextErrors[field] = error;
+      } else {
+        nextError = error;
+      }
+    });
+
+    setFormErrors(nextErrors);
+    setError(nextError);
+  };
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 top-[49px] z-50 flex items-center justify-center px-[20px] py-[32px]">
+      <button
+        type="button"
+        className="absolute inset-0 bg-[#34405499] backdrop-blur-sm"
+        onClick={onClose}
+        aria-label="Close organization modal"
+        disabled={isLoading}
+      />
+
+      <form
+        method="post"
+        onSubmit={handleSubmit}
+        className="relative flex max-h-[calc(100vh-113px)] w-full max-w-[900px] flex-col overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-white shadow-xl"
+      >
+        <div className="border-b border-[#E5E5E5] px-[20px] py-[16px]">
+          <h3 className="text-[18px] font-semibold text-gray-800">
+            {isEditMode ? "Edit Organization" : "Add Organization"}
+          </h3>
+          <p className="mt-[2px] text-sm text-gray-500">
+            {isEditMode
+              ? "Update organization details and region coverage."
+              : "Create an official organization option for admin and user accounts."}
+          </p>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-[20px]">
+          {error && (
+            <p className="mb-[14px] text-sm text-[#B42318]">
+              {error}
+            </p>
+          )}
+
+          <div className="grid grid-cols-1 gap-x-[16px] md:grid-cols-2">
+            <FieldGroup
+              label="Organization Name"
+              labelFor="organization-name"
+              additionalClasses="mb-[16px]"
+              caption={formErrors.name}
+              state={formErrors.name ? "error" : ""}
+            >
+              <Input
+                size="input-md"
+                id="organization-name"
+                type="text"
+                additionalClasses="mt-[8px] w-full"
+                placeholder="Enter organization name"
+                value={formData.name}
+                onChange={(e) => {
+                  setFormData({ ...formData, name: e.target.value });
+                  resetFieldError("name");
+                }}
+                state={formErrors.name ? "error" : ""}
+              />
+            </FieldGroup>
+
+            <FieldGroup
+              label="Main Region"
+              labelFor="organization-main-region"
+              additionalClasses="mb-[16px]"
+              caption={formErrors.main_region}
+              state={formErrors.main_region ? "error" : ""}
+            >
+              <CustomSelect
+                options={regionOptions}
+                id="organization-main-region"
+                placeholder="Select main region"
+                size="input-select-md"
+                value={formData.main_region}
+                handleChange={(value) => {
+                  setFormData({ ...formData, main_region: value});
+                  resetFieldError("main_region");
+                }}
+                additionalClasses="mt-[8px] w-full"
+                state={formErrors.main_region ? "error" : ""}
+                menuMaxHeight="max-h-[250px]"
+              />
+            </FieldGroup>
+
+            <FieldGroup
+              label="Partnership Status"
+              labelFor="organization-status"
+              additionalClasses="mb-[16px]"
+              caption={formErrors.partnership_status}
+              state={formErrors.partnership_status ? "error" : ""}
+            >
+              <CustomSelect
+                options={[
+                  { label: "Active", value: "ACTIVE" },
+                  { label: "Inactive", value: "INACTIVE" },
+                ]}
+                id="organization-status"
+                placeholder="Select status"
+                size="input-select-md"
+                value={formData.partnership_status}
+                handleChange={(value) => {
+                  setFormData({ ...formData, partnership_status: value });
+                  resetFieldError("partnership_status");
+                }}
+                additionalClasses="mt-[8px] w-full"
+                state={formErrors.partnership_status ? "error" : ""}
+              />
+            </FieldGroup>
+
+            <div className="md:col-span-2">
+                <FieldGroup
+                  label="Region Coverage"
+                  labelFor="organization-region-coverage"
+                  additionalClasses="mb-[16px]"
+                  caption={formErrors.region_coverage}
+                  state={formErrors.region_coverage ? "error" : ""}
+                >
+                  <MultiSelect
+                    options={regionOptions}
+                    defaultValue={formData.region_coverage}
+                    placeHolder="Select covered region/s"
+                    onChange={handleCoverageChange}
+                    selectAllLabel="All Regions"
+                    selectAll={false}
+                    additionalClassname="mt-[8px] w-full"
+                    editable={true}
+                    state={formErrors.region_coverage ? "error" : ""}
+                  />
+                </FieldGroup>
+            </div>
+
+            <div className="md:col-span-2">
+              <FieldGroup
+                label="Description"
+                labelFor="organization-description"
+                optional="Optional"
+                additionalClasses="mb-[16px]"
+                caption={formErrors.description}
+                state={formErrors.description ? "error" : ""}
+              >
+                <Input
+                  size="input-md"
+                  id="organization-description"
+                  type="text"
+                  additionalClasses="mt-[8px] w-full"
+                  placeholder="Enter short organization description"
+                  value={formData.description}
+                  onChange={(e) => {
+                    setFormData({ ...formData, description: e.target.value });
+                    resetFieldError("description");
+                  }}
+                  state={formErrors.description ? "error" : ""}
+                />
+              </FieldGroup>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-[10px] border-t border-[#E5E5E5] px-[20px] py-[14px]">
+          <button
+            type="button"
+            className="rounded-[8px] border border-[#D0D5DD] bg-white px-[14px] py-[9px] text-sm text-gray-700"
+            onClick={onClose}
+            disabled={isLoading}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="rounded-[8px] bg-[#32418C] px-[14px] py-[9px] text-sm text-white disabled:cursor-not-allowed disabled:bg-[#98A2B3]"
+            disabled={isLoading}
+          >
+            {isLoading ? "Saving..." : isEditMode ? "Update" : "Save"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+const OrganizationDetailsModal = ({
+  organization,
+  getRegionLabel,
+  onClose,
+  onEdit,
+}) => {
+  const coveredRegions = organization.region_coverage?.length
+    ? organization.region_coverage.map(getRegionLabel)
+    : organization.regions || [];
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 top-[49px] z-50 flex items-center justify-center px-[20px] py-[32px]">
+      <button
+        type="button"
+        className="absolute inset-0 bg-[#34405499] backdrop-blur-sm"
+        onClick={onClose}
+        aria-label="Close organization details modal"
+      />
+
+      <div className="relative flex max-h-[calc(100vh-113px)] w-full max-w-[900px] flex-col overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-white shadow-xl">
+        <div className="border-b border-[#E5E5E5] px-[20px] py-[16px]">
+          <h3 className="text-[18px] font-semibold text-gray-800">
+            {organization.name}
+          </h3>
+          <p className="mt-[2px] text-sm text-gray-500">
+            Organization details and linked account summary.
+          </p>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-[20px]">
+          <div className="grid grid-cols-1 gap-[12px] md:grid-cols-2">
+            <DetailItem label="Main Region" value={getRegionLabel(organization.main_region)} />
+            <DetailItem label="Partnership Status" value={organization.partnership_status === "INACTIVE" ? "Inactive" : "Active"} />
+            <DetailItem label="Users" value={organization.users} />
+            <DetailItem label="Admins" value={organization.admins} />
+            <DetailItem label="Active Accounts" value={organization.activeAccounts} />
+            <DetailItem label="Disabled Accounts" value={organization.disabledAccounts} />
+          </div>
+
+          <div className="mt-[16px] rounded-[10px] border border-[#E5E5E5] bg-[#F8FAFC] p-[14px]">
+            <p className="text-sm font-medium text-gray-800">Region Coverage</p>
+            <div className="mt-[10px] flex flex-wrap gap-[8px]">
+              {coveredRegions.length > 0 ? (
+                coveredRegions.map((region) => (
+                  <span
+                    key={region}
+                    className="rounded-full bg-white px-[10px] py-[5px] text-xs text-gray-700 ring-1 ring-[#E5E5E5]"
+                  >
+                    {region}
+                  </span>
+                ))
+              ) : (
+                <span className="text-sm text-gray-500">No covered regions listed.</span>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-[16px] rounded-[10px] border border-[#E5E5E5] bg-white p-[14px]">
+            <p className="text-sm font-medium text-gray-800">Description</p>
+            <p className="mt-[6px] text-sm text-gray-600">
+              {organization.description || "No description provided."}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-[10px] border-t border-[#E5E5E5] px-[20px] py-[14px]">
+          <button
+            type="button"
+            className="rounded-[8px] border border-[#D0D5DD] bg-white px-[14px] py-[9px] text-sm text-gray-700"
+            onClick={onClose}
+          >
+            Close
+          </button>
+          <button
+            type="button"
+            className="rounded-[8px] bg-[#32418C] px-[14px] py-[9px] text-sm text-white"
+            onClick={onEdit}
+          >
+            Edit Organization
+          </button>
+        </div>
       </div>
+    </div>
+  );
+};
+
+const DetailItem = ({ label, value }) => (
+  <div className="rounded-[10px] border border-[#E5E5E5] bg-white p-[14px]">
+    <p className="text-xs font-medium uppercase tracking-[0.04em] text-gray-500">
+      {label}
+    </p>
+    <p className="mt-[6px] text-sm font-semibold text-gray-900">
+      {value || "-"}
+    </p>
+  </div>
+);
+
+const OrganizationsPanel = ({ 
+  organizations, 
+  searchQuery,
+  setSearchQuery,
+  onCreateOrganization,
+  onViewOrganization,
+  onEditOrganization,
+  onDeleteOrganization,
+}) => {
+  if (organizations.length === 0) {
+    const hasSearch = searchQuery.trim().length > 0;
+
+    return (
+      <EmptyState
+        iconName={hasSearch ? "Search" : "Users"}
+        heading={hasSearch ? "No Results Found" : "No Organizations Found"}
+        content={
+          hasSearch
+            ? "We couldn't find any matches for your search. Please try adjusting your search terms or criteria."
+            : "There are currently no organizations listed. Add an organization first so admins and users can select it during account creation."
+        }
+      >
+        {hasSearch ? (
+          <button
+            type="button"
+            className="rounded-[10px] border border-[#E5E5E5] bg-white px-[14px] py-[9px] text-sm text-gray-700"
+            onClick={() => setSearchQuery("")}
+          >
+            Clear Search
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="rounded-[10px] bg-[#32418C] px-[14px] py-[9px] text-sm text-white"
+            onClick={onCreateOrganization}
+          >
+            Add Organization
+          </button>
+        )}
+      </EmptyState>
     );
   }
 
@@ -1169,10 +1886,48 @@ const OrganizationsPanel = ({ organizations }) => {
               </div>
             </div>
 
-            <div className="border-t border-[#E5E5E5] px-[16px] py-[12px]">
-                <span className="rounded-full bg-[#ECFDF3] px-[8px] py-[4px] text-xs font-medium text-[#027A48]">
-                  Active
-                </span>
+            <div className="flex flex-wrap items-center justify-between gap-[10px] border-t border-[#E5E5E5] px-[16px] py-[12px]">
+              <span
+                className={`rounded-full px-[8px] py-[4px] text-xs font-medium ${
+                  organization.partnership_status === "INACTIVE"
+                    ? "bg-[#F2F4F7] text-gray-600"
+                    : "bg-[#ECFDF3] text-[#027A48]"
+                }`}
+              >
+                {organization.partnership_status === "INACTIVE" ? "Inactive" : "Active"}
+              </span>
+
+              <div className="flex flex-wrap gap-[8px]">
+                <button
+                  type="button"
+                  className="rounded-[8px] border border-[#D0D5DD] bg-white px-[10px] py-[7px] text-xs text-gray-700"
+                  onClick={() => onViewOrganization(organization)}
+                >
+                  View Details
+                </button>
+
+                <button
+                  type="button"
+                  className="rounded-[8px] border border-[#D0D5DD] bg-white px-[10px] py-[7px] text-xs text-gray-700"
+                  onClick={() => onEditOrganization(organization)}
+                >
+                  Edit
+                </button>
+
+                <button
+                  type="button"
+                  className="rounded-[8px] border border-[#FEE4E2] bg-white px-[10px] py-[7px] text-xs text-[#B42318] disabled:cursor-not-allowed disabled:border-[#E5E5E5] disabled:text-gray-400"
+                  onClick={() => onDeleteOrganization(organization)}
+                  disabled={organization.totalAccounts > 0}
+                  title={
+                    organization.totalAccounts > 0
+                      ? "Cannot delete an organization with connected accounts."
+                      : "Delete organization"
+                  }
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
         ))}
@@ -1181,17 +1936,13 @@ const OrganizationsPanel = ({ organizations }) => {
   );
 };
 
-const UserAnalyticsPanel = ({
-  users = [],
+const AccountAnalyticsPanel = ({
+  accountAnalytics = {},
   organizations = [],
-  activityLogs = [],
-  isActivityLogsLoading,
+  isAccountAnalyticsLoading,
+  viewerType,
   getRegionLabel,
 }) => {
-  const disabledUsers = users.filter((user) => user.is_disabled).length;
-  const activeUsers = users.length - disabledUsers;
-  const userActivityLogs = activityLogs.filter((log) => log.user_type === "USER");
-
   const roleDefinitions = [
     { value: "ANALYST", label: "Analyst", color: "#32418C" },
     { value: "DOH", label: "DOH Official", color: "#2572A5" },
@@ -1201,52 +1952,40 @@ const UserAnalyticsPanel = ({
     { value: "FIELD_WORKER", label: "Field Worker", color: "#F97316" },
   ];
 
-  const roleRegionDistribution = Object.values(
-    users.reduce((collection, user) => {
-      const region = getRegionLabel(user.region);
+  const activityByDay = accountAnalytics.activity_by_day || [];
 
-      if (!collection[region]) {
-        collection[region] = { region };
-        roleDefinitions.forEach((role) => {
-          collection[region][role.value] = 0;
-        });
-      }
+  const roleRegionDistribution = (
+    accountAnalytics.role_region_distribution || []
+  ).map((row) => ({
+    ...row,
+    region: getRegionLabel(row.region),
+  }));
 
-      if (user.role_label in collection[region]) {
-        collection[region][user.role_label] += 1;
-      }
+  const recentActivityLogs = accountAnalytics.recent_activity || [];
+  const showRecentActivity = accountAnalytics.show_recent_activity === true;
+  const isActivityLogsLoading = isAccountAnalyticsLoading;
 
-      return collection;
-    }, {})
+  const totalActivityActions = activityByDay.reduce(
+    (total, day) => total + day.actions,
+    0
   );
 
-  const activityByDay = Array.from({ length: 7 }).map((_, index) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - index));
-
-    return {
-      key: format(date, "yyyy-MM-dd"),
-      day: format(date, "EEE"),
-      actions: 0,
-    };
-  });
-
-  userActivityLogs.forEach((log) => {
-    const logDate = new Date(log.created_at);
-    if (Number.isNaN(logDate.getTime())) return;
-
-    const match = activityByDay.find(
-      (day) => day.key === format(logDate, "yyyy-MM-dd")
+  const totalUserAccounts = roleRegionDistribution.reduce((total, row) => {
+    return (
+      total +
+      roleDefinitions.reduce(
+        (roleTotal, role) => roleTotal + Number(row[role.value] || 0),
+        0
+      )
     );
+  }, 0);
 
-    if (match) {
-      match.actions += 1;
-    }
-  });
-
-  const recentActivityLogs = [...userActivityLogs]
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .slice(0, 8);
+  const scopeDescription = 
+    viewerType === "SUPERADMIN"
+      ? "Graphs show all user activity and role distribution. Recent Activity includes superadmins, admins, and users."
+      : viewerType === "ADMIN"
+      ? "Graphs show all user activity and role distribution. Recent activity is limited to users in your organization."
+      : "Graphs show all user activity and role distribution. Detailed recent activity is hidden for user acccounts.";
 
   const formatLoggedAt = (value) => {
     const date = new Date(value);
@@ -1273,36 +2012,75 @@ const UserAnalyticsPanel = ({
 
   return (
     <div className="flex flex-col gap-[16px]">
+      <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
+        <h2 className="text-[18px] font-semibold text-gray-800">
+          Account Analytics
+        </h2>
+        <p className="mt-[4px] text-sm text-gray-500">
+          {scopeDescription}
+        </p>
+      </div>
+
       <div className="grid grid-cols-1 gap-[12px] md:grid-cols-2 xl:grid-cols-4">
-        <AnalyticsSummaryCard label="Total Users" value={users.length} helper={`${activeUsers} active`} />
-        <AnalyticsSummaryCard label="Organizations" value={organizations.length} helper="Derived from accounts" />
-        <AnalyticsSummaryCard label="Roles" value={roleDefinitions.length} helper="Configured user roles" />
-        <AnalyticsSummaryCard label="Disabled Users" value={`${disabledUsers} of ${users.length}`} helper="Users without access" />
+        <AnalyticsSummaryCard
+          label="Total User Accounts"
+          value={totalUserAccounts}
+          helper="Across all user roles"
+        />
+        <AnalyticsSummaryCard
+          label="Organizations"
+          value={organizations.length}
+          helper="Official organization records"
+        />
+        <AnalyticsSummaryCard
+          label="Roles"
+          value={roleDefinitions.length}
+          helper="Configured account roles"
+        />
+        <AnalyticsSummaryCard
+          label="Activity This Week"
+          value={totalActivityActions}
+          helper="Recorded account actions"
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-[16px] xl:grid-cols-2">
         <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
-          <h2 className="text-[18px] font-semibold text-gray-800">User Activity</h2>
-          <p className="text-sm text-gray-500">User activity log volume over the past week.</p>
+          <h2 className="text-[18px] font-semibold text-gray-800">All User Activity</h2>
+          <p className="text-sm text-gray-500">
+            Aggregated activity volume from all user accounts over the past week.
+          </p>
 
           <div className="mt-[16px] h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={activityByDay}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="day" />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey="actions"
-                  name="User Actions"
-                  stroke="#32418C"
-                  strokeWidth={3}
-                  dot={{ r: 4 }}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {isActivityLogsLoading ? (
+              <div className="flex h-full items-center">
+                <SkeletonBody columns={4} rows={4} />
+              </div>
+            ) : totalActivityActions > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={activityByDay}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="day" />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip />
+                  <Line
+                    type="monotone"
+                    dataKey="actions"
+                    name="Account Actions"
+                    stroke="#32418C"
+                    strokeWidth={3}
+                    dot={{ r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyState
+                iconName="ActivityLog"
+                heading="No Activity This Week"
+                content="No account activity has been recorded in the last seven days."
+              />
+            )}
           </div>
         </div>
 
@@ -1315,114 +2093,110 @@ const UserAnalyticsPanel = ({
           </p>
 
           <div className="mt-[16px] h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={roleRegionDistribution}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="region" tick={{ fontSize: 12 }} />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Legend
-                  verticalAlign="bottom"
-                  align="center"
-                  iconType="circle"
-                  wrapperStyle={{
-                    paddingTop: "12px",
-                    lineHeight: "20px",
-                  }}
-                />
-                {roleDefinitions.map((role) => (
-                  <Bar
-                    key={role.value}
-                    dataKey={role.value}
-                    name={role.label}
-                    stackId="roles"
-                    fill={role.color}
+            {roleRegionDistribution.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={roleRegionDistribution}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="region" tick={{ fontSize: 12 }} />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip />
+                  <Legend
+                    verticalAlign="bottom"
+                    align="center"
+                    iconType="circle"
+                    wrapperStyle={{
+                      paddingTop: "12px",
+                      lineHeight: "20px",
+                    }}
                   />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
+                  {roleDefinitions.map((role) => (
+                    <Bar
+                      key={role.value}
+                      dataKey={role.value}
+                      name={role.label}
+                      stackId="roles"
+                      fill={role.color}
+                    />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyState
+                iconName="Users"
+                heading="No User Distribution Yet"
+                content="Add user accounts with assigned roles and regions to generate this chart."
+              />
+            )}
           </div>
         </div>
       </div>
 
-      <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
-        <h2 className="text-[18px] font-semibold text-gray-800">
-          Recent User Activity
-        </h2>
-        <p className="text-sm text-gray-500">
-          Latest recorded actions from activity logs.
-        </p>
+      {showRecentActivity && (
+        <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
+          <h2 className="text-[18px] font-semibold text-gray-800">
+            Recent Account Activity
+          </h2>
+          <p className="text-sm text-gray-500">
+            Detailed activity logs based on your account access level.
+          </p>
 
-        <div className="mt-[16px] overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
-                <th className="px-[10px] py-[12px] font-medium">User</th>
-                <th className="px-[10px] py-[12px] font-medium">
-                  <div className="flex items-center gap-[6px]">
-                    <span>Entry</span>
-                    <span title="Entry means the action performed by the user.">
-                      <Icon
-                        iconName="Information"
-                        height="14px"
-                        width="14px"
-                        fill="#8693A0"
-                      />
-                    </span>
-                  </div>
-                </th>
-                <th className="px-[10px] py-[12px] font-medium">Module</th>
-                <th className="px-[10px] py-[12px] font-medium">Time</th>
-                <th className="px-[10px] py-[12px] font-medium">IP Address</th>
-                <th className="px-[10px] py-[12px] font-medium">Logged At</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isActivityLogsLoading ? (
-                <tr>
-                  <td className="px-[10px] py-[14px] text-gray-500" colSpan={6}>
-                    Loading activity logs...
-                  </td>
-                </tr>
-              ) : recentActivityLogs.length > 0 ? (
-                recentActivityLogs.map((log) => (
-                  <tr key={log.id} className="border-b border-[#F0F0F0]">
-                    <td className="px-[10px] py-[14px] font-medium text-gray-800">
-                      <div>{log.user_name || "-"}</div>
-                      <div className="text-xs font-normal text-gray-500">
-                        {log.user_type || "-"}
-                      </div>
-                    </td>
-                    <td className="px-[10px] py-[14px] text-gray-600">
-                      <div className="flex max-w-[360px] items-center gap-[6px]">
-                        <span className="truncate">{log.entry || "-"}</span>
-                      </div>
-                    </td>
-                    <td className="px-[10px] py-[14px] text-gray-600">
-                      {log.module || "-"}
-                    </td>
-                    <td className="px-[10px] py-[14px] text-gray-600">
-                      {getRelativeTime(log.created_at)}
-                    </td>
-                    <td className="px-[10px] py-[14px] text-gray-600">
-                      {log.ip_address || log.ip || "-"}
-                    </td>
-                    <td className="px-[10px] py-[14px] text-gray-600">
-                      {formatLoggedAt(log.created_at)}
-                    </td>
+          {isActivityLogsLoading ? (
+            <div className="mt-[16px]">
+              <SkeletonBody columns={6} rows={5} />
+            </div>
+          ) : recentActivityLogs.length > 0 ? (
+            <div className="mt-[16px] overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
+                    <th className="px-[10px] py-[12px] font-medium">User</th>
+                    <th className="px-[10px] py-[12px] font-medium">Entry</th>
+                    <th className="px-[10px] py-[12px] font-medium">Module</th>
+                    <th className="px-[10px] py-[12px] font-medium">Time</th>
+                    <th className="px-[10px] py-[12px] font-medium">IP Address</th>
+                    <th className="px-[10px] py-[12px] font-medium">Logged At</th>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td className="px-[10px] py-[14px] text-gray-500" colSpan={6}>
-                    No user activity logs found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody>
+                  {recentActivityLogs.map((log) => (
+                    <tr key={log.id} className="border-b border-[#F0F0F0]">
+                      <td className="px-[10px] py-[14px] font-medium text-gray-800">
+                        <div>{log.user_name || "-"}</div>
+                        <div className="text-xs font-normal text-gray-500">
+                          {log.user_type || "-"}
+                        </div>
+                      </td>
+                      <td className="px-[10px] py-[14px] text-gray-600">
+                        <span className="block max-w-[360px] truncate">
+                          {log.entry || "-"}
+                        </span>
+                      </td>
+                      <td className="px-[10px] py-[14px] text-gray-600">
+                        {log.module || "-"}
+                      </td>
+                      <td className="px-[10px] py-[14px] text-gray-600">
+                        {getRelativeTime(log.created_at)}
+                      </td>
+                      <td className="px-[10px] py-[14px] text-gray-600">
+                        {log.ip_address || log.ip || "-"}
+                      </td>
+                      <td className="px-[10px] py-[14px] text-gray-600">
+                        {formatLoggedAt(log.created_at)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState
+              iconName="ActivityLog"
+              heading="No User Activity This Week"
+              content="No user account activity has been recorded in the last seven days."
+            />
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 };

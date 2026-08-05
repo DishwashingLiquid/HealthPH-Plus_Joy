@@ -3,6 +3,8 @@ from fastapi.responses import JSONResponse
 from bson import ObjectId
 import pymongo
 from typing_extensions import Annotated
+from datetime import timedelta
+import re
 
 from config.database import activity_logs_collection, user_collection
 from models.activityLogs import ActivityLog
@@ -21,6 +23,22 @@ def get_client_ip(request: Request) -> str:
     
     return ""
 
+def build_last_7_days_activity():
+    today = get_ph_datetime().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    days = []
+
+    for index in range(7):
+        date = today - timedelta(days=6 - index)
+
+        days.append({
+            "key": date.strftime("%Y-%m-%d"),
+            "day": date.strftime("%a"),
+            "actions": 0,
+        })
+
+    return days
+
 """
 @desc     Fetch all activity logs
 route     GET api/activity_logs
@@ -35,9 +53,26 @@ async def fetch_activity_logs(user_id: Annotated[str, Depends(require_auth)]):
 
     if user_data["user_type"] == "ADMIN":
         # Fetch activity logs from Activity Logs table joined with Users table
+        organization = user_data.get("organization", "")
+
+        same_organization_users = user_collection.find(
+            {
+                "user_type": "USER",
+                "organization": {
+                    "$regex": f"^{re.escape(organization)}$",
+                    "$options": "i",
+                },
+            },
+            {"_id": 1},
+        )
+
+        same_organization_user_ids = [
+            str(account["_id"]) for account in same_organization_users
+        ]
+
         data = activity_logs_collection.aggregate(
             [
-                {"$match": {"user_id": user_id}},
+                {"$match": {"$user_id": {"$in" : same_organization_user_ids}}},
                 {
                     "$lookup": {
                         "from": "users",
@@ -49,6 +84,7 @@ async def fetch_activity_logs(user_id: Annotated[str, Depends(require_auth)]):
                 {"$sort": {"created_at": pymongo.DESCENDING}},
             ]
         )
+
     elif user_data["user_type"] == "SUPERADMIN":
         # Fetch activity logs from Activity Logs table joined with Users table
         data = activity_logs_collection.aggregate(
@@ -65,10 +101,128 @@ async def fetch_activity_logs(user_id: Annotated[str, Depends(require_auth)]):
             ]
         )
 
+    else:
+        data = activity_logs_collection.aggregate(
+            [
+                {"$match": {"user_id": user_id}},
+                {
+                    "$lookup": {
+                        "from": "users",
+                        "localField": "user_id",
+                        "foreignField": "_id",
+                        "as": "user_data",
+                    }
+                },
+                {"$sort": {"created_at": pymongo.DESCENDING}},
+            ]
+        )
+
     # Convert data to list of JSON objects
     activity_logs = list_activity_logs(data)
 
     return activity_logs
+
+async def fetch_account_analytics(user_id: Annotated[str, Depends(require_auth)]):
+    user_data = user_collection.find_one({"_id": ObjectId(user_id)})
+
+    if not user_data:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not Authorized",
+        )
+
+    activity_by_day = build_last_7_days_activity()
+    activity_by_day_map = {day["key"]: day for day in activity_by_day}
+
+    start_date = get_ph_datetime().replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    ) - timedelta(days=6)
+
+    user_activity_logs = activity_logs_collection.find({
+        "user_type": "USER",
+        "created_at": {"$gte": start_date},
+    })
+
+    for log in user_activity_logs:
+        created_at = log.get("created_at")
+
+        if not created_at:
+            continue
+
+        key = created_at.strftime("%Y-%m-%d")
+
+        if key in activity_by_day_map:
+            activity_by_day_map[key]["actions"] += 1
+
+    role_definitions = [
+        "ANALYST",
+        "DOH",
+        "LGU",
+        "RESEARCHER",
+        "VIEWER",
+        "FIELD_WORKER",
+    ]
+
+    role_region_map = {}
+
+    user_accounts = user_collection.find({"user_type": "USER"})
+
+    for account in user_accounts:
+        region = account.get("region", "") or "Unassigned"
+        role_label = account.get("role_label", "") or "VIEWER"
+
+        if region not in role_region_map:
+            role_region_map[region] = {"region": region}
+
+            for role in role_definitions:
+                role_region_map[region][role] = 0
+
+        if role_label in role_region_map[region]:
+            role_region_map[region][role_label] += 1
+
+    recent_activity = []
+    show_recent_activity = user_data.get("user_type") in ["ADMIN", "SUPERADMIN"]
+
+    if user_data.get("user_type") == "SUPERADMIN":
+        recent_cursor = activity_logs_collection.find().sort(
+            [("created_at", pymongo.DESCENDING)]
+        ).limit(20)
+
+        recent_activity = list_activity_logs(recent_cursor)
+
+    elif user_data.get("user_type") == "ADMIN":
+        organization = user_data.get("organization", "")
+
+        same_organization_users = user_collection.find(
+            {
+                "user_type": "USER",
+                "organization": {
+                    "$regex": f"^{re.escape(organization)}$",
+                    "$options": "i",
+                },
+            },
+            {"_id": 1},
+        )
+
+        same_organization_user_ids = [
+            str(account["_id"]) for account in same_organization_users
+        ]
+
+        recent_cursor = activity_logs_collection.find({
+            "user_id": {"$in": same_organization_user_ids}
+        }).sort([("created_at", pymongo.DESCENDING)]).limit(20)
+
+        recent_activity = list_activity_logs(recent_cursor)
+
+    return {
+        "activity_by_day": activity_by_day,
+        "role_region_distribution": list(role_region_map.values()),
+        "recent_activity": recent_activity,
+        "show_recent_activity": show_recent_activity,
+    }
 
 
 """

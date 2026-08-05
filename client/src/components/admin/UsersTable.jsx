@@ -30,8 +30,16 @@ const UsersTable = ({
   setCurrentData,
   searchQuery,
   setSearchQuery,
+  organizationOptions = [],
 }) => {
   const user = useSelector((state) => state.auth.user);
+
+  const hasOrganizationOptions = organizationOptions.length > 0;
+  
+  const normalizeOrganizationValue = (organizationName) =>
+    organizationOptions.some((options) => options.value === organizationName)
+      ? organizationName
+      : "";
 
   const [tableData, setTableData] = useState([]);
   
@@ -180,11 +188,12 @@ const UsersTable = ({
       last_name: row.last_name || "",
       email: row.email || "",
       region: row.region || "",
-      organization: row.organization || "",
+      organization: normalizeOrganizationValue(row.organization || ""),
       role_label: row.role_label || "",
       accessible_regions: normalizeAccessibleRegions(row.accessible_regions),
       created_at: row.created_at || "",
       is_disabled: row.is_disabled || false,
+      user_type: row.user_type || "USER",
     });
 
     setUpdateModalErrors(emptyUpdateModalErrors);
@@ -221,6 +230,7 @@ const UsersTable = ({
     accessible_regions: [],
     created_at: "",
     is_disabled: false,
+    user_type: "USER",
   };
 
   const emptyUpdateModalErrors = {
@@ -274,7 +284,7 @@ const UsersTable = ({
     }
 
     if (!payload.organization) {
-      nextErrors.organization = "Must enter organization.";
+      nextErrors.organization = "Must choose organization.";
        hasError = true;
     }
 
@@ -587,7 +597,7 @@ const UsersTable = ({
                             organization,
                             role_label,
                             created_at,
-                            is_disabled,
+                            is_disabled
                           })
                         }
                       >
@@ -730,6 +740,7 @@ const UsersTable = ({
             handleUpdateUser();
           }}
           onConfirmLabel="Update"
+          onConfirmDisabled={!hasOrganizationOptions}
           onCancel={() => {
             setUpdateModalData(emptyUpdateModalData);
             setUpdateModalErrors(emptyUpdateModalErrors);
@@ -816,20 +827,54 @@ const UsersTable = ({
                 label="Organization" 
                 labelFor="update-organization" 
                 additionalClasses="mb-[16px]" 
-                caption={updateModalErrors.organization} 
-                state={updateModalErrors.organization ? "error" : ""}
+                caption={
+                  updateModalErrors.organization ||
+                  (!hasOrganizationOptions
+                    ? "Add an organization first from the Organizations tab."
+                    : ""
+                  )
+                }
+                state={
+                  updateModalErrors.organization
+                    ? "error"
+                    : !hasOrganizationOptions
+                    ? "warning"
+                    : ""
+                }
               >
-                <Input 
-                  size="input-md" 
-                  id="update-organization" 
-                  type="text" 
-                  additionalClasses="mt-[8px] w-full" 
-                  value={updateModalData.organization} 
-                  onChange={(e) => setUpdateModalData({ ...updateModalData, organization: e.target.value })} 
+                <CustomSelect
+                  options={organizationOptions}
+                  id="update-organization"
+                  placeholder={
+                    hasOrganizationOptions
+                      ? "Select organization"
+                      : "No organizations available" 
+                  }
+                  size="input-select-md"
+                  value={updateModalData.organization}
+                  handleChange={(value) => {
+                    setUpdateModalData({ ...updateModalData, organization: value });
+                    setUpdateModalErrors({ ...updateModalErrors, organization: ""});
+                  }}
+                  additionalClasses="mt-[8px] w-full"
                   state={updateModalErrors.organization ? "error" : ""}
+                  editable={hasOrganizationOptions}
                 />
               </FieldGroup>
-
+              <FieldGroup
+                label="Account Type"
+                labelFor="update-user-type"
+                additionalClasses="mb-[16px]"
+              >
+                <Input
+                  size="input-md"
+                  id="update-user-type"
+                  type="text"
+                  additionalClasses="mt-[8px] w-full"
+                  value={updateModalData.user_type}
+                  disabled
+                />
+              </FieldGroup>
               <FieldGroup 
                 label="Role" 
                 labelFor="update-role-label" 
@@ -876,6 +921,24 @@ const UsersTable = ({
                   />
                 </FieldGroup>
               </div>
+              <FieldGroup
+                label="Date Created"
+                labelFor="update-user-created-at"
+                additionalClasses="mb-[16px]"
+              >
+                <Input
+                  size="input-md"
+                  id="update-user-created-at"
+                  type="text"
+                  additionalClasses="mt-[8px] w-full"
+                  value={
+                    updateModalData.created_at
+                      ? format(new Date(updateModalData.created_at), "MMM dd, yyyy hh:mm a")
+                      : ""
+                  }
+                  disabled
+                />
+              </FieldGroup>
             </div>
           </div>
         </ModalWithBody>
