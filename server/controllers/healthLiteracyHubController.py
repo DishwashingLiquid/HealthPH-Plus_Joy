@@ -1,8 +1,9 @@
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 from uuid import uuid4
 
-from fastapi import Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import FileResponse, JSONResponse
 from typing_extensions import Annotated
 
@@ -28,9 +29,13 @@ from controllers.health_literacy_hub.content_bridge import (
 from controllers.health_literacy_hub.serialization import (
     build_fact_check_metadata,
     get_content_label,
+    matches_mobile_content_filters,
+    normalize_mobile_content_type_filter,
+    parse_string_list,
     get_user_snapshot,
     normalize_video_duration,
     serialize_mobile_content,
+    serialize_mobile_contract_content,
     serialize_website_content,
     validate_content_languages,
 )
@@ -49,6 +54,50 @@ def _find_content_index(content: list, content_id: str) -> int:
         )
 
     return content_index
+
+
+def _serialize_mobile_contract_items(
+    *,
+    content_type: Optional[str] = None,
+    tags: Optional[str] = None,
+    topics: Optional[str] = None,
+    diseases: Optional[str] = None,
+    language: Optional[str] = None,
+):
+    normalized_content_type = normalize_mobile_content_type_filter(content_type)
+    parsed_tags = parse_string_list(tags)
+    parsed_topics = parse_string_list(topics)
+    parsed_diseases = parse_string_list(diseases)
+
+    matching_documents = []
+    for item in fetch_published_mobile_content():
+        if matches_mobile_content_filters(
+            item,
+            content_type=normalized_content_type,
+            tags=parsed_tags,
+            topics=parsed_topics,
+            diseases=parsed_diseases,
+            language=language,
+        ):
+            matching_documents.append(serialize_mobile_contract_content(item))
+
+    return matching_documents
+
+
+def _parse_optional_datetime(value: Optional[str]) -> Optional[str]:
+    normalized_value = str(value or "").strip()
+    if not normalized_value:
+        return None
+
+    try:
+        parsed_datetime = datetime.fromisoformat(normalized_value.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid publishedDate value",
+        ) from error
+
+    return parsed_datetime.isoformat()
 
 
 """
@@ -90,6 +139,24 @@ async def fetch_mobile_health_literacy_content_by_type(content_type: str):
         serialize_mobile_content(item)
         for item in fetch_published_mobile_content(content_type)
     ]
+
+
+async def fetch_mobile_health_literacy_contract(
+    contentType: str | None = Query(default=None),
+    tags: str | None = Query(default=None),
+    topics: str | None = Query(default=None),
+    diseases: str | None = Query(default=None),
+    language: str | None = Query(default=None),
+):
+    return {
+        "items": _serialize_mobile_contract_items(
+            content_type=contentType,
+            tags=tags,
+            topics=topics,
+            diseases=diseases,
+            language=language,
+        )
+    }
 
 
 """
@@ -203,13 +270,24 @@ async def create_health_literacy_content(
     title: Annotated[str, Form()],
     description: Annotated[str, Form()],
     tags: Annotated[Optional[str], Form()] = "",
+    topics: Annotated[Optional[str], Form()] = "",
+    diseases: Annotated[Optional[str], Form()] = "",
+    language: Annotated[Optional[str], Form()] = "",
     duration: Annotated[Optional[str], Form()] = None,
+    source: Annotated[Optional[str], Form()] = "",
+    author: Annotated[Optional[str], Form()] = "",
+    publishedDate: Annotated[Optional[str], Form()] = None,
+    externalUrl: Annotated[Optional[str], Form()] = "",
+    imageUrl: Annotated[Optional[str], Form()] = "",
+    mediaUrl: Annotated[Optional[str], Form()] = "",
     publishToMobile: Annotated[bool, Form()] = False,
     publishToWebsite: Annotated[bool, Form()] = False,
     isFactCheck: Annotated[bool, Form()] = False,
     claim: Annotated[Optional[str], Form()] = "",
     claimStatus: Annotated[Optional[str], Form()] = "Needs Expert Review",
     verifiedBy: Annotated[Optional[str], Form()] = "Project Researcher",
+    verdict: Annotated[Optional[str], Form()] = "",
+    explanation: Annotated[Optional[str], Form()] = "",
     file: Annotated[Optional[UploadFile], File()] = None,
 ):
     if content_type not in CONTENT_FILES:
@@ -239,17 +317,33 @@ async def create_health_literacy_content(
         claim,
         claimStatus,
         verifiedBy,
+        verdict,
+        explanation,
     )
+    normalized_topics = parse_string_list(topics)
+    normalized_diseases = parse_string_list(diseases)
+    normalized_language = str(language or "").strip()
+    normalized_published_date = _parse_optional_datetime(publishedDate)
 
     new_content = {
         "id": str(uuid4()),
         "title": title.strip(),
         "description": description.strip(),
-        "tags": validate_content_languages(content_type, tags),
+        "tags": validate_content_languages(content_type, tags, language),
+        "topics": normalized_topics,
+        "diseases": normalized_diseases,
+        "language": normalized_language,
         "media": media,
         "duration": normalize_video_duration(content_type, duration),
+        "source": str(source or "").strip(),
+        "author": str(author or "").strip(),
+        "publishedDate": normalized_published_date,
+        "externalUrl": str(externalUrl or "").strip(),
+        "imageUrl": str(imageUrl or "").strip(),
+        "mediaUrl": str(mediaUrl or "").strip(),
         "publishToMobile": publishToMobile,
         "publishToWebsite": publishToWebsite,
+        "isPublished": bool(publishToMobile or publishToWebsite),
         "createdAt": created_at.isoformat(),
         "lastReviewedAt": created_at.isoformat(),
         "assignedReviewer": "",
@@ -293,13 +387,24 @@ async def update_health_literacy_content(
     title: Annotated[str, Form()],
     description: Annotated[str, Form()],
     tags: Annotated[Optional[str], Form()] = "",
+    topics: Annotated[Optional[str], Form()] = "",
+    diseases: Annotated[Optional[str], Form()] = "",
+    language: Annotated[Optional[str], Form()] = "",
     duration: Annotated[Optional[str], Form()] = None,
+    source: Annotated[Optional[str], Form()] = "",
+    author: Annotated[Optional[str], Form()] = "",
+    publishedDate: Annotated[Optional[str], Form()] = None,
+    externalUrl: Annotated[Optional[str], Form()] = "",
+    imageUrl: Annotated[Optional[str], Form()] = "",
+    mediaUrl: Annotated[Optional[str], Form()] = "",
     publishToMobile: Annotated[bool, Form()] = False,
     publishToWebsite: Annotated[bool, Form()] = False,
     isFactCheck: Annotated[bool, Form()] = False,
     claim: Annotated[Optional[str], Form()] = "",
     claimStatus: Annotated[Optional[str], Form()] = "Needs Expert Review",
     verifiedBy: Annotated[Optional[str], Form()] = "Project Researcher",
+    verdict: Annotated[Optional[str], Form()] = "",
+    explanation: Annotated[Optional[str], Form()] = "",
     removeMedia: Annotated[bool, Form()] = False,
     file: Annotated[Optional[UploadFile], File()] = None,
 ):
@@ -338,20 +443,36 @@ async def update_health_literacy_content(
         claim,
         claimStatus,
         verifiedBy,
+        verdict,
+        explanation,
     )
+    normalized_topics = parse_string_list(topics)
+    normalized_diseases = parse_string_list(diseases)
+    normalized_language = str(language or "").strip()
+    normalized_published_date = _parse_optional_datetime(publishedDate)
     updated_content = {
         **current_content,
         "title": title.strip(),
         "description": description.strip(),
-        "tags": validate_content_languages(content_type, tags),
+        "tags": validate_content_languages(content_type, tags, language),
+        "topics": normalized_topics,
+        "diseases": normalized_diseases,
+        "language": normalized_language,
         "media": updated_media,
         "duration": normalize_video_duration(
             content_type,
             duration,
             current_content.get("duration"),
         ),
+        "source": str(source or "").strip(),
+        "author": str(author or "").strip(),
+        "publishedDate": normalized_published_date,
+        "externalUrl": str(externalUrl or "").strip(),
+        "imageUrl": str(imageUrl or "").strip(),
+        "mediaUrl": str(mediaUrl or "").strip(),
         "publishToMobile": publishToMobile,
         "publishToWebsite": publishToWebsite,
+        "isPublished": bool(publishToMobile or publishToWebsite),
         "updatedAt": updated_at.isoformat(),
         "lastReviewedAt": updated_at.isoformat(),
         "updatedBy": get_user_snapshot(current_user),

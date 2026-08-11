@@ -39,6 +39,22 @@ def get_public_download_count(content_type: str, content_id: str) -> int:
     )
 
 
+def get_public_share_count(content_type: str, content_id: str) -> int:
+    if not content_id:
+        return 0
+
+    return health_literacy_analytics_events_collection.count_documents(
+        {
+            "event_type": "content_shared",
+            "content_id": content_id,
+            "$and": [
+                {"$or": get_content_type_or_match(content_type)},
+                {"$or": get_public_event_platform_or_match()},
+            ],
+        }
+    )
+
+
 def get_public_view_count(content_type: str, content_id: str) -> int:
     if not content_id:
         return 0

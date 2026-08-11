@@ -26,6 +26,8 @@ import {
 } from "../dashboardTypography";
 
 const ANALYTICS_DASHBOARD_LABEL = "Analytics Dashboard";
+const ANALYTICS_EXPORT_BUTTON_CLASS = "health-literacy-analytics-export-btn";
+const ANALYTICS_EXPORT_ICON_FILL = "#FFFFFF";
 
 const AnalyticsTab = () => {
   const navigate = useNavigate();
@@ -125,68 +127,97 @@ const AnalyticsTab = () => {
   };
 
   return (
-    <div ref={reportRef} className="flex flex-col gap-[16px]">
-      <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[16px]">
-        <div className="flex flex-col gap-[14px] lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h2 className={DASHBOARD_SECTION_TITLE_CLASS}>
-              Health Literacy Analytics
-            </h2>
-            <p className={`${DASHBOARD_PAGE_SUBTITLE_CLASS} mt-[4px]`}>
-              Monitor content usage, engagement, and top-performing health
-              literacy resources.
-            </p>
+    <>
+      <style>
+        {`
+          .${ANALYTICS_EXPORT_BUTTON_CLASS} {
+            background-color: #2a3776;
+            border-color: #2a3776;
+            color: #ffffff;
+            box-shadow: 0px 0px 0px 1px #2a3776, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
+          }
+
+          .${ANALYTICS_EXPORT_BUTTON_CLASS}:hover:not(:active):not(:focus-visible):not(:disabled) {
+            background-color: #2a3776;
+            border-color: #2a3776;
+            color: #ffffff;
+            box-shadow: 0px 0px 0px 1px #2a3776, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
+          }
+        `}
+      </style>
+      <div ref={reportRef} className="flex flex-col gap-[16px]">
+        <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[16px]">
+          <div className="flex flex-col gap-[14px] lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h2 className={DASHBOARD_SECTION_TITLE_CLASS}>
+                Health Literacy Analytics
+              </h2>
+              <p className={`${DASHBOARD_PAGE_SUBTITLE_CLASS} mt-[4px]`}>
+                Monitor content usage, engagement, and top-performing health
+                literacy resources.
+              </p>
+            </div>
+            <div className="flex flex-col gap-[8px] sm:flex-row">
+              <button
+                type="button"
+                onClick={handleExportCsv}
+                className={`prod-btn-base admin-module-brand-btn ${ANALYTICS_EXPORT_BUTTON_CLASS} flex min-h-[40px] items-center justify-center gap-[8px] px-[14px]`}
+              >
+                <Icon
+                  iconName="Download"
+                  height="18px"
+                  width="18px"
+                  fill={ANALYTICS_EXPORT_ICON_FILL}
+                />
+                <span>CSV</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleExportPdf}
+                className={`prod-btn-base admin-module-brand-btn ${ANALYTICS_EXPORT_BUTTON_CLASS} flex min-h-[40px] items-center justify-center gap-[8px] px-[14px]`}
+              >
+                <Icon
+                  iconName="Printer"
+                  height="18px"
+                  width="18px"
+                  fill={ANALYTICS_EXPORT_ICON_FILL}
+                />
+                <span>PDF</span>
+              </button>
+            </div>
           </div>
-          <div className="flex flex-col gap-[8px] sm:flex-row">
-            <button
-              type="button"
-              onClick={handleExportCsv}
-              className="prod-btn-base admin-module-brand-btn flex min-h-[40px] items-center justify-center gap-[8px] px-[14px]"
-            >
-              <Icon iconName="Download" height="18px" width="18px" fill="#32418C" />
-              <span>CSV</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleExportPdf}
-              className="prod-btn-base admin-module-brand-btn flex min-h-[40px] items-center justify-center gap-[8px] px-[14px]"
-            >
-              <Icon iconName="Printer" height="18px" width="18px" fill="#32418C" />
-              <span>PDF</span>
-            </button>
+
+          <div className="mt-[16px] grid grid-cols-1 gap-[12px] lg:grid-cols-3">
+            <AnalyticsSelect
+              label="Time Range"
+              value={filters.timeRange}
+              options={ANALYTICS_TIME_RANGES}
+              onChange={(value) => updateFilter("timeRange", value)}
+            />
+            <AnalyticsSelect
+              label="Content Type"
+              value={filters.contentType}
+              options={ANALYTICS_CONTENT_FILTERS}
+              onChange={(value) => updateFilter("contentType", value)}
+            />
+            <AnalyticsSelect
+              label="Region"
+              value={filters.region}
+              options={[{ value: "all", label: "All regions" }, ...ANALYTICS_REGIONS]}
+              onChange={(value) => updateFilter("region", value)}
+            />
           </div>
         </div>
 
-        <div className="mt-[16px] grid grid-cols-1 gap-[12px] lg:grid-cols-3">
-          <AnalyticsSelect
-            label="Time Range"
-            value={filters.timeRange}
-            options={ANALYTICS_TIME_RANGES}
-            onChange={(value) => updateFilter("timeRange", value)}
-          />
-          <AnalyticsSelect
-            label="Content Type"
-            value={filters.contentType}
-            options={ANALYTICS_CONTENT_FILTERS}
-            onChange={(value) => updateFilter("contentType", value)}
-          />
-          <AnalyticsSelect
-            label="Region"
-            value={filters.region}
-            options={[{ value: "all", label: "All regions" }, ...ANALYTICS_REGIONS]}
-            onChange={(value) => updateFilter("region", value)}
-          />
-        </div>
+        {isFetchingOverviewAnalytics && (
+          <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[14px] text-[14px] text-gray-500">
+            Refreshing analytics data...
+          </div>
+        )}
+
+        <OverviewAnalyticsPage overviewAnalytics={overviewAnalytics} />
       </div>
-
-      {isFetchingOverviewAnalytics && (
-        <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[14px] text-[14px] text-gray-500">
-          Refreshing analytics data...
-        </div>
-      )}
-
-      <OverviewAnalyticsPage overviewAnalytics={overviewAnalytics} />
-    </div>
+    </>
   );
 };
 

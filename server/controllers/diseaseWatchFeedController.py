@@ -1,13 +1,24 @@
+import csv
+import json
 from collections import Counter
 from datetime import datetime, timedelta
+from io import StringIO
+from pathlib import Path
 from typing import Iterable
 
 from bson import ObjectId
 from fastapi import Depends, HTTPException, Query, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel
 from typing_extensions import Annotated
 
-from config.database import dataset_collection, point_collection, user_collection
+from config.database import (
+    dataset_collection,
+    mobile_users_collection,
+    point_collection,
+    self_reports_collection,
+    user_collection,
+)
 from helpers.miscHelpers import get_ph_datetime
 from middleware.requireAuth import require_auth
 
@@ -110,6 +121,641 @@ ALERT_OPEN_RATE_FALLBACK = {
         "or dataset flow."
     ),
 }
+
+SELF_REPORT_SOURCE = "mobile_self_report"
+USER_ANALYTICS_SOURCE = "viewer"
+SELF_REPORT_MAP_SOURCE = "selfReport"
+SELF_REPORT_CATEGORY = "Self-reported respiratory symptoms"
+SELF_REPORT_STATUSES = {"submitted", "for_review", "verified", "rejected"}
+SELF_REPORT_REPORTER_TYPES = {"guest", "registered"}
+SELF_REPORT_PIN_ACCURACY = {"geocoded", "region_estimate"}
+SUPPORTED_SELF_REPORT_SYMPTOMS = {
+    "Cough",
+    "Fever",
+    "Chills",
+    "Fatigue",
+    "Shortness of breath",
+    "Chest Pain",
+    "Sore throat",
+    "Runny nose",
+    "Wheezing",
+    "Loss of taste or smell",
+    "Headache",
+    "Body aches",
+    "Cough for 2+ weeks",
+    "Night sweats",
+    "Weight loss",
+}
+REGION_CENTER_PATH = (
+    Path(__file__).resolve().parent.parent.parent
+    / "client"
+    / "src"
+    / "assets"
+    / "data"
+    / "regions_center.json"
+)
+_region_center_lookup = None
+
+
+class SelfReportReporterPayload(BaseModel):
+    userId: str | None = None
+    reporterType: str = "guest"
+    role: str = "Guest Tester"
+    fullName: str | None = None
+    email: str | None = None
+    sessionKey: str | None = None
+
+
+class SelfReportLocationPayload(BaseModel):
+    regionCode: str = ""
+    regionName: str = ""
+    provinceCode: str | None = None
+    provinceName: str = ""
+    cityCode: str | None = None
+    cityName: str = ""
+    barangayCode: str | None = None
+    barangayName: str = ""
+    latitude: float | None = None
+    longitude: float | None = None
+    geocodedAddress: str | None = None
+    pinAccuracy: str = "region_estimate"
+
+
+class SelfReportPayload(BaseModel):
+    reporter: SelfReportReporterPayload
+    location: SelfReportLocationPayload
+    symptoms: list[str]
+    possibleCondition: str | None = None
+    notes: str = ""
+    status: str = "submitted"
+    source: str = SELF_REPORT_SOURCE
+    createdAt: str | None = None
+    syncedAt: str | None = None
+
+
+def _load_region_centers():
+    global _region_center_lookup
+
+    if _region_center_lookup is not None:
+        return _region_center_lookup
+
+    try:
+        region_centers = json.loads(REGION_CENTER_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        _region_center_lookup = {}
+        return _region_center_lookup
+
+    _region_center_lookup = {
+        str(item.get("region") or "").strip().upper(): item.get("center") or []
+        for item in region_centers
+        if isinstance(item, dict)
+    }
+    return _region_center_lookup
+
+
+def _get_region_center(region_code: str | None):
+    normalized_region = _normalize_region_safely(region_code)
+    if not normalized_region:
+        return None, None
+
+    center = _load_region_centers().get(normalized_region) or []
+    if len(center) != 2:
+        return None, None
+
+    return center[0], center[1]
+
+
+def _clean_string(value, default: str = "") -> str:
+    normalized_value = str(value or "").strip()
+    return normalized_value or default
+
+
+def _dedupe_preserve_order(values):
+    seen = set()
+    normalized_values = []
+
+    for value in values:
+        normalized_value = _clean_string(value)
+        if not normalized_value:
+            continue
+
+        value_key = normalized_value.lower()
+        if value_key in seen:
+            continue
+
+        seen.add(value_key)
+        normalized_values.append(normalized_value)
+
+    return normalized_values
+
+
+def _derive_possible_condition(symptoms: list[str]) -> str:
+    symptom_set = {symptom.lower() for symptom in symptoms}
+
+    if {
+        "cough",
+        "fever",
+        "fatigue",
+    }.issubset(symptom_set) and (
+        {"body aches", "loss of taste or smell", "shortness of breath"} & symptom_set
+    ):
+        return "Possible COVID-like respiratory symptom pattern"
+
+    if {"cough", "fever", "chills", "fatigue"}.issubset(symptom_set):
+        return "Possible pneumonia pattern"
+
+    if "cough for 2+ weeks" in symptom_set or (
+        "cough" in symptom_set
+        and {"night sweats", "weight loss"}.issubset(symptom_set)
+    ):
+        return "Possible tuberculosis symptom pattern"
+
+    if {"cough", "sore throat", "runny nose"} & symptom_set:
+        return "Possible acute respiratory infection pattern"
+
+    return "Respiratory symptoms reported"
+
+
+def _normalize_self_report_source(value: str | None) -> str:
+    normalized_value = _clean_string(value, SELF_REPORT_SOURCE)
+    if normalized_value.lower() == SELF_REPORT_SOURCE:
+        return SELF_REPORT_SOURCE
+    return SELF_REPORT_SOURCE
+
+
+def _normalize_self_report_status(value: str | None) -> str:
+    normalized_value = _clean_string(value, "submitted").lower()
+    if normalized_value not in SELF_REPORT_STATUSES:
+        return "submitted"
+    return normalized_value
+
+
+def _normalize_pin_accuracy(value: str | None, latitude, longitude) -> str:
+    normalized_value = _clean_string(value, "").lower()
+    if normalized_value in SELF_REPORT_PIN_ACCURACY:
+        return normalized_value
+
+    return "geocoded" if latitude is not None and longitude is not None else "region_estimate"
+
+
+def _normalize_reporter_type(value: str | None) -> str:
+    normalized_value = _clean_string(value, "guest").lower()
+    if normalized_value not in SELF_REPORT_REPORTER_TYPES:
+        return "guest"
+    return normalized_value
+
+
+def _to_object_id_or_none(value):
+    normalized_value = _clean_string(value)
+    if not normalized_value or not ObjectId.is_valid(normalized_value):
+        return None
+    return ObjectId(normalized_value)
+
+
+def _to_iso_or_none(value):
+    parsed_value = _coerce_datetime(value)
+    return parsed_value.isoformat() if parsed_value else None
+
+
+def _build_mobile_user_key(
+    *,
+    user_id=None,
+    email: str | None = None,
+    full_name: str | None = None,
+    report_fallback_id: str | None = None,
+):
+    if user_id:
+        return f"registered:{user_id}"
+
+    normalized_email = _clean_string(email).lower()
+    if normalized_email:
+        return f"email:{normalized_email}"
+
+    normalized_full_name = _clean_string(full_name).lower()
+    if normalized_full_name:
+        return f"guest:{normalized_full_name}"
+
+    if report_fallback_id:
+        return f"guest-report:{report_fallback_id}"
+
+    return None
+
+
+def _serialize_mobile_user(document: dict) -> dict:
+    location = document.get("location") or {}
+    return {
+        "id": str(document.get("_id") or ""),
+        "userKey": document.get("userKey"),
+        "sourceTag": document.get("sourceTag") or USER_ANALYTICS_SOURCE,
+        "reporterType": document.get("reporterType"),
+        "role": document.get("role"),
+        "userId": str(document.get("userId")) if document.get("userId") else None,
+        "fullName": document.get("fullName"),
+        "email": document.get("email"),
+        "sessionKey": document.get("sessionKey"),
+        "location": {
+            "regionCode": location.get("regionCode"),
+            "regionName": location.get("regionName"),
+            "provinceCode": location.get("provinceCode"),
+            "provinceName": location.get("provinceName"),
+            "cityCode": location.get("cityCode"),
+            "cityName": location.get("cityName"),
+            "barangayCode": location.get("barangayCode"),
+            "barangayName": location.get("barangayName"),
+        },
+        "createdAt": _to_iso_or_none(document.get("createdAt")),
+        "updatedAt": _to_iso_or_none(document.get("updatedAt")),
+        "lastSeenAt": _to_iso_or_none(document.get("lastSeenAt")),
+        "latestSelfReportId": str(document.get("latestSelfReportId") or "") or None,
+    }
+
+
+def _upsert_mobile_user_from_report(report_document: dict) -> dict:
+    reporter = report_document.get("reporter") or {}
+    location = report_document.get("location") or {}
+    report_id = str(report_document.get("_id") or "")
+    user_key = _build_mobile_user_key(
+        user_id=reporter.get("userId"),
+        email=reporter.get("email"),
+        full_name=reporter.get("fullName"),
+        report_fallback_id=report_id,
+    )
+    report_created_at = _coerce_datetime(report_document.get("createdAt")) or get_ph_datetime()
+    report_updated_at = _coerce_datetime(report_document.get("updatedAt")) or report_created_at
+
+    if not user_key:
+        created_mobile_user = {
+            "userKey": f"guest-report:{report_id}",
+            "sourceTag": USER_ANALYTICS_SOURCE,
+            "reporterType": reporter.get("reporterType") or "guest",
+            "role": reporter.get("role") or "Guest Tester",
+            "userId": reporter.get("userId"),
+            "fullName": reporter.get("fullName"),
+            "email": reporter.get("email"),
+            "sessionKey": _clean_string(reporter.get("sessionKey")) or None,
+            "location": {
+                "regionCode": location.get("regionCode"),
+                "regionName": location.get("regionName"),
+                "provinceCode": location.get("provinceCode"),
+                "provinceName": location.get("provinceName"),
+                "cityCode": location.get("cityCode"),
+                "cityName": location.get("cityName"),
+                "barangayCode": location.get("barangayCode"),
+                "barangayName": location.get("barangayName"),
+            },
+            "createdAt": report_created_at,
+            "updatedAt": report_updated_at,
+            "lastSeenAt": report_updated_at,
+            "latestSelfReportId": report_document.get("_id"),
+        }
+        inserted_result = mobile_users_collection.insert_one(created_mobile_user)
+        return mobile_users_collection.find_one({"_id": inserted_result.inserted_id}) or created_mobile_user
+
+    mobile_users_collection.update_one(
+        {"userKey": user_key},
+        {
+            "$setOnInsert": {
+                "userKey": user_key,
+                "sourceTag": USER_ANALYTICS_SOURCE,
+                "reporterType": reporter.get("reporterType") or "guest",
+                "role": reporter.get("role") or "Guest Tester",
+                "userId": reporter.get("userId"),
+                "fullName": reporter.get("fullName"),
+                "email": reporter.get("email"),
+                "sessionKey": _clean_string(reporter.get("sessionKey")) or None,
+                "createdAt": report_created_at,
+            },
+            "$set": {
+                "updatedAt": report_updated_at,
+                "lastSeenAt": report_updated_at,
+                "latestSelfReportId": report_document.get("_id"),
+                "location": {
+                    "regionCode": location.get("regionCode"),
+                    "regionName": location.get("regionName"),
+                    "provinceCode": location.get("provinceCode"),
+                    "provinceName": location.get("provinceName"),
+                    "cityCode": location.get("cityCode"),
+                    "cityName": location.get("cityName"),
+                    "barangayCode": location.get("barangayCode"),
+                    "barangayName": location.get("barangayName"),
+                },
+                "reporterType": reporter.get("reporterType") or "guest",
+                "role": reporter.get("role") or "Guest Tester",
+                "fullName": reporter.get("fullName"),
+                "email": reporter.get("email"),
+                "sessionKey": _clean_string(reporter.get("sessionKey")) or None,
+            },
+        },
+        upsert=True,
+    )
+
+    return mobile_users_collection.find_one({"userKey": user_key}) or {}
+
+
+def _get_mobile_users(date_from=None, date_to=None):
+    query = {"sourceTag": USER_ANALYTICS_SOURCE}
+
+    if date_from or date_to:
+        created_at_filter = {}
+        if date_from:
+            created_at_filter["$gte"] = date_from
+        if date_to:
+            created_at_filter["$lte"] = date_to
+        query["createdAt"] = created_at_filter
+
+    return list(mobile_users_collection.find(query).sort([("createdAt", -1), ("_id", -1)]))
+
+
+def _get_mobile_user_region(document: dict) -> str:
+    location = document.get("location") or {}
+    region_code = _normalize_region_safely(location.get("regionName"))
+    if region_code:
+        return region_code
+    return _normalize_region_safely(location.get("regionCode")) or "Unknown"
+
+
+def _filter_mobile_users(users, regions=None, cutoff=None):
+    filtered_users = users
+
+    if cutoff:
+        filtered_users = [
+            user
+            for user in filtered_users
+            if (_coerce_datetime(user.get("createdAt")) or datetime.min) <= cutoff
+        ]
+
+    if regions:
+        region_set = set(regions)
+        filtered_users = [
+            user for user in filtered_users if _get_mobile_user_region(user) in region_set
+        ]
+
+    return filtered_users
+
+
+def _serialize_self_report(document: dict) -> dict:
+    reporter = document.get("reporter") or {}
+    location = document.get("location") or {}
+    return {
+        "id": str(document.get("_id") or ""),
+        "mobileUserId": str(document.get("mobileUserId") or "") or None,
+        "mobileUserKey": str(document.get("mobileUserKey") or "") or None,
+        "reporter": {
+            "userId": str(reporter["userId"]) if reporter.get("userId") else None,
+            "reporterType": reporter.get("reporterType"),
+            "role": reporter.get("role"),
+            "fullName": reporter.get("fullName"),
+            "email": reporter.get("email"),
+        },
+        "location": {
+            "regionCode": location.get("regionCode"),
+            "regionName": location.get("regionName"),
+            "provinceCode": location.get("provinceCode"),
+            "provinceName": location.get("provinceName"),
+            "cityCode": location.get("cityCode"),
+            "cityName": location.get("cityName"),
+            "barangayCode": location.get("barangayCode"),
+            "barangayName": location.get("barangayName"),
+            "latitude": location.get("latitude"),
+            "longitude": location.get("longitude"),
+            "geocodedAddress": location.get("geocodedAddress"),
+            "pinAccuracy": location.get("pinAccuracy"),
+        },
+        "symptoms": list(document.get("symptoms") or []),
+        "possibleCondition": document.get("possibleCondition"),
+        "notes": document.get("notes"),
+        "status": document.get("status"),
+        "source": document.get("source"),
+        "createdAt": _to_iso_or_none(document.get("createdAt")),
+        "updatedAt": _to_iso_or_none(document.get("updatedAt")),
+        "syncedAt": _to_iso_or_none(document.get("syncedAt")),
+    }
+
+
+def _build_self_report_document(payload: SelfReportPayload) -> dict:
+    symptoms = _dedupe_preserve_order(payload.symptoms)
+    possible_condition = _clean_string(payload.possibleCondition) or _derive_possible_condition(
+        symptoms
+    )
+    payload_created_at = _coerce_datetime(payload.createdAt)
+    created_at = payload_created_at or get_ph_datetime()
+    synced_at = _coerce_datetime(payload.syncedAt)
+    region_name = _clean_string(payload.location.regionName)
+    normalized_region = _normalize_region_safely(region_name) or _normalize_region_safely(
+        payload.location.regionCode
+    )
+    province_name = _clean_string(payload.location.provinceName, region_name)
+    city_name = _clean_string(payload.location.cityName)
+    barangay_name = _clean_string(payload.location.barangayName)
+    latitude = payload.location.latitude
+    longitude = payload.location.longitude
+
+    return {
+        "reporter": {
+            "userId": _to_object_id_or_none(payload.reporter.userId),
+            "reporterType": _normalize_reporter_type(payload.reporter.reporterType),
+            "role": _clean_string(payload.reporter.role, "Guest Tester"),
+            "fullName": _clean_string(payload.reporter.fullName) or None,
+            "email": _clean_string(payload.reporter.email) or None,
+        },
+        "location": {
+            "regionCode": _clean_string(payload.location.regionCode),
+            "regionName": normalized_region or region_name,
+            "provinceCode": _clean_string(payload.location.provinceCode) or None,
+            "provinceName": province_name,
+            "cityCode": _clean_string(payload.location.cityCode) or None,
+            "cityName": city_name,
+            "barangayCode": _clean_string(payload.location.barangayCode) or None,
+            "barangayName": barangay_name,
+            "latitude": latitude,
+            "longitude": longitude,
+            "geocodedAddress": _clean_string(payload.location.geocodedAddress) or None,
+            "pinAccuracy": _normalize_pin_accuracy(
+                payload.location.pinAccuracy,
+                latitude,
+                longitude,
+            ),
+        },
+        "symptoms": symptoms,
+        "possibleCondition": possible_condition,
+        "notes": _clean_string(payload.notes),
+        "status": _normalize_self_report_status(payload.status),
+        "source": _normalize_self_report_source(payload.source),
+        "createdAt": created_at,
+        "updatedAt": created_at,
+        "syncedAt": synced_at,
+    }
+
+
+def _get_self_reports(date_from=None, date_to=None):
+    query = {"source": SELF_REPORT_SOURCE}
+
+    if date_from or date_to:
+        created_at_filter = {}
+        if date_from:
+            created_at_filter["$gte"] = date_from
+        if date_to:
+            created_at_filter["$lte"] = date_to
+        query["createdAt"] = created_at_filter
+
+    return list(
+        self_reports_collection.find(query).sort([("createdAt", -1), ("_id", -1)])
+    )
+
+
+def _filter_self_reports(reports, regions=None, disease=None, status_filter=None):
+    filtered_reports = reports
+
+    if regions:
+        region_set = set(regions)
+        filtered_reports = [
+            report
+            for report in filtered_reports
+            if _normalize_region_safely((report.get("location") or {}).get("regionName"))
+            in region_set
+        ]
+
+    if disease:
+        disease_key = _clean_string(disease).lower()
+        filtered_reports = [
+            report
+            for report in filtered_reports
+            if disease_key
+            in _clean_string(report.get("possibleCondition")).lower()
+        ]
+
+    if status_filter:
+        normalized_status = _normalize_self_report_status(status_filter)
+        filtered_reports = [
+            report for report in filtered_reports if report.get("status") == normalized_status
+        ]
+
+    return filtered_reports
+
+
+def _get_report_region(report: dict) -> str:
+    location = report.get("location") or {}
+    region_code = _normalize_region_safely(location.get("regionName"))
+    if region_code:
+        return region_code
+    return _normalize_region_safely(location.get("regionCode")) or "Unknown"
+
+
+def _get_report_location_label(report: dict) -> str:
+    location = report.get("location") or {}
+    parts = [
+        _clean_string(location.get("barangayName")),
+        _clean_string(location.get("cityName")),
+        _clean_string(location.get("regionName")),
+    ]
+    return ", ".join([part for part in parts if part]) or "Unknown location"
+
+
+def _get_report_coordinates(report: dict):
+    location = report.get("location") or {}
+    latitude = location.get("latitude")
+    longitude = location.get("longitude")
+
+    if latitude is not None and longitude is not None:
+        return latitude, longitude
+
+    return _get_region_center(location.get("regionName") or location.get("regionCode"))
+
+
+def _build_self_report_alert_item(report: dict) -> dict:
+    created_at = _coerce_datetime(report.get("createdAt")) or get_ph_datetime()
+    region = _get_report_region(report)
+    symptoms = list(report.get("symptoms") or [])
+    location_label = _get_report_location_label(report)
+    possible_condition = _clean_string(report.get("possibleCondition"), "Respiratory symptoms reported")
+
+    return {
+        "id": str(report.get("_id") or ""),
+        "disease": possible_condition,
+        "region": region,
+        "type": "Symptom Report",
+        "timestamp": created_at.isoformat(),
+        "summary": (
+            f"Viewer self-reported {', '.join(symptoms[:3]) or 'respiratory symptoms'} "
+            f"in {location_label}."
+        ),
+        "summarySegments": [
+            {"type": "text", "value": "Viewer self-reported "},
+            {
+                "type": "entity",
+                "label": ", ".join(symptoms[:3]) or "respiratory symptoms",
+                "tone": "symptom",
+            },
+            {"type": "text", "value": " in "},
+            {"type": "entity", "label": location_label, "tone": "location"},
+            {"type": "text", "value": "."},
+        ],
+        "severity": "low",
+        "source": SELF_REPORT_MAP_SOURCE,
+    }
+
+
+def _build_cluster_summary(reports):
+    clusters = Counter()
+    for report in reports:
+        clusters[(_get_report_region(report), _clean_string(report.get("possibleCondition")))] += 1
+
+    return clusters
+
+
+def _build_self_report_map_pin(report: dict) -> dict:
+    latitude, longitude = _get_report_coordinates(report)
+    location = report.get("location") or {}
+    created_at = _coerce_datetime(report.get("createdAt")) or get_ph_datetime()
+    pin_accuracy = _clean_string(location.get("pinAccuracy"), "region_estimate")
+    geocoded_address = _clean_string(location.get("geocodedAddress")) or None
+
+    return {
+        "id": str(report.get("_id") or ""),
+        "name": _get_report_location_label(report),
+        "disease": _clean_string(report.get("possibleCondition"), "Respiratory symptoms reported"),
+        "category": SELF_REPORT_CATEGORY,
+        "reports": 1,
+        "updated": (
+            f"Self-reported on {created_at.month}/{created_at.day}/{created_at.year} "
+            f"at {created_at.strftime('%H:%M')}"
+        ),
+        "lat": latitude,
+        "lng": longitude,
+        "tags": list(report.get("symptoms") or []),
+        "source": SELF_REPORT_MAP_SOURCE,
+        "pinAccuracy": pin_accuracy,
+        "geocodedAddress": geocoded_address,
+    }
+
+
+def _build_reporter_key(report: dict) -> str:
+    reporter = report.get("reporter") or {}
+    user_id = reporter.get("userId")
+    email = _clean_string(reporter.get("email")).lower()
+    full_name = _clean_string(reporter.get("fullName")).lower()
+
+    if user_id:
+        return f"user:{user_id}"
+    if email:
+        return f"email:{email}"
+    if full_name:
+        return f"name:{full_name}"
+    return f"guest:{report.get('_id')}"
+
+
+def _count_unique_viewers(reports, cutoff=None, regions=None):
+    viewer_keys = set()
+
+    for report in reports:
+        created_at = _coerce_datetime(report.get("createdAt"))
+        if cutoff and created_at and created_at > cutoff:
+            continue
+        if regions and _get_report_region(report) not in regions:
+            continue
+        viewer_keys.add(_build_reporter_key(report))
+
+    return len(viewer_keys)
 
 
 def _normalize_region(value: str | None):
@@ -537,9 +1183,8 @@ async def fetch_mobile_alerts(
     limit: int = Query(default=10, ge=1, le=100),
     cursor: str | None = None,
 ):
-    current_user = _get_current_user(current_user_id)
+    _get_current_user(current_user_id)
     normalized_regions = _parse_region_list(region)
-    disease_code = _normalize_disease_code(disease)
     parsed_date_from = _parse_datetime(date_from)
     parsed_date_to = _parse_datetime(date_to, end_of_day=True)
 
@@ -555,17 +1200,16 @@ async def fetch_mobile_alerts(
                 detail="Invalid cursor value",
             ) from error
 
-    point_entries = _get_point_entries(
-        current_user=current_user,
+    reports = _get_self_reports(
         date_from=parsed_date_from,
         date_to=parsed_date_to,
     )
-    point_entries = _filter_point_entries(
-        point_entries,
+    reports = _filter_self_reports(
+        reports,
         regions=normalized_regions,
-        disease_code=disease_code,
+        disease=disease,
     )
-    alerts = _build_alert_items(point_entries, disease_code=disease_code)
+    alerts = [_build_self_report_alert_item(report) for report in reports]
 
     paged_items = alerts[offset : offset + limit]
     next_cursor = offset + limit if offset + limit < len(alerts) else None
@@ -586,60 +1230,70 @@ async def fetch_mobile_regional_coverage(
     date_to: str | None = None,
     disease: str | None = None,
 ):
-    current_user = _get_current_user(current_user_id)
+    _get_current_user(current_user_id)
     normalized_regions = _parse_region_list(regions)
-    disease_code = _normalize_disease_code(disease)
     parsed_date_from = _parse_datetime(date_from)
     parsed_date_to = _parse_datetime(date_to, end_of_day=True)
 
     _validate_date_range(parsed_date_from, parsed_date_to)
-
-    scoped_users = _get_scoped_users(current_user)
-    user_counts = Counter()
-
-    for user in scoped_users:
-        region_code = _normalize_region_safely(user.get("region"))
-        if region_code and region_code != "ALL":
-            user_counts[region_code] += 1
-
-    point_entries = _get_point_entries(
-        current_user=current_user,
+    reports = _get_self_reports(
         date_from=parsed_date_from,
         date_to=parsed_date_to,
     )
-    point_entries = _filter_point_entries(
-        point_entries,
+    reports = _filter_self_reports(
+        reports,
         regions=normalized_regions,
-        disease_code=disease_code,
+        disease=disease,
+    )
+    mobile_users = _filter_mobile_users(
+        _get_mobile_users(date_from=parsed_date_from, date_to=parsed_date_to),
+        regions=normalized_regions,
     )
 
-    alert_counts = Counter()
-    report_counts = Counter()
+    region_report_counts = Counter()
+    region_viewer_counts = Counter()
 
-    for entry in point_entries:
-        region_code = entry["region"]
-        report_counts[region_code] += entry["total_reports"]
+    for report in reports:
+        region_code = _get_report_region(report)
+        if region_code == "Unknown":
+            continue
+        region_report_counts[region_code] += 1
 
-        if _build_alert_item(entry, disease_code=disease_code):
-            alert_counts[region_code] += 1
+    for mobile_user in mobile_users:
+        region_code = _get_mobile_user_region(mobile_user)
+        if region_code == "Unknown":
+            continue
+        region_viewer_counts[region_code] += 1
+
+    if not region_viewer_counts:
+        fallback_viewer_keys = {}
+        for report in reports:
+            region_code = _get_report_region(report)
+            if region_code == "Unknown":
+                continue
+            fallback_viewer_keys.setdefault(region_code, set()).add(_build_reporter_key(report))
+        region_viewer_counts = Counter(
+            {region_code: len(viewer_keys) for region_code, viewer_keys in fallback_viewer_keys.items()}
+        )
 
     if normalized_regions:
         region_list = normalized_regions
     else:
-        region_list = _sort_regions(set(user_counts.keys()) | set(report_counts.keys()))
+        region_list = _sort_regions(set(region_report_counts.keys()) | set(region_viewer_counts.keys()))
 
-    total_users = sum(user_counts.values())
+    total_viewers = sum(region_viewer_counts.values())
 
     response_regions = []
     for region_code in region_list:
-        users = user_counts.get(region_code, 0)
+        viewers = region_viewer_counts.get(region_code, 0)
+        reports_count = region_report_counts.get(region_code, 0)
         response_regions.append(
             {
                 "region": region_code,
-                "users": users,
-                "percentage": round((users / total_users) * 100) if total_users else 0,
-                "alertCount": alert_counts.get(region_code, 0),
-                "reportCount": report_counts.get(region_code, 0),
+                "users": viewers,
+                "percentage": round((viewers / total_viewers) * 100) if total_viewers else 0,
+                "alertCount": reports_count,
+                "reportCount": reports_count,
             }
         )
 
@@ -658,7 +1312,7 @@ async def fetch_mobile_user_analytics_summary(
     date_from: str | None = None,
     date_to: str | None = None,
 ):
-    current_user = _get_current_user(current_user_id)
+    _get_current_user(current_user_id)
     normalized_regions = _parse_region_list(region)
     parsed_date_from = _parse_datetime(date_from)
     parsed_date_to = _parse_datetime(date_to, end_of_day=True)
@@ -669,32 +1323,45 @@ async def fetch_mobile_user_analytics_summary(
         previous_from,
         previous_to,
     ) = _resolve_window(parsed_date_from, parsed_date_to, default_days=30)
-
-    scoped_users = _get_scoped_users(current_user)
-
-    def count_users_at(cutoff):
-        total = 0
-        for user in scoped_users:
-            region_code = _normalize_region_safely(user.get("region"))
-            if normalized_regions and region_code not in normalized_regions:
-                continue
-            created_at = _coerce_datetime(user.get("created_at"))
-            if created_at and created_at <= cutoff:
-                total += 1
-        return total
-
-    total_users_current = count_users_at(current_to)
-    total_users_previous = count_users_at(previous_to)
-
-    symptom_reports_current = _count_raw_reports(
-        current_user=current_user,
-        date_from=current_from,
-        date_to=current_to,
+    reports = _get_self_reports()
+    mobile_users = _get_mobile_users()
+    filtered_mobile_users_current = _filter_mobile_users(
+        mobile_users,
+        regions=normalized_regions,
+        cutoff=current_to,
     )
-    symptom_reports_previous = _count_raw_reports(
-        current_user=current_user,
-        date_from=previous_from,
-        date_to=previous_to,
+    filtered_mobile_users_previous = _filter_mobile_users(
+        mobile_users,
+        regions=normalized_regions,
+        cutoff=previous_to,
+    )
+
+    if filtered_mobile_users_current or filtered_mobile_users_previous:
+        total_users_current = len(filtered_mobile_users_current)
+        total_users_previous = len(filtered_mobile_users_previous)
+    else:
+        total_users_current = _count_unique_viewers(
+            reports,
+            cutoff=current_to,
+            regions=normalized_regions,
+        )
+        total_users_previous = _count_unique_viewers(
+            reports,
+            cutoff=previous_to,
+            regions=normalized_regions,
+        )
+
+    symptom_reports_current = len(
+        _filter_self_reports(
+            _get_self_reports(date_from=current_from, date_to=current_to),
+            regions=normalized_regions,
+        )
+    )
+    symptom_reports_previous = len(
+        _filter_self_reports(
+            _get_self_reports(date_from=previous_from, date_to=previous_to),
+            regions=normalized_regions,
+        )
     )
 
     return JSONResponse(
@@ -709,6 +1376,7 @@ async def fetch_mobile_user_analytics_summary(
                 symptom_reports_current,
                 symptom_reports_previous,
             ),
+            "userSource": USER_ANALYTICS_SOURCE,
             "updatedAt": get_ph_datetime().isoformat(),
         },
     )
@@ -721,9 +1389,8 @@ async def fetch_mobile_top_metrics(
     date_to: str | None = None,
     disease: str | None = None,
 ):
-    current_user = _get_current_user(current_user_id)
+    _get_current_user(current_user_id)
     normalized_regions = _parse_region_list(region)
-    disease_code = _normalize_disease_code(disease)
     parsed_date_from = _parse_datetime(date_from)
     parsed_date_to = _parse_datetime(date_to, end_of_day=True)
     current_from, current_to, _, _ = _resolve_window(
@@ -732,33 +1399,24 @@ async def fetch_mobile_top_metrics(
         default_days=7,
     )
 
-    point_entries = _get_point_entries(
-        current_user=current_user,
+    reports = _get_self_reports(
         date_from=current_from,
         date_to=current_to,
     )
-    point_entries = _filter_point_entries(
-        point_entries,
+    reports = _filter_self_reports(
+        reports,
         regions=normalized_regions,
-        disease_code=disease_code,
+        disease=disease,
     )
-    alerts = _build_alert_items(point_entries, disease_code=disease_code)
+    report_clusters = _build_cluster_summary(reports)
 
-    alert_distribution_count = len(
-        [alert for alert in alerts if alert["type"] == "Alert Distribution"]
+    alert_distribution_count = sum(
+        1 for cluster_count in report_clusters.values() if cluster_count >= 2
     )
-    early_warning_count = len(
-        [alert for alert in alerts if alert["type"] == "Early Warning"]
+    early_warning_count = sum(
+        1 for cluster_count in report_clusters.values() if cluster_count >= 5
     )
-
-    if disease_code:
-        symptom_report_count = sum(entry["total_reports"] for entry in point_entries)
-    else:
-        symptom_report_count = _count_raw_reports(
-            current_user=current_user,
-            date_from=current_from,
-            date_to=current_to,
-        )
+    symptom_report_count = len(reports)
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
@@ -768,19 +1426,19 @@ async def fetch_mobile_top_metrics(
                     "key": "alert-distribution",
                     "label": "Alert Distribution",
                     "value": alert_distribution_count,
-                    "helper": "alerts in selected period",
+                    "helper": "condition clusters with 2+ self-reports",
                 },
                 {
                     "key": "early-warning",
                     "label": "Early Warning",
                     "value": early_warning_count,
-                    "helper": "elevated disease clusters",
+                    "helper": "condition clusters with 5+ self-reports",
                 },
                 {
                     "key": "symptom-report",
                     "label": "Symptom Report",
                     "value": symptom_report_count,
-                    "helper": "reports submitted",
+                    "helper": "mobile self-reports submitted",
                 },
             ],
             "updatedAt": get_ph_datetime().isoformat(),
@@ -791,28 +1449,27 @@ async def fetch_mobile_top_metrics(
 async def fetch_mobile_filter_options(
     current_user_id: Annotated[str, Depends(require_auth)],
 ):
-    current_user = _get_current_user(current_user_id)
-    scoped_users = _get_scoped_users(current_user)
-    point_entries = _get_point_entries(current_user=current_user)
+    _get_current_user(current_user_id)
+    reports = _get_self_reports()
+    mobile_users = _get_mobile_users()
 
-    region_values = set()
-
-    for user in scoped_users:
-        region_code = _normalize_region_safely(user.get("region"))
-        if region_code and region_code != "ALL":
-            region_values.add(region_code)
-
-    for entry in point_entries:
-        region_values.add(entry["region"])
-
-    disease_values = set()
-    for entry in point_entries:
-        for disease_code in entry["annotations_count"].keys():
-            if disease_code in DISEASE_CODE_TO_LABEL:
-                disease_values.add(DISEASE_CODE_TO_LABEL[disease_code])
-
-    if not disease_values:
-        disease_values = set(DISEASE_CODE_TO_LABEL.values())
+    region_values = {
+        _get_report_region(report)
+        for report in reports
+        if _get_report_region(report) != "Unknown"
+    }
+    region_values.update(
+        {
+            _get_mobile_user_region(mobile_user)
+            for mobile_user in mobile_users
+            if _get_mobile_user_region(mobile_user) != "Unknown"
+        }
+    )
+    disease_values = {
+        _clean_string(report.get("possibleCondition"))
+        for report in reports
+        if _clean_string(report.get("possibleCondition"))
+    }
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
@@ -821,4 +1478,178 @@ async def fetch_mobile_filter_options(
             "diseases": sorted(disease_values),
             "dateRanges": ["last-7-days", "last-30-days", "custom"],
         },
+    )
+
+
+async def create_mobile_self_report(payload: SelfReportPayload):
+    if not payload.symptoms:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one symptom is required",
+        )
+
+    normalized_symptoms = _dedupe_preserve_order(payload.symptoms)
+    if not normalized_symptoms:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one valid symptom is required",
+        )
+
+    payload.symptoms = [
+        symptom
+        for symptom in normalized_symptoms
+        if symptom in SUPPORTED_SELF_REPORT_SYMPTOMS or symptom
+    ]
+    document = _build_self_report_document(payload)
+    inserted_report = self_reports_collection.insert_one(document)
+    created_report = self_reports_collection.find_one({"_id": inserted_report.inserted_id})
+    mobile_user = _upsert_mobile_user_from_report(created_report)
+    mobile_user_id = mobile_user.get("_id")
+    mobile_user_key = mobile_user.get("userKey")
+
+    self_reports_collection.update_one(
+        {"_id": inserted_report.inserted_id},
+        {
+            "$set": {
+                "mobileUserId": mobile_user_id,
+                "mobileUserKey": mobile_user_key,
+            }
+        },
+    )
+    created_report = self_reports_collection.find_one({"_id": inserted_report.inserted_id})
+
+    return JSONResponse(
+        status_code=status.HTTP_201_CREATED,
+        content={
+            "message": "Self-report submitted successfully",
+            "item": _serialize_self_report(created_report),
+            "mobileUser": _serialize_mobile_user(mobile_user),
+        },
+    )
+
+
+async def fetch_mobile_self_reports_mine(
+    mobileUserId: str | None = None,
+    reporterType: str | None = None,
+    sessionKey: str | None = None,
+):
+    if not mobileUserId:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="mobileUserId is required",
+        )
+
+    mobile_user = mobile_users_collection.find_one({"_id": ObjectId(mobileUserId)}) if ObjectId.is_valid(mobileUserId) else None
+    if not mobile_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Mobile user not found",
+        )
+
+    effective_reporter_type = _normalize_reporter_type(
+        reporterType or mobile_user.get("reporterType")
+    )
+    if effective_reporter_type == "registered" and not _clean_string(sessionKey):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="sessionKey is required for registered mobile users",
+        )
+
+    stored_session_key = _clean_string(mobile_user.get("sessionKey"))
+    if effective_reporter_type == "registered" and stored_session_key and stored_session_key != _clean_string(sessionKey):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid sessionKey for registered mobile user",
+        )
+
+    reports = list(
+        self_reports_collection.find(
+            {
+                "source": SELF_REPORT_SOURCE,
+                "mobileUserId": mobile_user.get("_id"),
+            }
+        ).sort([("createdAt", -1), ("_id", -1)])
+    )
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={"items": [_serialize_self_report(report) for report in reports]},
+    )
+
+
+async def fetch_mobile_self_reports_map_pins(
+    region: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+):
+    normalized_regions = _parse_region_list(region)
+    parsed_date_from = _parse_datetime(date_from)
+    parsed_date_to = _parse_datetime(date_to, end_of_day=True)
+    _validate_date_range(parsed_date_from, parsed_date_to)
+
+    reports = _get_self_reports(date_from=parsed_date_from, date_to=parsed_date_to)
+    reports = _filter_self_reports(reports, regions=normalized_regions)
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={"items": [_build_self_report_map_pin(report) for report in reports]},
+    )
+
+
+async def export_mobile_self_reports(
+    current_user_id: Annotated[str, Depends(require_auth)],
+):
+    _get_current_user(current_user_id)
+    reports = _get_self_reports()
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(
+        [
+            "id",
+            "reporter_type",
+            "role",
+            "full_name",
+            "email",
+            "region",
+            "province",
+            "city",
+            "barangay",
+            "symptoms",
+            "possible_condition",
+            "notes",
+            "status",
+            "source",
+            "created_at",
+        ]
+    )
+
+    for report in reports:
+        reporter = report.get("reporter") or {}
+        location = report.get("location") or {}
+        writer.writerow(
+            [
+                str(report.get("_id") or ""),
+                reporter.get("reporterType") or "",
+                reporter.get("role") or "",
+                reporter.get("fullName") or "",
+                reporter.get("email") or "",
+                location.get("regionName") or "",
+                location.get("provinceName") or "",
+                location.get("cityName") or "",
+                location.get("barangayName") or "",
+                "|".join(report.get("symptoms") or []),
+                report.get("possibleCondition") or "",
+                report.get("notes") or "",
+                report.get("status") or "",
+                report.get("source") or "",
+                _to_iso_or_none(report.get("createdAt")) or "",
+            ]
+        )
+
+    output.seek(0)
+
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=self_reports_export.csv"},
     )
