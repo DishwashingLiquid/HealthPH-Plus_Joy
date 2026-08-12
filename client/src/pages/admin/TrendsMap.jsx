@@ -29,7 +29,7 @@ import {
   useFetchPointsQuery,
 } from "../../features/api/pointsSlice";
 import EmptyState from "../../components/admin/EmptyState";
-import { useCreateActivityLogMutation } from "../../features/api/activityLogsSlice";
+import { useCreateAccountActivityMutation } from "../../features/api/accountActivitySlice";
 
 import { toPng } from "html-to-image";
 import { toast } from "react-toastify";
@@ -42,7 +42,7 @@ const TrendsMap = () => {
 
   const auth = useSelector((state) => state.auth);
 
-  const [log_activity] = useCreateActivityLogMutation();
+  const [log_activity] = useCreateAccountActivityMutation();
 
   const { isPWA } = useDeviceDetect();
 

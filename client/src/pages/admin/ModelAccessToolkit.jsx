@@ -15,7 +15,7 @@ import {
     useProcessDatasetMutation,
 } from "../../features/api/datasetsSlice";
 
-import { useCreateActivityLogMutation } from "../../features/api/activityLogsSlice";
+import { useCreateAccountActivityMutation } from "../../features/api/accountActivitySlice";
 
 import {
     ResponsiveContainer,
@@ -358,7 +358,7 @@ const DataManagement = () => {
     const [processDataset, { isLoading: isProcessLoading }] = useProcessDatasetMutation();
     const [deleteDataset, { isLoading: isDeleteLoading }] = useDeleteDatasetMutation();
 
-    const [createActivityLog] = useCreateActivityLogMutation();
+    const [createAccountActivity] = useCreateAccountActivityMutation();
 
     const {
         data: datasetsByUser,
@@ -497,7 +497,7 @@ const DataManagement = () => {
 
             await uploadFile(payload).unwrap();
 
-            await createActivityLog({
+            await createAccountActivity({
                 user_id: user.id,
                 entry:  `Uploaded dataset: ${uploadPreviewData.filename}`,
                 module: "Model Access and Toolkit",
@@ -569,7 +569,7 @@ const DataManagement = () => {
                     : currentData
             );
 
-            await createActivityLog({
+            await createAccountActivity({
                 user_id: user.id,
                 entry: `started dataset processing: ${filename}`,
                 module: "Model Access and Toolkit",
@@ -746,7 +746,7 @@ const DataManagement = () => {
         try {
             await deleteDataset(deleteModalData.id).unwrap();
 
-            await createActivityLog({
+            await createAccountActivity({
                 user_id: user.id,
                 entry: `Deleted dataset: ${deleteModalData.filename}`,
                 module: "Model Access and Toolkit",
@@ -783,7 +783,7 @@ const DataManagement = () => {
                     });
                 }
 
-                await createActivityLog({
+                await createAccountActivity({
                     user_id: user.id,
                     entry: `Downloaded ${selectedDatasets.length} datasets`,
                     module: "Model Access and Toolkit",
@@ -800,7 +800,7 @@ const DataManagement = () => {
                     await processDataset(dataset.id).unwrap();
                 }
 
-                await createActivityLog({
+                await createAccountActivity({
                     user_id: user.id,
                     entry: `Started processing ${selectedProcessableDatasets.length} datasets`,
                     module: "Model Access and Toolkit",
@@ -812,7 +812,7 @@ const DataManagement = () => {
                     await deleteDataset(dataset.id).unwrap();
                 }
 
-                await createActivityLog({
+                await createAccountActivity({
                     user_id: user.id,
                     entry: `Deleted ${selectedDatasets.length} datasets`,
                     module: "Model Access and Toolkit",
@@ -1672,7 +1672,7 @@ const TrainingLogs = () => {
                         <EmptyState
                             iconName={Document}
                             heading="No training Logs"
-                            content="Upload and process a dataset to create pipeline activity logs."
+                            content="Upload and process a dataset to create pipeline activity history."
                         />
                     )}
                 </div>

@@ -6,7 +6,7 @@ import HamburgerMenu from "../HamburgerMenu";
 import { useDispatch, useSelector } from "react-redux";
 import Cookies from "js-cookie";
 import { deauthenticateUser } from "../../features/auth/authSlice";
-import { useCreateActivityLogMutation } from "../../features/api/activityLogsSlice";
+import { useCreateAccountActivityMutation } from "../../features/api/accountActivitySlice";
 import Modal from "./Modal";
 import useDeviceDetect from "../../hooks/useDeviceDetect";
 
@@ -30,7 +30,7 @@ const Navbar = () => {
 
   const [modalActive, setModalActive] = useState(false);
 
-  const [log_activity] = useCreateActivityLogMutation();
+  const [log_activity] = useCreateAccountActivityMutation();
 
   const handleOpenMenu = () => {
     setIsMenuActive(!isMenuActive);
@@ -98,30 +98,6 @@ const Navbar = () => {
                   <span>Help</span>
                 </NavLink>
               </li>
-              {!isPWA &&
-                isSystemAdmin && (
-                  <li>
-                    <NavLink
-                      to="/dashboard/activity-logs"
-                      onClick={() => {
-                        if (acctDropdownActive) {
-                          setAcctDropdownActive(false);
-                        }
-                        if (isMenuActive) {
-                          handleOpenMenu();
-                        }
-                      }}
-                    >
-                      <Icon
-                        iconName="ActivityLog"
-                        height="20px"
-                        width="20px"
-                        className="icon"
-                      />
-                      <span>Activity Logs</span>
-                    </NavLink>
-                  </li>
-                )}
               <li>
                 <NavLink
                   to="/dashboard/settings"

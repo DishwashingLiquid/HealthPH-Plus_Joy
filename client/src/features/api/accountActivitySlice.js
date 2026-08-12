@@ -1,28 +1,23 @@
 import { baseAPI } from "./_baseAPI";
 
-export const activityLogApi = baseAPI.injectEndpoints({
+export const accountActivityApi = baseAPI.injectEndpoints({
   endpoints: (builder) => ({
-    fetchActivityLogs: builder.query({
-      query: () => "/activity-logs",
-      providesTags: ["ActivityLogs"],
-    }),
     fetchAccountAnalytics: builder.query({
       query: () => "/activity-logs/account-analytics",
       providesTags: ["AccountAnalytics"],
     }),
-    createActivityLog: builder.mutation({
+    createAccountActivity: builder.mutation({
       query: (data) => ({
         url: "/activity-logs",
         method: "POST",
         body: data,
       }),
-      invalidatesTags: ["ActivityLogs", "AccountAnalytics"],
+      invalidatesTags: ["AccountActivity", "AccountAnalytics"],
     }),
   }),
 });
 
 export const {
-  useFetchActivityLogsQuery,
   useFetchAccountAnalyticsQuery,
-  useCreateActivityLogMutation
-} = activityLogApi;
+  useCreateAccountActivityMutation
+} = accountActivityApi;

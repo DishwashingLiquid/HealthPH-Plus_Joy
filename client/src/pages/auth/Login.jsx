@@ -7,7 +7,7 @@ import {
   useResendCodeMutation,
   useVerifyCodeMutation,
 } from "../../features/api/authAPISlice";
-import { useCreateActivityLogMutation } from "../../features/api/activityLogsSlice";
+import { useCreateAccountActivityMutation } from "../../features/api/accountActivitySlice";
 import {
   authenticateUser,
   updateInitialLogin,
@@ -41,7 +41,7 @@ const Login = () => {
 
   const [authenticate] = useAuthenticateMutation();
 
-  const [log_activity] = useCreateActivityLogMutation();
+  const [log_activity] = useCreateAccountActivityMutation();
 
   const dispatch = useDispatch();
 
@@ -222,7 +222,7 @@ const OTPCode = ({ email }) => {
 
   const [resendCode] = useResendCodeMutation();
 
-  const [log_activity] = useCreateActivityLogMutation();
+  const [log_activity] = useCreateAccountActivityMutation();
 
   const dispatch = useDispatch();
 

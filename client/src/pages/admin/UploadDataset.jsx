@@ -2,10 +2,7 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import Icon from "../../components/Icon";
 import { useEffect, useRef, useState } from "react";
 import Datatable from "../../components/admin/Datatable";
-import {
-  useCreateActivityLogMutation,
-  useFetchActivityLogsQuery,
-} from "../../features/api/activityLogsSlice";
+import { useCreateAccountActivityMutation } from "../../features/api/accountActivitySlice";
 import EmptyState from "../../components/admin/EmptyState";
 import { format } from "date-fns";
 import CSVReader from "react-csv-reader";
@@ -240,7 +237,7 @@ const UploadDataset = () => {
 
   const [deleteDataset] = useDeleteDatasetMutation();
 
-  const [log_activiy] = useCreateActivityLogMutation();
+  const [log_activiy] = useCreateAccountActivityMutation();
 
   const [rows, setRows] = useState([]);
 

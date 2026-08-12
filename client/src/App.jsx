@@ -35,7 +35,6 @@ import SentimentPulseTool from "./pages/admin/SentimentPulseTool";
 import UploadDataset from "./pages/admin/UploadDataset";
 import UserManagement from "./pages/admin/UserManagement";
 import Help from "./pages/admin/Help";
-import ActivityLogs from "./pages/admin/ActivityLogs";
 import Settings from "./pages/admin/Settings";
 import EditEmail from "./pages/admin/EditEmail";
 import EditPassword from "./pages/admin/EditPassword";
@@ -316,21 +315,10 @@ function App() {
                 </>
               }
             />
-            {!isPWA && (
-              <Route
-                path="activity-logs"
-                element={
-                  canManageAccounts ? (
-                    <>
-                      <HelmetTitle title="HealthPH | Activity Logs" />
-                      <ActivityLogs />
-                    </>
-                  ) : (
-                    <Navigate to="/dashboard" />
-                  )
-                }
-              />
-            )}
+            <Route
+              path="activity-logs"
+              element={<Navigate to="/dashboard/user-management" replace />}
+            />
             <Route
               path="settings"
               element={

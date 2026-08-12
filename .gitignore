@@ -2,3 +2,4 @@ build/*
 server/__pycache__
 .vscode
 .venv/
+*.zip

@@ -15,7 +15,7 @@ import {
   useDisableUserMutation,
   useUpdateUserMutation,
 } from "../../features/api/userSlice";
-import { useCreateActivityLogMutation } from "../../features/api/activityLogsSlice";
+import { useCreateAccountActivityMutation } from "../../features/api/accountActivitySlice";
 import ModalWithBody from "./ModalWithBody";
 import FieldGroup from "../FieldGroup";
 import Checkbox from "../Checkbox";
@@ -129,7 +129,7 @@ const UsersTable = ({
 
   const [deleteUser] = useDeleteUsersMutation();
 
-  const [log_activity] = useCreateActivityLogMutation();
+  const [log_activity] = useCreateAccountActivityMutation();
 
   const searchWords = searchQuery.split(" ").filter((search) => search.length > 0);
 

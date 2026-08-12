@@ -93,7 +93,6 @@ const Help = () => {
         { id: "sentiment-pulse-tool-mobile-surveys", label: "Mobile Surveys" },
       ],
     },
-    { id: "activity-logs", label: "Activity Logs", hasSubItems: false },
     { id: "settings", label: "Settings", hasSubItems: false },
   ], []);
 
@@ -471,17 +470,6 @@ const Help = () => {
       ],
     },
     {
-      sectionName: "Activity Logs",
-      sectionId: "activity-logs",
-      description: [
-        {
-          sectionDesc:
-            "This module provides every admin to monitor the user activities of all types of users.",
-          sectionImage: <HelpImage image="admin-activity-logs" />,
-        },
-      ],
-    },
-    {
       sectionName: "Settings",
       sectionId: "settings",
       description: [
@@ -581,7 +569,7 @@ const Help = () => {
       const sections = [];
 
       TOC.map(({ id, hasSubItems, subItems }) => {
-        if (["user-management", "activity-logs"].includes(id) && isPWA) {
+        if (["user-management"].includes(id) && isPWA) {
           return;
         }
         sections.push({
@@ -691,7 +679,7 @@ const Help = () => {
               <ul>
                 {TOC.map(({ id, label, hasSubItems, subItems }, i) => {
                   if (
-                    ["user-management", "activity-logs"].includes(id) &&
+                    ["user-management"].includes(id) &&
                     isPWA
                   ) {
                     return null;
@@ -768,7 +756,7 @@ const Help = () => {
             {getContent().map(
               ({ sectionName, sectionId, description, subSections }, i) => {
                 if (
-                  ["user-management", "activity-logs"].includes(sectionId) &&
+                  ["user-management"].includes(sectionId) &&
                   isPWA
                 ) {
                   return null;
