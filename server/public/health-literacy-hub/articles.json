@@ -1,1 +1,48 @@
-[]
+[
+  {
+    "id": "710688de-7330-44cc-970f-dd512f1c1cf7",
+    "title": "test",
+    "description": "test",
+    "tags": [
+      "English"
+    ],
+    "topics": [],
+    "diseases": [],
+    "language": "",
+    "media": null,
+    "duration": "",
+    "source": "",
+    "author": "",
+    "publishedDate": null,
+    "externalUrl": "",
+    "imageUrl": "",
+    "mediaUrl": "",
+    "publishToMobile": false,
+    "publishToWebsite": false,
+    "isPublished": false,
+    "createdAt": "2026-08-12T10:34:55.687506",
+    "lastReviewedAt": "2026-08-12T10:34:55.687506",
+    "assignedReviewer": "",
+    "reviewRequestedAt": "",
+    "lastReviewedBy": {
+      "id": "6a72d1adb16c674ce125be9b",
+      "name": "Janzzen Cuentas"
+    },
+    "isArchived": false,
+    "archivedAt": "",
+    "archivedBy": {},
+    "isPinned": false,
+    "pinnedAt": "",
+    "pinnedBy": {},
+    "createdBy": {
+      "id": "6a72d1adb16c674ce125be9b",
+      "name": "Janzzen Cuentas"
+    },
+    "isFactCheck": false,
+    "claim": "",
+    "claimStatus": "Needs Expert Review",
+    "verifiedBy": "Project Researcher",
+    "verdict": "Needs Context",
+    "explanation": ""
+  }
+]

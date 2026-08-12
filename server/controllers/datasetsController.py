@@ -160,7 +160,7 @@ route     POST api/datasets/upload
 async def upload_dataset(
     background_tasks: BackgroundTasks,
     file: UploadFile,
-    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
+    current_user: Annotated[dict, Depends(require_role(["Admin", "SUPERADMIN"]))],
 ):
     # Check if user is an admin or superadmin
     """if not is_admin.result:
@@ -347,7 +347,7 @@ async def upload_dataset(
 async def process_dataset(
     background_tasks: BackgroundTasks,
     id: str,
-    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
+    current_user: Annotated[dict, Depends(require_role(["Admin", "SUPERADMIN"]))],
 ):
     if not ObjectId.is_valid(id):
         raise HTTPException(
@@ -410,7 +410,7 @@ route     GET api/datasets/download/{filename}
 
 async def download_dataset(
     id: str,
-    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
+    current_user: Annotated[dict, Depends(require_role(["Admin", "SUPERADMIN"]))],
 
 ):
     # Check if there is id
@@ -517,7 +517,7 @@ async def fetch_datasets_by_user(user_id: str):
                 {"$sort": {"created_at": pymongo.DESCENDING}},
             ]
         )
-    elif user_data["user_type"] == "ADMIN":
+    elif user_data.get("role_label") == "Admin":
         data = dataset_collection.aggregate(
             [
                 {"$match": {"user_id": user_id}},
@@ -550,7 +550,7 @@ route     DELETE api/datasets/{id}
 async def delete_dataset(
     background_tasks: BackgroundTasks, 
     id: str,
-    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))]
+    current_user: Annotated[dict, Depends(require_role(["Admin", "SUPERADMIN"]))]
 ):
     # Check if there is id
     if not id:

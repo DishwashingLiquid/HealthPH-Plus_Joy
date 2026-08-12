@@ -576,7 +576,8 @@ def mail_add_admin(receiver, data: dict):
     While working with us, you will be using these credentials to Protect Filipinos, One Disease At A Time.
     Please securely keep this information:
     
-    User Type: ADMIN
+    User Type: USER
+    Role: Admin
     HealthPH Email: {email}
     HealthPH Password: {password}
     
@@ -584,7 +585,7 @@ def mail_add_admin(receiver, data: dict):
     To allow you to change your password, sign in to HealthPH and go to the Settings > Edit Password. 
     If you have forgotten your password, navigate to Sign In > Forgot Password.
     
-    As an ADMIN at HealthPH, you have access to several modules such as:
+    As an Admin at HealthPH, you have access to several modules such as:
     
     1. Analytics
     a. The admin is able to visualize summary of data about perceived symptoms.
@@ -634,7 +635,12 @@ def mail_add_admin(receiver, data: dict):
             <div class="spacer"></div>
             <p class="p">
                 <span class="bold">User Type</span>:{" "}
-                <span class="green">ADMIN</span>
+                <span class="green">USER</span>
+            </p>
+            <div class="spacer"></div>
+            <p class="p">
+                <span class="bold">Role</span>:{" "}
+                <span class="green">Admin</span>
             </p>
             <div class="spacer"></div>
             <p class="p">
@@ -656,7 +662,7 @@ def mail_add_admin(receiver, data: dict):
             </p>
             <div class="spacer"></div>
             <p class="p">
-                As an <span class="green semibold">ADMIN</span> at HealthPH, you have access to several modules such as:
+                As an <span class="green semibold">Admin</span> at HealthPH, you have access to several modules such as:
             </p>
             <div class="p">
                 <ul class="list">

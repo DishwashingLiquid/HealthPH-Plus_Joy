@@ -109,7 +109,7 @@ route     GET api/health-literacy-hub/{content_type}
 
 async def fetch_health_literacy_content(
     content_type: str,
-    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
+    current_user: Annotated[dict, Depends(require_role(["Admin", "SUPERADMIN"]))],
 ):
     return read_content(content_type)
 
@@ -222,7 +222,7 @@ route     GET api/health-literacy-hub/analytics/overview
 
 
 async def fetch_health_literacy_analytics_overview(
-    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
+    current_user: Annotated[dict, Depends(require_role(["Admin", "SUPERADMIN"]))],
     timeRange: str = "last-30-days",
     contentType: str = "all",
     region: str = "all",
@@ -265,7 +265,7 @@ route     POST api/health-literacy-hub/{content_type}
 async def create_health_literacy_content(
     content_type: str,
     current_user: Annotated[
-        dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))
+        dict, Depends(require_role(["Admin", "SUPERADMIN"]))
     ],
     title: Annotated[str, Form()],
     description: Annotated[str, Form()],
@@ -382,7 +382,7 @@ async def update_health_literacy_content(
     content_type: str,
     content_id: str,
     current_user: Annotated[
-        dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))
+        dict, Depends(require_role(["Admin", "SUPERADMIN"]))
     ],
     title: Annotated[str, Form()],
     description: Annotated[str, Form()],
@@ -502,7 +502,7 @@ async def delete_health_literacy_content(
     content_type: str,
     content_id: str,
     current_user: Annotated[
-        dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))
+        dict, Depends(require_role(["Admin", "SUPERADMIN"]))
     ],
 ):
     if content_type not in CONTENT_FILES:

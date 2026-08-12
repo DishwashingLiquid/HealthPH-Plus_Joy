@@ -27,7 +27,6 @@ import Analytics from "./pages/admin/Analytics";
 import TrendsMap from "./pages/admin/TrendsMap";
 import UploadDataset from "./pages/admin/UploadDataset";
 import UserManagement from "./pages/admin/UserManagement";
-import AddUser from "./pages/admin/AddUser";
 import Help from "./pages/admin/Help";
 import ActivityLogs from "./pages/admin/ActivityLogs";
 import Settings from "./pages/admin/Settings";
@@ -53,6 +52,8 @@ const SentimentPulseTool = lazy(() => import("./pages/admin/SentimentPulseTool")
 
 function App() {
   const user = useSelector((state) => state.auth.user);
+  const canManageAccounts =
+    user && (user.user_type === "SUPERADMIN" || user.role_label === "Admin");
 
   const dispatch = useDispatch();
 
@@ -267,7 +268,7 @@ function App() {
             <Route
               path="trends-map/upload-dataset"
               element={
-                user && ["ADMIN", "SUPERADMIN"].includes(user.user_type) ? (
+                canManageAccounts ? (
                   <>
                     <HelmetTitle title="HealthPH | Upload Dataset" />
                     <UploadDataset />
@@ -281,7 +282,7 @@ function App() {
               <Route
                 path="user-management"
                 element={
-                  user && ["ADMIN", "SUPERADMIN"].includes(user.user_type) ? (
+                  user ? (
                     <>
                       <HelmetTitle title="HealthPH | User Management" />
                       <UserManagement />
@@ -296,11 +297,8 @@ function App() {
               <Route
                 path="user-management/add-user"
                 element={
-                  user && ["ADMIN", "SUPERADMIN"].includes(user.user_type) ? (
-                    <>
-                      <HelmetTitle title="HealthPH | Add User" />
-                      <AddUser />
-                    </>
+                  canManageAccounts ? (
+                    <Navigate to="/dashboard/user-management" replace />
                   ) : (
                     <Navigate to="/dashboard" />
                   )
@@ -320,7 +318,7 @@ function App() {
               <Route
                 path="activity-logs"
                 element={
-                  user && ["ADMIN", "SUPERADMIN"].includes(user.user_type) ? (
+                  canManageAccounts ? (
                     <>
                       <HelmetTitle title="HealthPH | Activity Logs" />
                       <ActivityLogs />
