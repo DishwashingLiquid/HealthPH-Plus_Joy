@@ -270,18 +270,60 @@ async def upload_dataset(
     # count rows
     num_of_rows = len(raw_dataset_df)
 
-    # capture languages
-    languages = (
+    # capture languages distribution from uploaded raw dataset
+    language_counts = (
         raw_dataset_df["language"]
         .astype(str)
         .str.strip()
         .replace("", pd.NA)
         .dropna()
-        .unique()
-        .tolist()
+        .value_counts()
+        .sort_index()
+        .to_dict()
     )
 
-    languages = sorted(languages)
+    language_counts = {
+        str(language): int(count)
+        for language, count in language_counts.items()
+    }
+
+    languages = sorted(language_counts.keys())
+
+    # capture language distribution by uploaded location
+    location_language_counts = {}
+
+    location_language_df = raw_dataset_df[["location", "language"]].copy()
+    location_language_df["location"] = (
+        location_language_df["location"]
+        .astype(str)
+        .str.strip()
+        .replace("", pd.NA)
+    )
+    location_language_df["language"] = (
+        location_language_df["language"]
+        .astype(str)
+        .str.strip()
+        .replace("", pd.NA)
+    )
+
+    location_language_df = location_language_df.dropna(
+        subset=["location", "language"]
+    )
+
+    grouped_location_languages = (
+        location_language_df
+        .groupby(["location", "language"])
+        .size()
+    )
+
+    for (location, language), count in grouped_location_languages.items():
+        location_key = str(location)
+        language_key = str(language)
+
+        if location_key not in location_language_counts:
+            location_language_counts[location_key] = {}
+
+        location_language_counts[location_key][language_key] = int(count)
 
     # preview atleast 5% of total rows
     preview_row_count = 0
@@ -307,6 +349,8 @@ async def upload_dataset(
             "file_size": file_size,
             "num_of_rows": num_of_rows,
             "languages": languages,
+            "language_counts": language_counts,
+            "location_language_counts": location_language_counts,
             "preview_row_count": preview_row_count,
             "preview_headers": str(preview_headers),
             "preview_data": json.dumps(preview_data),
