@@ -16,6 +16,9 @@ from .constants import (
     CONTENT_INTERACTION_EVENTS,
     PUBLIC_ANALYTICS_EVENTS,
     SECRET_KEY,
+    get_content_type_label,
+    get_legacy_content_type,
+    normalize_storage_content_type,
     health_literacy_analytics_events_collection,
     user_collection,
 )
@@ -94,10 +97,16 @@ def get_event_content_type_values(content_type: str) -> list[str]:
         return []
 
     values = {content_type}
-
-    for content_key, content_label in ANALYTICS_CONTENT_LABELS.items():
-        if content_label == content_type:
-            values.add(content_key)
+    storage_content_type = normalize_storage_content_type(content_type)
+    if storage_content_type:
+        values.add(storage_content_type)
+        values.add(get_legacy_content_type(storage_content_type))
+        values.add(get_content_type_label(storage_content_type))
+    else:
+        for content_key, content_label in ANALYTICS_CONTENT_LABELS.items():
+            if content_label == content_type:
+                values.add(content_key)
+                values.add(get_legacy_content_type(content_key))
 
     return list(values)
 
@@ -478,7 +487,11 @@ def build_analytics_event_document(data, request: Request) -> dict:
         "event_type": event_type,
         "content_id": data.contentId,
         "content_title": data.contentTitle,
-        "content_type": data.contentType or "all",
+        "content_type": (
+            normalize_storage_content_type(data.contentType, allow_fact_check=True)
+            or data.contentType
+            or "all"
+        ),
         "client_platform": client_platform,
         "region": data.region or "all",
         "topic": topic,

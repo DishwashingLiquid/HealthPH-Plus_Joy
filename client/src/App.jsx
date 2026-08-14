@@ -28,7 +28,6 @@ import TrendsMap from "./pages/admin/TrendsMap";
 import UploadDataset from "./pages/admin/UploadDataset";
 import UserManagement from "./pages/admin/UserManagement";
 import Help from "./pages/admin/Help";
-import ActivityLogs from "./pages/admin/ActivityLogs";
 import Settings from "./pages/admin/Settings";
 import EditEmail from "./pages/admin/EditEmail";
 import EditPassword from "./pages/admin/EditPassword";
@@ -46,8 +45,12 @@ const Home = lazy(() => import("./pages/Home"));
 const AboutUs = lazy(() => import("./pages/AboutUs"));
 const ResearchTeam = lazy(() => import("./pages/ResearchTeam"));
 const Login = lazy(() => import("./pages/auth/Login"));
-const HealthLiteracyHub = lazy(() => import("./pages/admin/HealthLiteracyHub"));
-const DiseaseWatchFeed = lazy(() => import("./pages/admin/DiseaseWatchFeed"));
+const HealthLiteracyHub = lazy(() =>
+  import("./pages/admin/healthLiteracyHub/HealthLiteracyHub")
+);
+const DiseaseWatchFeed = lazy(() =>
+  import("./pages/admin/diseaseWatchFeed/DiseaseWatchFeed")
+);
 const SentimentPulseTool = lazy(() => import("./pages/admin/SentimentPulseTool"));
 
 function App() {
@@ -314,21 +317,10 @@ function App() {
                 </>
               }
             />
-            {!isPWA && (
-              <Route
-                path="activity-logs"
-                element={
-                  canManageAccounts ? (
-                    <>
-                      <HelmetTitle title="HealthPH | Activity Logs" />
-                      <ActivityLogs />
-                    </>
-                  ) : (
-                    <Navigate to="/dashboard" />
-                  )
-                }
-              />
-            )}
+            <Route
+              path="activity-logs"
+              element={<Navigate to="/dashboard/user-management" replace />}
+            />
             <Route
               path="settings"
               element={

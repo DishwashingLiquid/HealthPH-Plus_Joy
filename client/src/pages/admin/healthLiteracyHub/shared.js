@@ -1,8 +1,7 @@
 import {
-  HEALTH_LITERACY_LANGUAGE_LIMIT,
   HEALTH_LITERACY_LANGUAGE_OPTIONS,
   UPLOAD_RULES,
-} from "./sharedConfig";
+} from "./shared/sharedConfig";
 
 export {
   ANALYTICS_CONTENT_FILTERS,
@@ -18,7 +17,7 @@ export {
   INITIAL_FORM_DATA,
   TAB_CONTENT_TYPES,
   UPLOAD_RULES,
-} from "./sharedConfig";
+} from "./shared/sharedConfig";
 export {
   downloadCsv,
   escapeCsvValue,
@@ -29,14 +28,14 @@ export {
   getFilterLabel,
   getRegionLabel,
   slugify,
-} from "./sharedFormatting";
+} from "./shared/sharedFormatting";
 export {
   buildAnalyticsReport,
   getAnalyticsRegionValue,
   getAnalyticsSeed,
   getHealthLiteracyVisitorId,
-} from "./sharedAnalytics";
-export { showToast } from "./sharedToast";
+} from "./shared/sharedAnalytics";
+export { showToast } from "./shared/sharedToast";
 
 export const normalizeContentTags = (tags) => {
   const sourceTags = Array.isArray(tags)
@@ -59,13 +58,7 @@ export const normalizeContentTags = (tags) => {
 };
 
 export const getLimitedContentTags = (tags) =>
-  normalizeContentTags(tags)
-    .filter((tag) =>
-      HEALTH_LITERACY_LANGUAGE_OPTIONS.some(
-        (option) => option.value.toLowerCase() === tag.toLowerCase()
-      )
-    )
-    .slice(0, HEALTH_LITERACY_LANGUAGE_LIMIT);
+  normalizeContentTags(tags);
 
 export const getTagOptionsWithSelectedTags = () =>
   HEALTH_LITERACY_LANGUAGE_OPTIONS;
@@ -142,13 +135,16 @@ export const formatContentDate = (value) => {
 export const normalizeApiContent = (content) => {
   return (content ?? []).map((item) => ({
     ...item,
-    tags: getLimitedContentTags(item.tags),
+    tags: normalizeContentTags(item.tags),
+    topics: normalizeContentTags(item.topics),
+    diseases: normalizeContentTags(item.diseases),
+    language: String(item.language ?? "en").trim() || "en",
     lastReviewedAt: getContentReviewDate(item),
     assignedReviewer: item.assignedReviewer ?? "",
     isArchived: Boolean(item.isArchived),
     isPinned: Boolean(item.isPinned),
     date: formatContentDate(item.createdAt),
-    source: "api",
+    contentOrigin: "api",
   }));
 };
 
@@ -169,16 +165,8 @@ export const getContentFormValidationError = (formData, contentTypeLabel) => {
     return "Please enter a description";
   }
 
-  if (contentTypeLabel !== "Infographics") {
-    const selectedLanguages = getLimitedContentTags(formData.tags);
-
-    if (selectedLanguages.length === 0) {
-      return "Please select at least one language";
-    }
-
-    if (selectedLanguages.length > HEALTH_LITERACY_LANGUAGE_LIMIT) {
-      return `Please select up to ${HEALTH_LITERACY_LANGUAGE_LIMIT} languages only`;
-    }
+  if (!String(formData.language ?? "").trim()) {
+    return "Please select a language";
   }
 
   if (

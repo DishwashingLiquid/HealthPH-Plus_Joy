@@ -3,7 +3,37 @@ import PropTypes from "prop-types";
 import { formatDistanceToNow } from "date-fns";
 
 import { DASHBOARD_CARD_TITLE_CLASS } from "../dashboardTypography";
-import RecentAlertEntityHighlight from "./RecentAlertEntityHighlight";
+
+const RECENT_ALERT_ENTITY_STYLES = {
+  disease: {
+    backgroundColor: "#32418C30",
+    color: "#32418C",
+  },
+  symptom: {
+    backgroundColor: "#2572A530",
+    color: "#2572A5",
+  },
+  location: {
+    backgroundColor: "#FBD11730",
+    color: "#FBD117",
+  },
+};
+
+function RecentAlertEntityHighlight({ label, tone }) {
+  return (
+    <span
+      className="px-[6px] py-[2px] rounded-[6px] text-sm font-medium"
+      style={RECENT_ALERT_ENTITY_STYLES[tone]}
+    >
+      {label}
+    </span>
+  );
+}
+
+RecentAlertEntityHighlight.propTypes = {
+  label: PropTypes.string.isRequired,
+  tone: PropTypes.oneOf(["disease", "symptom", "location"]).isRequired,
+};
 
 const renderSummary = (alert) => {
   if (

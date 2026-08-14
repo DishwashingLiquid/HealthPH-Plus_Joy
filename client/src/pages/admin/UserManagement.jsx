@@ -51,9 +51,9 @@ import {
 import { useFetchRoleLabelsQuery } from "../../features/api/roleLabelsSlice";
 
 import {
-  useCreateActivityLogMutation,
+  useCreateAccountActivityMutation,
   useFetchAccountAnalyticsQuery,
-} from "../../features/api/activityLogsSlice";
+} from "../../features/api/accountActivitySlice";
 
 
 import useDeviceDetect from "../../hooks/useDeviceDetect";
@@ -93,7 +93,7 @@ const UserManagement = () => {
   const canManageUsers = isSuperadmin || isAdminRole;
   const canManageSuperadmins = isSuperadmin;
 
-  const [log_activity] = useCreateActivityLogMutation();
+  const [log_activity] = useCreateAccountActivityMutation();
 
   const {
     data: accountAnalytics = {},
@@ -958,7 +958,7 @@ const UserAccountModal = ({
   const isSuperadminMode = mode == "SUPERADMIN";
 
   const [createUser] = useCreateUserMutation();
-  const [log_activity] = useCreateActivityLogMutation();
+  const [log_activity] = useCreateAccountActivityMutation();
 
   const initialFormData = {
     user_type: isSuperadminMode ? "SUPERADMIN" : "USER",
@@ -2111,9 +2111,9 @@ const AccountAnalyticsPanel = ({
     region: getRegionLabel(row.region),
   }));
 
-  const recentActivityLogs = accountAnalytics.recent_activity || [];
+  const recentAccountActivity = accountAnalytics.recent_activity || [];
   const showRecentActivity = accountAnalytics.show_recent_activity === true;
-  const isActivityLogsLoading = isAccountAnalyticsLoading;
+  const isAccountActivityLoading = isAccountAnalyticsLoading;
 
   const totalActivityActions = activityByDay.reduce(
     (total, day) => total + day.actions,
@@ -2224,7 +2224,7 @@ const AccountAnalyticsPanel = ({
           </p>
 
           <div className="mt-[16px] h-[300px]">
-            {isActivityLogsLoading ? (
+            {isAccountActivityLoading ? (
               <div className="flex h-full items-center">
                 <SkeletonBody columns={4} rows={4} />
               </div>
@@ -2269,7 +2269,7 @@ const AccountAnalyticsPanel = ({
           </p>
 
           <div className="mt-[16px] h-[300px]">
-            {isActivityLogsLoading ? (
+            {isAccountActivityLoading ? (
               <div className="flex h-full items-center">
                 <SkeletonBody columns={4} rows={4} />
               </div>
@@ -2321,14 +2321,14 @@ const AccountAnalyticsPanel = ({
             Recent Account Activity
           </h2>
           <p className="text-sm text-gray-500">
-            Detailed activity logs based on your account access level.
+            Detailed account activity based on your access level.
           </p>
 
-          {isActivityLogsLoading ? (
+          {isAccountActivityLoading ? (
             <div className="mt-[16px]">
               <SkeletonBody columns={6} rows={5} />
             </div>
-          ) : recentActivityLogs.length > 0 ? (
+          ) : recentAccountActivity.length > 0 ? (
             <div className="mt-[16px] overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -2342,7 +2342,7 @@ const AccountAnalyticsPanel = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {recentActivityLogs.map((log) => (
+                  {recentAccountActivity.map((log) => (
                     <tr key={log.id} className="border-b border-[#F0F0F0]">
                       <td className="px-[10px] py-[14px] font-medium text-gray-800">
                         <div>{log.user_name || "-"}</div>

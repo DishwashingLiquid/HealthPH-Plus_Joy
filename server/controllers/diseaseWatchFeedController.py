@@ -1,4 +1,5 @@
 import csv
+import hashlib
 import json
 from collections import Counter
 from datetime import datetime, timedelta
@@ -129,22 +130,50 @@ SELF_REPORT_CATEGORY = "Self-reported respiratory symptoms"
 SELF_REPORT_STATUSES = {"submitted", "for_review", "verified", "rejected"}
 SELF_REPORT_REPORTER_TYPES = {"guest", "registered"}
 SELF_REPORT_PIN_ACCURACY = {"geocoded", "region_estimate"}
-SUPPORTED_SELF_REPORT_SYMPTOMS = {
-    "Cough",
-    "Fever",
-    "Chills",
-    "Fatigue",
-    "Shortness of breath",
-    "Chest Pain",
-    "Sore throat",
-    "Runny nose",
-    "Wheezing",
-    "Loss of taste or smell",
-    "Headache",
-    "Body aches",
-    "Cough for 2+ weeks",
-    "Night sweats",
-    "Weight loss",
+SELF_REPORT_ROLE_ID_TO_LABEL = {
+    "guest": "Guest Tester",
+    "citizen": "Citizen",
+    "field_health_worker": "Field Health Worker",
+    "lgu_doh_user": "LGU/DOH User",
+}
+SELF_REPORT_ROLE_LABEL_TO_ID = {
+    label.lower(): role_id for role_id, label in SELF_REPORT_ROLE_ID_TO_LABEL.items()
+}
+SELF_REPORT_SYMPTOM_ID_TO_LABEL = {
+    "cough": "Cough",
+    "fever": "Fever",
+    "chills": "Chills",
+    "fatigue": "Fatigue",
+    "shortness_of_breath": "Shortness of breath",
+    "chest_pain": "Chest Pain",
+    "sore_throat": "Sore throat",
+    "runny_nose": "Runny nose",
+    "wheezing": "Wheezing",
+    "loss_of_taste_or_smell": "Loss of taste or smell",
+    "headache": "Headache",
+    "body_aches": "Body aches",
+    "cough_2_weeks": "Cough for 2+ weeks",
+    "night_sweats": "Night sweats",
+    "weight_loss": "Weight loss",
+}
+SELF_REPORT_SYMPTOM_LABEL_TO_ID = {
+    label.lower(): symptom_id
+    for symptom_id, label in SELF_REPORT_SYMPTOM_ID_TO_LABEL.items()
+}
+SELF_REPORT_POSSIBLE_CONDITION_ID_TO_LABEL = {
+    "covid_like_respiratory_pattern": (
+        "Possible COVID-like respiratory symptom pattern"
+    ),
+    "pneumonia_pattern": "Possible pneumonia pattern",
+    "tuberculosis_pattern": "Possible tuberculosis symptom pattern",
+    "acute_respiratory_infection_pattern": (
+        "Possible acute respiratory infection pattern"
+    ),
+    "respiratory_symptoms_reported": "Respiratory symptoms reported",
+}
+SELF_REPORT_POSSIBLE_CONDITION_LABEL_TO_ID = {
+    label.lower(): condition_id
+    for condition_id, label in SELF_REPORT_POSSIBLE_CONDITION_ID_TO_LABEL.items()
 }
 REGION_CENTER_PATH = (
     Path(__file__).resolve().parent.parent.parent
@@ -160,7 +189,9 @@ _region_center_lookup = None
 class SelfReportReporterPayload(BaseModel):
     userId: str | None = None
     reporterType: str = "guest"
-    role: str = "Guest Tester"
+    roleId: str | None = None
+    roleLabel: str | None = None
+    role: str | None = None
     fullName: str | None = None
     email: str | None = None
     sessionKey: str | None = None
@@ -184,7 +215,11 @@ class SelfReportLocationPayload(BaseModel):
 class SelfReportPayload(BaseModel):
     reporter: SelfReportReporterPayload
     location: SelfReportLocationPayload
-    symptoms: list[str]
+    symptomIds: list[str] = []
+    symptomLabels: list[str] = []
+    symptoms: list[str] = []
+    possibleConditionId: str | None = None
+    possibleConditionLabel: str | None = None
     possibleCondition: str | None = None
     notes: str = ""
     status: str = "submitted"
@@ -249,31 +284,126 @@ def _dedupe_preserve_order(values):
     return normalized_values
 
 
-def _derive_possible_condition(symptoms: list[str]) -> str:
-    symptom_set = {symptom.lower() for symptom in symptoms}
+def _normalize_id_token(value: str | None) -> str:
+    return _clean_string(value).strip().lower().replace("-", "_").replace(" ", "_")
 
-    if {
-        "cough",
-        "fever",
-        "fatigue",
-    }.issubset(symptom_set) and (
-        {"body aches", "loss of taste or smell", "shortness of breath"} & symptom_set
+
+def _build_public_identifier(prefix: str, raw_value: str) -> str:
+    digest = hashlib.sha256(raw_value.encode("utf-8")).hexdigest()[:20]
+    return f"{prefix}_{digest}"
+
+
+def _normalize_role_fields(
+    *,
+    role_id: str | None = None,
+    role_label: str | None = None,
+    legacy_role: str | None = None,
+):
+    normalized_role_id = _normalize_id_token(role_id)
+    if normalized_role_id in SELF_REPORT_ROLE_ID_TO_LABEL:
+        return normalized_role_id, SELF_REPORT_ROLE_ID_TO_LABEL[normalized_role_id]
+
+    normalized_role_label = _clean_string(role_label or legacy_role).lower()
+    if normalized_role_label in SELF_REPORT_ROLE_LABEL_TO_ID:
+        resolved_role_id = SELF_REPORT_ROLE_LABEL_TO_ID[normalized_role_label]
+        return resolved_role_id, SELF_REPORT_ROLE_ID_TO_LABEL[resolved_role_id]
+
+    return "guest", SELF_REPORT_ROLE_ID_TO_LABEL["guest"]
+
+
+def _normalize_symptom_id(value: str | None) -> str | None:
+    normalized_value = _normalize_id_token(value)
+    if normalized_value in SELF_REPORT_SYMPTOM_ID_TO_LABEL:
+        return normalized_value
+
+    normalized_label = _clean_string(value).lower()
+    if normalized_label in SELF_REPORT_SYMPTOM_LABEL_TO_ID:
+        return SELF_REPORT_SYMPTOM_LABEL_TO_ID[normalized_label]
+
+    return None
+
+
+def _normalize_symptom_fields(
+    *,
+    symptom_ids: list[str] | None = None,
+    symptom_labels: list[str] | None = None,
+    legacy_symptoms: list[str] | None = None,
+):
+    normalized_symptom_ids = []
+    seen_symptom_ids = set()
+
+    for value in list(symptom_ids or []) + list(symptom_labels or []) + list(legacy_symptoms or []):
+        normalized_symptom_id = _normalize_symptom_id(value)
+        if not normalized_symptom_id or normalized_symptom_id in seen_symptom_ids:
+            continue
+
+        seen_symptom_ids.add(normalized_symptom_id)
+        normalized_symptom_ids.append(normalized_symptom_id)
+
+    return normalized_symptom_ids, [
+        SELF_REPORT_SYMPTOM_ID_TO_LABEL[symptom_id]
+        for symptom_id in normalized_symptom_ids
+    ]
+
+
+def _normalize_possible_condition_id(value: str | None) -> str | None:
+    normalized_value = _normalize_id_token(value)
+    if normalized_value in SELF_REPORT_POSSIBLE_CONDITION_ID_TO_LABEL:
+        return normalized_value
+
+    normalized_label = _clean_string(value).lower()
+    if normalized_label in SELF_REPORT_POSSIBLE_CONDITION_LABEL_TO_ID:
+        return SELF_REPORT_POSSIBLE_CONDITION_LABEL_TO_ID[normalized_label]
+
+    return None
+
+
+def _derive_possible_condition_id(symptom_ids: list[str]) -> str:
+    symptom_set = set(symptom_ids)
+
+    if {"cough", "fever"}.issubset(symptom_set) and (
+        {"fatigue", "body_aches", "loss_of_taste_or_smell", "shortness_of_breath"}
+        & symptom_set
     ):
-        return "Possible COVID-like respiratory symptom pattern"
+        return "covid_like_respiratory_pattern"
 
     if {"cough", "fever", "chills", "fatigue"}.issubset(symptom_set):
-        return "Possible pneumonia pattern"
+        return "pneumonia_pattern"
 
-    if "cough for 2+ weeks" in symptom_set or (
+    if "cough_2_weeks" in symptom_set or (
         "cough" in symptom_set
-        and {"night sweats", "weight loss"}.issubset(symptom_set)
+        and {"night_sweats", "weight_loss"}.issubset(symptom_set)
     ):
-        return "Possible tuberculosis symptom pattern"
+        return "tuberculosis_pattern"
 
-    if {"cough", "sore throat", "runny nose"} & symptom_set:
-        return "Possible acute respiratory infection pattern"
+    if {"cough", "sore_throat", "runny_nose"} & symptom_set:
+        return "acute_respiratory_infection_pattern"
 
-    return "Respiratory symptoms reported"
+    return "respiratory_symptoms_reported"
+
+
+def _normalize_possible_condition_fields(
+    *,
+    possible_condition_id: str | None = None,
+    possible_condition_label: str | None = None,
+    legacy_possible_condition: str | None = None,
+    symptom_ids: list[str] | None = None,
+):
+    normalized_possible_condition_id = _normalize_possible_condition_id(
+        possible_condition_id
+    ) or _normalize_possible_condition_id(possible_condition_label) or _normalize_possible_condition_id(
+        legacy_possible_condition
+    )
+
+    if normalized_possible_condition_id is None:
+        normalized_possible_condition_id = _derive_possible_condition_id(
+            symptom_ids or []
+        )
+
+    return (
+        normalized_possible_condition_id,
+        SELF_REPORT_POSSIBLE_CONDITION_ID_TO_LABEL[normalized_possible_condition_id],
+    )
 
 
 def _normalize_self_report_source(value: str | None) -> str:
@@ -317,26 +447,145 @@ def _to_iso_or_none(value):
     return parsed_value.isoformat() if parsed_value else None
 
 
-def _build_mobile_user_key(
+def _build_public_report_id(document: dict) -> str:
+    raw_value = (
+        f"{document.get('_id') or ''}:{_to_iso_or_none(document.get('createdAt')) or ''}"
+    )
+    return _build_public_identifier("sr", raw_value)
+
+
+def _select_oldest_object_id(values):
+    normalized_values = []
+    for value in values:
+        if isinstance(value, ObjectId):
+            normalized_values.append(value)
+        elif ObjectId.is_valid(str(value or "")):
+            normalized_values.append(ObjectId(str(value)))
+
+    if not normalized_values:
+        return None
+
+    return min(normalized_values, key=str)
+
+
+def _resolve_registered_canonical_user_id(
     *,
     user_id=None,
     email: str | None = None,
     full_name: str | None = None,
-    report_fallback_id: str | None = None,
+    reports=None,
 ):
-    if user_id:
-        return f"registered:{user_id}"
+    candidate_user_ids = []
+    normalized_email = _clean_string(email).lower()
+    normalized_full_name = _clean_string(full_name).lower()
+    normalized_user_id = _to_object_id_or_none(user_id)
+
+    if normalized_user_id:
+        candidate_user_ids.append(normalized_user_id)
+
+    for report in reports or _get_self_reports():
+        reporter = report.get("reporter") or {}
+        if _normalize_reporter_type(reporter.get("reporterType")) != "registered":
+            continue
+
+        reporter_user_id = reporter.get("userId")
+        if not reporter_user_id:
+            continue
+
+        matches_identity = False
+        if normalized_user_id and str(reporter_user_id) == str(normalized_user_id):
+            matches_identity = True
+        if normalized_email and _clean_string(reporter.get("email")).lower() == normalized_email:
+            matches_identity = True
+        if (
+            normalized_full_name
+            and _clean_string(reporter.get("fullName")).lower() == normalized_full_name
+        ):
+            matches_identity = True
+
+        if matches_identity:
+            candidate_user_ids.append(reporter_user_id)
+
+    return _select_oldest_object_id(candidate_user_ids)
+
+
+def _build_mobile_reporter_identity_key(report: dict, reports=None) -> str:
+    reporter = report.get("reporter") or {}
+    reporter_type = _normalize_reporter_type(reporter.get("reporterType"))
+    normalized_email = _clean_string(reporter.get("email")).lower()
+    normalized_full_name = _clean_string(reporter.get("fullName")).lower()
+
+    if reporter_type == "registered":
+        canonical_user_id = _resolve_registered_canonical_user_id(
+            user_id=reporter.get("userId"),
+            email=reporter.get("email"),
+            full_name=reporter.get("fullName"),
+            reports=reports,
+        )
+        if canonical_user_id:
+            return f"mobile_registered_user:{canonical_user_id}"
+        if normalized_email:
+            return f"mobile_registered_email:{normalized_email}"
+        if normalized_full_name:
+            return f"mobile_registered_name:{normalized_full_name}"
+        return f"mobile_registered_report:{report.get('_id')}"
+
+    if normalized_email:
+        return f"mobile_guest_email:{normalized_email}"
+    if normalized_full_name:
+        return f"mobile_guest_user:{normalized_full_name}"
+    return f"mobile_guest_report:{report.get('_id')}"
+
+
+def _build_mobile_reporter_public_id(report: dict, reports=None) -> str:
+    return _build_public_identifier(
+        "mr",
+        _build_mobile_reporter_identity_key(report, reports=reports),
+    )
+
+
+def _build_mobile_user_key(
+    *,
+    reporter_type: str | None = None,
+    user_id=None,
+    email: str | None = None,
+    full_name: str | None = None,
+    report_fallback_id: str | None = None,
+    reports=None,
+):
+    normalized_reporter_type = _normalize_reporter_type(reporter_type)
+    if normalized_reporter_type == "registered":
+        canonical_user_id = _resolve_registered_canonical_user_id(
+            user_id=user_id,
+            email=email,
+            full_name=full_name,
+            reports=reports,
+        )
+        if canonical_user_id:
+            return f"mobile_registered_user:{canonical_user_id}"
 
     normalized_email = _clean_string(email).lower()
     if normalized_email:
-        return f"email:{normalized_email}"
+        return (
+            f"mobile_registered_email:{normalized_email}"
+            if normalized_reporter_type == "registered"
+            else f"mobile_guest_email:{normalized_email}"
+        )
 
     normalized_full_name = _clean_string(full_name).lower()
     if normalized_full_name:
-        return f"guest:{normalized_full_name}"
+        return (
+            f"mobile_registered_name:{normalized_full_name}"
+            if normalized_reporter_type == "registered"
+            else f"mobile_guest_user:{normalized_full_name}"
+        )
 
     if report_fallback_id:
-        return f"guest-report:{report_fallback_id}"
+        return (
+            f"mobile_registered_report:{report_fallback_id}"
+            if normalized_reporter_type == "registered"
+            else f"mobile_guest_report:{report_fallback_id}"
+        )
 
     return None
 
@@ -347,8 +596,10 @@ def _serialize_mobile_user(document: dict) -> dict:
         "id": str(document.get("_id") or ""),
         "userKey": document.get("userKey"),
         "sourceTag": document.get("sourceTag") or USER_ANALYTICS_SOURCE,
+        "mobileReporterId": document.get("mobileReporterId"),
         "reporterType": document.get("reporterType"),
-        "role": document.get("role"),
+        "roleId": document.get("roleId"),
+        "roleLabel": document.get("roleLabel"),
         "userId": str(document.get("userId")) if document.get("userId") else None,
         "fullName": document.get("fullName"),
         "email": document.get("email"),
@@ -374,21 +625,30 @@ def _upsert_mobile_user_from_report(report_document: dict) -> dict:
     reporter = report_document.get("reporter") or {}
     location = report_document.get("location") or {}
     report_id = str(report_document.get("_id") or "")
+    reporter_type = _normalize_reporter_type(reporter.get("reporterType"))
     user_key = _build_mobile_user_key(
+        reporter_type=reporter_type,
         user_id=reporter.get("userId"),
         email=reporter.get("email"),
         full_name=reporter.get("fullName"),
         report_fallback_id=report_id,
+        reports=_get_self_reports(),
     )
     report_created_at = _coerce_datetime(report_document.get("createdAt")) or get_ph_datetime()
     report_updated_at = _coerce_datetime(report_document.get("updatedAt")) or report_created_at
+    mobile_reporter_id = _build_mobile_reporter_public_id(
+        report_document,
+        reports=_get_self_reports(),
+    )
 
     if not user_key:
         created_mobile_user = {
-            "userKey": f"guest-report:{report_id}",
+            "userKey": f"mobile_guest_report:{report_id}",
             "sourceTag": USER_ANALYTICS_SOURCE,
-            "reporterType": reporter.get("reporterType") or "guest",
-            "role": reporter.get("role") or "Guest Tester",
+            "mobileReporterId": mobile_reporter_id,
+            "reporterType": reporter_type,
+            "roleId": reporter.get("roleId") or "guest",
+            "roleLabel": reporter.get("roleLabel") or SELF_REPORT_ROLE_ID_TO_LABEL["guest"],
             "userId": reporter.get("userId"),
             "fullName": reporter.get("fullName"),
             "email": reporter.get("email"),
@@ -417,8 +677,10 @@ def _upsert_mobile_user_from_report(report_document: dict) -> dict:
             "$setOnInsert": {
                 "userKey": user_key,
                 "sourceTag": USER_ANALYTICS_SOURCE,
-                "reporterType": reporter.get("reporterType") or "guest",
-                "role": reporter.get("role") or "Guest Tester",
+                "mobileReporterId": mobile_reporter_id,
+                "reporterType": reporter_type,
+                "roleId": reporter.get("roleId") or "guest",
+                "roleLabel": reporter.get("roleLabel") or SELF_REPORT_ROLE_ID_TO_LABEL["guest"],
                 "userId": reporter.get("userId"),
                 "fullName": reporter.get("fullName"),
                 "email": reporter.get("email"),
@@ -429,6 +691,7 @@ def _upsert_mobile_user_from_report(report_document: dict) -> dict:
                 "updatedAt": report_updated_at,
                 "lastSeenAt": report_updated_at,
                 "latestSelfReportId": report_document.get("_id"),
+                "mobileReporterId": mobile_reporter_id,
                 "location": {
                     "regionCode": location.get("regionCode"),
                     "regionName": location.get("regionName"),
@@ -439,8 +702,9 @@ def _upsert_mobile_user_from_report(report_document: dict) -> dict:
                     "barangayCode": location.get("barangayCode"),
                     "barangayName": location.get("barangayName"),
                 },
-                "reporterType": reporter.get("reporterType") or "guest",
-                "role": reporter.get("role") or "Guest Tester",
+                "reporterType": reporter_type,
+                "roleId": reporter.get("roleId") or "guest",
+                "roleLabel": reporter.get("roleLabel") or SELF_REPORT_ROLE_ID_TO_LABEL["guest"],
                 "fullName": reporter.get("fullName"),
                 "email": reporter.get("email"),
                 "sessionKey": _clean_string(reporter.get("sessionKey")) or None,
@@ -497,13 +761,12 @@ def _serialize_self_report(document: dict) -> dict:
     reporter = document.get("reporter") or {}
     location = document.get("location") or {}
     return {
-        "id": str(document.get("_id") or ""),
-        "mobileUserId": str(document.get("mobileUserId") or "") or None,
-        "mobileUserKey": str(document.get("mobileUserKey") or "") or None,
+        "id": _build_public_report_id(document),
         "reporter": {
             "userId": str(reporter["userId"]) if reporter.get("userId") else None,
             "reporterType": reporter.get("reporterType"),
-            "role": reporter.get("role"),
+            "roleId": reporter.get("roleId"),
+            "roleLabel": reporter.get("roleLabel"),
             "fullName": reporter.get("fullName"),
             "email": reporter.get("email"),
         },
@@ -521,8 +784,10 @@ def _serialize_self_report(document: dict) -> dict:
             "geocodedAddress": location.get("geocodedAddress"),
             "pinAccuracy": location.get("pinAccuracy"),
         },
-        "symptoms": list(document.get("symptoms") or []),
-        "possibleCondition": document.get("possibleCondition"),
+        "symptomIds": list(document.get("symptomIds") or []),
+        "symptomLabels": list(document.get("symptomLabels") or []),
+        "possibleConditionId": document.get("possibleConditionId"),
+        "possibleConditionLabel": document.get("possibleConditionLabel"),
         "notes": document.get("notes"),
         "status": document.get("status"),
         "source": document.get("source"),
@@ -532,19 +797,56 @@ def _serialize_self_report(document: dict) -> dict:
     }
 
 
+def _serialize_self_report_export_item(document: dict, reports=None) -> dict:
+    reporter = document.get("reporter") or {}
+    return {
+        "id": _build_public_report_id(document),
+        "mobileReporterId": _build_mobile_reporter_public_id(
+            document,
+            reports=reports,
+        ),
+        "reporter": {
+            "userId": str(reporter["userId"]) if reporter.get("userId") else None,
+            "reporterType": reporter.get("reporterType"),
+            "roleId": reporter.get("roleId"),
+            "roleLabel": reporter.get("roleLabel"),
+        },
+        "symptomIds": list(document.get("symptomIds") or []),
+        "symptomLabels": list(document.get("symptomLabels") or []),
+        "possibleConditionId": document.get("possibleConditionId"),
+        "possibleConditionLabel": document.get("possibleConditionLabel"),
+        "status": document.get("status"),
+        "source": document.get("source"),
+        "createdAt": _to_iso_or_none(document.get("createdAt")),
+    }
+
+
 def _build_self_report_document(payload: SelfReportPayload) -> dict:
-    symptoms = _dedupe_preserve_order(payload.symptoms)
-    possible_condition = _clean_string(payload.possibleCondition) or _derive_possible_condition(
-        symptoms
+    role_id, role_label = _normalize_role_fields(
+        role_id=payload.reporter.roleId,
+        role_label=payload.reporter.roleLabel,
+        legacy_role=payload.reporter.role,
+    )
+    symptom_ids, symptom_labels = _normalize_symptom_fields(
+        symptom_ids=payload.symptomIds,
+        symptom_labels=payload.symptomLabels,
+        legacy_symptoms=payload.symptoms,
+    )
+    possible_condition_id, possible_condition_label = _normalize_possible_condition_fields(
+        possible_condition_id=payload.possibleConditionId,
+        possible_condition_label=payload.possibleConditionLabel,
+        legacy_possible_condition=payload.possibleCondition,
+        symptom_ids=symptom_ids,
     )
     payload_created_at = _coerce_datetime(payload.createdAt)
     created_at = payload_created_at or get_ph_datetime()
     synced_at = _coerce_datetime(payload.syncedAt)
-    region_name = _clean_string(payload.location.regionName)
-    normalized_region = _normalize_region_safely(region_name) or _normalize_region_safely(
-        payload.location.regionCode
+    normalized_region_code = _normalize_region_safely(payload.location.regionCode) or _normalize_region_safely(
+        payload.location.regionName
     )
-    province_name = _clean_string(payload.location.provinceName, region_name)
+    region_code = normalized_region_code or _clean_string(payload.location.regionCode)
+    region_name = _clean_string(payload.location.regionName) or region_code
+    province_name = _clean_string(payload.location.provinceName)
     city_name = _clean_string(payload.location.cityName)
     barangay_name = _clean_string(payload.location.barangayName)
     latitude = payload.location.latitude
@@ -554,13 +856,15 @@ def _build_self_report_document(payload: SelfReportPayload) -> dict:
         "reporter": {
             "userId": _to_object_id_or_none(payload.reporter.userId),
             "reporterType": _normalize_reporter_type(payload.reporter.reporterType),
-            "role": _clean_string(payload.reporter.role, "Guest Tester"),
+            "roleId": role_id,
+            "roleLabel": role_label,
             "fullName": _clean_string(payload.reporter.fullName) or None,
             "email": _clean_string(payload.reporter.email) or None,
+            "sessionKey": _clean_string(payload.reporter.sessionKey) or None,
         },
         "location": {
-            "regionCode": _clean_string(payload.location.regionCode),
-            "regionName": normalized_region or region_name,
+            "regionCode": region_code,
+            "regionName": region_name,
             "provinceCode": _clean_string(payload.location.provinceCode) or None,
             "provinceName": province_name,
             "cityCode": _clean_string(payload.location.cityCode) or None,
@@ -576,8 +880,10 @@ def _build_self_report_document(payload: SelfReportPayload) -> dict:
                 longitude,
             ),
         },
-        "symptoms": symptoms,
-        "possibleCondition": possible_condition,
+        "symptomIds": symptom_ids,
+        "symptomLabels": symptom_labels,
+        "possibleConditionId": possible_condition_id,
+        "possibleConditionLabel": possible_condition_label,
         "notes": _clean_string(payload.notes),
         "status": _normalize_self_report_status(payload.status),
         "source": _normalize_self_report_source(payload.source),
@@ -616,12 +922,12 @@ def _filter_self_reports(reports, regions=None, disease=None, status_filter=None
         ]
 
     if disease:
-        disease_key = _clean_string(disease).lower()
+        disease_key = _normalize_possible_condition_id(disease) or _clean_string(disease).lower()
         filtered_reports = [
             report
             for report in filtered_reports
-            if disease_key
-            in _clean_string(report.get("possibleCondition")).lower()
+            if report.get("possibleConditionId") == disease_key
+            or disease_key in _clean_string(report.get("possibleConditionLabel")).lower()
         ]
 
     if status_filter:
@@ -643,12 +949,11 @@ def _get_report_region(report: dict) -> str:
 
 def _get_report_location_label(report: dict) -> str:
     location = report.get("location") or {}
-    parts = [
-        _clean_string(location.get("barangayName")),
-        _clean_string(location.get("cityName")),
-        _clean_string(location.get("regionName")),
-    ]
-    return ", ".join([part for part in parts if part]) or "Unknown location"
+    return (
+        _clean_string(location.get("regionName"))
+        or _clean_string(location.get("regionCode"))
+        or "Unknown region"
+    )
 
 
 def _get_report_coordinates(report: dict):
@@ -665,25 +970,28 @@ def _get_report_coordinates(report: dict):
 def _build_self_report_alert_item(report: dict) -> dict:
     created_at = _coerce_datetime(report.get("createdAt")) or get_ph_datetime()
     region = _get_report_region(report)
-    symptoms = list(report.get("symptoms") or [])
+    symptom_labels = list(report.get("symptomLabels") or [])
     location_label = _get_report_location_label(report)
-    possible_condition = _clean_string(report.get("possibleCondition"), "Respiratory symptoms reported")
+    possible_condition = _clean_string(
+        report.get("possibleConditionLabel"),
+        SELF_REPORT_POSSIBLE_CONDITION_ID_TO_LABEL["respiratory_symptoms_reported"],
+    )
 
     return {
-        "id": str(report.get("_id") or ""),
+        "id": _build_public_report_id(report),
         "disease": possible_condition,
         "region": region,
         "type": "Symptom Report",
         "timestamp": created_at.isoformat(),
         "summary": (
-            f"Viewer self-reported {', '.join(symptoms[:3]) or 'respiratory symptoms'} "
+            f"Viewer self-reported {', '.join(symptom_labels[:3]) or 'respiratory symptoms'} "
             f"in {location_label}."
         ),
         "summarySegments": [
             {"type": "text", "value": "Viewer self-reported "},
             {
                 "type": "entity",
-                "label": ", ".join(symptoms[:3]) or "respiratory symptoms",
+                "label": ", ".join(symptom_labels[:3]) or "respiratory symptoms",
                 "tone": "symptom",
             },
             {"type": "text", "value": " in "},
@@ -698,7 +1006,7 @@ def _build_self_report_alert_item(report: dict) -> dict:
 def _build_cluster_summary(reports):
     clusters = Counter()
     for report in reports:
-        clusters[(_get_report_region(report), _clean_string(report.get("possibleCondition")))] += 1
+        clusters[(_get_report_region(report), _clean_string(report.get("possibleConditionId")))] += 1
 
     return clusters
 
@@ -711,9 +1019,16 @@ def _build_self_report_map_pin(report: dict) -> dict:
     geocoded_address = _clean_string(location.get("geocodedAddress")) or None
 
     return {
-        "id": str(report.get("_id") or ""),
+        "id": _build_public_report_id(report),
         "name": _get_report_location_label(report),
-        "disease": _clean_string(report.get("possibleCondition"), "Respiratory symptoms reported"),
+        "diseaseId": _clean_string(
+            report.get("possibleConditionId"),
+            "respiratory_symptoms_reported",
+        ),
+        "disease": _clean_string(
+            report.get("possibleConditionLabel"),
+            SELF_REPORT_POSSIBLE_CONDITION_ID_TO_LABEL["respiratory_symptoms_reported"],
+        ),
         "category": SELF_REPORT_CATEGORY,
         "reports": 1,
         "updated": (
@@ -722,7 +1037,8 @@ def _build_self_report_map_pin(report: dict) -> dict:
         ),
         "lat": latitude,
         "lng": longitude,
-        "tags": list(report.get("symptoms") or []),
+        "tagIds": list(report.get("symptomIds") or []),
+        "tags": list(report.get("symptomLabels") or []),
         "source": SELF_REPORT_MAP_SOURCE,
         "pinAccuracy": pin_accuracy,
         "geocodedAddress": geocoded_address,
@@ -730,18 +1046,7 @@ def _build_self_report_map_pin(report: dict) -> dict:
 
 
 def _build_reporter_key(report: dict) -> str:
-    reporter = report.get("reporter") or {}
-    user_id = reporter.get("userId")
-    email = _clean_string(reporter.get("email")).lower()
-    full_name = _clean_string(reporter.get("fullName")).lower()
-
-    if user_id:
-        return f"user:{user_id}"
-    if email:
-        return f"email:{email}"
-    if full_name:
-        return f"name:{full_name}"
-    return f"guest:{report.get('_id')}"
+    return _build_mobile_reporter_identity_key(report)
 
 
 def _count_unique_viewers(reports, cutoff=None, regions=None):
@@ -1466,9 +1771,9 @@ async def fetch_mobile_filter_options(
         }
     )
     disease_values = {
-        _clean_string(report.get("possibleCondition"))
+        _clean_string(report.get("possibleConditionLabel"))
         for report in reports
-        if _clean_string(report.get("possibleCondition"))
+        if _clean_string(report.get("possibleConditionLabel"))
     }
 
     return JSONResponse(
@@ -1482,41 +1787,21 @@ async def fetch_mobile_filter_options(
 
 
 async def create_mobile_self_report(payload: SelfReportPayload):
-    if not payload.symptoms:
+    symptom_ids, _ = _normalize_symptom_fields(
+        symptom_ids=payload.symptomIds,
+        symptom_labels=payload.symptomLabels,
+        legacy_symptoms=payload.symptoms,
+    )
+    if not symptom_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="At least one symptom is required",
         )
 
-    normalized_symptoms = _dedupe_preserve_order(payload.symptoms)
-    if not normalized_symptoms:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least one valid symptom is required",
-        )
-
-    payload.symptoms = [
-        symptom
-        for symptom in normalized_symptoms
-        if symptom in SUPPORTED_SELF_REPORT_SYMPTOMS or symptom
-    ]
     document = _build_self_report_document(payload)
     inserted_report = self_reports_collection.insert_one(document)
     created_report = self_reports_collection.find_one({"_id": inserted_report.inserted_id})
     mobile_user = _upsert_mobile_user_from_report(created_report)
-    mobile_user_id = mobile_user.get("_id")
-    mobile_user_key = mobile_user.get("userKey")
-
-    self_reports_collection.update_one(
-        {"_id": inserted_report.inserted_id},
-        {
-            "$set": {
-                "mobileUserId": mobile_user_id,
-                "mobileUserKey": mobile_user_key,
-            }
-        },
-    )
-    created_report = self_reports_collection.find_one({"_id": inserted_report.inserted_id})
 
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
@@ -1562,14 +1847,36 @@ async def fetch_mobile_self_reports_mine(
             detail="Invalid sessionKey for registered mobile user",
         )
 
-    reports = list(
-        self_reports_collection.find(
-            {
-                "source": SELF_REPORT_SOURCE,
-                "mobileUserId": mobile_user.get("_id"),
-            }
-        ).sort([("createdAt", -1), ("_id", -1)])
-    )
+    all_reports = _get_self_reports()
+    if effective_reporter_type == "registered":
+        canonical_user_id = _resolve_registered_canonical_user_id(
+            user_id=mobile_user.get("userId"),
+            email=mobile_user.get("email"),
+            full_name=mobile_user.get("fullName"),
+            reports=all_reports,
+        )
+        reports = [
+            report
+            for report in all_reports
+            if (
+                report.get("reporter") or {}
+            ).get("userId") and canonical_user_id and str((report.get("reporter") or {}).get("userId")) == str(canonical_user_id)
+        ]
+    else:
+        guest_user_key = _build_mobile_user_key(
+            reporter_type=effective_reporter_type,
+            user_id=mobile_user.get("userId"),
+            email=mobile_user.get("email"),
+            full_name=mobile_user.get("fullName"),
+            report_fallback_id=mobile_user.get("latestSelfReportId"),
+            reports=all_reports,
+        )
+        reports = [
+            report
+            for report in all_reports
+            if _build_mobile_reporter_identity_key(report, reports=all_reports)
+            == guest_user_key
+        ]
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
@@ -1598,24 +1905,49 @@ async def fetch_mobile_self_reports_map_pins(
 
 async def export_mobile_self_reports(
     current_user_id: Annotated[str, Depends(require_auth)],
+    format: str | None = None,
 ):
     _get_current_user(current_user_id)
     reports = _get_self_reports()
+
+    if _clean_string(format).lower() == "json":
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "items": [
+                    _serialize_self_report_export_item(report, reports=reports)
+                    for report in reports
+                ],
+                "updatedAt": get_ph_datetime().isoformat(),
+            },
+        )
+
     output = StringIO()
     writer = csv.writer(output)
     writer.writerow(
         [
             "id",
             "reporter_type",
-            "role",
+            "role_id",
+            "role_label",
             "full_name",
             "email",
-            "region",
-            "province",
-            "city",
-            "barangay",
-            "symptoms",
-            "possible_condition",
+            "region_code",
+            "region_name",
+            "province_code",
+            "province_name",
+            "city_code",
+            "city_name",
+            "barangay_code",
+            "barangay_name",
+            "latitude",
+            "longitude",
+            "geocoded_address",
+            "pin_accuracy",
+            "symptom_ids",
+            "symptom_labels",
+            "possible_condition_id",
+            "possible_condition_label",
             "notes",
             "status",
             "source",
@@ -1628,17 +1960,28 @@ async def export_mobile_self_reports(
         location = report.get("location") or {}
         writer.writerow(
             [
-                str(report.get("_id") or ""),
+                _build_public_report_id(report),
                 reporter.get("reporterType") or "",
-                reporter.get("role") or "",
+                reporter.get("roleId") or "",
+                reporter.get("roleLabel") or "",
                 reporter.get("fullName") or "",
                 reporter.get("email") or "",
+                location.get("regionCode") or "",
                 location.get("regionName") or "",
+                location.get("provinceCode") or "",
                 location.get("provinceName") or "",
+                location.get("cityCode") or "",
                 location.get("cityName") or "",
+                location.get("barangayCode") or "",
                 location.get("barangayName") or "",
-                "|".join(report.get("symptoms") or []),
-                report.get("possibleCondition") or "",
+                location.get("latitude") if location.get("latitude") is not None else "",
+                location.get("longitude") if location.get("longitude") is not None else "",
+                location.get("geocodedAddress") or "",
+                location.get("pinAccuracy") or "",
+                "|".join(report.get("symptomIds") or []),
+                "|".join(report.get("symptomLabels") or []),
+                report.get("possibleConditionId") or "",
+                report.get("possibleConditionLabel") or "",
                 report.get("notes") or "",
                 report.get("status") or "",
                 report.get("source") or "",

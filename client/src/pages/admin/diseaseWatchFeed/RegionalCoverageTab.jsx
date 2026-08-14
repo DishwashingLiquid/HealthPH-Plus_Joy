@@ -18,7 +18,26 @@ import {
   DASHBOARD_SECTION_SUBTITLE_CLASS,
   DASHBOARD_SECTION_TITLE_CLASS,
 } from "../dashboardTypography";
-import { formatCompactNumber, getRegionAccentColor } from "./formatters";
+
+const REGIONAL_COVERAGE_PALETTE = [
+  "#32418C",
+  "#2572A5",
+  "#4D8FC4",
+  "#9BCC33",
+  "#FBD117",
+];
+
+const formatCompactNumber = (value) =>
+  new Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
+
+const getRegionAccentColor = (regionName, regionUserData) =>
+  REGIONAL_COVERAGE_PALETTE[
+    regionUserData.findIndex((region) => region.region === regionName) %
+      REGIONAL_COVERAGE_PALETTE.length
+  ];
 
 export default function RegionalCoverageTab({
   availableRegions,
@@ -86,11 +105,11 @@ export default function RegionalCoverageTab({
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-[14px] mb-[18px]">
           <div>
             <h3 className={DASHBOARD_SECTION_TITLE_CLASS}>
-              Registered Users by Region
+              Distinct Mobile Reporters by Region
             </h3>
             <p className={`${DASHBOARD_SECTION_SUBTITLE_CLASS} mt-[4px]`}>
-              Regional distribution of registered users across the monitored
-              coverage areas.
+              Regional distribution of distinct mobile self-report actors across
+              the monitored coverage areas.
             </p>
           </div>
           <span className="inline-flex items-center rounded-full border border-[#D9E3F2] bg-[#F5F8FD] px-[12px] py-[6px] text-xs font-semibold uppercase tracking-[0.08em] text-[#32418C]">
@@ -160,7 +179,8 @@ export default function RegionalCoverageTab({
         <div>
           <h3 className={DASHBOARD_SECTION_TITLE_CLASS}>Regional Cards</h3>
           <p className={`${DASHBOARD_SECTION_SUBTITLE_CLASS} mt-[4px]`}>
-            Detailed user totals and share of registered coverage by region.
+            Detailed reporter totals and share of mobile self-report coverage by
+            region.
           </p>
         </div>
 
@@ -260,7 +280,7 @@ export default function RegionalCoverageTab({
                   {region.users.toLocaleString()}
                 </p>
                 <p className="mt-[6px] text-sm text-gray-500">
-                  registered users
+                  distinct mobile reporters
                 </p>
 
                 <div className="mt-[18px]">
@@ -288,7 +308,7 @@ export default function RegionalCoverageTab({
                     Distribution
                   </span>
                   <span className="text-sm font-semibold text-[#2572A5]">
-                    {formatCompactNumber(region.users)} users
+                    {formatCompactNumber(region.users)} reporters
                   </span>
                 </div>
 

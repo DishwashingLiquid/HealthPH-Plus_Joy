@@ -1,4 +1,4 @@
-import { getRegionLabel, getVisibleRegionalRows } from "./regionUtils";
+import { getRegionLabel, getVisibleRegionalRows } from "./RegionalAnalysis";
 
 const escapeCsvValue = (value) => {
   const text = String(value ?? "");

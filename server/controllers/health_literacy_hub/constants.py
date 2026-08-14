@@ -7,17 +7,54 @@ from config.database import (
     user_collection,
 )
 
+CONTENT_TYPE_CONFIG = {
+    "article": {
+        "legacy": "articles",
+        "label": "Articles",
+        "file": "articles.json",
+        "media_prefixes": ("image/", "video/", "application/pdf"),
+    },
+    "video": {
+        "legacy": "videos",
+        "label": "Videos",
+        "file": "videos.json",
+        "media_prefixes": ("video/",),
+    },
+    "infographic": {
+        "legacy": "infographics",
+        "label": "Infographics",
+        "file": "infographics.json",
+        "media_prefixes": ("image/",),
+    },
+}
+
 CONTENT_FILES = {
-    "articles": "articles.json",
-    "infographics": "infographics.json",
-    "videos": "videos.json",
+    config["legacy"]: config["file"] for config in CONTENT_TYPE_CONFIG.values()
 }
 
 CONTENT_MEDIA_PREFIXES = {
-    "articles": ("image/", "video/"),
-    "infographics": ("image/",),
-    "videos": ("video/",),
+    config["legacy"]: config["media_prefixes"]
+    for config in CONTENT_TYPE_CONFIG.values()
 }
+
+LEGACY_TO_STORAGE_CONTENT_TYPE = {
+    config["legacy"]: storage_type
+    for storage_type, config in CONTENT_TYPE_CONFIG.items()
+}
+STORAGE_TO_LEGACY_CONTENT_TYPE = {
+    storage_type: config["legacy"]
+    for storage_type, config in CONTENT_TYPE_CONFIG.items()
+}
+CONTENT_TYPE_LABELS = {
+    storage_type: config["label"]
+    for storage_type, config in CONTENT_TYPE_CONFIG.items()
+}
+CONTENT_TYPE_ALIASES = {
+    **LEGACY_TO_STORAGE_CONTENT_TYPE,
+    **{storage_type: storage_type for storage_type in CONTENT_TYPE_CONFIG},
+}
+CONTENT_TYPE_ALIASES["fact_check"] = "fact_check"
+CONTENT_TYPE_ALIASES["fact-check"] = "fact_check"
 
 health_literacy_folder = (
     Path(__file__).resolve().parent.parent.parent / "public" / "health-literacy-hub"
@@ -31,11 +68,7 @@ ANALYTICS_TIME_RANGE_DAYS = {
     "last-90-days": 90,
 }
 
-ANALYTICS_CONTENT_LABELS = {
-    "articles": "Articles",
-    "videos": "Videos",
-    "infographics": "Infographics",
-}
+ANALYTICS_CONTENT_LABELS = CONTENT_TYPE_LABELS
 
 ANALYTICS_REGIONS = [
     "NCR",
@@ -100,3 +133,54 @@ FACT_CHECK_VERIFIERS = {
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
+
+
+def normalize_storage_content_type(
+    value: str | None,
+    *,
+    allow_fact_check: bool = False,
+) -> str | None:
+    normalized_value = str(value or "").strip().lower()
+
+    if not normalized_value:
+        return None
+
+    if normalized_value in CONTENT_TYPE_ALIASES:
+        storage_type = CONTENT_TYPE_ALIASES[normalized_value]
+        if storage_type == "fact_check" and not allow_fact_check:
+            return None
+        return storage_type
+
+    for storage_type, label in CONTENT_TYPE_LABELS.items():
+        if label.lower() == normalized_value:
+            return storage_type
+
+    return None
+
+
+def get_content_bucket(content_type: str) -> str | None:
+    storage_type = normalize_storage_content_type(content_type)
+    if not storage_type:
+        return None
+
+    return STORAGE_TO_LEGACY_CONTENT_TYPE.get(storage_type)
+
+
+def get_legacy_content_type(content_type: str) -> str:
+    storage_type = normalize_storage_content_type(content_type)
+    if not storage_type:
+        return str(content_type or "")
+
+    return STORAGE_TO_LEGACY_CONTENT_TYPE.get(storage_type, storage_type)
+
+
+def get_content_type_label(content_type: str) -> str:
+    storage_type = normalize_storage_content_type(content_type)
+    if not storage_type:
+        return str(content_type or "")
+
+    return CONTENT_TYPE_LABELS.get(storage_type, storage_type)
+
+
+def get_storage_content_types() -> tuple[str, ...]:
+    return tuple(CONTENT_TYPE_CONFIG.keys())

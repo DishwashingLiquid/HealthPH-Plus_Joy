@@ -1,15 +1,32 @@
 from .constants import (
     ALLOWED_FEEDBACK_PLATFORMS,
     ANALYTICS_CONTENT_LABELS,
+    get_content_type_label,
+    get_legacy_content_type,
+    normalize_storage_content_type,
     health_literacy_analytics_events_collection,
 )
 
 
 def get_content_type_or_match(content_type: str) -> list[dict]:
+    storage_content_type = normalize_storage_content_type(content_type, allow_fact_check=True)
+    legacy_content_type = (
+        get_legacy_content_type(storage_content_type)
+        if storage_content_type
+        else str(content_type or "")
+    )
+    content_label = (
+        get_content_type_label(storage_content_type)
+        if storage_content_type
+        else ANALYTICS_CONTENT_LABELS.get(content_type, content_type)
+    )
+
     return [
-        {"content_type_key": content_type},
-        {"content_type": content_type},
-        {"content_type": ANALYTICS_CONTENT_LABELS.get(content_type, content_type)},
+        {"content_type_key": storage_content_type or content_type},
+        {"content_type_key": legacy_content_type},
+        {"content_type": storage_content_type or content_type},
+        {"content_type": legacy_content_type},
+        {"content_type": content_label},
     ]
 
 

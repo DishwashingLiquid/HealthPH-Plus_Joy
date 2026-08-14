@@ -95,7 +95,10 @@ export default function UserAnalyticsTab({
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-[20px]">
-      <MetricCard label="Total Users" metric={userAnalytics.totalUsers} />
+      <MetricCard
+        label="Total Mobile Reporters"
+        metric={userAnalytics.totalUsers}
+      />
       <MetricCard label="Alert Open Rate" metric={userAnalytics.alertOpenRate} />
       <MetricCard label="Symptom Reports" metric={userAnalytics.symptomReports} />
     </div>

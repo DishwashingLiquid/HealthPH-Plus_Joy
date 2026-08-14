@@ -17,42 +17,22 @@ const buildParams = (params = {}) =>
 
 export const diseaseWatchFeedApi = baseAPI.injectEndpoints({
   endpoints: (builder) => ({
-    getDiseaseWatchAlerts: builder.query({
+    getMobileSelfReportsMapPins: builder.query({
       query: (params = {}) => ({
-        url: "/disease-watch-feed/mobile/alerts",
+        url: "/mobile/self-reports/map-pins",
         params: buildParams(params),
       }),
     }),
-    getDiseaseWatchRegionalCoverage: builder.query({
+    getMobileSelfReportsExport: builder.query({
       query: (params = {}) => ({
-        url: "/disease-watch-feed/mobile/regional-coverage",
+        url: "/mobile/self-reports/export",
         params: buildParams(params),
-      }),
-    }),
-    getDiseaseWatchUserAnalyticsSummary: builder.query({
-      query: (params = {}) => ({
-        url: "/disease-watch-feed/mobile/user-analytics-summary",
-        params: buildParams(params),
-      }),
-    }),
-    getDiseaseWatchTopMetrics: builder.query({
-      query: (params = {}) => ({
-        url: "/disease-watch-feed/mobile/top-metrics",
-        params: buildParams(params),
-      }),
-    }),
-    getDiseaseWatchFilterOptions: builder.query({
-      query: () => ({
-        url: "/disease-watch-feed/mobile/filter-options",
       }),
     }),
   }),
 });
 
 export const {
-  useGetDiseaseWatchAlertsQuery,
-  useGetDiseaseWatchRegionalCoverageQuery,
-  useGetDiseaseWatchUserAnalyticsSummaryQuery,
-  useGetDiseaseWatchTopMetricsQuery,
-  useGetDiseaseWatchFilterOptionsQuery,
+  useGetMobileSelfReportsExportQuery,
+  useGetMobileSelfReportsMapPinsQuery,
 } = diseaseWatchFeedApi;

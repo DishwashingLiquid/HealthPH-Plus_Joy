@@ -8,6 +8,9 @@ from .constants import (
     FACT_CHECK_CLAIM_STATUSES,
     FACT_CHECK_VERIFIERS,
     HEALTH_LITERACY_LANGUAGES,
+    get_content_type_label,
+    get_legacy_content_type,
+    normalize_storage_content_type,
 )
 from .public_metrics import (
     get_public_download_count,
@@ -35,18 +38,6 @@ LANGUAGE_CODE_TO_NAME = {
     "hil": "Hiligaynon",
 }
 
-STORAGE_TO_MOBILE_CONTENT_TYPE = {
-    "articles": "article",
-    "videos": "video",
-    "infographics": "infographic",
-}
-
-MOBILE_TO_STORAGE_CONTENT_TYPE = {
-    "article": "articles",
-    "video": "videos",
-    "infographic": "infographics",
-}
-
 FACT_CHECK_STATUS_TO_VERDICT = {
     "False": "False",
     "Misleading": "Needs Context",
@@ -57,15 +48,18 @@ FACT_CHECK_STATUS_TO_VERDICT = {
 
 def serialize_content_document(document: dict) -> dict:
     serialized_document = dict(document)
-    content_type = serialized_document.get("contentType")
+    content_type = normalize_storage_content_type(
+        serialized_document.get("contentType"),
+        allow_fact_check=True,
+    )
     content_id = str(serialized_document.get("id", ""))
 
-    if content_type == "infographics":
+    if content_type == "infographic":
         serialized_document["downloadCount"] = get_public_download_count(
             content_type,
             content_id,
         )
-    elif content_type in {"articles", "videos"}:
+    elif content_type in {"article", "video"}:
         serialized_document["viewCount"] = get_public_view_count(
             content_type,
             content_id,
@@ -78,13 +72,17 @@ def serialize_content_document(document: dict) -> dict:
 
 def serialize_mobile_content(document: dict) -> dict:
     serialized_document = serialize_content_document(document)
-    serialized_document["contentType"] = document.get("contentType", "")
+    serialized_document["contentType"] = get_legacy_content_type(
+        document.get("contentType", "")
+    )
     return serialized_document
 
 
 def serialize_website_content(document: dict) -> dict:
     serialized_document = serialize_content_document(document)
-    serialized_document["contentType"] = document.get("contentType", "")
+    serialized_document["contentType"] = get_legacy_content_type(
+        document.get("contentType", "")
+    )
     return serialized_document
 
 
@@ -164,24 +162,27 @@ def get_mobile_content_tags(document: dict) -> list[str]:
 
 
 def get_mobile_content_type(document: dict) -> str:
-    stored_content_type = str(document.get("contentType") or "").strip()
+    stored_content_type = normalize_storage_content_type(
+        document.get("contentType"),
+        allow_fact_check=True,
+    )
 
     if bool(document.get("isFactCheck")) or stored_content_type == "fact_check":
         return "fact_check"
 
-    return STORAGE_TO_MOBILE_CONTENT_TYPE.get(stored_content_type, stored_content_type)
+    return stored_content_type or str(document.get("contentType") or "").strip()
 
 
 def normalize_mobile_content_type_filter(value: Optional[str]) -> Optional[str]:
-    normalized_value = str(value or "").strip().lower()
-    if not normalized_value:
+    if not str(value or "").strip():
         return None
 
-    if normalized_value in {"fact-check", "fact_check"}:
-        return "fact_check"
-
-    if normalized_value in MOBILE_TO_STORAGE_CONTENT_TYPE:
-        return normalized_value
+    storage_content_type = normalize_storage_content_type(
+        value,
+        allow_fact_check=True,
+    )
+    if storage_content_type:
+        return storage_content_type
 
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
@@ -234,38 +235,46 @@ def normalize_mobile_verdict(document: dict) -> str:
 
 def serialize_mobile_contract_content(document: dict) -> dict:
     serialized_document = serialize_content_document(document)
-    content_type = str(document.get("contentType") or "").strip()
+    content_type = normalize_storage_content_type(
+        document.get("contentType"),
+        allow_fact_check=True,
+    ) or str(document.get("contentType") or "").strip()
     content_id = str(document.get("id") or "")
     media = document.get("media") if isinstance(document.get("media"), dict) else {}
     mobile_content_type = get_mobile_content_type(document)
-    image_url = str(document.get("imageUrl") or "").strip()
-    media_url = str(document.get("mediaUrl") or "").strip()
+    image_url = str(document.get("imageUrl") or "").strip() or None
+    media_url = str(document.get("mediaUrl") or "").strip() or None
+    media_type = str(media.get("contentType") or "").strip().lower()
+    media_source = str(media.get("url") or "").strip() or None
 
-    if not image_url and content_type == "infographics":
-        image_url = str(media.get("url") or "").strip()
+    if not image_url and media_source:
+        if content_type == "infographic":
+            image_url = media_source
+        elif content_type == "article" and media_type.startswith("image/"):
+            image_url = media_source
 
-    if not media_url and content_type == "videos":
-        media_url = str(media.get("url") or "").strip()
+    if not media_url and media_source:
+        if content_type == "video":
+            media_url = media_source
+        elif content_type == "article" and not media_type.startswith("image/"):
+            media_url = media_source
 
     return {
         "id": content_id,
         "contentType": mobile_content_type,
         "title": str(document.get("title") or "").strip(),
         "description": str(document.get("description") or "").strip(),
-        "source": str(document.get("source") or "").strip(),
-        "author": str(document.get("author") or "").strip(),
+        "source": str(document.get("source") or "").strip() or None,
+        "author": str(document.get("author") or "").strip() or None,
         "publishedDate": document.get("publishedDate"),
         "externalUrl": str(document.get("externalUrl") or "").strip() or None,
-        "imageUrl": image_url or None,
-        "mediaUrl": media_url or None,
+        "imageUrl": image_url,
+        "mediaUrl": media_url,
         "claim": str(document.get("claim") or "").strip() or None,
         "verdict": normalize_mobile_verdict(document)
         if mobile_content_type == "fact_check"
         else None,
-        "explanation": str(
-            document.get("explanation") or document.get("description") or ""
-        ).strip()
-        or None,
+        "explanation": str(document.get("explanation") or "").strip() or None,
         "tags": get_mobile_content_tags(document),
         "topics": get_mobile_topics(document),
         "diseases": get_mobile_diseases(document),
@@ -283,63 +292,27 @@ def serialize_mobile_contract_content(document: dict) -> dict:
     }
 
 
-def normalize_content_languages(content_type: str, tags: Optional[str]) -> list[str]:
-    if content_type == "infographics":
-        return []
-
-    selected_language_keys = set()
-    selected_languages = []
-
-    for tag in parse_tags(tags):
-        matching_language = next(
-            (
-                language
-                for language in HEALTH_LITERACY_LANGUAGES
-                if language.lower() == tag.lower()
-            ),
-            None,
-        )
-
-        if not matching_language or matching_language.lower() in selected_language_keys:
-            continue
-
-        selected_language_keys.add(matching_language.lower())
-        selected_languages.append(matching_language)
-
-    return selected_languages
-
-
 def normalize_video_duration(
     content_type: str,
     duration: Optional[str],
     fallback: Optional[str] = "",
 ) -> str:
-    if content_type != "videos":
+    if normalize_storage_content_type(content_type) != "video":
         return ""
 
     duration_value = duration if duration is not None else fallback
     return str(duration_value or "").strip()
 
 
-def validate_content_languages(
-    content_type: str,
-    tags: Optional[str],
-    explicit_language: Optional[str] = None,
-) -> list[str]:
-    selected_languages = normalize_content_languages(content_type, tags)
-
-    if content_type != "infographics" and not selected_languages:
-        language_code = normalize_language_code(explicit_language)
-        if language_code:
-            selected_languages = [LANGUAGE_CODE_TO_NAME[language_code]]
-
-    if content_type != "infographics" and not selected_languages:
+def validate_content_language(explicit_language: Optional[str]) -> str:
+    language_code = normalize_language_code(explicit_language)
+    if not language_code:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Please select at least one language",
+            detail="Please select a language",
         )
 
-    return selected_languages
+    return language_code
 
 
 def get_user_snapshot(current_user: Optional[dict]) -> dict:
@@ -356,7 +329,10 @@ def get_user_snapshot(current_user: Optional[dict]) -> dict:
 
 
 def get_content_label(content_type: str) -> str:
-    return ANALYTICS_CONTENT_LABELS.get(content_type, content_type)
+    return ANALYTICS_CONTENT_LABELS.get(
+        normalize_storage_content_type(content_type) or content_type,
+        get_content_type_label(content_type),
+    )
 
 
 def normalize_fact_check_status(value: Optional[str]) -> str:
@@ -391,7 +367,7 @@ def build_fact_check_metadata(
 
     return {
         "isFactCheck": bool(is_fact_check),
-        "claim": normalized_claim if is_fact_check else "",
+        "claim": normalized_claim if is_fact_check else None,
         "claimStatus": normalize_fact_check_status(claim_status),
         "verifiedBy": normalize_fact_check_verifier(verified_by),
         "verdict": str(verdict or "").strip()
@@ -399,5 +375,5 @@ def build_fact_check_metadata(
             normalize_fact_check_status(claim_status),
             "Needs Context",
         ),
-        "explanation": str(explanation or "").strip(),
+        "explanation": str(explanation or "").strip() or None,
     }

@@ -49,7 +49,7 @@ export const formatContentDate = (value) => {
 };
 
 export const getResourceImageSource = (article) => {
-  if (article?.source === "api") {
+  if (article?.contentOrigin === "api") {
     return getContentMediaSource(article.media);
   }
 
@@ -67,7 +67,7 @@ const getReadDuration = (text) => {
 
 export const normalizeStaticArticle = (article) => ({
   ...article,
-  source: "static",
+  contentOrigin: "static",
   contentType: "articles",
   contentTypeLabel: "Article",
   resourceType: "article",
@@ -86,7 +86,7 @@ export const normalizeDashboardContent = (item) => {
 
   return {
     ...item,
-    source: "api",
+    contentOrigin: "api",
     contentType,
     contentTypeLabel,
     resourceType,

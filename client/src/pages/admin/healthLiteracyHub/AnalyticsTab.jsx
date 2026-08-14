@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -7,8 +8,6 @@ import {
   useCreateHealthLiteracyAnalyticsEventMutation,
   useFetchHealthLiteracyAnalyticsOverviewQuery,
 } from "../../../features/api/healthLiteracyHubSlice";
-import { AnalyticsSelect } from "./AnalyticsShared";
-import OverviewAnalyticsPage from "./analytics/OverviewAnalyticsPage";
 import {
   ANALYTICS_CONTENT_FILTERS,
   ANALYTICS_REGIONS,
@@ -16,11 +15,15 @@ import {
   DEFAULT_ANALYTICS_OVERVIEW,
   buildAnalyticsReport,
   downloadCsv,
+  formatNumber,
+  formatPercent,
   getHealthLiteracyVisitorId,
   showToast,
   slugify,
 } from "./shared";
 import {
+  DASHBOARD_CARD_TITLE_CLASS,
+  DASHBOARD_METRIC_LABEL_CLASS,
   DASHBOARD_PAGE_SUBTITLE_CLASS,
   DASHBOARD_SECTION_TITLE_CLASS,
 } from "../dashboardTypography";
@@ -28,6 +31,125 @@ import {
 const ANALYTICS_DASHBOARD_LABEL = "Analytics Dashboard";
 const ANALYTICS_EXPORT_BUTTON_CLASS = "health-literacy-analytics-export-btn";
 const ANALYTICS_EXPORT_ICON_FILL = "#FFFFFF";
+
+const AnalyticsSelect = ({ label, value, options, onChange }) => {
+  return (
+    <label className="flex flex-col gap-[6px]">
+      <span className="text-[13px] font-semibold text-gray-700">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="min-h-[40px] rounded-[8px] border border-[#D0D5DD] bg-white px-[12px] text-[14px] text-gray-800 outline-none focus:border-[#6A8EB5] focus:ring-2 focus:ring-[#6A8EB5]/20"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+};
+
+const AnalyticsMetricCard = ({ label, value, detail }) => {
+  return (
+    <div className="rounded-[8px] border border-[#E5E5E5] bg-white p-[16px]">
+      <p className={DASHBOARD_METRIC_LABEL_CLASS}>{label}</p>
+      <p className="mt-[6px] text-[24px] font-semibold text-gray-900">{value}</p>
+      {detail && <p className="mt-[4px] text-[12px] text-gray-500">{detail}</p>}
+    </div>
+  );
+};
+
+const AnalyticsPanel = ({ title, children }) => {
+  return (
+    <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[16px]">
+      <h3 className={`${DASHBOARD_CARD_TITLE_CLASS} mb-[14px]`}>
+        {title}
+      </h3>
+      {children}
+    </div>
+  );
+};
+
+const getTrendClassName = (trend) => {
+  if (trend === "up") return "text-[#166534]";
+  if (trend === "down") return "text-[#B42318]";
+
+  return "text-gray-900";
+};
+
+const OverviewAnalyticsPage = ({ overviewAnalytics }) => {
+  const overview = {
+    ...DEFAULT_ANALYTICS_OVERVIEW,
+    ...overviewAnalytics,
+    topPerformingContent: Array.isArray(overviewAnalytics?.topPerformingContent)
+      ? overviewAnalytics.topPerformingContent
+      : [],
+  };
+
+  return (
+    <div className="flex flex-col gap-[16px]">
+      <div className="grid grid-cols-1 gap-[12px] md:grid-cols-2 xl:grid-cols-4">
+        <AnalyticsMetricCard
+          label="Total Content Views"
+          value={formatNumber(overview.totalContentInteractions)}
+          detail="Views, shares, and downloads"
+        />
+        <AnalyticsMetricCard
+          label="Content Pieces"
+          value={formatNumber(overview.contentPieces)}
+          detail="Uploaded articles, videos, and infographics"
+        />
+        <AnalyticsMetricCard
+          label="Engagement Rate"
+          value={formatPercent(overview.engagementRate)}
+          detail={`${formatNumber(overview.interactedUsers)} of ${formatNumber(
+            overview.totalRegisteredUsers
+          )} active users`}
+        />
+        <AnalyticsMetricCard
+          label="Misinformation Reports"
+          value=""
+          detail="Future enhancement"
+        />
+      </div>
+
+      <AnalyticsPanel title="Top Performing Content">
+        {overview.topPerformingContent.length > 0 ? (
+          <div className="flex flex-col divide-y divide-[#E5E5E5]">
+            {overview.topPerformingContent.map((item) => (
+              <div
+                key={`${item.contentType}-${item.contentId}`}
+                className="flex min-h-[64px] items-center justify-between gap-[16px] py-[12px]"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-[14px] font-semibold text-gray-900">
+                    {item.title}
+                  </p>
+                  <p className="mt-[3px] text-[12px] text-gray-500">
+                    {item.contentType}
+                  </p>
+                </div>
+                <p
+                  className={`shrink-0 text-right text-[16px] font-semibold ${getTrendClassName(
+                    item.trend
+                  )}`}
+                >
+                  {formatPercent(item.engagementRate)}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[14px] text-gray-500">
+            No content interactions match the selected filters.
+          </p>
+        )}
+      </AnalyticsPanel>
+    </div>
+  );
+};
 
 const AnalyticsTab = () => {
   const navigate = useNavigate();

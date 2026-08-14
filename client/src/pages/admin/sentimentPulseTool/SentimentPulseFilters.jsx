@@ -1,6 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useRef, useState } from "react";
-import { getRegionLabel, REGIONS } from "./regionUtils";
+import { getRegionLabel, REGIONS } from "./RegionalAnalysis";
 
 export default function SentimentPulseFilters({
   timeRange,

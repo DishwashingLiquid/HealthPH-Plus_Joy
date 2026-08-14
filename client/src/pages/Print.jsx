@@ -1,11 +1,10 @@
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useReactToPrint } from "react-to-print";
-import { useCreateActivityLogMutation } from "../features/api/activityLogsSlice";
-import "../assets/css/admin.css";
+import { useCreateAccountActivityMutation } from "../features/api/accountActivitySlice";
 
 const Print = () => {
-  const [log_activity] = useCreateActivityLogMutation();
+  const [log_activity] = useCreateAccountActivityMutation();
 
   const location = useLocation();
 

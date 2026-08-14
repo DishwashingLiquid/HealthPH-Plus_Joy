@@ -37,7 +37,7 @@ from controllers.health_literacy_hub.serialization import (
     serialize_mobile_content,
     serialize_mobile_contract_content,
     serialize_website_content,
-    validate_content_languages,
+    validate_content_language,
 )
 
 
@@ -98,6 +98,11 @@ def _parse_optional_datetime(value: Optional[str]) -> Optional[str]:
         ) from error
 
     return parsed_datetime.isoformat()
+
+
+def _parse_optional_string(value: Optional[str]) -> Optional[str]:
+    normalized_value = str(value or "").strip()
+    return normalized_value or None
 
 
 """
@@ -329,22 +334,23 @@ async def create_health_literacy_content(
         "id": str(uuid4()),
         "title": title.strip(),
         "description": description.strip(),
-        "tags": validate_content_languages(content_type, tags, language),
+        "tags": parse_string_list(tags),
         "topics": normalized_topics,
         "diseases": normalized_diseases,
-        "language": normalized_language,
+        "language": validate_content_language(normalized_language),
         "media": media,
         "duration": normalize_video_duration(content_type, duration),
-        "source": str(source or "").strip(),
-        "author": str(author or "").strip(),
+        "source": _parse_optional_string(source),
+        "author": _parse_optional_string(author),
         "publishedDate": normalized_published_date,
-        "externalUrl": str(externalUrl or "").strip(),
-        "imageUrl": str(imageUrl or "").strip(),
-        "mediaUrl": str(mediaUrl or "").strip(),
+        "externalUrl": _parse_optional_string(externalUrl),
+        "imageUrl": _parse_optional_string(imageUrl),
+        "mediaUrl": _parse_optional_string(mediaUrl),
         "publishToMobile": publishToMobile,
         "publishToWebsite": publishToWebsite,
         "isPublished": bool(publishToMobile or publishToWebsite),
         "createdAt": created_at.isoformat(),
+        "updatedAt": created_at.isoformat(),
         "lastReviewedAt": created_at.isoformat(),
         "assignedReviewer": "",
         "reviewRequestedAt": "",
@@ -454,22 +460,22 @@ async def update_health_literacy_content(
         **current_content,
         "title": title.strip(),
         "description": description.strip(),
-        "tags": validate_content_languages(content_type, tags, language),
+        "tags": parse_string_list(tags),
         "topics": normalized_topics,
         "diseases": normalized_diseases,
-        "language": normalized_language,
+        "language": validate_content_language(normalized_language),
         "media": updated_media,
         "duration": normalize_video_duration(
             content_type,
             duration,
             current_content.get("duration"),
         ),
-        "source": str(source or "").strip(),
-        "author": str(author or "").strip(),
+        "source": _parse_optional_string(source),
+        "author": _parse_optional_string(author),
         "publishedDate": normalized_published_date,
-        "externalUrl": str(externalUrl or "").strip(),
-        "imageUrl": str(imageUrl or "").strip(),
-        "mediaUrl": str(mediaUrl or "").strip(),
+        "externalUrl": _parse_optional_string(externalUrl),
+        "imageUrl": _parse_optional_string(imageUrl),
+        "mediaUrl": _parse_optional_string(mediaUrl),
         "publishToMobile": publishToMobile,
         "publishToWebsite": publishToWebsite,
         "isPublished": bool(publishToMobile or publishToWebsite),

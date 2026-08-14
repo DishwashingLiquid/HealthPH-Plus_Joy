@@ -22,7 +22,7 @@ import {
      useDisableUserMutation,
      useUpdateUserMutation,
 } from "../../features/api/userSlice";
-import { useCreateActivityLogMutation } from "../../features/api/activityLogsSlice";
+import { useCreateAccountActivityMutation } from "../../features/api/accountActivitySlice";
 
 const AdminsTable = ({
     admins = [],
@@ -102,7 +102,7 @@ const AdminsTable = ({
     const [updateUserStatus] = useDisableUserMutation();
     const [deleteAdmin] = useDeleteAdminMutation();
     const [updateAdmin] = useUpdateUserMutation();
-    const [log_activity] = useCreateActivityLogMutation();
+    const [log_activity] = useCreateAccountActivityMutation();
 
     const searchWords = searchQuery.split(" ").filter((search) => search.length > 0);
 
