@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import HomeNavbar from "../components/HomeNavbar";
 import HomeFooter from "../components/HomeFooter";
+import "../assets/css/about.css";
 
 const AboutUs = () => {
   useEffect(() => {

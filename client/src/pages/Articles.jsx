@@ -1,5 +1,6 @@
 import { useLocation } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
+import "../assets/css/about.css";
 
 import Icon from "../components/Icon";
 import HomeNavbar from "../components/HomeNavbar";
@@ -9,7 +10,7 @@ import ArticleItem, {
 } from "../components/about-us/ArticleItem";
 import { useFetchWebsiteHealthLiteracyContentQuery } from "../features/api/healthLiteracyHubSlice";
 import {
-  getContentMediaSource,
+  getResourceImageSource,
   normalizeStaticArticle,
   normalizeWebsiteContent,
   sortNewestFirst,
@@ -71,9 +72,11 @@ const Articles = () => {
     return articlesPerPage.slice(startIndex - numOfArticlesPerPage, startIndex);
   };
 
-  const previewMediaSource = getContentMediaSource(previewContent?.media);
+  const previewMediaSource = getResourceImageSource(previewContent);
   const previewMediaType = previewContent?.media?.contentType ?? "";
-  const isPreviewVideo = previewMediaType.startsWith("video/");
+  const isPreviewVideo =
+    previewContent?.resourceType === "video" ||
+    previewMediaType.startsWith("video/");
   const previewFilename =
     previewContent?.media?.filename || `${previewContent?.articleTitle ?? "infographic"}`;
   const maxArticlePage = Math.ceil(articles.length / numOfArticlesPerPage);

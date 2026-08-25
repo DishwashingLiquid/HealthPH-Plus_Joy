@@ -3,6 +3,7 @@ import WebLogo from "../assets/images/website-logo.svg";
 import { useState } from "react";
 import HamburgerMenu from "./HamburgerMenu";
 import Icon from "./Icon";
+import "../assets/css/home.css";
 
 import NULogoLgAlt from "../assets/images/nu-logo-lg-alt.png";
 

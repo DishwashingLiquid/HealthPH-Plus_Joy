@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
@@ -17,8 +18,14 @@ import Cookies from "js-cookie";
 import FieldGroup from "../../components/FieldGroup";
 import Input from "../../components/Input";
 import InputPassword from "../../components/InputPassword";
-import Checkbox from "../../components/Checkbox";
 import useDeviceDetect from "../../hooks/useDeviceDetect";
+
+const stablePrimaryButtonStyle = {
+  backgroundColor: "#007aff",
+  boxShadow: "none",
+  border: "none",
+  outline: "none",
+};
 
 const Login = () => {
   const { isPWA } = useDeviceDetect();
@@ -34,8 +41,6 @@ const Login = () => {
   });
 
   const [error, setError] = useState("");
-
-  const [remember, setRemember] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -168,23 +173,15 @@ const Login = () => {
           />
         </FieldGroup>
         <div className="flex flex-col-reverse sm:flex-row justify-between items-start sm:items-center my-[24px]">
-          {/* <Checkbox
-            name="remember"
-            id="remember"
-            label="Remember Me"
-            checked={remember}
-            handleChange={setRemember}
-            size="input-checkbox-md"
-            additionalClasses="items-center"
-          /> */}
           <NavLink to="/forgot-password" className="mb-0 sm:mb-0">
             Forgot Password
           </NavLink>
         </div>
         <button
           type="submit"
-          className="prod-btn-base prod-btn-primary w-full mb-[16px]"
+          className="prod-btn-base prod-btn-primary w-full mb-[16px] hover:bg-primary-500"
           disabled={isLoading}
+          style={stablePrimaryButtonStyle}
         >
           {isLoading ? "Signing in...." : "Sign In"}
         </button>
@@ -215,8 +212,6 @@ const OTPCode = ({ email }) => {
   const [formErrors, setFormErrors] = useState({ otp_code: "" });
 
   const [isLoading, setIsLoading] = useState(false);
-
-  const [isResendLoading, setIsResendLoading] = useState(false);
 
   const [verifyCode] = useVerifyCodeMutation();
 
@@ -317,7 +312,6 @@ const OTPCode = ({ email }) => {
 
   const handleResend = async () => {
     setSecsLeft(15);
-    setIsResendLoading(true);
     setError("");
 
     const response = await resendCode(email);
@@ -372,14 +366,15 @@ const OTPCode = ({ email }) => {
         </FieldGroup>
         <button
           type="submit"
-          className="prod-btn-base prod-btn-primary w-full mt-[4px] mb-[32px]"
+          className="prod-btn-base prod-btn-primary w-full mt-[4px] mb-[32px] hover:bg-primary-500"
           disabled={isLoading}
+          style={stablePrimaryButtonStyle}
         >
           {isLoading ? "Verifying..." : "Verify"}
         </button>
         <p className="text-center">
           <span className=" prod-p2 text-gray-700 font-medium">
-            Didn't receive it?
+            Didn&apos;t receive it?
           </span>
           <a
             href="#"

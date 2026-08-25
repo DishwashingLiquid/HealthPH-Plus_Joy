@@ -21,8 +21,14 @@ from routes.datasetsRoutes import router as datasetsRouter
 from routes.analyticsEntryRoutes import router as analyticsEntryRouter
 from routes.pointRoutes import router as pointRouter
 from routes.miscRoutes import router as miscRouter
-from routes.healthLiteracyHubRoutes import router as healthLiteracyHubRouter
+from routes.healthLiteracyHubRoutes import (
+    mobile_contract_router as healthLiteracyMobileContractRouter,
+    router as healthLiteracyHubRouter,
+)
 from routes.sentimentPulseRoutes import router as sentimentPulseRouter
+from routes.diseaseWatchFeedRoutes import (
+    mobile_self_reports_router as mobileSelfReportsRouter,
+)
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -67,7 +73,17 @@ api_app.include_router(router=pointRouter, tags=["Points"], prefix="/points")
 api_app.include_router(router=analyticsRouter, tags=["Analytics"])
 api_app.include_router(router=miscRouter, tags=["Misc"])
 api_app.include_router(router=healthLiteracyHubRouter, tags=["Health Literacy Hub"], prefix="/health-literacy-hub")
+api_app.include_router(
+    router=healthLiteracyMobileContractRouter,
+    tags=["Health Literacy Hub"],
+    prefix="/health-literacy",
+)
 api_app.include_router(router=sentimentPulseRouter, tags=["Sentiment Pulse"], prefix="/sentiment-pulse")
+api_app.include_router(
+    router=mobileSelfReportsRouter,
+    tags=["Disease Watch Feed"],
+    prefix="/mobile",
+)
 
 app.mount("/api", api_app, name="api")
 

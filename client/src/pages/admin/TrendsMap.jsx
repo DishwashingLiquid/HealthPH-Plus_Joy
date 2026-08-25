@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { format, subDays } from "date-fns";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
+import "../../assets/css/map.css";
 
 import { updateInitialLogin } from "../../features/auth/authSlice";
 import useSwipe from "../../hooks/useSwipe";

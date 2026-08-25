@@ -1,4 +1,4 @@
-import { icon } from "leaflet";
+/* eslint-disable react/prop-types */
 import Icon from "./Icon";
 
 export const ToolbarSearch = ({

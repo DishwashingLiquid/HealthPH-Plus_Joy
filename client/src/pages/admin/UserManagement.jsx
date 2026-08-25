@@ -736,7 +736,13 @@ const UserManagement = () => {
               {canManageUsers && isAccountTableTab && (
                 <button
                   type="button"
-                  className="flex items-center gap-[8px] rounded-[10px] bg-[#32418C] px-[16px] py-[10px] text-sm text-white"
+                  className="admin-module-brand-btn flex items-center gap-[8px] rounded-[10px] border px-[16px] py-[10px] text-sm text-white"
+                  style={{
+                    backgroundColor: "#32418c",
+                    borderColor: "#32418c",
+                    boxShadow:
+                      "0px 0px 0px 1px #32418c, 0px 1px 1px 0px rgba(0, 0, 0, 0.1)",
+                  }}
                   onClick={openAddUserModal}
                 >
                   <Icon

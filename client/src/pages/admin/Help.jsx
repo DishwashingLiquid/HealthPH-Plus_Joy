@@ -6,6 +6,7 @@ import { useSelector } from "react-redux";
 import ScrollToTop from "../../components/ScrollToTop";
 import Highlighter from "react-highlight-words";
 import useDeviceDetect from "../../hooks/useDeviceDetect";
+import "../../assets/css/help.css";
 
 import HelpImage from "../../components/admin/HelpImage";
 
