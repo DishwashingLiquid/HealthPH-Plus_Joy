@@ -13,12 +13,6 @@ import {
   YAxis,
 } from "recharts";
 
-import {
-  DASHBOARD_CARD_TITLE_CLASS,
-  DASHBOARD_SECTION_SUBTITLE_CLASS,
-  DASHBOARD_SECTION_TITLE_CLASS,
-} from "../dashboardTypography";
-
 const REGIONAL_COVERAGE_PALETTE = [
   "#32418C",
   "#2572A5",
@@ -104,10 +98,10 @@ export default function RegionalCoverageTab({
       <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] shadow-[0_10px_30px_rgba(50,65,140,0.06)]">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-[14px] mb-[18px]">
           <div>
-            <h3 className={DASHBOARD_SECTION_TITLE_CLASS}>
+            <h3 className="text-[18px] font-semibold text-gray-800">
               Distinct Mobile Reporters by Region
             </h3>
-            <p className={`${DASHBOARD_SECTION_SUBTITLE_CLASS} mt-[4px]`}>
+            <p className="mt-[4px] text-sm text-gray-500">
               Regional distribution of distinct mobile self-report actors across
               the monitored coverage areas.
             </p>
@@ -177,8 +171,8 @@ export default function RegionalCoverageTab({
 
       <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-[14px]">
         <div>
-          <h3 className={DASHBOARD_SECTION_TITLE_CLASS}>Regional Cards</h3>
-          <p className={`${DASHBOARD_SECTION_SUBTITLE_CLASS} mt-[4px]`}>
+          <h3 className="text-[18px] font-semibold text-gray-800">Regional Cards</h3>
+          <p className="mt-[4px] text-sm text-gray-500">
             Detailed reporter totals and share of mobile self-report coverage by
             region.
           </p>
@@ -256,7 +250,7 @@ export default function RegionalCoverageTab({
               <div className="border-b border-[#EDF1F7] bg-[#F8FAFC] px-[16px] py-[14px]">
                 <div className="flex items-start justify-between gap-[12px]">
                   <div>
-                    <h4 className={DASHBOARD_CARD_TITLE_CLASS}>
+                    <h4 className="text-[16px] font-semibold text-gray-800">
                       {region.region}
                     </h4>
                     <p className="mt-[4px] text-xs uppercase tracking-[0.08em] text-[#6B7A90]">

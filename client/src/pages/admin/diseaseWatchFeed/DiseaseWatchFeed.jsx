@@ -9,10 +9,6 @@ import {
   useGetMobileSelfReportsExportQuery,
   useGetMobileSelfReportsMapPinsQuery,
 } from "../../../features/api/diseaseWatchFeedSlice";
-import {
-  DASHBOARD_PAGE_SUBTITLE_CLASS,
-  DASHBOARD_PAGE_TITLE_CLASS,
-} from "../dashboardTypography";
 import RecentAlertsTab from "./RecentAlertsTab";
 import RegionalCoverageTab from "./RegionalCoverageTab";
 import UserAnalyticsTab from "./UserAnalyticsTab";
@@ -489,8 +485,8 @@ export default function DiseaseWatchFeed() {
   return (
     <div className="flex flex-col gap-[20px]">
       <div>
-        <h1 className={DASHBOARD_PAGE_TITLE_CLASS}>Disease Watch Feed</h1>
-        <p className={`${DASHBOARD_PAGE_SUBTITLE_CLASS} mt-[4px]`}>
+        <h1 className="text-[24px] font-semibold text-gray-800">Disease Watch Feed</h1>
+        <p className="mt-[4px] text-[14px] text-gray-500">
           Canonical mobile self-report activity, regional coverage, and mobile
           reporter analytics.
         </p>

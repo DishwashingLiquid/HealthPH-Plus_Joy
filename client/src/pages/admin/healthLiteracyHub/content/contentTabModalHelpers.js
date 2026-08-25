@@ -93,7 +93,7 @@ export const buildContentFormPayload = ({
     payload.append("removeMedia", String(formData.removeMedia));
   }
 
-  if (contentTypeLabel !== "Articles" && formData.media) {
+  if (formData.media) {
     payload.append("file", formData.media);
   }
 

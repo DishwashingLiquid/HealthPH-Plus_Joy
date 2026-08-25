@@ -51,7 +51,9 @@ const HealthLiteracyHub = lazy(() =>
 const DiseaseWatchFeed = lazy(() =>
   import("./pages/admin/diseaseWatchFeed/DiseaseWatchFeed")
 );
-const SentimentPulseTool = lazy(() => import("./pages/admin/SentimentPulseTool"));
+const SentimentPulseTool = lazy(() =>
+  import("./pages/admin/sentimentPulseTool/SentimentPulseTool")
+);
 
 function App() {
   const user = useSelector((state) => state.auth.user);

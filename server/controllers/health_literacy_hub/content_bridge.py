@@ -230,24 +230,68 @@ def normalize_seed_content_item(content_type: str, item: dict) -> dict:
 
 
 def migrate_existing_content_documents(storage_content_type: str) -> None:
-    existing_content = health_literacy_content_collection.find(
-        {
-            "contentType": {
-                "$in": [
-                    storage_content_type,
-                    get_legacy_content_type(storage_content_type),
-                ]
+    legacy_content_type = get_legacy_content_type(storage_content_type)
+    existing_content = list(
+        health_literacy_content_collection.find(
+            {
+                "contentType": {
+                    "$in": [
+                        storage_content_type,
+                        legacy_content_type,
+                    ]
+                }
             }
-        }
+        )
     )
 
+    if not existing_content:
+        return
+
+    grouped_items: dict[str, list[dict]] = {}
+
     for item in existing_content:
-        normalized_item = normalize_content_schema_fields(item, storage_content_type)
-        normalized_item.pop("_id", None)
-        health_literacy_content_collection.replace_one(
-            {"_id": item["_id"]},
-            normalized_item,
+        normalized_id = str(item.get("id") or "").strip()
+        if not normalized_id:
+            continue
+
+        grouped_items.setdefault(normalized_id, []).append(item)
+
+    for item_id, items in grouped_items.items():
+        canonical_item = max(
+            items,
+            key=lambda item: (
+                item.get("contentType") == storage_content_type,
+                str(item.get("updatedAt") or item.get("createdAt") or ""),
+            ),
         )
+        normalized_item = normalize_content_schema_fields(
+            canonical_item,
+            storage_content_type,
+        )
+        normalized_item.pop("_id", None)
+        normalized_item["id"] = item_id
+
+        health_literacy_content_collection.replace_one(
+            {
+                "contentType": storage_content_type,
+                "id": item_id,
+            },
+            normalized_item,
+            upsert=True,
+        )
+
+        redundant_ids = [
+            item["_id"]
+            for item in items
+            if not (
+                item.get("contentType") == storage_content_type
+                and str(item.get("id") or "").strip() == item_id
+            )
+        ]
+        if redundant_ids:
+            health_literacy_content_collection.delete_many(
+                {"_id": {"$in": redundant_ids}}
+            )
 
 
 def migrate_existing_data_url_media_documents(content_type: str) -> None:

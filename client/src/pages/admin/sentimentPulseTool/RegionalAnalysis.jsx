@@ -8,10 +8,6 @@ import {
   getTrendIndicator,
   sentimentColors,
 } from "../../../assets/data/sentimentMockData";
-import {
-  DASHBOARD_CARD_TITLE_CLASS,
-  DASHBOARD_SECTION_TITLE_CLASS,
-} from "../dashboardTypography";
 
 export { REGIONS };
 
@@ -203,7 +199,7 @@ export default function RegionalAnalysis({
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-        <h3 className={`${DASHBOARD_SECTION_TITLE_CLASS} mb-4`}>
+        <h3 className="mb-4 text-[18px] font-semibold text-gray-800">
           Regional Sentiment Map
         </h3>
 
@@ -223,7 +219,7 @@ export default function RegionalAnalysis({
                 <div className="relative flex h-full flex-col gap-5">
                   <div className="flex items-start justify-between gap-3">
                     <h4
-                      className={`${DASHBOARD_CARD_TITLE_CLASS} max-w-[70%] leading-tight text-gray-900`}
+                      className="max-w-[70%] text-[16px] font-semibold leading-tight text-gray-900"
                     >
                       {region.label}
                     </h4>
@@ -255,7 +251,7 @@ export default function RegionalAnalysis({
       </section>
 
       <section className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px] shadow-[0_10px_30px_rgba(50,65,140,0.05)]">
-        <h3 className={`${DASHBOARD_SECTION_TITLE_CLASS} mb-[16px]`}>
+        <h3 className="mb-[16px] text-[18px] font-semibold text-gray-800">
           Regional Sentiment Comparison
         </h3>
 

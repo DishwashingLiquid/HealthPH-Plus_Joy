@@ -1,8 +1,6 @@
 /* eslint-disable react/prop-types */
 import PropTypes from "prop-types";
 
-import { DASHBOARD_METRIC_LABEL_CLASS } from "../dashboardTypography";
-
 const formatNumber = (value) =>
   new Intl.NumberFormat("en-US").format(value ?? 0);
 
@@ -20,7 +18,7 @@ const MetricCard = ({ label, metric }) => {
 
   return (
     <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
-      <p className={`${DASHBOARD_METRIC_LABEL_CLASS} mb-[8px]`}>{label}</p>
+      <p className="mb-[8px] text-sm text-gray-500">{label}</p>
       <div className="flex items-end justify-between gap-[16px]">
         <h2 className="text-[32px] font-semibold text-gray-800 leading-none">
           {isUnavailable ? "Unavailable" : formatNumber(metric.current)}
@@ -73,7 +71,7 @@ export default function UserAnalyticsTab({
             key={`user-analytics-loading-${index}`}
             className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]"
           >
-            <p className={`${DASHBOARD_METRIC_LABEL_CLASS} mb-[8px]`}>
+            <p className="mb-[8px] text-sm text-gray-500">
               Loading metric...
             </p>
             <h2 className="text-[32px] font-semibold text-gray-800 leading-none">

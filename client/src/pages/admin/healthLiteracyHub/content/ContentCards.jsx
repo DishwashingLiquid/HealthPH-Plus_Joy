@@ -9,10 +9,6 @@ import {
   formatNumber,
   formatVideoDuration,
 } from "../shared";
-import {
-  DASHBOARD_CARD_SUBTITLE_CLASS,
-  DASHBOARD_CARD_TITLE_CLASS,
-} from "../../dashboardTypography";
 
 export const ContentGrid = ({
   content,
@@ -171,7 +167,7 @@ const ContentCard = ({
 
       <div className="p-[16px]">
         <div className="mb-[8px] flex items-start justify-between gap-[12px]">
-          <h3 className={`${DASHBOARD_CARD_TITLE_CLASS} line-clamp-2`}>
+          <h3 className="line-clamp-2 text-[16px] font-semibold text-gray-800">
             {item.title}
           </h3>
           {canEdit && (
@@ -500,7 +496,7 @@ const ArticleContentCard = ({ item, canEdit, onEditClick, onShareClick }) => {
         {item.title}
       </h3>
       <p
-        className={`${DASHBOARD_CARD_SUBTITLE_CLASS} mt-[6px] text-left leading-[20px]`}
+        className="mt-[6px] text-left text-[14px] leading-[20px] text-gray-500"
       >
         {subtitle}
       </p>

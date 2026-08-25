@@ -9,12 +9,6 @@ import {
   sentimentColors,
 } from "../../../assets/data/sentimentMockData";
 import { useFetchSentimentPulseSurveyResultsQuery } from "../../../features/api/sentimentPulseSlice";
-import {
-  DASHBOARD_CARD_SUBTITLE_CLASS,
-  DASHBOARD_CARD_TITLE_CLASS,
-  DASHBOARD_SECTION_SUBTITLE_CLASS,
-  DASHBOARD_SECTION_TITLE_CLASS,
-} from "../dashboardTypography";
 
 export const QUESTION_TYPES = [
   { value: "text", label: "Text" },
@@ -287,7 +281,7 @@ function MobileSurveyResultsModal({ surveyId, onClose }) {
           <div className="space-y-6">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className={DASHBOARD_SECTION_TITLE_CLASS}>
+                <h3 className="text-[18px] font-semibold text-gray-800">
                   {survey.title}
                 </h3>
                 {survey.status && (
@@ -297,7 +291,7 @@ function MobileSurveyResultsModal({ surveyId, onClose }) {
                 )}
               </div>
               {survey.subtitle && (
-                <p className={`${DASHBOARD_SECTION_SUBTITLE_CLASS} mt-1`}>
+                <p className="mt-1 text-sm text-gray-500">
                   {survey.subtitle}
                 </p>
               )}
@@ -328,7 +322,7 @@ function MobileSurveyResultsModal({ surveyId, onClose }) {
             </div>
 
             <div className="rounded-lg border border-gray-200 bg-white p-4">
-              <h4 className={DASHBOARD_CARD_TITLE_CLASS}>
+              <h4 className="text-[16px] font-semibold text-gray-800">
                 Sentiment
               </h4>
               <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -372,7 +366,7 @@ function MobileSurveyResultsModal({ surveyId, onClose }) {
                       <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                         Question {index + 1}
                       </p>
-                      <h4 className={`${DASHBOARD_CARD_TITLE_CLASS} mt-1`}>
+                      <h4 className="mt-1 text-[16px] font-semibold text-gray-800">
                         {question.title}
                       </h4>
                     </div>
@@ -579,7 +573,7 @@ export function MobileSurveyCreateModal({
 
             <div>
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                <h4 className={DASHBOARD_CARD_TITLE_CLASS}>
+                <h4 className="text-[16px] font-semibold text-gray-800">
                   Questions
                 </h4>
                 <div className="flex flex-wrap gap-2">
@@ -798,7 +792,7 @@ export function MobileSurveyCreateModal({
 
           <div className="min-w-0">
             <div className="sticky top-0 rounded-lg border border-gray-200 bg-gray-50 p-4">
-              <h4 className={`${DASHBOARD_CARD_TITLE_CLASS} mb-3`}>
+              <h4 className="mb-3 text-[16px] font-semibold text-gray-800">
                 SurveyJS Preview
               </h4>
               <div className="rounded-lg border border-gray-200 bg-white p-3">
@@ -853,10 +847,10 @@ export function MobileSurveyScheduleModal({
           <>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className={DASHBOARD_CARD_TITLE_CLASS}>
+                <p className="text-[16px] font-semibold text-gray-800">
                   Draft Surveys
                 </p>
-                <p className={DASHBOARD_CARD_SUBTITLE_CLASS}>
+                <p className="text-[14px] text-gray-500">
                   {selectedCount} of {scheduleItems.length} selected
                 </p>
               </div>
@@ -1013,7 +1007,7 @@ export default function MobileSurveys({
               <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className={DASHBOARD_CARD_TITLE_CLASS}>
+                    <h3 className="text-[16px] font-semibold text-gray-800">
                       {survey.title}
                     </h3>
                     <span
@@ -1022,7 +1016,7 @@ export default function MobileSurveys({
                       {survey.status}
                     </span>
                   </div>
-                  <p className={`${DASHBOARD_CARD_SUBTITLE_CLASS} mt-1`}>
+                  <p className="mt-1 text-[14px] text-gray-500">
                     {survey.subtitle}
                   </p>
                   {(scheduledAtLabel || publishedAtLabel) && (

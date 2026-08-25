@@ -412,6 +412,7 @@ const ContentTab = ({ contentTypeLabel }) => {
           additionalClasses="health-literacy-content-modal admin-brand-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
         >
           <ContentFormBody
+            contentTypeLabel={contentTypeLabel}
             formData={formData}
             uploadRule={uploadRule}
             mode="create"
@@ -435,6 +436,7 @@ const ContentTab = ({ contentTypeLabel }) => {
           additionalClasses="health-literacy-content-modal admin-brand-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
         >
           <ContentFormBody
+            contentTypeLabel={contentTypeLabel}
             formData={formData}
             uploadRule={uploadRule}
             mode="edit"

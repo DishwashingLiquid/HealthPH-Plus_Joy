@@ -6,6 +6,23 @@ import {
   HEALTH_LITERACY_LANGUAGE_OPTIONS,
 } from "../shared";
 
+const CONTENT_FORM_GUIDANCE = {
+  Articles: {
+    uploadNote:
+      "Optional. Upload an image, video, or PDF when the article should include a hosted asset in HealthPH.",
+  },
+  Videos: {
+    uploadNote:
+      "Optional. Upload a video file when it should play directly from HealthPH instead of relying only on an external link.",
+  },
+  Infographics: {
+    uploadNote:
+      "Optional. Upload an image when the infographic should preview and download directly from HealthPH.",
+  },
+};
+
+const helperTextClassName = "mt-[6px] text-[12px] leading-[18px] text-gray-500";
+
 const getContentFormMediaPreviewState = (formData) => {
   return {
     hasMediaPreview: Boolean(formData.mediaPreview) && !formData.removeMedia,
@@ -15,6 +32,7 @@ const getContentFormMediaPreviewState = (formData) => {
 };
 
 export const ContentFormBody = ({
+  contentTypeLabel,
   formData,
   uploadRule,
   mode,
@@ -28,9 +46,29 @@ export const ContentFormBody = ({
   const uploadInputId = `health-literacy-media-upload-${mode}`;
   const { hasMediaPreview, previewType, previewName } =
     getContentFormMediaPreviewState(formData);
+  const contentGuidance =
+    CONTENT_FORM_GUIDANCE[contentTypeLabel] ?? CONTENT_FORM_GUIDANCE.Articles;
 
   return (
     <div className="flex max-h-[60vh] flex-col gap-[16px] overflow-y-auto p-[20px]">
+      <div className="rounded-[10px] border border-[#D5E3F0] bg-[#F8FBFF] p-[14px]">
+        <p className="text-[13px] font-semibold text-gray-800">Before you save</p>
+        <p className={`${helperTextClassName} mt-[4px]`}>
+          Required fields: <span className="font-medium text-gray-700">Title</span>,{" "}
+          <span className="font-medium text-gray-700">Description</span>, and{" "}
+          <span className="font-medium text-gray-700">Language</span>. If fact-check
+          is enabled, <span className="font-medium text-gray-700">Claim</span> is
+          also required.
+        </p>
+        <p className={helperTextClassName}>
+          Tags, topics, and diseases are optional comma-separated lists. Choose the
+          language from the Language field instead of adding language names to Tags.
+        </p>
+        <p className={helperTextClassName}>
+          Publish to mobile and Publish to website control public visibility. Leave
+          both unchecked to save a draft.
+        </p>
+      </div>
       <div>
         <label className="mb-[8px] block text-[14px] font-medium text-gray-800">
           Title *
@@ -74,6 +112,9 @@ export const ContentFormBody = ({
               </option>
             ))}
           </select>
+          <p className={helperTextClassName}>
+            Select the content language here. Do not repeat language names in Tags.
+          </p>
         </div>
         <div>
           <label className="mb-[8px] block text-[14px] font-medium text-gray-800">
@@ -86,6 +127,10 @@ export const ContentFormBody = ({
             onChange={onFormChange}
             className="w-full rounded-[8px] border border-[#E5E5E5] px-[12px] py-[10px] text-[14px] focus:border-[#6A8EB5] focus:outline-none"
           />
+          <p className={helperTextClassName}>
+            Optional. Use this when the public publish date should differ from the
+            save date.
+          </p>
         </div>
       </div>
       <div className="grid grid-cols-1 gap-[12px] sm:grid-cols-2">
@@ -129,6 +174,10 @@ export const ContentFormBody = ({
             placeholder="Comma-separated tags"
             className="w-full rounded-[8px] border border-[#E5E5E5] px-[12px] py-[10px] text-[14px] focus:border-[#6A8EB5] focus:outline-none"
           />
+          <p className={helperTextClassName}>
+            Optional. Add comma-separated keywords such as{" "}
+            <span className="font-medium text-gray-700">vaccine, prevention</span>.
+          </p>
         </div>
         <div>
           <label className="mb-[8px] block text-[14px] font-medium text-gray-800">
@@ -142,6 +191,10 @@ export const ContentFormBody = ({
             placeholder="Comma-separated topics"
             className="w-full rounded-[8px] border border-[#E5E5E5] px-[12px] py-[10px] text-[14px] focus:border-[#6A8EB5] focus:outline-none"
           />
+          <p className={helperTextClassName}>
+            Optional. Add comma-separated topic groupings such as{" "}
+            <span className="font-medium text-gray-700">maternal health, nutrition</span>.
+          </p>
         </div>
         <div>
           <label className="mb-[8px] block text-[14px] font-medium text-gray-800">
@@ -155,6 +208,10 @@ export const ContentFormBody = ({
             placeholder="Comma-separated diseases"
             className="w-full rounded-[8px] border border-[#E5E5E5] px-[12px] py-[10px] text-[14px] focus:border-[#6A8EB5] focus:outline-none"
           />
+          <p className={helperTextClassName}>
+            Optional. Add comma-separated disease names such as{" "}
+            <span className="font-medium text-gray-700">dengue, measles</span>.
+          </p>
         </div>
       </div>
       <div className="grid grid-cols-1 gap-[12px]">
@@ -267,6 +324,7 @@ export const ContentFormBody = ({
           onChange={onMediaChange}
           className="hidden"
         />
+        <p className={helperTextClassName}>{contentGuidance.uploadNote}</p>
         {hasMediaPreview && (
           <button
             type="button"
@@ -280,6 +338,10 @@ export const ContentFormBody = ({
       <div className="border-t border-[#E5E5E5] pt-[16px]">
         <p className="mb-[8px] text-[14px] font-medium text-gray-800">
           Publish Options
+        </p>
+        <p className={`${helperTextClassName} mb-[10px] mt-0`}>
+          Select one or both destinations for public visibility. Leave both
+          unchecked to keep this content as a draft in admin only.
         </p>
         <div className="flex flex-col gap-[10px]">
           <label className="flex items-center gap-[10px] text-[14px] text-gray-700">

@@ -2,8 +2,6 @@
 import PropTypes from "prop-types";
 import { formatDistanceToNow } from "date-fns";
 
-import { DASHBOARD_CARD_TITLE_CLASS } from "../dashboardTypography";
-
 const RECENT_ALERT_ENTITY_STYLES = {
   disease: {
     backgroundColor: "#32418C30",
@@ -115,7 +113,7 @@ export default function RecentAlertsTab({ alerts, errorMessage, isLoading }) {
           <div className="flex justify-between items-start gap-[16px]">
             <div className="flex-1">
               <div className="flex items-center gap-[8px] mb-[8px]">
-                <h3 className={DASHBOARD_CARD_TITLE_CLASS}>
+                <h3 className="text-[16px] font-semibold text-gray-800">
                   <RecentAlertEntityHighlight
                     label={alert.disease}
                     tone="disease"
