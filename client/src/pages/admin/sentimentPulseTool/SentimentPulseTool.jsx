@@ -6,8 +6,8 @@ import {
   useFetchSentimentPulseSurveysQuery,
   useScheduleSentimentPulseSurveyMutation,
   useUpdateSentimentPulseSurveyMutation,
-} from "../../features/api/sentimentPulseSlice";
-import ModalWithBody from "../../components/admin/ModalWithBody";
+} from "../../../features/api/sentimentPulseSlice";
+import ModalWithBody from "../../../components/admin/ModalWithBody";
 import MobileSurveys, {
   MobileSurveyCreateModal,
   MobileSurveyScheduleModal,
