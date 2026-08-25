@@ -18,6 +18,7 @@ from routes.roleLabelRoutes import router as roleLabelRouter
 from routes.activityLogRoutes import router as activityLogRouter
 from routes.analyticsRoutes import router as analyticsRouter
 from routes.datasetsRoutes import router as datasetsRouter
+from routes.analyticsEntryRoutes import router as analyticsEntryRouter
 from routes.pointRoutes import router as pointRouter
 from routes.miscRoutes import router as miscRouter
 from routes.healthLiteracyHubRoutes import router as healthLiteracyHubRouter
@@ -61,6 +62,7 @@ api_app.include_router(router=organizationRouter, tags=["Organizations"], prefix
 api_app.include_router(router=roleLabelRouter, tags=["Role Labels"], prefix="/role-labels")
 api_app.include_router(router=activityLogRouter, tags=["Activity Logs"], prefix="/activity-logs")
 api_app.include_router(router=datasetsRouter, tags=["Datasets"], prefix="/datasets")
+api_app.include_router(router=analyticsEntryRouter, tags=["Analytics Entries"], prefix="/analytics-entries")
 api_app.include_router(router=pointRouter, tags=["Points"], prefix="/points")
 api_app.include_router(router=analyticsRouter, tags=["Analytics"])
 api_app.include_router(router=miscRouter, tags=["Misc"])

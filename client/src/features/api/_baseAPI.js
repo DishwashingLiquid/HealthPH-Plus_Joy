@@ -37,6 +37,7 @@ export const baseAPI = createApi({
     "AnalyticsWordcloud",
     "Datasets",
     "Datasets",
+    "AnalyticsEntries",
     "Points",
     "PointsDisease",
     "HealthLiteracyContent",

@@ -17,6 +17,8 @@ import {
 
 import { useCreateAccountActivityMutation } from "../../features/api/accountActivitySlice";
 
+import { useFetchAnalyticsEntriesQuery } from "../../features/api/analyticsEntriesSlice";
+
 import {
     ResponsiveContainer,
     BarChart,
@@ -371,6 +373,29 @@ const DataManagement = () => {
     const [datasetStatusFilter, setDatasetStatusFilter] = useState("all");
     const [selectedDatasetIds, setSelectedDatasetIds] = useState([]);
 
+    const [dataSourceView, setDataSourceView] = useState("social_media");
+
+    const [selectedEntryIds, setSelectedEntryIds] = useState([]);
+
+    const {
+        data: analyticsEntriesData,
+        isFetching: isAnalyticsEntriesFetching,
+    } = useFetchAnalyticsEntriesQuery(
+        {
+            sourceType: dataSourceView,
+            analysisStatus: "all",
+            datasetId: "all",
+            search: "",
+            limit: 100,
+        },
+        {
+            skip: dataSourceView !== "social_media",
+        }
+    );
+
+    const analyticsEntries = analyticsEntriesData?.entries || [];
+    const analyticsEntriesTotal = analyticsEntriesData?.total || 0;
+
     /* UPLOAD MODAL STATE */
     const inputFile = useRef(null);
     const [uploadFile, { isLoading: isUploadLoading }] = useUploadFileMutation();
@@ -693,6 +718,44 @@ const DataManagement = () => {
         return Array.isArray(value) ? value : [];
     };
 
+    const selectedEntries = analyticsEntries.filter((entry) =>
+        selectedEntryIds.includes(entry.id)
+    );
+
+    const processableEntries = analyticsEntries.filter((entry) =>
+        ["pending", "failed"].includes(String(entry.analysis_status || "").toLowerCase())
+    );
+
+    const selectedProcessableEntries = selectedEntries.filter((entry) =>
+        ["pending", "failed"].includes(String(entry.analysis_status || "").toLowerCase())
+    );
+
+    const toggleEntrySelection = (id) => {
+        setSelectedEntryIds((currentIds) =>
+            currentIds.includes(id)
+                ? currentIds.filter((currentId) => currentId !== id)
+                : [...currentIds, id]
+        );
+    };
+
+    const toggleAllVisibleEntries = () => {
+        const visibleProcessableIds = processableEntries.map((entry) => entry.id);
+
+        const allVisibleSelected =
+            visibleProcessableIds.length > 0 &&
+            visibleProcessableIds.every((id) => selectedEntryIds.includes(id));
+
+        setSelectedEntryIds((currentIds) =>
+            allVisibleSelected
+                ? currentIds.filter((id) => !visibleProcessableIds.includes(id))
+                : [...new Set([...currentIds, ...visibleProcessableIds])]
+        );
+    };
+
+    const clearSelectedEntries = () => {
+        setSelectedEntryIds([]);
+    };
+
     /* ACTION HANDLERS */
     const handleDownloadDataset = async ({ id, filename }) => {
         try {
@@ -830,6 +893,24 @@ const DataManagement = () => {
     return (
         <>
         <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
+            <div className="mb-[16px] grid grid-cols-1 gap-[8px] rounded-[10px] bg-[#F5F5F5] p-[6px] md:grid-cols-3">
+                <TabButton
+                    label="Social Media Datasets"
+                    active={dataSourceView === "social_media"}
+                    onClick={() => setDataSourceView("social_media")}
+                />
+                <TabButton
+                    label="Survey Responses"
+                    active={dataSourceView === "survey"}
+                    onClick={() => setDataSourceView("survey")}
+                />
+                <TabButton
+                    label="Self Reports"
+                    active={dataSourceView === "self_report"}
+                    onClick={() => setDataSourceView("self_report")}
+                />
+            </div>
+
             <div className="flex justify-between items-start mb-[20px]">
                 <div>
                     <h2 className="text-[20px] font-semibold text-gray-800">
@@ -864,187 +945,204 @@ const DataManagement = () => {
             </div>
 
             {/* SEARCH*/}
-            <div className="mb-[16px] flex flex-col gap-[10px] xl:flex-row xl:items-center xl:justify-between">
-                <div className="flex flex-col gap-[10px] md:flex-row md:items-center"> 
-                    <ToolbarSearch
-                        placeholder="Search datasets..."
-                        value={datasetSearch}
-                        onChange={(event) => setDatasetSearch(event.target.value)}
-                    />
+            {dataSourceView === "social_media" && (
+                <>
+                <div className="mb-[16px] flex flex-col gap-[10px] xl:flex-row xl:items-center xl:justify-between">
+                    <div className="flex flex-col gap-[10px] md:flex-row md:items-center"> 
+                        <ToolbarSearch
+                            placeholder="Search datasets..."
+                            value={datasetSearch}
+                            onChange={(event) => setDatasetSearch(event.target.value)}
+                        />
 
-                    <p className="text-sm text-gray-500">
-                        Total datasets:{" "}
-                        <span className="font-semibold text-gray-800">
-                            {filteredDatasets.length}
-                        </span>
-                    </p>
-                </div>
-                <ToolbarSelect
-                    value={datasetStatusFilter}
-                    onChange={(event) => setDatasetStatusFilter(event.target.value)}
-                    className="w-full md:w-[180px]"
-                >
-                    <option value="all">All Status</option>
-                    <option value="UPLOADED">Uploaded</option>
-                    <option value="RAW">Raw</option>
-                    <option value="QUEUED">Queued</option>
-                    <option value="PROCESSING">Processing</option>
-                    <option value="ANNOTATED">Annotated</option>
-                    <option value="FAILED">Failed</option>
-                </ToolbarSelect>
-            </div>
-
-            {hasSelectedDatasets && (
-                <div className="mb-[16px] flex flex-col gap-[10px] rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] px-[14px] py-[12px] md:flex-row md:items-center md:justify-between">
-                    <p className="text-sm text-gray-600">
-                        <span className="font-semibold text-gray-800">
-                            {selectedDatasetIds.length}
-                        </span>{" "}
-                        selected
-                    </p>
-                    <div className="flex flex-wrap gap-[8px]">
-                        <button
-                            type="button"
-                            className="rounded-[8px] border border-[#E5E5E5] bg-white px-[12px] py-[8px] text-sm text-gray-700"
-                            onClick={() => openBulkActionModal("download")}
-                        >
-                            Download
-                        </button>
-                        <button
-                            type="button"
-                            className="rounded-[8px] border border-[#E5E5E5] bg-white px-[12px] py-[8px] text-sm text-[#4F46E5]"
-                            onClick={() => openBulkActionModal("process")}
-                        >
-                            Process
-                        </button>
-                        <button
-                            type="button"
-                            className="rounded-[8px] bg-[#DC2626] px-[12px] py-[8px] text-sm text-white"
-                            onClick={() => openBulkActionModal("delete")}
-                        >
-                            Delete
-                        </button>
+                        <p className="text-sm text-gray-500">
+                            Total datasets:{" "}
+                            <span className="font-semibold text-gray-800">
+                                {filteredDatasets.length}
+                            </span>
+                        </p>
                     </div>
+                    <ToolbarSelect
+                        value={datasetStatusFilter}
+                        onChange={(event) => setDatasetStatusFilter(event.target.value)}
+                        className="w-full md:w-[180px]"
+                    >
+                        <option value="all">All Status</option>
+                        <option value="UPLOADED">Uploaded</option>
+                        <option value="RAW">Raw</option>
+                        <option value="QUEUED">Queued</option>
+                        <option value="PROCESSING">Processing</option>
+                        <option value="ANNOTATED">Annotated</option>
+                        <option value="FAILED">Failed</option>
+                    </ToolbarSelect>
                 </div>
-            )}
 
-            {isDatasetsByUserFetching ? (
-                <div className="overflow-y-hidden min-w-full h-[500px]">
-                    <SkeletonBody columns={7} />
-                </div>
-            ) : (
-                <div className="overflow-x-auto">
-                    {filteredDatasets.length > 0 ? (
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
-                                    <th className="w-[44px] py-[12px] px-[10px] font-medium">
-                                        <input
-                                            type="checkbox"
-                                            checked={allVisibleDatasetsSelected}
-                                            onChange={toggleAllVisibleDatasets}
-                                        />
-                                    </th>
-                                    <th className="py-[12px] px-[10px] font-medium">File Name</th>
-                                    <th className="py-[12px] px-[10px] font-medium">Records</th>
-                                    <th className="py-[12px] px-[10px] font-medium">Languages</th>
-                                    <th className="py-[12px] px-[10px] font-medium">Data Uploaded</th>
-                                    <th className="py-[12px] px-[10px] font-medium">Uploaded By</th>
-                                    <th className="py-[12px] px-[10px] font-medium">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredDatasets.map(({
-                                    id,
-                                    user_name,
-                                    filename,
-                                    languages,
-                                    dataset_status,
-                                    created_at,
-                                    original_filename,
-                                    dataset_type,
-                                    num_of_rows,
-                                    processing_error,
-                                    processed_at,
-                                    preview_headers,
-                                    preview_data,
-                                }) => (
-                                    <tr 
-                                        className="cursor-pointer border-b border-[#F0F0F0] hover:bg-[#F8FAFC]" 
-                                        key={id}
-                                        onClick={() =>
-                                            openPreviewModal({
-                                                id,
-                                                original_filename,
-                                                filename,
-                                                languages,
-                                                dataset_type,
-                                                dataset_status,
-                                                num_of_rows,
-                                                processing_error,
-                                                processed_at,
-                                                preview_headers,
-                                                preview_data,
-                                            })
-                                        }
-                                    >
-                                        <td 
-                                            className="py-[14px] px-[10px]"
-                                            onClick={(event) => event.stopPropagation()}
-                                        >
+                {hasSelectedDatasets && (
+                    <div className="mb-[16px] flex flex-col gap-[10px] rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] px-[14px] py-[12px] md:flex-row md:items-center md:justify-between">
+                        <p className="text-sm text-gray-600">
+                            <span className="font-semibold text-gray-800">
+                                {selectedDatasetIds.length}
+                            </span>{" "}
+                            selected
+                        </p>
+                        <div className="flex flex-wrap gap-[8px]">
+                            <button
+                                type="button"
+                                className="rounded-[8px] border border-[#E5E5E5] bg-white px-[12px] py-[8px] text-sm text-gray-700"
+                                onClick={() => openBulkActionModal("download")}
+                            >
+                                Download
+                            </button>
+                            <button
+                                type="button"
+                                className="rounded-[8px] border border-[#E5E5E5] bg-white px-[12px] py-[8px] text-sm text-[#4F46E5]"
+                                onClick={() => openBulkActionModal("process")}
+                            >
+                                Process
+                            </button>
+                            <button
+                                type="button"
+                                className="rounded-[8px] bg-[#DC2626] px-[12px] py-[8px] text-sm text-white"
+                                onClick={() => openBulkActionModal("delete")}
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {isDatasetsByUserFetching ? (
+                    <div className="overflow-y-hidden min-w-full h-[500px]">
+                        <SkeletonBody columns={7} />
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        {filteredDatasets.length > 0 ? (
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
+                                        <th className="w-[44px] py-[12px] px-[10px] font-medium">
                                             <input
                                                 type="checkbox"
-                                                checked={selectedDatasetIds.includes(id)}
-                                                onChange={() => toggleDatasetSelection(id)}
+                                                checked={allVisibleDatasetsSelected}
+                                                onChange={toggleAllVisibleDatasets}
                                             />
-                                        </td>
-                                        <td className="max-w-[260px] truncate py-[14px] px-[10px] font-medium text-gray-800">
-                                            {original_filename || filename}
-                                        </td>
-                                        <td className="py-[14px] px-[10px] text-gray-600">
-                                            {Number(num_of_rows || 0).toLocaleString()}
-                                        </td>
-                                        <td className="py-[14px] px-[10px]">
-                                            <div className="flex flex-wrap gap-[6px]">
-                                                {getDatasetLanguages({ languages, preview_data }).length > 0 ? (
-                                                    getDatasetLanguages({ languages, preview_data }).map((language) => (
-                                                        <span
-                                                            key={language}
-                                                            className="rounded-full bg-[#EEF2FF] px-[8px] py-[4px] text-xs font-medium text-[#4F46E5]"
-                                                        >
-                                                            {language}
-                                                        </span>
-                                                    ))
-                                                ) : (
-                                                    <span className="text-sm text-gray-400">No language data</span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="py-[14px] px-[10px] text-gray-600">
-                                            {format(new Date(created_at), "MMM dd, yyyy hh:mm a")}
-                                        </td>
-                                        <td className="py-[14px] px-[10px] text-gray-600">
-                                            {user_name}
-                                        </td>
-                                        <td className="py-[14px] px-[10px]">
-                                            <DatasetStatusBadge status={dataset_status} />
-                                        </td>
+                                        </th>
+                                        <th className="py-[12px] px-[10px] font-medium">File Name</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Records</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Languages</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Data Uploaded</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Uploaded By</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Status</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    ) : (
-                        <EmptyState
-                            iconName="Document"
-                            heading={datasets.length > 0 ? "No Matching Datasets" : "No Datasets Uploaded"}
-                            content={
-                                datasets.length > 0
-                                    ? "Try adjusting your search or status filter."
-                                    : "There are no datasets uploaded. Upload a dataset to prepare it for model processing."
-                            }
-                        />
-                    )}
-                </div>
+                                </thead>
+                                <tbody>
+                                    {filteredDatasets.map(({
+                                        id,
+                                        user_name,
+                                        filename,
+                                        languages,
+                                        dataset_status,
+                                        created_at,
+                                        original_filename,
+                                        dataset_type,
+                                        num_of_rows,
+                                        processing_error,
+                                        processed_at,
+                                        preview_headers,
+                                        preview_data,
+                                    }) => (
+                                        <tr 
+                                            className="cursor-pointer border-b border-[#F0F0F0] hover:bg-[#F8FAFC]" 
+                                            key={id}
+                                            onClick={() =>
+                                                openPreviewModal({
+                                                    id,
+                                                    original_filename,
+                                                    filename,
+                                                    languages,
+                                                    dataset_type,
+                                                    dataset_status,
+                                                    num_of_rows,
+                                                    processing_error,
+                                                    processed_at,
+                                                    preview_headers,
+                                                    preview_data,
+                                                })
+                                            }
+                                        >
+                                            <td 
+                                                className="py-[14px] px-[10px]"
+                                                onClick={(event) => event.stopPropagation()}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedDatasetIds.includes(id)}
+                                                    onChange={() => toggleDatasetSelection(id)}
+                                                />
+                                            </td>
+                                            <td className="max-w-[260px] truncate py-[14px] px-[10px] font-medium text-gray-800">
+                                                {original_filename || filename}
+                                            </td>
+                                            <td className="py-[14px] px-[10px] text-gray-600">
+                                                {Number(num_of_rows || 0).toLocaleString()}
+                                            </td>
+                                            <td className="py-[14px] px-[10px]">
+                                                <div className="flex flex-wrap gap-[6px]">
+                                                    {getDatasetLanguages({ languages, preview_data }).length > 0 ? (
+                                                        getDatasetLanguages({ languages, preview_data }).map((language) => (
+                                                            <span
+                                                                key={language}
+                                                                className="rounded-full bg-[#EEF2FF] px-[8px] py-[4px] text-xs font-medium text-[#4F46E5]"
+                                                            >
+                                                                {language}
+                                                            </span>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-sm text-gray-400">No language data</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="py-[14px] px-[10px] text-gray-600">
+                                                {format(new Date(created_at), "MMM dd, yyyy hh:mm a")}
+                                            </td>
+                                            <td className="py-[14px] px-[10px] text-gray-600">
+                                                {user_name}
+                                            </td>
+                                            <td className="py-[14px] px-[10px]">
+                                                <DatasetStatusBadge status={dataset_status} />
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        ) : (
+                            <EmptyState
+                                iconName="Document"
+                                heading={datasets.length > 0 ? "No Matching Datasets" : "No Datasets Uploaded"}
+                                content={
+                                    datasets.length > 0
+                                        ? "Try adjusting your search or status filter."
+                                        : "There are no datasets uploaded. Upload a dataset to prepare it for model processing."
+                                }
+                            />
+                        )}
+                    </div>
+                )}
+                </>
+            )}
+            {dataSourceView !== "social_media" && (
+                <AnalyticsEntriesPanel
+                    sourceType={dataSourceView}
+                    entries={analyticsEntries}
+                    total={analyticsEntriesTotal}
+                    isLoading={isAnalyticsEntriesFetching}
+                    selectedEntryIds={selectedEntryIds}
+                    selectedProcessableCount={selectedProcessableEntries.length}
+                    onToggleEntry={toggleEntrySelection}
+                    onToggleAllVisible={toggleAllVisibleEntries}
+                    onClearSelected={clearSelectedEntries}
+                />
             )}
         </div>
         {bulkActionModalActive && (
@@ -1103,6 +1201,161 @@ const DataManagement = () => {
             />
         )}
         </>
+    );
+};
+
+const AnalyticsEntriesPanel = ({
+    sourceType,
+    entries = [],
+    total = 0,
+    isLoading = false,
+    selectedEntryIds = [],
+    selectedProcessableCount = 0,
+    onToggleEntry,
+    onToggleAllVisible,
+    onClearSelected,
+}) => {
+
+    const processableEntries = entries.filter((entry) =>
+        ["pending", "failed"].includes(String(entry.analysis_status || "").toLowerCase())
+    );
+
+    const allVisibleProcessableSelected =
+        processableEntries.length > 0 &&
+        processableEntries.every((entry) => selectedEntryIds.includes(entry.id));
+
+    const selectedCount = selectedEntryIds.length;
+
+    return (
+        <div>
+            <div className="mb-[16px] flex flex-col gap-[4px]">
+                <h2 className="text-[20px] font-semibold text-gray-800">
+                    {sourceType === "survey" ? "Survey Responses" : "Self Reports"}
+                </h2>
+                <p className="text-sm text-gray-500">
+                    Unified analyzable records from uploaded dataset, survey responses, and mobile self-reports.
+                </p>
+                <p className="text-sm text-gray-500">
+                    Total entries:{" "}
+                    <span className="font-semibold text-gray-800">
+                        {Number(total || 0).toLocaleString()}
+                    </span>
+                </p>
+            </div>
+
+            {selectedCount > 0 && (
+                <div className="mb-[16px] flex flex-col gap-[10px] rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] px-[14px] py-[12px] md:flex-row md:items-center md:justify-between">
+                    <p className="text-sm text-gray-600">
+                        <span className="font-semibold text-gray-800">
+                            {selectedCount}
+                        </span>{" "}
+                        selected
+                    </p>
+
+                    <div className="flex flex-wrap gap-[8px]">
+                        <button
+                            type="button"
+                            className="rounded-[8px] border border-[#E5E5E5] bg-white px-[12px] py-[8px] text-sm text-gray-700"
+                            onClick={onClearSelected}
+                        >
+                            Clear
+                        </button>
+                        <button
+                            type="button"
+                            className="rounded-[8px] bg-[#2563EB] px-[12px] py-[8px] text-sm text-white disabled:cursor-not-allowed disabled:opacity-60"
+                            disabled={selectedProcessableCount === 0}
+                        >
+                            Process Selected
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {isLoading ? (
+                <div className="overflow-y-hidden min-w-full h-[300px]">
+                    <SkeletonBody columns={6} />
+                </div>
+            ) : entries.length > 0 ? (
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
+                                <th className="w-[44px] py-[12px] px-[10px] font-medium">
+                                    <input
+                                        type="checkbox"
+                                        checked={allVisibleProcessableSelected}
+                                        onChange={onToggleAllVisible}
+                                        disabled={processableEntries.length === 0}
+                                    />
+                                </th>
+                                <th className="py-[12px] px-[10px] font-medium">Source</th>
+                                <th className="py-[12px] px-[10px] font-medium">Text</th>
+                                <th className="py-[12px] px-[10px] font-medium">Language</th>
+                                <th className="py-[12px] px-[10px] font-medium">Location</th>
+                                <th className="py-[12px] px-[10px] font-medium">Analysis Status</th>
+                                <th className="py-[12px] px-[10px] font-medium">Created At</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {entries.map((entry) => {
+                                const status = String(entry.analysis_status || "").toLowerCase();
+                                const isProcessed = status === "completed";
+                                const isProcessable = ["pending", "failed"].includes(status);
+
+                                return (
+                                    <tr
+                                        key={entry.id}
+                                        className={`border-b border-[#F0F0F0] ${
+                                            isProcessed ? "bg-[#F8FAFC] text-gray-400" : ""
+                                        }`}
+                                    >
+                                        <td className="py-[14px] px-[10px]">
+                                            <input 
+                                                type="checkbox"
+                                                checked={selectedEntryIds.includes(entry.id)}
+                                                onChange={() => onToggleEntry(entry.id)}
+                                                disabled={!isProcessable}
+                                            />
+                                        </td>
+                                        <td className="py-[14px] px-[10px] text-gray-600">
+                                            {entry.source_type || "-"}
+                                        </td>
+                                        <td className="max-w-[360px] truncate py-[14px] px-[10px] text-gray-800">
+                                            {entry.text || "-"}
+                                        </td>
+                                        <td className="py-[14px] px-[10px] text-gray-600">
+                                            {entry.language || "-"}
+                                        </td>
+                                        <td className="py-[14px] px-[10px] text-gray-600">
+                                            {entry.location?.raw || "-"}
+                                        </td>
+                                        <td className="py-[14px] px-[10px]">
+                                            <DatasetStatusBadge status={entry.analysis_status || "pending"} />
+                                        </td>
+                                        <td className="py-[14px] px-[10px] text-gray-600">
+                                            {entry.created_at
+                                                ? format(new Date(entry.created_at), "MMM dd, yyyy hh:mm a")
+                                                : "-"
+                                            }
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <EmptyState
+                    iconName="Document"
+                    heading="No Analytics Entries Yet"
+                    content={
+                        sourceType === "survey"
+                            ? "Survey responses with analyzable text will appear here."
+                            : "Mobile self-report entries with analyzable text will appear here."
+                    }
+                />
+            )}
+        </div>
     );
 };
 
