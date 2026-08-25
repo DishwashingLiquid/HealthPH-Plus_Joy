@@ -2,8 +2,8 @@ import os
 from pathlib import Path
 
 from config.database import (
-    health_literacy_analytics_events_collection,
-    health_literacy_content_collection,
+    analytics_events_collection,
+    content_collection,
     user_collection,
 )
 

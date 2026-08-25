@@ -16,9 +16,9 @@ from models.sentimentPulseSurvey import (
 
 from controllers.sentiment_pulse.constants import (
     PUBLIC_SOURCES,
-    health_literacy_analytics_events_collection,
-    sentiment_pulse_survey_responses_collection,
-    sentiment_pulse_surveys_collection,
+    analytics_events_collection,
+    survey_responses_collection,
+    surveys_collection,
 )
 from controllers.sentiment_pulse.regional_analysis import (
     build_sentiment_breakdown,
@@ -57,7 +57,7 @@ async def fetch_surveys(
     ],
 ):
     ensure_survey_indexes()
-    surveys = sentiment_pulse_surveys_collection.find({}).sort([("createdAt", -1)])
+    surveys = surveys_collection.find({}).sort([("createdAt", -1)])
 
     return [serialize_survey(survey) for survey in surveys]
 
@@ -78,7 +78,7 @@ async def fetch_survey_results(
     survey = get_survey_or_404(survey_id)
     serialized_survey = serialize_survey(survey)
     responses = list(
-        sentiment_pulse_survey_responses_collection.find(
+        survey_responses_collection.find(
             {"surveyId": survey_id},
             {"_id": 0, "answers": 1},
         )
@@ -124,7 +124,7 @@ async def create_survey(
     validate_survey_payload(data)
 
     survey = build_survey_document(data, current_user)
-    sentiment_pulse_surveys_collection.insert_one(survey)
+    surveys_collection.insert_one(survey)
 
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
@@ -153,11 +153,11 @@ async def update_survey(
     validate_survey_payload(data)
 
     update = build_survey_update_document(data, current_user)
-    sentiment_pulse_surveys_collection.update_one(
+    surveys_collection.update_one(
         {"id": survey_id},
         {"$set": update},
     )
-    sentiment_pulse_survey_responses_collection.delete_many({"surveyId": survey_id})
+    survey_responses_collection.delete_many({"surveyId": survey_id})
     updated_survey = {**survey, **update}
 
     return JSONResponse(
@@ -199,7 +199,7 @@ async def schedule_survey(
         "updatedBy": get_user_snapshot(current_user),
     }
 
-    sentiment_pulse_surveys_collection.update_one(
+    surveys_collection.update_one(
         {"id": survey_id},
         {"$set": update},
     )
@@ -228,8 +228,8 @@ async def delete_survey(
     ],
 ):
     get_survey_or_404(survey_id)
-    sentiment_pulse_surveys_collection.delete_one({"id": survey_id})
-    sentiment_pulse_survey_responses_collection.delete_many({"surveyId": survey_id})
+    surveys_collection.delete_one({"id": survey_id})
+    survey_responses_collection.delete_many({"surveyId": survey_id})
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
@@ -249,7 +249,7 @@ async def fetch_public_surveys(
 ):
     platform = validate_platform(platform)
     ensure_survey_indexes()
-    surveys = sentiment_pulse_surveys_collection.find(
+    surveys = surveys_collection.find(
         get_public_survey_match(platform)
     ).sort([("scheduledAt", -1), ("createdAt", -1)])
 
@@ -294,8 +294,8 @@ async def create_public_survey_response(
         )
 
     response = build_public_response_document(survey_id, data, platform)
-    sentiment_pulse_survey_responses_collection.insert_one(response)
-    sentiment_pulse_surveys_collection.update_one(
+    survey_responses_collection.insert_one(response)
+    surveys_collection.update_one(
         {"id": survey_id},
         {
             "$inc": {"responseCount": 1},
@@ -334,7 +334,7 @@ async def fetch_regional_analysis(
     if start_date:
         match["created_at"] = {"$gte": start_date}
 
-    events = health_literacy_analytics_events_collection.find(match)
+    events = analytics_events_collection.find(match)
     regional_counts = {region: Counter() for region in selected_regions}
 
     for event in events:

@@ -10,7 +10,7 @@ from typing_extensions import Annotated
 from middleware.requireRole import require_role
 from models.healthLiteracyHubAnalytics import HealthLiteracyAnalyticsEvent
 from helpers.miscHelpers import get_ph_datetime
-from config.database import health_literacy_analytics_events_collection
+from config.database import analytics_events_collection
 from controllers.health_literacy_hub.analytics import (
     build_analytics_event_document,
     build_health_literacy_analytics_overview,
@@ -250,7 +250,7 @@ async def create_health_literacy_analytics_event(
     data: HealthLiteracyAnalyticsEvent,
     request: Request,
 ):
-    health_literacy_analytics_events_collection.insert_one(
+    analytics_events_collection.insert_one(
         build_analytics_event_document(data, request)
     )
 

@@ -16,7 +16,7 @@ from .constants import (
     get_content_bucket,
     get_legacy_content_type,
     get_storage_content_types,
-    health_literacy_content_collection,
+    content_collection,
     health_literacy_folder,
     health_literacy_media_folder,
     normalize_storage_content_type,
@@ -97,12 +97,12 @@ def get_media_extension(filename: Optional[str], content_type_header: str) -> st
 
 
 def ensure_content_indexes() -> None:
-    health_literacy_content_collection.create_index(
+    content_collection.create_index(
         [("contentType", 1), ("id", 1)],
         unique=True,
         name="unique_health_literacy_content_type_id",
     )
-    health_literacy_content_collection.create_index(
+    content_collection.create_index(
         [
             ("contentType", 1),
             ("publishToMobile", 1),
@@ -112,7 +112,7 @@ def ensure_content_indexes() -> None:
         ],
         name="health_literacy_mobile_publish_lookup",
     )
-    health_literacy_content_collection.create_index(
+    content_collection.create_index(
         [
             ("contentType", 1),
             ("publishToWebsite", 1),
@@ -232,7 +232,7 @@ def normalize_seed_content_item(content_type: str, item: dict) -> dict:
 def migrate_existing_content_documents(storage_content_type: str) -> None:
     legacy_content_type = get_legacy_content_type(storage_content_type)
     existing_content = list(
-        health_literacy_content_collection.find(
+        content_collection.find(
             {
                 "contentType": {
                     "$in": [
@@ -271,7 +271,7 @@ def migrate_existing_content_documents(storage_content_type: str) -> None:
         normalized_item.pop("_id", None)
         normalized_item["id"] = item_id
 
-        health_literacy_content_collection.replace_one(
+        content_collection.replace_one(
             {
                 "contentType": storage_content_type,
                 "id": item_id,
@@ -289,14 +289,14 @@ def migrate_existing_content_documents(storage_content_type: str) -> None:
             )
         ]
         if redundant_ids:
-            health_literacy_content_collection.delete_many(
+            content_collection.delete_many(
                 {"_id": {"$in": redundant_ids}}
             )
 
 
 def migrate_existing_data_url_media_documents(content_type: str) -> None:
     storage_content_type = require_storage_content_type(content_type)
-    existing_content = health_literacy_content_collection.find(
+    existing_content = content_collection.find(
         {
             "contentType": storage_content_type,
             "media.dataUrl": {"$exists": True},
@@ -309,7 +309,7 @@ def migrate_existing_data_url_media_documents(content_type: str) -> None:
             item,
         )
 
-        health_literacy_content_collection.update_one(
+        content_collection.update_one(
             {"_id": item["_id"]},
             {"$set": {"media": migrated_media}},
         )
@@ -329,7 +329,7 @@ def ensure_json_content_migrated(content_type: str) -> None:
 
         normalized_item = normalize_seed_content_item(storage_content_type, item)
 
-        health_literacy_content_collection.update_one(
+        content_collection.update_one(
             {
                 "contentType": storage_content_type,
                 "id": normalized_item["id"],
@@ -348,7 +348,7 @@ def read_content(content_type: str) -> list:
     ensure_json_content_migrated(storage_content_type)
 
     content = list(
-        health_literacy_content_collection.find(
+        content_collection.find(
             {"contentType": storage_content_type}
         ).sort([("isPinned", -1), ("pinnedAt", -1), ("createdAt", -1)])
     )
@@ -390,7 +390,7 @@ def write_content(content_type: str, content: list) -> None:
     )
 
     for content_document in content_documents:
-        health_literacy_content_collection.replace_one(
+        content_collection.replace_one(
             {
                 "contentType": storage_content_type,
                 "id": content_document["id"],
@@ -399,7 +399,7 @@ def write_content(content_type: str, content: list) -> None:
             upsert=True,
         )
 
-    health_literacy_content_collection.delete_many(
+    content_collection.delete_many(
         {
             "contentType": storage_content_type,
             "id": {"$nin": content_ids},
@@ -458,7 +458,7 @@ def fetch_published_mobile_content(content_type: Optional[str] = None) -> list:
         ensure_json_content_migrated(content_key)
 
     return list(
-        health_literacy_content_collection.find(
+        content_collection.find(
             get_published_mobile_match(content_type)
         ).sort([("isPinned", -1), ("pinnedAt", -1), ("createdAt", -1)])
     )
@@ -483,7 +483,7 @@ def fetch_published_website_content(content_type: Optional[str] = None) -> list:
         ensure_json_content_migrated(content_key)
 
     return list(
-        health_literacy_content_collection.find(
+        content_collection.find(
             get_published_website_match(content_type)
         ).sort([("isPinned", -1), ("pinnedAt", -1), ("createdAt", -1)])
     )

@@ -1,7 +1,7 @@
 from config.database import (
-    health_literacy_analytics_events_collection,
-    sentiment_pulse_survey_responses_collection,
-    sentiment_pulse_surveys_collection,
+    analytics_events_collection,
+    survey_responses_collection,
+    surveys_collection,
 )
 
 REGIONS = [

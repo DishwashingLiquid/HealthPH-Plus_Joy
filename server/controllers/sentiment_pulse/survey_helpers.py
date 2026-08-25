@@ -9,18 +9,18 @@ from helpers.miscHelpers import get_ph_datetime
 from .constants import (
     EMPTY_SENTIMENT_BREAKDOWN,
     PUBLIC_PLATFORMS,
-    sentiment_pulse_survey_responses_collection,
-    sentiment_pulse_surveys_collection,
+    survey_responses_collection,
+    surveys_collection,
 )
 
 
 def ensure_survey_indexes() -> None:
-    sentiment_pulse_surveys_collection.create_index(
+    surveys_collection.create_index(
         [("id", 1)],
         unique=True,
         name="unique_sentiment_pulse_survey_id",
     )
-    sentiment_pulse_surveys_collection.create_index(
+    surveys_collection.create_index(
         [
             ("scheduledAt", 1),
             ("publishToMobile", 1),
@@ -28,7 +28,7 @@ def ensure_survey_indexes() -> None:
         ],
         name="sentiment_pulse_public_publish_lookup",
     )
-    sentiment_pulse_survey_responses_collection.create_index(
+    survey_responses_collection.create_index(
         [("surveyId", 1), ("createdAt", -1)],
         name="sentiment_pulse_response_lookup",
     )
@@ -102,7 +102,7 @@ def serialize_survey(survey: dict, include_private_fields: bool = True) -> dict:
 
 def get_survey_or_404(survey_id: str) -> dict:
     ensure_survey_indexes()
-    survey = sentiment_pulse_surveys_collection.find_one({"id": survey_id})
+    survey = surveys_collection.find_one({"id": survey_id})
 
     if not survey:
         raise HTTPException(

@@ -4,7 +4,7 @@ from .constants import (
     get_content_type_label,
     get_legacy_content_type,
     normalize_storage_content_type,
-    health_literacy_analytics_events_collection,
+    analytics_events_collection,
 )
 
 
@@ -44,7 +44,7 @@ def get_public_download_count(content_type: str, content_id: str) -> int:
     if not content_id:
         return 0
 
-    return health_literacy_analytics_events_collection.count_documents(
+    return analytics_events_collection.count_documents(
         {
             "event_type": "content_downloaded",
             "content_id": content_id,
@@ -60,7 +60,7 @@ def get_public_share_count(content_type: str, content_id: str) -> int:
     if not content_id:
         return 0
 
-    return health_literacy_analytics_events_collection.count_documents(
+    return analytics_events_collection.count_documents(
         {
             "event_type": "content_shared",
             "content_id": content_id,
@@ -76,7 +76,7 @@ def get_public_view_count(content_type: str, content_id: str) -> int:
     if not content_id:
         return 0
 
-    return health_literacy_analytics_events_collection.count_documents(
+    return analytics_events_collection.count_documents(
         {
             "event_type": "content_opened",
             "content_id": content_id,

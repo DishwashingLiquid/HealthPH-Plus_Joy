@@ -19,7 +19,7 @@ from .constants import (
     get_content_type_label,
     get_legacy_content_type,
     normalize_storage_content_type,
-    health_literacy_analytics_events_collection,
+    analytics_events_collection,
     user_collection,
 )
 from .content_bridge import read_content
@@ -249,7 +249,7 @@ def get_content_interaction_user_count(content_id: str, match: dict) -> int:
     if not content_id or not match:
         return 0
 
-    visitor_ids = health_literacy_analytics_events_collection.distinct(
+    visitor_ids = analytics_events_collection.distinct(
         "visitor_id",
         {
             **match,
@@ -391,7 +391,7 @@ def build_health_literacy_analytics_overview(
         content_type=content_type,
         region=region,
     )
-    interacted_visitor_ids = health_literacy_analytics_events_collection.distinct(
+    interacted_visitor_ids = analytics_events_collection.distinct(
         "visitor_id",
         content_interaction_match,
     )
@@ -406,7 +406,7 @@ def build_health_literacy_analytics_overview(
     )
 
     return {
-        "totalContentInteractions": health_literacy_analytics_events_collection.count_documents(
+        "totalContentInteractions": analytics_events_collection.count_documents(
             content_interaction_match
         ),
         "contentPieces": count_content_pieces(
