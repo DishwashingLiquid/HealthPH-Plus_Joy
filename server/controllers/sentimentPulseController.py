@@ -5,6 +5,9 @@ from fastapi import Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse
 from typing_extensions import Annotated
 
+from config.database import analytics_entries_collection
+from helpers.analyticsEntryHelpers import build_survey_response_analytics_entries
+
 from helpers.miscHelpers import get_ph_datetime
 from middleware.requireAuth import require_auth
 from middleware.requireRole import require_role
@@ -294,7 +297,16 @@ async def create_public_survey_response(
         )
 
     response = build_public_response_document(survey_id, data, platform)
-    sentiment_pulse_survey_responses_collection.insert_one(response)
+
+    inserted_response = sentiment_pulse_survey_responses_collection.insert_one(response)
+
+    response["_id"] = inserted_response.inserted_id
+
+    analytics_entries = build_survey_response_analytics_entries(response)
+
+    if analytics_entries:
+        analytics_entries_collection.insert_many(analytics_entries)
+    
     sentiment_pulse_surveys_collection.update_one(
         {"id": survey_id},
         {

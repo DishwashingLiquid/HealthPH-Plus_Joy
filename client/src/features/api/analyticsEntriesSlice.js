@@ -21,9 +21,18 @@ export const analyticsEntriesApi = baseAPI.injectEndpoints({
             }),
             providesTags: ["AnalyticsEntries"],
         }),
+        processAnalyticsEntries: builder.mutation({
+            query: (entryIds) => ({
+                url: "/analytics-entries/process",
+                method: "POST",
+                body: entryIds,
+            }),
+            invalidatesTags: ["AnalyticsEntries"],
+        }),
     }),
 });
 
 export const {
     useFetchAnalyticsEntriesQuery,
+    useProcessAnalyticsEntriesMutation,
 } = analyticsEntriesApi;
