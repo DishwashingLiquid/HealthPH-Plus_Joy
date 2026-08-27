@@ -3,6 +3,7 @@ const ModalWithBody = ({
   onConfirm,
   onConfirmDisabled,
   onConfirmLabel,
+  onCancelLabel = "Cancel",
   confirmButtonStyle,
   cancelButtonStyle,
   onCancel,
@@ -39,7 +40,7 @@ const ModalWithBody = ({
                   disabled={onLoading}
                   style={cancelButtonStyle}
                 >
-                  Cancel
+                  {onCancelLabel}
                 </button>
               )}
               <button

@@ -12,7 +12,7 @@
       "id": "6a72d1adb16c674ce125be9b",
       "name": "Janzzen Cuentas"
     },
-    "description": "test",
+    "description": "test articl",
     "diseases": [],
     "duration": "",
     "explanation": null,
@@ -23,7 +23,7 @@
     "isPinned": false,
     "isPublished": true,
     "language": "en",
-    "lastReviewedAt": "2026-08-14T11:31:01.764827",
+    "lastReviewedAt": "2026-08-26T09:30:24.595524",
     "lastReviewedBy": {
       "id": "6a72d1adb16c674ce125be9b",
       "name": "Janzzen Cuentas"
@@ -38,11 +38,11 @@
     "reviewRequestedAt": "",
     "source": null,
     "tags": [],
-    "title": "test",
+    "title": "test article",
     "topics": [],
     "verdict": "Needs Context",
     "verifiedBy": "Project Researcher",
-    "updatedAt": "2026-08-14T11:31:01.764827",
+    "updatedAt": "2026-08-26T09:30:24.595524",
     "updatedBy": {
       "id": "6a72d1adb16c674ce125be9b",
       "name": "Janzzen Cuentas"

@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components, react/prop-types */
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Model } from "survey-core";
 import { Survey } from "survey-react-ui";
 import "survey-core/survey-core.css";
@@ -442,11 +442,6 @@ export function MobileSurveyCreateModal({
   isSubmitting,
   onClose,
 }) {
-  const surveyModel = useMemo(() => {
-    const model = new Model(buildSurveyJson(draft));
-    model.showCompleteButton = false;
-    return model;
-  }, [draft]);
   const secondaryButtonStyle = {
     backgroundColor: "#ffffff",
     color: "#465360",
@@ -524,8 +519,7 @@ export function MobileSurveyCreateModal({
       }
     >
       <div className="max-h-[calc(100vh-230px)] overflow-y-auto px-5 py-5">
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.85fr)]">
-          <div className="space-y-5">
+        <div className="space-y-5">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_180px]">
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
@@ -788,24 +782,103 @@ export function MobileSurveyCreateModal({
                 {draftError}
               </div>
             )}
+        </div>
+      </div>
+    </ModalWithBody>
+  );
+}
+
+export function MobileSurveyReviewModal({
+  snapshot,
+  reviewError,
+  isSubmitting,
+  onConfirm,
+  onBackToEdit,
+}) {
+  const [hasAcknowledgedUpdate, setHasAcknowledgedUpdate] = useState(false);
+  const [surveyModel] = useState(() => {
+    const model = new Model(
+      JSON.parse(JSON.stringify(snapshot.payload.surveyJson))
+    );
+    model.showCompleteButton = false;
+    return model;
+  });
+  const isUpdate = snapshot.mode === "update";
+  const requiresAcknowledgement =
+    isUpdate && snapshot.requiresUpdateAcknowledgement;
+
+  return (
+    <ModalWithBody
+      onConfirm={onConfirm}
+      onConfirmDisabled={
+        isSubmitting || (requiresAcknowledgement && !hasAcknowledgedUpdate)
+      }
+      onConfirmLabel={isUpdate ? "Confirm Update" : "Confirm Create Draft"}
+      onCancel={onBackToEdit}
+      onCancelLabel="Back to Edit"
+      onLoading={isSubmitting}
+      onLoadingLabel={isUpdate ? "Updating..." : "Creating..."}
+      heading="Review Survey"
+      color="primary"
+      additionalClasses="health-literacy-content-modal admin-brand-modal !z-[80] !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
+    >
+      <div className="max-h-[calc(100vh-230px)] overflow-y-auto px-5 py-5">
+        <div className="space-y-5">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <p className="text-[16px] font-semibold text-gray-900">
+              {snapshot.payload.title}
+            </p>
+            <p className="mt-1 text-sm text-gray-600">
+              {snapshot.payload.subtitle}
+            </p>
+            <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              {Number(snapshot.payload.target).toLocaleString()} target responses
+            </p>
           </div>
 
-          <div className="min-w-0">
-            <div className="sticky top-0 rounded-lg border border-gray-200 bg-gray-50 p-4">
-              <h4 className="mb-3 text-[16px] font-semibold text-gray-800">
-                SurveyJS Preview
-              </h4>
-              <div className="rounded-lg border border-gray-200 bg-white p-3">
-                {draft.questions.length > 0 ? (
-                  <Survey model={surveyModel} />
-                ) : (
-                  <div className="px-3 py-8 text-center text-sm text-gray-500">
-                    Survey preview will appear after adding a question.
-                  </div>
-                )}
-              </div>
+          {isUpdate && (
+            <div
+              className={`rounded-lg border px-4 py-3 text-sm ${
+                requiresAcknowledgement
+                  ? "border-amber-200 bg-amber-50 text-amber-900"
+                  : "border-blue-200 bg-blue-50 text-blue-900"
+              }`}
+            >
+              {requiresAcknowledgement ? (
+                <>
+                  <p>
+                    Updating this survey will remove its existing responses, reset response analytics, and clear its schedule.
+                  </p>
+                  <label className="mt-3 flex items-start gap-2 font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={hasAcknowledgedUpdate}
+                      disabled={isSubmitting}
+                      onChange={(event) =>
+                        setHasAcknowledgedUpdate(event.target.checked)
+                      }
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span>I understand and want to continue.</span>
+                  </label>
+                </>
+              ) : (
+                <p>
+                  This survey has no existing responses or schedule to remove.
+                </p>
+              )}
             </div>
+          )}
+
+          <div className="rounded-lg border border-gray-200 bg-white p-3">
+            <Survey model={surveyModel} />
           </div>
+
+          {reviewError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+              {reviewError}
+            </div>
+          )}
         </div>
       </div>
     </ModalWithBody>

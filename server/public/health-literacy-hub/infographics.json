@@ -1,8 +1,8 @@
 [
   {
     "id": "abf0e920-5b0b-4561-bb6b-a3e350cc7622",
-    "title": "test",
-    "description": "test",
+    "title": "test infographic",
+    "description": "test infogprahic",
     "tags": [],
     "topics": [],
     "diseases": [],
@@ -25,8 +25,8 @@
     "publishToWebsite": true,
     "isPublished": true,
     "createdAt": "2026-08-14T11:07:06.598414",
-    "updatedAt": "2026-08-14T11:32:25.519775",
-    "lastReviewedAt": "2026-08-14T11:32:25.519775",
+    "updatedAt": "2026-08-26T09:30:41.546958",
+    "lastReviewedAt": "2026-08-26T09:30:41.546958",
     "assignedReviewer": "",
     "reviewRequestedAt": "",
     "lastReviewedBy": {

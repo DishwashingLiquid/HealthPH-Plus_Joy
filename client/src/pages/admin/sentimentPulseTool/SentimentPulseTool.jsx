@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   useCreateSentimentPulseSurveyMutation,
   useDeleteSentimentPulseSurveyMutation,
@@ -6,10 +6,11 @@ import {
   useFetchSentimentPulseSurveysQuery,
   useScheduleSentimentPulseSurveyMutation,
   useUpdateSentimentPulseSurveyMutation,
-} from "../../features/api/sentimentPulseSlice";
-import ModalWithBody from "../../components/admin/ModalWithBody";
+} from "../../../features/api/sentimentPulseSlice";
+import ModalWithBody from "../../../components/admin/ModalWithBody";
 import MobileSurveys, {
   MobileSurveyCreateModal,
+  MobileSurveyReviewModal,
   MobileSurveyScheduleModal,
   buildSurveyJson,
   createDraftFromSurvey,
@@ -31,6 +32,38 @@ import {
 } from "./exportUtils";
 import { SENTIMENT_PULSE_TABS } from "./tabs";
 
+const freezeSnapshot = (value) => {
+  if (!value || typeof value !== "object" || Object.isFrozen(value)) {
+    return value;
+  }
+
+  Object.values(value).forEach(freezeSnapshot);
+  return Object.freeze(value);
+};
+
+const createSurveySubmissionSnapshot = (draft, editingSurvey) => {
+  const payload = {
+    title: draft.title.trim(),
+    subtitle: draft.subtitle.trim() || "Draft mobile sentiment survey",
+    target: Number(draft.target),
+    questions: draft.questions,
+    surveyJson: buildSurveyJson(draft),
+  };
+  const snapshot = {
+    mode: editingSurvey ? "update" : "create",
+    surveyId: editingSurvey?.id || "",
+    payload: JSON.parse(JSON.stringify(payload)),
+    requiresUpdateAcknowledgement: Boolean(
+      editingSurvey &&
+        (Number(editingSurvey.responses ?? editingSurvey.responseCount ?? 0) >
+          0 ||
+          editingSurvey.scheduledAt)
+    ),
+  };
+
+  return freezeSnapshot(snapshot);
+};
+
 export default function SentimentPulseTool() {
   const [activeTab, setActiveTab] = useState("sentiment-trends");
   const [selectedRegions, setSelectedRegions] = useState([]);
@@ -40,10 +73,13 @@ export default function SentimentPulseTool() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [draft, setDraft] = useState(emptyDraft);
   const [draftError, setDraftError] = useState("");
+  const [pendingSurveySubmission, setPendingSurveySubmission] = useState(null);
+  const [reviewError, setReviewError] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [editingSurvey, setEditingSurvey] = useState(null);
   const [scheduleItems, setScheduleItems] = useState([]);
   const [scheduleError, setScheduleError] = useState("");
+  const isConfirmingSurveyRef = useRef(false);
   const { data: regionalAnalysisData } =
     useFetchSentimentPulseRegionalAnalysisQuery({
       timeRange,
@@ -95,6 +131,8 @@ export default function SentimentPulseTool() {
     setEditingSurvey(null);
     setIsDeleteModalOpen(false);
     setDeleteError("");
+    setPendingSurveySubmission(null);
+    setReviewError("");
     resetDraft();
     setIsCreateModalOpen(true);
   };
@@ -103,6 +141,8 @@ export default function SentimentPulseTool() {
     setEditingSurvey(null);
     setIsDeleteModalOpen(false);
     setDeleteError("");
+    setPendingSurveySubmission(null);
+    setReviewError("");
     setIsCreateModalOpen(false);
     resetDraft();
   };
@@ -111,6 +151,8 @@ export default function SentimentPulseTool() {
     setEditingSurvey(survey);
     setIsDeleteModalOpen(false);
     setDeleteError("");
+    setPendingSurveySubmission(null);
+    setReviewError("");
     setDraft(createDraftFromSurvey(survey));
     setDraftError("");
     setIsCreateModalOpen(true);
@@ -273,7 +315,7 @@ export default function SentimentPulseTool() {
     setDraftError("");
   };
 
-  const handleCreateSurvey = async () => {
+  const handleCreateSurvey = () => {
     const validationMessage = validateDraft(draft);
 
     if (validationMessage) {
@@ -281,27 +323,11 @@ export default function SentimentPulseTool() {
       return;
     }
 
-    const surveyPayload = {
-      title: draft.title.trim(),
-      subtitle: draft.subtitle.trim() || "Draft mobile sentiment survey",
-      target: Number(draft.target),
-      questions: draft.questions,
-      surveyJson: buildSurveyJson(draft),
-    };
-
-    try {
-      await createSentimentPulseSurvey(surveyPayload).unwrap();
-      setActiveTab("mobile-surveys");
-      handleCloseModal();
-    } catch (error) {
-      setDraftError(
-        error?.data?.detail ||
-          "Unable to create the survey draft. Please try again."
-      );
-    }
+    setReviewError("");
+    setPendingSurveySubmission(createSurveySubmissionSnapshot(draft, null));
   };
 
-  const handleUpdateSurvey = async () => {
+  const handleUpdateSurvey = () => {
     if (!editingSurvey) {
       return;
     }
@@ -313,26 +339,53 @@ export default function SentimentPulseTool() {
       return;
     }
 
-    const surveyPayload = {
-      title: draft.title.trim(),
-      subtitle: draft.subtitle.trim() || "Draft mobile sentiment survey",
-      target: Number(draft.target),
-      questions: draft.questions,
-      surveyJson: buildSurveyJson(draft),
-    };
+    setReviewError("");
+    setPendingSurveySubmission(
+      createSurveySubmissionSnapshot(draft, editingSurvey)
+    );
+  };
+
+  const handleConfirmSurvey = async () => {
+    if (!pendingSurveySubmission || isConfirmingSurveyRef.current) {
+      return;
+    }
+
+    isConfirmingSurveyRef.current = true;
+    setReviewError("");
 
     try {
-      await updateSentimentPulseSurvey({
-        surveyId: editingSurvey.id,
-        data: surveyPayload,
-      }).unwrap();
+      if (pendingSurveySubmission.mode === "update") {
+        await updateSentimentPulseSurvey({
+          surveyId: pendingSurveySubmission.surveyId,
+          data: pendingSurveySubmission.payload,
+        }).unwrap();
+      } else {
+        await createSentimentPulseSurvey(
+          pendingSurveySubmission.payload
+        ).unwrap();
+      }
+
       setActiveTab("mobile-surveys");
       handleCloseModal();
     } catch (error) {
-      setDraftError(
-        error?.data?.detail || "Unable to update the survey. Please try again."
+      setReviewError(
+        error?.data?.detail ||
+          (pendingSurveySubmission.mode === "update"
+            ? "Unable to update the survey. Please try again."
+            : "Unable to create the survey draft. Please try again.")
       );
+    } finally {
+      isConfirmingSurveyRef.current = false;
     }
+  };
+
+  const handleBackToEdit = () => {
+    if (isCreatingSurvey || isUpdatingSurvey) {
+      return;
+    }
+
+    setReviewError("");
+    setPendingSurveySubmission(null);
   };
 
   const handleDeleteSurvey = async () => {
@@ -589,6 +642,19 @@ export default function SentimentPulseTool() {
           onDeleteDisabled={isUpdatingSurvey || isDeletingSurvey}
           isSubmitting={editingSurvey ? isUpdatingSurvey : isCreatingSurvey}
           onClose={handleCloseModal}
+        />
+      )}
+      {pendingSurveySubmission && (
+        <MobileSurveyReviewModal
+          snapshot={pendingSurveySubmission}
+          reviewError={reviewError}
+          isSubmitting={
+            pendingSurveySubmission.mode === "update"
+              ? isUpdatingSurvey
+              : isCreatingSurvey
+          }
+          onConfirm={handleConfirmSurvey}
+          onBackToEdit={handleBackToEdit}
         />
       )}
       {isDeleteModalOpen && editingSurvey && (
