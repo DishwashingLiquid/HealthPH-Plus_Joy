@@ -53,8 +53,8 @@ export const ContentGrid = ({
     <div
       className={
         contentType === "Articles"
-          ? "flex w-full flex-col gap-[16px]"
-          : "grid grid-cols-1 gap-[20px] md:grid-cols-2 lg:grid-cols-3"
+          ? "flex w-full flex-col gap-[10px]"
+          : "grid grid-cols-1 gap-[10px] md:grid-cols-2 lg:grid-cols-3"
       }
     >
       {content.map((item) => (

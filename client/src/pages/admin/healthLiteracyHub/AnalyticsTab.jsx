@@ -33,7 +33,7 @@ const AnalyticsSelect = ({ label, value, options, onChange }) => {
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="min-h-[40px] rounded-[8px] border border-[#D0D5DD] bg-white px-[12px] text-[14px] text-gray-800 outline-none focus:border-[#6A8EB5] focus:ring-2 focus:ring-[#6A8EB5]/20"
+        className="min-h-[40px] rounded-[10px] border border-[#E5E5E5] bg-white px-[14px] text-[14px] text-gray-800 outline-none focus:border-[#32418C] focus:ring-2 focus:ring-[#D9E3F2]"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -47,9 +47,9 @@ const AnalyticsSelect = ({ label, value, options, onChange }) => {
 
 const AnalyticsMetricCard = ({ label, value, detail }) => {
   return (
-    <div className="rounded-[8px] border border-[#E5E5E5] bg-white p-[16px]">
+    <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
       <p className="text-sm text-gray-500">{label}</p>
-      <p className="mt-[6px] text-[24px] font-semibold text-gray-900">{value}</p>
+      <p className="mt-[6px] text-[28px] font-semibold leading-none text-gray-800">{value}</p>
       {detail && <p className="mt-[4px] text-[12px] text-gray-500">{detail}</p>}
     </div>
   );
@@ -57,7 +57,7 @@ const AnalyticsMetricCard = ({ label, value, detail }) => {
 
 const AnalyticsPanel = ({ title, children }) => {
   return (
-    <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[16px]">
+    <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
       <h3 className="mb-[14px] text-[16px] font-semibold text-gray-800">
         {title}
       </h3>
@@ -262,7 +262,7 @@ const AnalyticsTab = () => {
         `}
       </style>
       <div ref={reportRef} className="flex flex-col gap-[16px]">
-        <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[16px]">
+        <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
           <div className="flex flex-col gap-[14px] lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h2 className="text-[18px] font-semibold text-gray-800">

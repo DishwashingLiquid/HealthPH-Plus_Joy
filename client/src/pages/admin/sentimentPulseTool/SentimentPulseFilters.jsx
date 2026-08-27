@@ -32,16 +32,16 @@ export default function SentimentPulseFilters({
   }, []);
 
   return (
-    <div className="bg-white shadow-sm rounded-lg p-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
+      <div className="grid grid-cols-1 gap-[12px] lg:grid-cols-3">
         <div>
-          <label className="block text-sm font-semibold text-gray-900 mb-2">
+          <label className="mb-[6px] block text-[13px] font-semibold text-gray-700">
             Time Range
           </label>
           <select
             value={timeRange}
             onChange={(event) => onTimeRangeChange(event.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="min-h-[40px] w-full rounded-[10px] border border-[#E5E5E5] bg-white px-[14px] py-[10px] text-sm text-gray-800 outline-none focus:border-[#32418C] focus:ring-2 focus:ring-[#D9E3F2]"
           >
             <option value="last-7-days">Last 7 Days</option>
             <option value="last-30-days">Last 30 Days</option>
@@ -51,48 +51,52 @@ export default function SentimentPulseFilters({
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-900 mb-2">
+          <label className="mb-[6px] block text-[13px] font-semibold text-gray-700">
             Regions
           </label>
           <div className="relative" ref={regionDropdownRef}>
             <button
+              type="button"
               onClick={() => setShowRegionDropdown(!showRegionDropdown)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white text-left flex items-center justify-between hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="flex min-h-[40px] w-full items-center justify-between gap-[12px] rounded-[10px] border border-[#E5E5E5] bg-white px-[14px] py-[10px] text-left text-sm text-gray-800 outline-none transition hover:bg-[#F8F9FA] focus:border-[#32418C] focus:ring-2 focus:ring-[#D9E3F2]"
             >
               <span>
                 {selectedRegions.length === 0
                   ? "All Regions"
                   : `${selectedRegions.length} Selected`}
               </span>
-              <span className="text-gray-600">â–¼</span>
+              <span className="text-xs font-semibold text-gray-500">v</span>
             </button>
 
             {showRegionDropdown && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
-                <div className="px-4 py-2 border-b border-gray-200">
-                  <label className="flex items-center cursor-pointer">
+              <div className="absolute left-0 right-0 top-full z-20 mt-[8px] max-h-[260px] overflow-y-auto rounded-[12px] border border-[#E5E5E5] bg-white shadow-lg">
+                <div className="border-b border-[#E5E5E5] px-[14px] py-[10px]">
+                  <label className="flex cursor-pointer items-center">
                     <input
                       type="checkbox"
                       checked={selectedRegions.length === REGIONS.length}
                       onChange={onSelectAllRegions}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                      className="h-[16px] w-[16px] accent-[#32418C]"
                     />
-                    <span className="ml-2 font-semibold text-gray-900">
+                    <span className="ml-[10px] text-sm font-semibold text-gray-800">
                       Select All
                     </span>
                   </label>
                 </div>
 
                 {REGIONS.map((region) => (
-                  <div key={region.value} className="px-4 py-2 hover:bg-gray-50">
-                    <label className="flex items-center cursor-pointer">
+                  <div
+                    key={region.value}
+                    className="px-[14px] py-[10px] hover:bg-[#F8F9FA]"
+                  >
+                    <label className="flex cursor-pointer items-center">
                       <input
                         type="checkbox"
                         checked={selectedRegions.includes(region.value)}
                         onChange={() => onRegionChange(region.value)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                        className="h-[16px] w-[16px] accent-[#32418C]"
                       />
-                      <span className="ml-2 text-gray-900 text-sm">
+                      <span className="ml-[10px] text-sm text-gray-800">
                         {region.label}
                       </span>
                     </label>
@@ -104,41 +108,44 @@ export default function SentimentPulseFilters({
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-900 mb-2">
+          <label className="mb-[6px] block text-[13px] font-semibold text-gray-700">
             Export Data
           </label>
-          <div className="flex gap-2">
+          <div className="flex gap-[8px]">
             <button
+              type="button"
               onClick={onExportCsv}
-              className="prod-btn-base admin-module-brand-btn flex-1 min-h-[40px] flex items-center justify-center"
+              className="flex min-h-[40px] flex-1 items-center justify-center rounded-[10px] bg-[#32418C] px-[14px] py-[10px] text-sm font-medium text-white shadow-sm transition hover:bg-[#27346F]"
             >
-              <span className="text-white">CSV</span>
+              CSV
             </button>
             <button
+              type="button"
               onClick={onExportPdf}
-              className="prod-btn-base admin-module-brand-btn flex-1 min-h-[40px] flex items-center justify-center"
+              className="flex min-h-[40px] flex-1 items-center justify-center rounded-[10px] bg-[#32418C] px-[14px] py-[10px] text-sm font-medium text-white shadow-sm transition hover:bg-[#27346F]"
             >
-              <span className="text-white">PDF</span>
+              PDF
             </button>
           </div>
         </div>
       </div>
 
       {selectedRegions.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-gray-200">
-          <p className="text-sm text-gray-600 mb-2">Active Filters:</p>
-          <div className="flex flex-wrap gap-2">
+        <div className="mt-[16px] border-t border-[#E5E5E5] pt-[14px]">
+          <p className="mb-[8px] text-sm text-gray-500">Active filters:</p>
+          <div className="flex flex-wrap gap-[8px]">
             {selectedRegions.map((region) => (
               <span
                 key={region}
-                className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                className="inline-flex items-center gap-[8px] rounded-full border border-[#D9E3F2] bg-[#F5F8FD] px-[10px] py-[5px] text-xs font-semibold text-[#32418C]"
               >
                 {getRegionLabel(region)}
                 <button
+                  type="button"
                   onClick={() => onRegionChange(region)}
-                  className="text-blue-600 hover:text-blue-900"
+                  className="text-[#32418C] hover:text-[#27346F]"
                 >
-                  âœ•
+                  x
                 </button>
               </span>
             ))}

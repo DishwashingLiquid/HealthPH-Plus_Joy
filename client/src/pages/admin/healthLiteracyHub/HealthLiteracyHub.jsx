@@ -19,37 +19,41 @@ const HealthLiteracyHub = () => {
     TABS.find((tab) => tab.id === activeTab)?.Component ?? ArticlesTab;
 
   return (
-    <div className="flex flex-col gap-[20px]">
+    <div className="flex flex-col gap-[10px]">
       <div>
         <h1 className="text-[24px] font-semibold text-gray-800">
           Health Literacy Hub
         </h1>
-        <p className="mt-[4px] text-[14px] text-gray-500">
+        <p className="text-[14px] text-gray-500">
           Access educational resources, multilingual content, and community
           insights to enhance your health knowledge.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-[20px]">
+      <div className="grid grid-cols-1 gap-[10px] md:grid-cols-3">
         {ILLUSTRATIONS.map((illustration) => (
           <div
             key={illustration.id}
-            className="bg-white rounded-[12px] border border-[#E5E5E5] p-[24px] flex flex-col items-center justify-center text-center"
+            className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]"
           >
-            <div className="mb-[16px]">
-              <Icon
-                iconName={illustration.icon}
-                height="48px"
-                width="48px"
-                fill="#6A8EB5"
-              />
+            <div className="flex items-start gap-[14px]">
+              <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[10px] bg-[#F5F8FD]">
+                <Icon
+                  iconName={illustration.icon}
+                  height="24px"
+                  width="24px"
+                  fill="#32418C"
+                />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-[16px] font-semibold text-gray-800">
+                  {illustration.title}
+                </h3>
+                <p className="mt-[6px] text-[14px] leading-[20px] text-gray-500">
+                  {illustration.description}
+                </p>
+              </div>
             </div>
-            <h3 className="mb-[8px] text-[18px] font-semibold text-gray-800">
-              {illustration.title}
-            </h3>
-            <p className="text-[14px] text-gray-500">
-              {illustration.description}
-            </p>
           </div>
         ))}
       </div>

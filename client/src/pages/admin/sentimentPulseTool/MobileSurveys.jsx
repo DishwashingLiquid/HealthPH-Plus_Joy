@@ -593,7 +593,7 @@ export function MobileSurveyCreateModal({
 
               <div className="space-y-3">
                 {draft.questions.length === 0 && (
-                  <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+                  <div className="rounded-[12px] border border-dashed border-[#D0D5DD] bg-[#F8FAFC] px-[20px] py-[32px] text-center text-sm text-gray-500">
                     Add a text, multiple choice, or rating scale question to
                     build the survey.
                   </div>
@@ -602,7 +602,7 @@ export function MobileSurveyCreateModal({
                 {draft.questions.map((question, index) => (
                   <div
                     key={question.id}
-                    className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+                    className="rounded-[12px] border border-[#E5E5E5] bg-white p-[16px]"
                   >
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                       <div>
@@ -953,7 +953,7 @@ export default function MobileSurveys({
 
   if (isLoading) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white px-4 py-8 text-center text-sm text-gray-500">
+      <div className="rounded-[12px] border border-[#E5E5E5] bg-white px-[20px] py-[32px] text-center text-sm text-gray-500">
         Loading mobile surveys...
       </div>
     );
@@ -961,7 +961,7 @@ export default function MobileSurveys({
 
   if (isError) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-8 text-center text-sm font-semibold text-red-700">
+      <div className="rounded-[12px] border border-[#F2CACA] bg-[#FFF6F6] px-[20px] py-[32px] text-center text-sm font-semibold text-[#B42318]">
         Unable to load mobile surveys.
       </div>
     );
@@ -969,7 +969,7 @@ export default function MobileSurveys({
 
   if (surveys.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+      <div className="rounded-[12px] border border-dashed border-[#D0D5DD] bg-[#F8FAFC] px-[20px] py-[32px] text-center text-sm text-gray-500">
         Create a draft survey to start scheduling mobile and website publication.
       </div>
     );
@@ -977,7 +977,7 @@ export default function MobileSurveys({
 
   return (
     <>
-      <div className="space-y-4">
+      <div className="flex flex-col gap-[10px]">
         {surveys.map((survey) => {
           const responses = Number(survey.responses || 0);
           const target = Number(survey.target || 0);
@@ -1002,25 +1002,25 @@ export default function MobileSurveys({
           return (
             <div
               key={survey.id}
-              className="bg-white shadow-sm rounded-lg p-6 border border-gray-200"
+              className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]"
             >
-              <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+              <div className="flex flex-col gap-[18px] lg:flex-row lg:items-center">
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-[8px]">
                     <h3 className="text-[16px] font-semibold text-gray-800">
                       {survey.title}
                     </h3>
                     <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass}`}
+                      className={`rounded-full px-[10px] py-[4px] text-xs font-semibold ${statusClass}`}
                     >
                       {survey.status}
                     </span>
                   </div>
-                  <p className="mt-1 text-[14px] text-gray-500">
+                  <p className="mt-[4px] text-[14px] text-gray-500">
                     {survey.subtitle}
                   </p>
                   {(scheduledAtLabel || publishedAtLabel) && (
-                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                    <div className="mt-[8px] flex flex-wrap gap-x-[16px] gap-y-[4px] text-xs text-gray-500">
                       {scheduledAtLabel && (
                         <span>
                           Scheduled:{" "}
@@ -1040,9 +1040,9 @@ export default function MobileSurveys({
                     </div>
                   )}
 
-                  <div className="mt-5">
-                    <div className="mb-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-gray-500">
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <div className="mt-[16px]">
+                    <div className="mb-[8px] flex flex-wrap items-center justify-between gap-x-[16px] gap-y-[4px] text-xs text-gray-500">
+                      <div className="flex flex-wrap items-center gap-x-[16px] gap-y-[4px]">
                         <span>
                           Responses:{" "}
                           <span className="font-semibold text-gray-700">
@@ -1060,9 +1060,9 @@ export default function MobileSurveys({
                         {responseDifferenceLabel}
                       </span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                    <div className="h-[10px] w-full overflow-hidden rounded-full bg-[#E5E7EB]">
                       <div
-                        className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                        className="h-full rounded-full bg-[#32418C] transition-all duration-300"
                         style={{
                           width: `${Math.min(responsePercentage, 100)}%`,
                         }}
@@ -1076,30 +1076,31 @@ export default function MobileSurveys({
                     Sentiment
                   </p>
                   <p
-                    className="mt-2 text-3xl font-bold"
+                    className="mt-[6px] text-[28px] font-semibold leading-none"
                     style={{ color: dominantColor }}
                   >
                     {sentimentScore}%
                   </p>
                   <p
-                    className="mt-1 text-sm font-semibold"
+                    className="mt-[4px] text-sm font-semibold"
                     style={{ color: dominantColor }}
                   >
                     {dominantSentiment}
                   </p>
                 </div>
 
-                <div className="grid w-full grid-cols-2 gap-2 lg:w-44 lg:shrink-0">
+                <div className="grid w-full grid-cols-2 gap-[8px] lg:w-[176px] lg:shrink-0">
                   <button
+                    type="button"
                     onClick={() => handleResults(survey.id)}
-                    className="px-3 py-2 bg-white text-gray-900 border border-gray-300 font-semibold rounded-lg hover:bg-gray-50 transition-colors duration-200 text-sm"
+                    className="min-h-[40px] rounded-[10px] border border-[#E5E5E5] bg-white px-[14px] py-[10px] text-sm font-medium text-gray-800 shadow-sm transition hover:bg-[#F8F9FA]"
                   >
                     Results
                   </button>
                   <button
+                    type="button"
                     onClick={() => onEdit(survey)}
-                    className="admin-module-brand-btn min-h-[40px] rounded-lg border px-3 py-2 text-sm font-semibold transition-colors duration-200"
-                    style={{ color: "#FFFFFF" }}
+                    className="min-h-[40px] rounded-[10px] bg-[#32418C] px-[14px] py-[10px] text-sm font-medium text-white shadow-sm transition hover:bg-[#27346F]"
                   >
                     Edit
                   </button>

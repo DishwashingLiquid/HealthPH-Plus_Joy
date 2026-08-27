@@ -7,6 +7,7 @@ import {
   useScheduleSentimentPulseSurveyMutation,
   useUpdateSentimentPulseSurveyMutation,
 } from "../../../features/api/sentimentPulseSlice";
+import { ToolbarButton } from "../../../components/ToolbarControls";
 import ModalWithBody from "../../../components/admin/ModalWithBody";
 import MobileSurveys, {
   MobileSurveyCreateModal,
@@ -463,19 +464,26 @@ export default function SentimentPulseTool() {
   return (
     <div className="flex flex-col gap-[10px]">
       <div>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <h1 className="text-[24px] font-semibold text-gray-800">Sentiment Pulse Tool</h1>
-          <button
+        <div className="flex flex-col gap-[12px] sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-[24px] font-semibold text-gray-800">
+              Sentiment Pulse Tool
+            </h1>
+            <p className="text-[14px] text-gray-500">
+              Monitor public sentiment trends, regional analysis, and mobile
+              survey responses.
+            </p>
+          </div>
+          <ToolbarButton
+            type="button"
             onClick={handleNewSurvey}
-            className="prod-btn-base admin-module-brand-btn flex min-h-[40px] items-center justify-center font-semibold sm:w-auto"
+            iconName="Plus"
+            variant="primary"
+            className="sm:w-auto"
           >
-            + New Survey
-          </button>
+            New Survey
+          </ToolbarButton>
         </div>
-        <p className="mt-2 text-[14px] text-gray-500">
-          Monitor public sentiment trends, regional analysis, and mobile survey
-          responses.
-        </p>
       </div>
 
       <StaticContainers />
@@ -520,7 +528,7 @@ export default function SentimentPulseTool() {
       {activeTab === "sentiment-trends" ? (
         <SentimentTrends />
       ) : (
-        <div className="bg-white shadow-sm rounded-b-lg p-6">
+        <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
           {activeTab === "regional-analysis" && (
             <RegionalAnalysis
               selectedRegions={selectedRegions}
@@ -535,14 +543,16 @@ export default function SentimentPulseTool() {
                     Mobile Surveys
                   </h2>
                 </div>
-                <button
+                <ToolbarButton
                   type="button"
                   onClick={handleScheduleButtonClick}
                   disabled={isSurveysLoading || isSurveysError}
-                  className="prod-btn-base flex min-h-[40px] items-center justify-center bg-[#32418c] font-semibold text-white shadow-[0px_0px_0px_1px_#32418c,_0px_1px_1px_0px_rgba(0,0,0,0.1)] transition-none hover:bg-[#32418c] hover:text-white hover:shadow-[0px_0px_0px_1px_#32418c,_0px_1px_1px_0px_rgba(0,0,0,0.1)] focus-visible:bg-[#32418c] focus-visible:text-white focus-visible:outline-none focus-visible:shadow-[0px_0px_0px_1px_#32418c,_0px_1px_1px_0px_rgba(0,0,0,0.1)] active:bg-[#32418c] active:text-white active:shadow-[0px_0px_0px_1px_#32418c,_0px_1px_1px_0px_rgba(0,0,0,0.1)] disabled:cursor-not-allowed disabled:bg-[#98a2c7] disabled:text-[#f8fafc] disabled:shadow-[0px_0px_0px_1px_#98a2c7,_0px_1px_1px_0px_rgba(0,0,0,0.1)] disabled:opacity-100 sm:w-auto"
+                  iconName="Plus"
+                  variant="primary"
+                  className="sm:w-auto"
                 >
                   {scheduleButtonLabel}
-                </button>
+                </ToolbarButton>
               </div>
               {scheduleButtonHelper && (
                 <p
