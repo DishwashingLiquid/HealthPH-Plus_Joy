@@ -134,24 +134,21 @@ export const normalizeRegionalApiData = (regionalAnalysis) => {
 
 const MAP_CARD_STYLES = {
   Proactive: {
-    cardClass:
-      "border-[#BBF7D0] bg-gradient-to-br from-[#F0FDF4] via-[#F7FEF7] to-white",
+    cardClass: "border-[#BBF7D0] bg-white",
     badgeClass: "border border-[#86EFAC] bg-[#DCFCE7] text-[#166534]",
     valueClass: "text-[#15803D]",
     labelClass: "text-[#166534]",
     accentClass: "bg-[#22C55E]",
   },
   Neutral: {
-    cardClass:
-      "border-[#FED7AA] bg-gradient-to-br from-[#FFF7ED] via-[#FFF9F1] to-white",
+    cardClass: "border-[#FED7AA] bg-white",
     badgeClass: "border border-[#FDBA74] bg-[#FFEDD5] text-[#C2410C]",
     valueClass: "text-[#EA580C]",
     labelClass: "text-[#9A3412]",
     accentClass: "bg-[#F97316]",
   },
   Concerned: {
-    cardClass:
-      "border-[#FECACA] bg-gradient-to-br from-[#FEF2F2] via-[#FFF5F5] to-white",
+    cardClass: "border-[#FECACA] bg-white",
     badgeClass: "border border-[#FCA5A5] bg-[#FEE2E2] text-[#B91C1C]",
     valueClass: "text-[#DC2626]",
     labelClass: "text-[#991B1B]",
@@ -197,44 +194,40 @@ export default function RegionalAnalysis({
     );
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-        <h3 className="mb-4 text-[18px] font-semibold text-gray-800">
+    <div className="flex flex-col gap-[10px]">
+      <section className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
+        <h3 className="mb-[14px] text-[18px] font-semibold text-gray-800">
           Regional Sentiment Map
         </h3>
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-[10px] md:grid-cols-2 lg:grid-cols-3">
           {visibleMapRegionData.map((region) => {
             const cardStyle = MAP_CARD_STYLES[region.sentimentGauge];
 
             return (
               <div
                 key={region.value}
-                className={`relative overflow-hidden rounded-2xl border p-4 shadow-sm ${cardStyle.cardClass}`}
+                className={`overflow-hidden rounded-[12px] border p-[16px] ${cardStyle.cardClass}`}
               >
-                <div
-                  className={`absolute right-0 top-0 h-24 w-24 -translate-y-6 translate-x-6 rounded-full opacity-10 ${cardStyle.accentClass}`}
-                />
-
-                <div className="relative flex h-full flex-col gap-5">
-                  <div className="flex items-start justify-between gap-3">
+                <div className="flex h-full flex-col gap-[18px]">
+                  <div className="flex items-start justify-between gap-[12px]">
                     <h4
                       className="max-w-[70%] text-[16px] font-semibold leading-tight text-gray-900"
                     >
                       {region.label}
                     </h4>
                     <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${cardStyle.badgeClass}`}
+                      className={`rounded-full px-[10px] py-[4px] text-xs font-semibold ${cardStyle.badgeClass}`}
                     >
                       {region.sentimentGauge}
                     </span>
                   </div>
 
                   <div>
-                    <p className={`text-4xl font-bold leading-none ${cardStyle.valueClass}`}>
+                    <p className={`text-[32px] font-semibold leading-none ${cardStyle.valueClass}`}>
                       {region.sentimentScore}%
                     </p>
-                    <p className={`mt-2 text-sm font-medium ${cardStyle.labelClass}`}>
+                    <p className={`mt-[6px] text-sm font-medium ${cardStyle.labelClass}`}>
                       Health sentiment score
                     </p>
                   </div>
@@ -244,13 +237,13 @@ export default function RegionalAnalysis({
           })}
         </div>
         {visibleMapRegionData.length === 0 && (
-          <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+          <div className="rounded-[12px] border border-dashed border-[#D0D5DD] bg-[#F8FAFC] px-[20px] py-[32px] text-center text-sm text-gray-500">
             No regional sentiment scores are available for the selected filters.
           </div>
         )}
       </section>
 
-      <section className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px] shadow-[0_10px_30px_rgba(50,65,140,0.05)]">
+      <section className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
         <h3 className="mb-[16px] text-[18px] font-semibold text-gray-800">
           Regional Sentiment Comparison
         </h3>
@@ -267,7 +260,7 @@ export default function RegionalAnalysis({
             return (
               <div
                 key={region.value}
-                className="grid grid-cols-1 items-center gap-2 rounded-[12px] border border-[#E8EDF5] bg-[linear-gradient(180deg,#FFFFFF_0%,#FBFCFE_100%)] px-[14px] py-[12px] shadow-[0_4px_14px_rgba(15,23,42,0.04)] sm:grid-cols-[minmax(120px,1fr)_minmax(160px,2fr)_90px_110px]"
+                className="grid grid-cols-1 items-center gap-[10px] rounded-[12px] border border-[#E5E5E5] bg-white px-[14px] py-[12px] sm:grid-cols-[minmax(120px,1fr)_minmax(160px,2fr)_90px_110px]"
               >
                 <span className="text-[14px] font-semibold tracking-[0.01em] text-[#1F2A44]">
                   {region.label}

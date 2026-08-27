@@ -118,7 +118,7 @@ const formatNumber = (value) =>
 const renderTopMetricCards = (cards, errorMessage, isLoading) => {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-[20px]">
+      <div className="grid grid-cols-1 gap-[10px] xl:grid-cols-3">
         {[0, 1, 2].map((cardIndex) => (
           <div
             key={`top-metric-loading-${cardIndex}`}
@@ -154,7 +154,7 @@ const renderTopMetricCards = (cards, errorMessage, isLoading) => {
   }
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-[20px]">
+    <div className="grid grid-cols-1 gap-[10px] xl:grid-cols-3">
       {cards.map((card) => (
         <div
           key={card.label}
@@ -483,10 +483,12 @@ export default function DiseaseWatchFeed() {
   const sharedError = mapPinsError || selfReportsError;
 
   return (
-    <div className="flex flex-col gap-[20px]">
+    <div className="flex flex-col gap-[10px]">
       <div>
-        <h1 className="text-[24px] font-semibold text-gray-800">Disease Watch Feed</h1>
-        <p className="mt-[4px] text-[14px] text-gray-500">
+        <h1 className="text-[24px] font-semibold text-gray-800">
+          Disease Watch Feed
+        </h1>
+        <p className="text-[14px] text-gray-500">
           Canonical mobile self-report activity, regional coverage, and mobile
           reporter analytics.
         </p>

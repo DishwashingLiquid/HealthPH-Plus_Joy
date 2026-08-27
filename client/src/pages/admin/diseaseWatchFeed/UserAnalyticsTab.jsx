@@ -65,7 +65,7 @@ export default function UserAnalyticsTab({
 }) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-[20px]">
+      <div className="grid grid-cols-1 gap-[10px] xl:grid-cols-3">
         {[0, 1, 2].map((index) => (
           <div
             key={`user-analytics-loading-${index}`}
@@ -92,7 +92,7 @@ export default function UserAnalyticsTab({
   }
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-[20px]">
+    <div className="grid grid-cols-1 gap-[10px] xl:grid-cols-3">
       <MetricCard
         label="Total Mobile Reporters"
         metric={userAnalytics.totalUsers}

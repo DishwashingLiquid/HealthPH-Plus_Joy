@@ -14,12 +14,15 @@ from pydantic import BaseModel
 from typing_extensions import Annotated
 
 from config.database import (
+    analytics_entries_collection,
     dataset_collection,
     mobile_users_collection,
     point_collection,
     self_reports_collection,
     user_collection,
 )
+
+from helpers.analyticsEntryHelpers import build_self_report_analytics_entry
 from helpers.miscHelpers import get_ph_datetime
 from middleware.requireAuth import require_auth
 
@@ -1801,6 +1804,12 @@ async def create_mobile_self_report(payload: SelfReportPayload):
     document = _build_self_report_document(payload)
     inserted_report = self_reports_collection.insert_one(document)
     created_report = self_reports_collection.find_one({"_id": inserted_report.inserted_id})
+
+    analytics_entry = build_self_report_analytics_entry(created_report)
+
+    if analytics_entry:
+        analytics_entries_collection.insert_one(analytics_entry)
+
     mobile_user = _upsert_mobile_user_from_report(created_report)
 
     return JSONResponse(

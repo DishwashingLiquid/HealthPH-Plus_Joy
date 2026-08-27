@@ -94,8 +94,8 @@ export default function RegionalCoverageTab({
   }
 
   return (
-    <div className="flex flex-col gap-[18px]">
-      <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] shadow-[0_10px_30px_rgba(50,65,140,0.06)]">
+    <div className="flex flex-col gap-[10px]">
+      <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-[14px] mb-[18px]">
           <div>
             <h3 className="text-[18px] font-semibold text-gray-800">
@@ -241,7 +241,7 @@ export default function RegionalCoverageTab({
           return (
             <div
               key={region.region}
-              className="overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-white shadow-[0_10px_28px_rgba(37,114,165,0.08)]"
+              className="overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-white"
             >
               <div
                 className="h-[5px] w-full"

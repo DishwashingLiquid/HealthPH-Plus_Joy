@@ -1,8 +1,10 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import Icon from "../../../../components/Icon";
-import { ToolbarSearch } from "../../../../components/ToolbarControls";
+import {
+  ToolbarButton,
+  ToolbarSearch,
+} from "../../../../components/ToolbarControls";
 import ModalWithBody from "../../../../components/admin/ModalWithBody";
 import {
   useCreateHealthLiteracyAnalyticsEventMutation,
@@ -366,36 +368,48 @@ const ContentTab = ({ contentTypeLabel }) => {
 
   return (
     <>
-      <div className="flex flex-col items-start gap-[12px] sm:flex-row sm:items-center">
-        <ToolbarSearch
-          placeholder={`Search ${contentTypeLabel.toLowerCase()}...`}
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
-        />
-        <button
-          onClick={handleCreateClick}
-          className="prod-btn-base admin-module-brand-btn flex items-center justify-center whitespace-nowrap"
-        >
-          <span>Create New Content</span>
-          <Icon
-            iconName="Plus"
-            height="20px"
-            width="20px"
-            fill="#FFF"
-            className="ms-[8px]"
-          />
-        </button>
-      </div>
+      <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
+        <div className="flex flex-col gap-[14px] xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <h2 className="text-[20px] font-semibold text-gray-800">
+              {contentTypeLabel}
+            </h2>
+            <p className="mt-[4px] text-[14px] text-gray-500">
+              Manage health literacy {contentTypeLabel.toLowerCase()} for
+              mobile and public channels.
+            </p>
+          </div>
+          <div className="flex flex-col gap-[10px] sm:flex-row sm:items-center">
+            <ToolbarSearch
+              placeholder={`Search ${contentTypeLabel.toLowerCase()}...`}
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              className="sm:w-[320px]"
+            />
+            <ToolbarButton
+              type="button"
+              onClick={handleCreateClick}
+              iconName="Plus"
+              variant="primary"
+              className="whitespace-nowrap"
+            >
+              Create New Content
+            </ToolbarButton>
+          </div>
+        </div>
 
-      <ContentGrid
-        content={filteredContent}
-        contentType={contentTypeLabel}
-        isLoading={isFetchingContent}
-        onMediaClick={handleMediaPreviewClick}
-        onEditClick={handleEditClick}
-        onShareClick={handleShareClick}
-        onDownloadClick={handleDownloadClick}
-      />
+        <div className="mt-[20px]">
+          <ContentGrid
+            content={filteredContent}
+            contentType={contentTypeLabel}
+            isLoading={isFetchingContent}
+            onMediaClick={handleMediaPreviewClick}
+            onEditClick={handleEditClick}
+            onShareClick={handleShareClick}
+            onDownloadClick={handleDownloadClick}
+          />
+        </div>
+      </div>
 
       {isCreateModalOpen && (
         <ModalWithBody
