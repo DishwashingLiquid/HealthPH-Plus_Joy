@@ -6,7 +6,7 @@ import {
   getResourceImageSource,
 } from "../../utils/healthLiteracyWebsiteContent";
 
-const ArticleItem = ({ article, articlePage, onPreviewClick }) => {
+const ArticleItem = ({ article, articlePage, isLoading, onPreviewClick }) => {
   const {
     articleTitle,
     articleSlug,
@@ -20,6 +20,18 @@ const ArticleItem = ({ article, articlePage, onPreviewClick }) => {
   const isVideo = resourceType === "video";
   const isPreviewContent = ["video", "infographic"].includes(resourceType);
   const displayDate = formatContentDate(datePublished);
+
+  if (isLoading && isVideo) {
+    return (
+      <div
+        className="article-item article-item-video-loading"
+        role="status"
+        aria-label="Loading video content"
+      >
+        <Icon iconName="Video" height="48px" width="48px" stroke="#6B7280" />
+      </div>
+    );
+  }
 
   return (
     <div className="article-item">

@@ -298,7 +298,7 @@ async def create_public_survey_response(
 
     response = build_public_response_document(survey_id, data, platform)
 
-    inserted_response = sentiment_pulse_survey_responses_collection.insert_one(response)
+    inserted_response = survey_responses_collection.insert_one(response)
 
     response["_id"] = inserted_response.inserted_id
 
@@ -307,7 +307,7 @@ async def create_public_survey_response(
     if analytics_entries:
         analytics_entries_collection.insert_many(analytics_entries)
     
-    sentiment_pulse_surveys_collection.update_one(
+    surveys_collection.update_one(
         {"id": survey_id},
         {
             "$inc": {"responseCount": 1},

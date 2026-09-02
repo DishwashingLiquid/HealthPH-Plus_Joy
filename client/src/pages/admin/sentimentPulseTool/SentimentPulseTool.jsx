@@ -112,9 +112,7 @@ export default function SentimentPulseTool() {
     [surveys]
   );
   const hasDraftSurveys = draftSurveys.length > 0;
-  const scheduleButtonLabel = hasDraftSurveys
-    ? "Schedule Survey"
-    : "Create Draft Survey";
+  const scheduleButtonLabel = "Publish Survey";
   const scheduleButtonHelper = isSurveysLoading
     ? "Loading surveys..."
     : isSurveysError
@@ -183,12 +181,7 @@ export default function SentimentPulseTool() {
   };
 
   const handleScheduleButtonClick = () => {
-    if (hasDraftSurveys) {
-      handleOpenScheduleModal();
-      return;
-    }
-
-    handleNewSurvey();
+    handleOpenScheduleModal();
   };
 
   const handleCloseScheduleModal = () => {
@@ -527,37 +520,36 @@ export default function SentimentPulseTool() {
               survey responses.
             </p>
           </div>
-          <ToolbarButton
-            type="button"
-            onClick={handleNewSurvey}
-            iconName="Plus"
-            variant="primary"
-            className="sm:w-auto"
-          >
-            New Survey
-          </ToolbarButton>
+          <div className="flex flex-wrap gap-[8px]">
+            <ToolbarButton
+              type="button"
+              onClick={() =>
+                exportSentimentPulseCsv({
+                  activeTab,
+                  timeRange,
+                  selectedRegions,
+                  regionalData,
+                  surveys,
+                })
+              }
+              variant="primary"
+              className="sm:w-auto"
+            >
+              Export as CSV
+            </ToolbarButton>
+            <ToolbarButton
+              type="button"
+              onClick={showSentimentPulsePdfExportNotice}
+              variant="primary"
+              className="sm:w-auto"
+            >
+              Export as PDF
+            </ToolbarButton>
+          </div>
         </div>
       </div>
 
       <StaticContainers />
-
-      <SentimentPulseFilters
-        timeRange={timeRange}
-        onTimeRangeChange={setTimeRange}
-        selectedRegions={selectedRegions}
-        onRegionChange={handleRegionChange}
-        onSelectAllRegions={handleSelectAllRegions}
-        onExportCsv={() =>
-          exportSentimentPulseCsv({
-            activeTab,
-            timeRange,
-            selectedRegions,
-            regionalData,
-            surveys,
-          })
-        }
-        onExportPdf={showSentimentPulsePdfExportNotice}
-      />
 
       <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[12px]">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-[8px] bg-[#F5F5F5] rounded-[10px] p-[6px]">
@@ -578,52 +570,84 @@ export default function SentimentPulseTool() {
         </div>
       </div>
 
-      {activeTab === "sentiment-trends" ? (
-        <SentimentTrends />
-      ) : (
-        <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
-          {activeTab === "regional-analysis" && (
+      {activeTab === "sentiment-trends" && (
+        <>
+          <SentimentPulseFilters
+            timeRange={timeRange}
+            onTimeRangeChange={setTimeRange}
+            selectedRegions={selectedRegions}
+            onRegionChange={handleRegionChange}
+            onSelectAllRegions={handleSelectAllRegions}
+          />
+          <SentimentTrends />
+        </>
+      )}
+
+      {activeTab === "regional-analysis" && (
+        <>
+          <SentimentPulseFilters
+            timeRange={timeRange}
+            onTimeRangeChange={setTimeRange}
+            selectedRegions={selectedRegions}
+            onRegionChange={handleRegionChange}
+            onSelectAllRegions={handleSelectAllRegions}
+          />
+          <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
             <RegionalAnalysis
               selectedRegions={selectedRegions}
               regionalData={regionalData}
             />
-          )}
-          {activeTab === "mobile-surveys" && (
-            <div className="space-y-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-[18px] font-semibold text-gray-800">
-                    Mobile Surveys
-                  </h2>
-                </div>
+          </div>
+        </>
+      )}
+
+      {activeTab === "mobile-surveys" && (
+        <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
+          <div className="space-y-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-[18px] font-semibold text-gray-800">
+                  Mobile Surveys
+                </h2>
+              </div>
+              <div className="flex flex-wrap gap-[8px]">
+                <ToolbarButton
+                  type="button"
+                  onClick={handleNewSurvey}
+                  iconName="Plus"
+                  variant="primary"
+                  className="sm:w-auto"
+                >
+                  New Survey
+                </ToolbarButton>
                 <ToolbarButton
                   type="button"
                   onClick={handleScheduleButtonClick}
                   disabled={isSurveysLoading || isSurveysError}
-                  iconName="Plus"
+                  iconName="Megaphone"
                   variant="primary"
                   className="sm:w-auto"
                 >
                   {scheduleButtonLabel}
                 </ToolbarButton>
               </div>
-              {scheduleButtonHelper && (
-                <p
-                  className={`text-sm font-medium ${
-                    isSurveysError ? "text-red-700" : "text-gray-500"
-                  }`}
-                >
-                  {scheduleButtonHelper}
-                </p>
-              )}
-              <MobileSurveys
-                surveys={surveys}
-                isLoading={isSurveysLoading}
-                isError={isSurveysError}
-                onEdit={handleEditSurvey}
-              />
             </div>
-          )}
+            {scheduleButtonHelper && (
+              <p
+                className={`text-sm font-medium ${
+                  isSurveysError ? "text-red-700" : "text-gray-500"
+                }`}
+              >
+                {scheduleButtonHelper}
+              </p>
+            )}
+            <MobileSurveys
+              surveys={surveys}
+              isLoading={isSurveysLoading}
+              isError={isSurveysError}
+              onEdit={handleEditSurvey}
+            />
+          </div>
         </div>
       )}
 

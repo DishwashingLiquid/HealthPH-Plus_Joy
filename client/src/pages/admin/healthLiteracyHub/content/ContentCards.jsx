@@ -19,7 +19,7 @@ export const ContentGrid = ({
   onShareClick,
   onDownloadClick,
 }) => {
-  if (isLoading) {
+  if (isLoading && (contentType !== "Videos" || content.length === 0)) {
     return (
       <div className="flex flex-col items-center justify-center rounded-[12px] border border-[#E5E5E5] bg-white p-[40px] text-center">
         <p className="text-[16px] font-medium text-gray-600">
@@ -61,6 +61,7 @@ export const ContentGrid = ({
         <ContentCard
           key={`${item.contentOrigin ?? "content"}-${item.id}`}
           item={item}
+          isLoading={isLoading && contentType === "Videos"}
           onMediaClick={onMediaClick}
           onEditClick={onEditClick}
           onShareClick={onShareClick}
@@ -71,7 +72,18 @@ export const ContentGrid = ({
   );
 };
 
+const VideoContentCardLoading = () => (
+  <div
+    className="flex h-[440px] w-full items-center justify-center overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-[#E4E7EB]"
+    role="status"
+    aria-label="Loading video content"
+  >
+    <Icon iconName="Video" height="48px" width="48px" stroke="#6B7280" />
+  </div>
+);
+
 const ContentCard = ({
+  isLoading,
   item,
   onMediaClick,
   onEditClick,
@@ -103,6 +115,7 @@ const ContentCard = ({
   if (isVideo) {
     return (
       <VideoContentCard
+        isLoading={isLoading}
         item={item}
         mediaType={mediaType}
         mediaSource={mediaSource}
@@ -361,6 +374,7 @@ const InfographicContentCard = ({
 };
 
 const VideoContentCard = ({
+  isLoading,
   item,
   mediaType,
   mediaSource,
@@ -412,6 +426,10 @@ const VideoContentCard = ({
       video.load();
     };
   }, [item.duration, mediaSource, mediaType]);
+
+  if (isLoading) {
+    return <VideoContentCardLoading />;
+  }
 
   return (
     <div

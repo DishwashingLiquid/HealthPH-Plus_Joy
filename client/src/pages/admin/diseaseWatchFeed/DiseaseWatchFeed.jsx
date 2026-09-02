@@ -119,18 +119,30 @@ const renderTopMetricCards = (cards, errorMessage, isLoading) => {
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 gap-[10px] xl:grid-cols-3">
-        {[0, 1, 2].map((cardIndex) => (
+        {cards.map((card) => (
           <div
-            key={`top-metric-loading-${cardIndex}`}
+            key={card.label}
             className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]"
           >
-            <p className="text-gray-500 text-sm mb-[8px]">Loading metric...</p>
-            <h2 className="text-[32px] font-semibold text-gray-800 leading-none">
-              --
-            </h2>
-            <p className="text-xs text-gray-500 mt-[4px]">
-              Refreshing disease watch totals
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm mb-[8px]">{card.label}</p>
+                <h2 className="flex h-[32px] items-center text-[32px] font-semibold leading-none">
+                  <span
+                    className="h-[28px] w-[28px] animate-spin rounded-full border-4 border-[#E4E7EB] border-t-[#6A8EB5]"
+                    role="status"
+                    aria-label={`Loading ${card.label}`}
+                  />
+                </h2>
+                <p className="text-xs text-gray-500 mt-[4px]">{card.helper}</p>
+              </div>
+              <div
+                className="flex h-[40px] w-[40px] shrink-0 items-center justify-center"
+                style={{ color: card.iconColor }}
+              >
+                <card.icon aria-hidden="true" className="h-[34px] w-[34px]" />
+              </div>
+            </div>
           </div>
         ))}
       </div>

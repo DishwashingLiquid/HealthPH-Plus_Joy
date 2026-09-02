@@ -120,6 +120,9 @@ const Articles = () => {
                           article={a}
                           key={`${a.source}-${a.id ?? a.articleID ?? a.articleSlug}`}
                           articlePage={articlePage}
+                          isLoading={
+                            isFetchingWebsiteContent && a.resourceType === "video"
+                          }
                           onPreviewClick={setPreviewContent}
                         />
                       );

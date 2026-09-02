@@ -8,8 +8,6 @@ export default function SentimentPulseFilters({
   selectedRegions,
   onRegionChange,
   onSelectAllRegions,
-  onExportCsv,
-  onExportPdf,
 }) {
   const [showRegionDropdown, setShowRegionDropdown] = useState(false);
   const regionDropdownRef = useRef(null);
@@ -33,11 +31,8 @@ export default function SentimentPulseFilters({
 
   return (
     <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
-      <div className="grid grid-cols-1 gap-[12px] lg:grid-cols-3">
-        <div>
-          <label className="mb-[6px] block text-[13px] font-semibold text-gray-700">
-            Time Range
-          </label>
+      <div className="flex flex-col gap-[12px] sm:flex-row">
+        <div className="w-full sm:w-[140px]">
           <select
             value={timeRange}
             onChange={(event) => onTimeRangeChange(event.target.value)}
@@ -50,10 +45,7 @@ export default function SentimentPulseFilters({
           </select>
         </div>
 
-        <div>
-          <label className="mb-[6px] block text-[13px] font-semibold text-gray-700">
-            Regions
-          </label>
+        <div className="w-full sm:w-[140px]">
           <div className="relative" ref={regionDropdownRef}>
             <button
               type="button"
@@ -104,28 +96,6 @@ export default function SentimentPulseFilters({
                 ))}
               </div>
             )}
-          </div>
-        </div>
-
-        <div>
-          <label className="mb-[6px] block text-[13px] font-semibold text-gray-700">
-            Export Data
-          </label>
-          <div className="flex gap-[8px]">
-            <button
-              type="button"
-              onClick={onExportCsv}
-              className="flex min-h-[40px] flex-1 items-center justify-center rounded-[10px] bg-[#32418C] px-[14px] py-[10px] text-sm font-medium text-white shadow-sm transition hover:bg-[#27346F]"
-            >
-              CSV
-            </button>
-            <button
-              type="button"
-              onClick={onExportPdf}
-              className="flex min-h-[40px] flex-1 items-center justify-center rounded-[10px] bg-[#32418C] px-[14px] py-[10px] text-sm font-medium text-white shadow-sm transition hover:bg-[#27346F]"
-            >
-              PDF
-            </button>
           </div>
         </div>
       </div>

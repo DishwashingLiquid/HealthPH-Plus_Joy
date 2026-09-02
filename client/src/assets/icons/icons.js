@@ -55,3 +55,4 @@ export { default as User } from "./user.svg?react";
 export { default as Users } from "./users.svg?react";
 export { default as UserTwo } from "./user-two.svg?react";
 export { default as UserThree } from "./user-three.svg?react";
+export { default as Video } from "./video.svg?react";

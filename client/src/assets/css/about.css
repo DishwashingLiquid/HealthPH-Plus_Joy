@@ -510,6 +510,10 @@
     @apply pointer-events-none;
   }
 
+  .article-layout .articles .article-item.article-item-video-loading {
+    @apply flex min-h-[440px] items-center justify-center bg-[#E4E7EB] pointer-events-none;
+  }
+
   .article-layout .articles .article-item.article-item-skeleton .article-body {
     @apply flex flex-col;
   }
