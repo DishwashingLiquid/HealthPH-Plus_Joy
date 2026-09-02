@@ -1805,10 +1805,20 @@ async def create_mobile_self_report(payload: SelfReportPayload):
     inserted_report = self_reports_collection.insert_one(document)
     created_report = self_reports_collection.find_one({"_id": inserted_report.inserted_id})
 
+    analytics_entry_id = None
     analytics_entry = build_self_report_analytics_entry(created_report)
 
     if analytics_entry:
-        analytics_entries_collection.insert_one(analytics_entry)
+        analytics_entry_result = analytics_entries_collection.insert_one(analytics_entry)
+        analytics_entry_id = str(analytics_entry_result.inserted_id)
+
+    print(
+        "Self-report analytics bridge:",
+        {
+            "self_report_id": str(inserted_report.inserted_id),
+            "analytics_entry_id": analytics_entry_id,
+        },
+    )
 
     mobile_user = _upsert_mobile_user_from_report(created_report)
 
@@ -1818,9 +1828,9 @@ async def create_mobile_self_report(payload: SelfReportPayload):
             "message": "Self-report submitted successfully",
             "item": _serialize_self_report(created_report),
             "mobileUser": _serialize_mobile_user(mobile_user),
+            "analyticsEntryId": analytics_entry_id,
         },
     )
-
 
 async def fetch_mobile_self_reports_mine(
     mobileUserId: str | None = None,
