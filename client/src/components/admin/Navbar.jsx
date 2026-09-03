@@ -6,36 +6,15 @@ import HamburgerMenu from "../HamburgerMenu";
 import { useDispatch, useSelector } from "react-redux";
 import Cookies from "js-cookie";
 import { deauthenticateUser } from "../../features/auth/authSlice";
-import { useCreateActivityLogMutation } from "../../features/api/activityLogsSlice";
+import { useCreateAccountActivityMutation } from "../../features/api/accountActivitySlice";
 import Modal from "./Modal";
 import useDeviceDetect from "../../hooks/useDeviceDetect";
 
 const Navbar = () => {
   const user = useSelector((state) => state.auth.user);
 
-  const analyticsRoles = [
-    "DOH_OFFICIAL",
-    "ANALYST",
-    "LGU_WORKER",
-    "RESEARCHER",
-    "VIEWER",
-  ];
-
-  const researchRoles = [
-    "RESEARCHER",
-    "ANALYST",
-  ];
-
-  const managementRoles = [
-    "DOH_OFFICIAL",
-  ];
-
-  const isSystemAdmin = user && ["ADMIN", "SUPERADMIN"].includes(user.user_type);
-
-  const hasRoleLabel = (allowedRoles) => {
-    if (!user?.role_label) return false;
-    return allowedRoles.includes(user.role_label);
-  };
+  const isSystemAdmin =
+    user && (user.user_type === "SUPERADMIN" || user.role_label === "Admin");
 
   const { isPWA } = useDeviceDetect();
 
@@ -51,7 +30,7 @@ const Navbar = () => {
 
   const [modalActive, setModalActive] = useState(false);
 
-  const [log_activity] = useCreateActivityLogMutation();
+  const [log_activity] = useCreateAccountActivityMutation();
 
   const handleOpenMenu = () => {
     setIsMenuActive(!isMenuActive);
@@ -119,31 +98,6 @@ const Navbar = () => {
                   <span>Help</span>
                 </NavLink>
               </li>
-              {!isPWA &&
-                user &&
-                ["ADMIN", "SUPERADMIN"].includes(user.user_type) && (
-                  <li>
-                    <NavLink
-                      to="/dashboard/activity-logs"
-                      onClick={() => {
-                        if (acctDropdownActive) {
-                          setAcctDropdownActive(false);
-                        }
-                        if (isMenuActive) {
-                          handleOpenMenu();
-                        }
-                      }}
-                    >
-                      <Icon
-                        iconName="ActivityLog"
-                        height="20px"
-                        width="20px"
-                        className="icon"
-                      />
-                      <span>Activity Logs</span>
-                    </NavLink>
-                  </li>
-                )}
               <li>
                 <NavLink
                   to="/dashboard/settings"
@@ -193,7 +147,9 @@ const Navbar = () => {
                   {user["first_name"]} {user["last_name"]}
                 </p>
                 <p className="prod-l4 font-normal text-gray-500">
-                  {user["user_type"].toString().toUpperCase()}
+                  {user.user_type === "SUPERADMIN"
+                    ? "SUPERADMIN"
+                    : user.role_label || "USER"}
                 </p>
               </div>
               <div
@@ -253,7 +209,10 @@ const Navbar = () => {
             localStorage.removeItem("auth");
             navigate("/", { replace: true });
 
-            if (["SUPERADMIN", "ADMIN"].includes(logged_user.user_type)) {
+            if (
+              logged_user.user_type === "SUPERADMIN" ||
+              logged_user.role_label === "Admin"
+            ) {
               await log_activity({
                 user_id: user.id,
                 entry: "Logout",

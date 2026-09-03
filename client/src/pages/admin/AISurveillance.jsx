@@ -34,9 +34,12 @@ import {
 import Report from "../../components/admin/Report";
 
 import {
-    useGenerateSuspectedSymptomsQuery,
     useGeneratePercentageQuery,
 } from "../../features/api/analyticsSlice";
+
+import {
+    useFetchAnalyticsEntriesQuery
+} from "../../features/api/analyticsEntriesSlice";
 
 const AISurveillance = () => {
     const user = useSelector((state) => state.auth.user);
@@ -44,12 +47,28 @@ const AISurveillance = () => {
     const { data: points, isLoading: isPointsLoading } = useFetchPointsQuery();
 
     const surveillancePoints = points || [];
+
+    const { data: analyticsEntriesData, isLoading: isAnalyticsEntriesLoading } =
+        useFetchAnalyticsEntriesQuery({
+            sourceType: "all",
+            analysisStatus: "completed",
+            limit: 500,
+        });
     
+    const completedAnalyticsEntries = analyticsEntriesData?.entries || [];
+
+    const accessibleRegionValues =
+        user?.accessible_regions?.length > 0
+            ? user.accessible_regions
+            : Regions.regions.map((region) => region.value);
+
+    const accessibleRegions = Regions.regions.filter((region) =>
+        accessibleRegionValues.includes(region.value)
+    );
+
     /* MAP */
     const [filters, setFilters] = useState({
-        region: Regions.regions.filter((r) =>
-            user.accessible_regions.includes(r.value)
-        ),
+        region: accessibleRegions,
         dateRange: 7,
         disease: "all",
     });
@@ -62,11 +81,14 @@ const AISurveillance = () => {
     };
 
     const getCenter = () => {
-        if (user.user_type === "USER") {
-            return RegionsCenter.find((c) => c.region == user.region).center;
+        const defaultCenter = [13, 122];
+
+        if (user?.user_type === "USER") {
+            const regionCenter = RegionsCenter.find((c) => c.region == user.region);
+            return regionCenter?.center || defaultCenter;
         }
 
-        return [13, 122];
+        return defaultCenter;
     };
 
     /* FILTERS */
@@ -79,34 +101,73 @@ const AISurveillance = () => {
 
     const filteredSurveillancePoints = surveillancePoints.filter((point) => {
         const regionMatches =
-            filters.region.length === Regions.regions.length ||
+            filters.region.length === accessibleRegions.length ||
             filters.region.some((region) => region.value === point.region);
 
-        const diseaseMatches =
+        const diseaseMatches = 
             filters.disease === "all" ||
             point.annotations?.includes(diseaseCode[filters.disease]);
 
         return regionMatches && diseaseMatches;
     });
 
-    /* SUMMARY CARD/COUNTS */
-    const { data: suspectedSymptoms, isFetching: isSuspectedSymptomsFetching } =
-        useGenerateSuspectedSymptomsQuery();
+    const getEntryRegion = (entry) => {
+        const location = entry.location || {};
+        return location.region || location.regionCode || location.regionName || "";
+    };
 
+    /* SUMMARY CARD/COUNTS */
     const formatCount = (value) => Number(value || 0).toLocaleString();
 
     const selectedDiseaseCode = diseaseCode[filters.disease];
+    const diseaseCodes = ["TB", "PN", "COVID", "AURI"];
 
-    const filteredSuspectedSymptoms = filteredSurveillancePoints.reduce(
-        (counts, point) => {
-            const pointCounts = point.annotations_count || {};
+    const normalizeValue = (value) =>
+        String(value || "").trim().toLowerCase();
 
-            ["TB", "PN", "COVID", "AURI"].forEach((code) => {
+    const selectedRegionKeys = filters.region.flatMap((region) =>
+        [region.value, region.label].filter(Boolean).map(normalizeValue)
+    );
+
+    const isAllAccessibleRegionsSelected = 
+        filters.region.length === accessibleRegions.length;
+
+    const getEntryDiseaseLabels = (entry) => {
+        const labels = entry.analysis?.disease_labels;
+
+        if (!Array.isArray(labels)) {
+            return [];
+        }
+
+        return labels.map((label) => String(label).trim().toUpperCase());
+    };
+
+    const filteredCompletedEntries = completedAnalyticsEntries.filter((entry) => {
+        const entryRegion = normalizeValue(getEntryRegion(entry));
+
+        const regionMatches =
+            isAllAccessibleRegionsSelected ||
+            selectedRegionKeys.includes(entryRegion);
+
+        const diseaseLabels = getEntryDiseaseLabels(entry);
+
+        const diseaseMatches =
+            filters.disease === "all" ||
+            diseaseLabels.includes(selectedDiseaseCode);
+
+        return regionMatches && diseaseMatches;
+    });
+
+    const filteredSuspectedSymptoms = filteredCompletedEntries.reduce(
+        (counts, entry) => {
+            const diseaseLabels = getEntryDiseaseLabels(entry);
+
+            diseaseCodes.forEach((code) => {
                 const shouldIncludeDisease = 
                     filters.disease === "all" || code === selectedDiseaseCode;
 
-                if (shouldIncludeDisease) {
-                    counts[code] += Number(pointCounts[code] || 0);
+                if (shouldIncludeDisease && diseaseLabels.includes(code)) {
+                    counts[code] += 1;
                 }
             });
 
@@ -127,15 +188,22 @@ const AISurveillance = () => {
         filteredSuspectedSymptoms.AURI;
 
     const filteredActiveRegionCount = new Set(
-        filteredSurveillancePoints
-            .map((point) => point.region)
+        filteredCompletedEntries
+            .map((entry) => getEntryRegion(entry))
             .filter(Boolean)
     ).size;
 
-    const filteredRespiratoryAlertCount = filteredSurveillancePoints.filter((point) => {
-        const counts = point.annotations_count || {};
-        return Object.values(counts).some((count) => Number(count) > 0);
-    }).length;
+    const filteredRespiratoryAlertCount = filteredCompletedEntries.filter(
+        (entry) => getEntryDiseaseLabels(entry).length > 0
+    ).length;
+
+    const hasCompletedAnalyticsEntries = completedAnalyticsEntries.length > 0;
+
+    const surveillanceDataStatusMessage = isAnalyticsEntriesLoading
+        ? "Loading processed analytics entries..."
+        : hasCompletedAnalyticsEntries
+            ? `${formatCount(filteredCompletedEntries.length)} processed entries match the current filters.`
+            : "No processed analytics entries yet. Upload raw data in Data Management, then process it once annotation is connected.";
 
     /* SUSPECTED CONDITIONS PERCENTAGE */
     const [percentageFilter, setPercentageFilter] = useState(
@@ -176,7 +244,7 @@ const AISurveillance = () => {
                         </ToolbarSelect>
                         <ToolbarSelect
                             value={
-                                filters.region.length === Regions.regions.length
+                                filters.region.length === accessibleRegions.length
                                     ? "all"
                                     : filters.region[0]?.value || "all"   
                             }
@@ -186,22 +254,17 @@ const AISurveillance = () => {
                                 handleChangeFilter(
                                     "region",
                                     value === "all"
-                                        ? Regions.regions.filter((region) =>
-                                            user.accessible_regions.includes(region.value)
-                                        )
-                                        : Regions.regions.filter((region) => region.value === value)
+                                        ? accessibleRegions
+                                        : accessibleRegions.filter((region) => region.value === value)
                                 );
                             }}
                         >
                             <option value="all">All Regions</option>
-                            {Regions.regions
-                                .filter((region) => user.accessible_regions.includes(region.value))
-                                .map((region) => (
-                                    <option key={region.value} value={region.value}>
-                                        {region.label}
-                                    </option>
-                                ))
-                            }
+                            {accessibleRegions.map((region) => (
+                                <option key={region.value} value={region.value}>
+                                    {region.label}
+                                </option>
+                            ))}
                         </ToolbarSelect>
                         <ToolbarSelect
                             value={filters.disease}
@@ -244,6 +307,18 @@ const AISurveillance = () => {
                 <div className="flex flex-col gap-[10px]">
                     {/* SUMMARY CARDS */}
                     <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
+                        <div
+                            className={`mb-[12px] rounded-[8px] border px-[12px] py-[10px] text-sm ${
+                                hasCompletedAnalyticsEntries
+                                    ? "border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]"
+                                    : "border-[#FED7AA] bg-[#FFF7ED] text-[#C2410C]"
+                            }`}
+                        >
+                            <span className="font-semibold">
+                                {hasCompletedAnalyticsEntries ? "Processed data available: " : "Processing pending: "}
+                            </span>
+                            {surveillanceDataStatusMessage}
+                        </div>
                         {/* SUSPECTED CASES */}
                         <div className="xl:col-span-1 bg-white rounded-[12px] border border-[#E5E5E5] p-[16px]">
                             <div className="flex justify-between items-center h-full">

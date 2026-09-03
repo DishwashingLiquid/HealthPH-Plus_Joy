@@ -39,7 +39,7 @@ async def require_admin(token: Annotated[str, Depends(oauth2_scheme)]):
 
         user_data = user_collection.find_one({"_id": ObjectId(token_data.id)})
 
-        if user_data["user_type"] not in ["ADMIN", "SUPERADMIN"]:
+        if user_data.get("user_type") != "SUPERADMIN" and user_data.get("role_label") != "Admin":
             return AdminResult(result=False, id=token_data.id)
 
         return AdminResult(result=True, id=token_data.id)

@@ -276,7 +276,7 @@ const ContactUs = () => {
                   <div className="flex items-center justify-end pt-[8px]">
                     <button
                       type="submit"
-                      className="prod-btn-base prod-btn-primary"
+                      className="prod-btn-base prod-btn-primary hover:!bg-primary-500 hover:!shadow-[0px_0px_0px_1px_#007aff,_0px_1px_1px_0px_rgba(0,0,0,0.1)]"
                       disabled={isLoading}
                     >
                       {isLoading ? "Sending..." : "Send Message"}

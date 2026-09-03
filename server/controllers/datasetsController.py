@@ -14,13 +14,14 @@ from bson import ObjectId
 from fastapi import BackgroundTasks, Depends, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse, JSONResponse
 
-from config.database import user_collection, dataset_collection
+from config.database import user_collection, dataset_collection, analytics_entries_collection
 from models.user import AdminResult
 from middleware.requireAdmin import require_admin
 from middleware.requireRole import require_role
 from schema.datasetSchema import individual_dataset, list_datasets
 from helpers.datasetsHelpers import annotation
 from helpers.miscHelpers import get_ph_datetime
+from helpers.analyticsEntryHelpers import build_social_media_analytics_entries
 from controllers.pointControllers import delete_point, create_points
 
 # Folder to store datasets
@@ -37,6 +38,10 @@ RAW_DATASET_REQUIRED_HEADERS = [
     "source",
     "date_collected",
 ]
+
+ANNOTATION_PROCESSOR_UNAVAILABLE_MESSAGE = (
+    "Annotation model is not connected yet. Dataset is saved and can be retried once annotation integration is available."
+)
 
 def normalize_csv_header(header):
     return str(header).strip().lower().replace(" ", "_")
@@ -130,13 +135,15 @@ def run_dataset_processing_job(dataset_id: str):
             "$set": {
                 "dataset_status": "PROCESSING",
                 "processing_error": "",
+                "processing_started_at": get_ph_datetime(),
                 "processed_at": None,
             }
         },
     )
 
     try:
-        raise NotImplementedError("Annotation processer not connected yet.")
+        # TODO: Replcae this placeholder once the annotation model service is connected/working
+        raise RuntimeError(ANNOTATION_PROCESSOR_UNAVAILABLE_MESSAGE)
     except Exception as error:
         dataset_collection.update_one(
             {"_id": ObjectId(dataset_id)},
@@ -160,7 +167,7 @@ route     POST api/datasets/upload
 async def upload_dataset(
     background_tasks: BackgroundTasks,
     file: UploadFile,
-    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
+    current_user: Annotated[dict, Depends(require_role(["Admin", "SUPERADMIN"]))],
 ):
     # Check if user is an admin or superadmin
     """if not is_admin.result:
@@ -270,18 +277,60 @@ async def upload_dataset(
     # count rows
     num_of_rows = len(raw_dataset_df)
 
-    # capture languages
-    languages = (
+    # capture languages distribution from uploaded raw dataset
+    language_counts = (
         raw_dataset_df["language"]
         .astype(str)
         .str.strip()
         .replace("", pd.NA)
         .dropna()
-        .unique()
-        .tolist()
+        .value_counts()
+        .sort_index()
+        .to_dict()
     )
 
-    languages = sorted(languages)
+    language_counts = {
+        str(language): int(count)
+        for language, count in language_counts.items()
+    }
+
+    languages = sorted(language_counts.keys())
+
+    # capture language distribution by uploaded location
+    location_language_counts = {}
+
+    location_language_df = raw_dataset_df[["location", "language"]].copy()
+    location_language_df["location"] = (
+        location_language_df["location"]
+        .astype(str)
+        .str.strip()
+        .replace("", pd.NA)
+    )
+    location_language_df["language"] = (
+        location_language_df["language"]
+        .astype(str)
+        .str.strip()
+        .replace("", pd.NA)
+    )
+
+    location_language_df = location_language_df.dropna(
+        subset=["location", "language"]
+    )
+
+    grouped_location_languages = (
+        location_language_df
+        .groupby(["location", "language"])
+        .size()
+    )
+
+    for (location, language), count in grouped_location_languages.items():
+        location_key = str(location)
+        language_key = str(language)
+
+        if location_key not in location_language_counts:
+            location_language_counts[location_key] = {}
+
+        location_language_counts[location_key][language_key] = int(count)
 
     # preview atleast 5% of total rows
     preview_row_count = 0
@@ -306,7 +355,10 @@ async def upload_dataset(
             "original_filename": original_filename,
             "file_size": file_size,
             "num_of_rows": num_of_rows,
+            "analytics_entry_count": 0,
             "languages": languages,
+            "language_counts": language_counts,
+            "location_language_counts": location_language_counts,
             "preview_row_count": preview_row_count,
             "preview_headers": str(preview_headers),
             "preview_data": json.dumps(preview_data),
@@ -314,6 +366,8 @@ async def upload_dataset(
             "dataset_status": "UPLOADED",
             "description": "",
             "processing_error": "",
+            "queued_at": None,
+            "processing_started_at": None,
             "processed_at": None,
             "created_at": get_ph_datetime(),
         }
@@ -326,6 +380,24 @@ async def upload_dataset(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to upload dataset",
         )
+
+    analytics_entries = build_social_media_analytics_entries(
+        raw_dataset_df=raw_dataset_df,
+        dataset_id=new_dataset.inserted_id,
+        uploaded_by=user_data["_id"],
+    )
+
+    if analytics_entries:
+        analytics_entries_collection.insert_many(analytics_entries)
+
+    dataset_collection.update_one(
+        {"_id": new_dataset.inserted_id},
+        {
+            "$set": {
+                "analytics_entry_count": len(analytics_entries),
+            }
+        },
+    )
 
     #TEMP: disable automatic annotation during upload
     #HealthPH+ will process annotation as a separate dataset action/job
@@ -347,7 +419,7 @@ async def upload_dataset(
 async def process_dataset(
     background_tasks: BackgroundTasks,
     id: str,
-    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
+    current_user: Annotated[dict, Depends(require_role(["Admin", "SUPERADMIN"]))],
 ):
     if not ObjectId.is_valid(id):
         raise HTTPException(
@@ -387,6 +459,8 @@ async def process_dataset(
         {
             "$set": {
                 "dataset_status": "QUEUED",
+                "queued_at": get_ph_datetime(),
+                "processing_started_at": None,
                 "processing_error": "",
                 "processed_at": None,
             }
@@ -410,7 +484,7 @@ route     GET api/datasets/download/{filename}
 
 async def download_dataset(
     id: str,
-    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
+    current_user: Annotated[dict, Depends(require_role(["Admin", "SUPERADMIN"]))],
 
 ):
     # Check if there is id
@@ -517,7 +591,7 @@ async def fetch_datasets_by_user(user_id: str):
                 {"$sort": {"created_at": pymongo.DESCENDING}},
             ]
         )
-    elif user_data["user_type"] == "ADMIN":
+    elif user_data.get("role_label") == "Admin":
         data = dataset_collection.aggregate(
             [
                 {"$match": {"user_id": user_id}},
@@ -550,7 +624,7 @@ route     DELETE api/datasets/{id}
 async def delete_dataset(
     background_tasks: BackgroundTasks, 
     id: str,
-    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))]
+    current_user: Annotated[dict, Depends(require_role(["Admin", "SUPERADMIN"]))]
 ):
     # Check if there is id
     if not id:

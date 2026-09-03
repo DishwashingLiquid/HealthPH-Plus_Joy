@@ -9,6 +9,10 @@
 
   .prod-btn-base {
     @apply px-[12px] py-[6px] rounded-[6px] prod-b2 text-center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
   }
 
   .prod-btn-sm {
@@ -57,25 +61,35 @@
   /* PRIMARY */
   .prod-btn-primary {
     @apply bg-primary-500 hover:bg-primary-600 active:bg-primary-500 disabled:bg-primary-300 text-white disabled:text-primary-50;
+    background-color: #32418c;
+    color: #ffffff;
     box-shadow: 0px 0px 0px 1px #007aff, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
   .prod-btn-primary:hover {
+    background-color: #27346f;
+    color: #ffffff;
     box-shadow: 0px 0px 0px 1px #0064d1, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
   .prod-btn-primary:active,
   .prod-btn-primary:focus-visible {
+    background-color: #32418c;
+    color: #ffffff;
     box-shadow: 0px 0px 0px 4px rgba(0, 122, 255, 0.4), 0px 0px 0px 1px #007aff,
       0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
   .prod-btn-primary:active {
+    background-color: #32418c;
+    color: #ffffff;
     box-shadow: 0px 0px 0px 4px rgba(0, 122, 255, 0.4), 0px 0px 0px 1px #007aff,
       0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
   .prod-btn-primary:disabled {
+    background-color: #98a2c7;
+    color: #f8fafc;
     box-shadow: 0px 0px 0px 1px #5daaff, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
@@ -99,26 +113,34 @@
 
   .prod-btn-secondary:disabled {
     box-shadow: 0px 0px 0px 1px rgba(70, 83, 96, 0.2);
-    @apply bg-gray-100
+    @apply bg-gray-100;
   }
 
   /* DESTRUCTIVE */
   .prod-btn-destructive {
     @apply bg-destructive-500 hover:bg-destructive-600 active:bg-destructive-500 disabled:bg-destructive-300 text-white disabled:text-destructive-50;
+    background-color: #dc2626;
+    color: #ffffff;
     box-shadow: 0px 0px 0px 1px #d82727, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
   .prod-btn-destructive:hover {
+    background-color: #b91c1c;
+    color: #ffffff;
     box-shadow: 0px 0px 0px 1px #ad1f1f, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
   .prod-btn-destructive:active,
   .prod-btn-destructive:focus-visible {
+    background-color: #dc2626;
+    color: #ffffff;
     box-shadow: 0px 0px 0px 4px rgba(0, 122, 255, 0.4), 0px 0px 0px 1px #d82727,
       0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
   .prod-btn-destructive:disabled {
+    background-color: #e87d7d;
+    color: #fbe9e9;
     box-shadow: 0px 0px 0px 1px #e87d7d, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 

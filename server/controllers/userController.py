@@ -15,6 +15,7 @@ from helpers.sendMail import (
     mail_delete_account,
 )
 from config.database import user_collection
+from helpers.roleLabelHelpers import get_role_label_name, role_label_exists
 from models.user import (
     AdminResult,
     CreateUserRequest,
@@ -33,6 +34,21 @@ from middleware.requireRole import require_role
 
 from schema.userSchema import individual_user, list_users
 from helpers.miscHelpers import get_ph_datetime
+
+
+ADMIN_ROLE_LABEL = "Admin"
+
+
+def is_superadmin(user: dict) -> bool:
+    return user.get("user_type") == "SUPERADMIN"
+
+
+def is_admin_role(user: dict) -> bool:
+    return user.get("role_label") == ADMIN_ROLE_LABEL
+
+
+def is_admin_account(user: dict) -> bool:
+    return is_superadmin(user) or is_admin_role(user)
 
 """
 @desc     Update personal information of user
@@ -389,9 +405,8 @@ async def delete_user(id: str, user_id: Annotated[str, Depends(require_auth)]):
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Error deleting account..."
         )
 
-    # Check if user is admin or user
-    if user_data["user_type"] in ["USER", "ADMIN"]:
-        # If user or admin, check if id and user_id matches
+    # Users can delete only their own account. Superadmins can delete other accounts.
+    if user_data["user_type"] == "USER":
         if str(user_data["_id"]) != id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -428,41 +443,38 @@ route     GET api/users/
 
 async def fetch_users(user_id: Annotated[str, Depends(require_auth)]):
     user_data = user_collection.find_one({"_id": ObjectId(user_id)})
-    
-    users = []
-    
-    if user_data['user_type'] == "ADMIN":
-        users = list_users(
-            user_collection.find({"user_type": "USER", "user_who_added" : user_id}).sort([("created_at", -1)])
+
+    if not user_data:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not Authorized",
         )
-    elif user_data['user_type'] == "SUPERADMIN":
-        users = list_users(
+    if is_superadmin(user_data) or user_data.get("user_type") == "USER":
+        return list_users(
             user_collection.find({"user_type": "USER"}).sort([("created_at", -1)])
         )
-        
-    return users
+
+    return []
 
 
 """
-@desc     Fetch all admins and superadmins
+@desc     Fetch all superadmins
 route     GET api/users/admins/
 @access   Private
 """
 
 
 async def fetch_admins(
-    user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))]
+    user: Annotated[dict, Depends(require_role(["SUPERADMIN"]))]
 ):
     admins = list_users(
-        user_collection.find(
-            {"$or": [{"user_type": "ADMIN"}, {"user_type": "SUPERADMIN"}]}
-        ).sort([("user_type", -1), ("created_at", -1)])
+        user_collection.find({"user_type": "SUPERADMIN"}).sort([("created_at", -1)])
     )
     return admins
 
 
 """
-@desc     Create a user, admin, or superadmin
+@desc     Create a user or superadmin
 route     POST api/users
 @access   Private | SUPERADMIN
 """
@@ -470,7 +482,7 @@ route     POST api/users
 
 async def create_user(
     user: CreateUserRequest,
-    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
+    current_user: Annotated[dict, Depends(require_role([ADMIN_ROLE_LABEL, "SUPERADMIN"]))],
 ):
     errors = []
 
@@ -484,20 +496,21 @@ async def create_user(
             detail=errors,
         ) """
 
+    requested_user_type = (user.user_type or "USER").strip().upper()
+    is_superadmin_request = requested_user_type == "SUPERADMIN"
+    role_label = "" if is_superadmin_request else get_role_label_name(user.role_label)
+
     # Check fields if empty
     if (
-        not user.user_type
-        or not user.region
+        not user.region
         or not user.accessible_regions
         or not user.organization
+        or (not is_superadmin_request and not user.role_label)
         or not user.first_name
         or not user.last_name
         or not user.email
         or not user.password
     ):
-        if not user.user_type:
-            errors.append({"field": "user_type", "error": "Must choose user type"})
-
         if not user.region:
             errors.append({"field": "region", "error": "Must choose region"})
 
@@ -511,6 +524,9 @@ async def create_user(
 
         if not user.organization:
             errors.append({"field": "organization", "error": "Must enter organization"})
+
+        if not is_superadmin_request and not user.role_label:
+            errors.append({"field": "role_label", "error": "Must choose role"})
 
         if not user.first_name:
             errors.append({"field": "first_name", "error": "Must enter first name"})
@@ -530,8 +546,27 @@ async def create_user(
         )
 
     # Check if user type is valid
-    if not user.user_type in ["USER", "ADMIN", "SUPERADMIN"]:
+    if requested_user_type not in ["USER", "SUPERADMIN"]:
         errors.append({"field": "user_type", "error": "Invalid user type"})
+
+    if is_superadmin_request and not is_superadmin(current_user):
+        errors.append(
+            {
+                "field": "user_type",
+                "error": "Only superadmins can create superadmin accounts",
+            }
+        )
+
+    if role_label == ADMIN_ROLE_LABEL and not is_superadmin(current_user):
+        errors.append(
+            {
+                "field": "role_label",
+                "error": "Only superadmins can create admin role accounts",
+            }
+        )
+
+    if not is_superadmin_request and role_label and not role_label_exists(role_label):
+        errors.append({"field": "role_label", "error": "Invalid selected role"})
 
     # Check if region is valid
     regions = [
@@ -577,8 +612,10 @@ async def create_user(
         )
 
     to_encode = dict(user).copy()
-    # Add role_label (future-ready for role classification)
-    to_encode.update({"role_label": to_encode.get("role_label", "")})
+    # Account level is intentionally limited to SUPERADMIN or USER.
+    # USER accounts carry a dynamic role label; SUPERADMIN accounts do not.
+    to_encode.update({"user_type": requested_user_type})
+    to_encode.update({"role_label": "" if is_superadmin_request else role_label})
     # Set is_disabled status to False
     to_encode.update({"is_disabled": False})
     # Generate hashed password
@@ -594,8 +631,12 @@ async def create_user(
             detail="Error creating admin...",
         )
 
-    # Send mail based on user_type
-    if user.user_type == "USER":
+    # Send mail based on assigned account type and role label
+    if is_superadmin_request:
+        result = mail_add_superadmin(
+            user.email, {"email": user.email, "password": user.password}
+        )
+    elif role_label != ADMIN_ROLE_LABEL:
         regions = {
             "NCR": "National Capital Region",
             "I": "Region I",
@@ -629,12 +670,8 @@ async def create_user(
                 "password": user.password,
             },
         )
-    elif user.user_type == "ADMIN":
+    else:
         result = mail_add_admin(
-            user.email, {"email": user.email, "password": user.password}
-        )
-    elif user.user_type == "SUPERADMIN":
-        result = mail_add_superadmin(
             user.email, {"email": user.email, "password": user.password}
         )
 
@@ -687,6 +724,23 @@ async def delete_users(
             detail="User does not exist.",
         )
 
+    current_user = user_collection.find_one({"_id": ObjectId(is_admin.id)})
+
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authorized to delete user.",
+        )
+
+    if not is_superadmin(current_user) and (
+        user_data.get("user_type") == "SUPERADMIN"
+        or user_data.get("role_label") == ADMIN_ROLE_LABEL
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authorized to delete administrator accounts.",
+        )
+
     deleted_user = user_collection.find_one_and_delete({"_id": ObjectId(id)})
 
     # If deletion failed
@@ -731,14 +785,14 @@ async def delete_admin(
     if not id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Failed to delete admin.",
+            detail="Failed to delete superadmin.",
         )
 
     # Check if id is a valid ObjectId
     if not ObjectId.is_valid(id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Failed to delete admin.",
+            detail="Failed to delete superadmin.",
         )
 
     if id == str(current_user["_id"]):
@@ -753,7 +807,13 @@ async def delete_admin(
     if not user_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Admin does not exist.",
+            detail="Superadmin does not exist.",
+        )
+
+    if user_data.get("user_type") != "SUPERADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Selected account is not a superadmin account.",
         )
 
     deleted_user = user_collection.find_one_and_delete({"_id": ObjectId(id)})
@@ -762,7 +822,7 @@ async def delete_admin(
     if not deleted_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Failed to delete admin.",
+            detail="Failed to delete superadmin.",
         )
 
     result = mail_delete_account(deleted_user["email"])
@@ -789,7 +849,7 @@ route     PUT api/users/disable/{id}
 async def set_disable_status(
     id: str,
     data: DisableUserRequest,
-    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))]
+    current_user: Annotated[dict, Depends(require_role([ADMIN_ROLE_LABEL, "SUPERADMIN"]))]
 ):
     # Check if user is an admin or superadmin
     """ if not is_admin.result:
@@ -913,6 +973,23 @@ async def update_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User does not exist.",
         )
+
+    if not is_superadmin(current_user) and (
+        user_data.get("user_type") == "SUPERADMIN"
+        or user_data.get("role_label") == ADMIN_ROLE_LABEL
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authorized to update administrator accounts.",
+        )
+
+    current_user = user_collection.find_one({"_id": ObjectId(is_admin.id)})
+
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Failed to update user.",
+        )
     
     first_name = data.first_name.strip() if data.first_name else ""
     last_name = data.last_name.strip() if data.last_name else ""
@@ -922,7 +999,9 @@ async def update_user(
     accessible_regions = (
         data.accessible_regions.strip() if data.accessible_regions else ""
     )
-    role_label = data.role_label.strip() if data.role_label else ""
+    requested_user_type = (data.user_type or user_data.get("user_type") or "USER").strip().upper()
+    is_superadmin_target = user_data.get("user_type") == "SUPERADMIN"
+    role_label = "" if is_superadmin_target else get_role_label_name(data.role_label)
 
     if not first_name:
         errors.append({"field": "first_name", "error": "Must enter first name"})
@@ -971,10 +1050,36 @@ async def update_user(
     if region and region not in valid_regions:
         errors.append({"field": "region", "error": "Invalid selected region"})
 
-    valid_roles = ["", "ANALYST", "DOH", "LGU", "RESEARCHER", "VIEWER", "FIELD_WORKER"]
+    if requested_user_type not in ["USER", "SUPERADMIN"]:
+        errors.append({"field": "user_type", "error": "Invalid user type"})
 
-    if role_label not in valid_roles:
+    if requested_user_type != user_data.get("user_type"):
+        errors.append({"field": "user_type", "error": "Cannot change account type"})
+
+    if is_superadmin_target and not is_superadmin(current_user):
+        errors.append(
+            {
+                "field": "user_type",
+                "error": "Not authorized to update superadmin accounts",
+            }
+        )
+
+    if not is_superadmin_target and not role_label:
+        errors.append({"field": "role_label", "error": "Must choose role"})
+    elif not is_superadmin_target and not role_label_exists(role_label):
         errors.append({"field": "role_label", "error": "Invalid selected role"})
+
+    if not is_superadmin(current_user) and (
+        user_data.get("user_type") == "SUPERADMIN"
+        or user_data.get("role_label") == ADMIN_ROLE_LABEL
+        or role_label == ADMIN_ROLE_LABEL
+    ):
+        errors.append(
+            {
+                "field": "role_label",
+                "error": "Not authorized to update administrator accounts",
+            }
+        )
 
     valid_email = re.compile(
         r"^([a-z0-9]+[a-z0-9!#$%&'*+/=?^_`{|}~-]?(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)$",
