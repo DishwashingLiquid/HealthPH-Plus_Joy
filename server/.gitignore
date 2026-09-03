@@ -6,6 +6,9 @@ env/
 myenv/
 .env
 */__pycache__
+__pycache__/
+*.py[cod]
+*$py.class
 packages/skmultilearn/__pycache__
 packages/skmultilearn/*/__pycache__
 public/datasets/*
