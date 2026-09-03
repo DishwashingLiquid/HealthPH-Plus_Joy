@@ -1317,6 +1317,8 @@ const AnalyticsEntriesPanel = ({
 
     const selectedCount = selectedEntryIds.length;
 
+    const isSurveySource = sourceType === "survey";
+
     return (
         <div>
             {selectedCount > 0 && (
@@ -1365,12 +1367,28 @@ const AnalyticsEntriesPanel = ({
                                         disabled={processableEntries.length === 0}
                                     />
                                 </th>
-                                <th className="py-[12px] px-[10px] font-medium">Source</th>
-                                <th className="py-[12px] px-[10px] font-medium">Text</th>
-                                <th className="py-[12px] px-[10px] font-medium">Language</th>
-                                <th className="py-[12px] px-[10px] font-medium">Location</th>
-                                <th className="py-[12px] px-[10px] font-medium">Analysis Status</th>
-                                <th className="py-[12px] px-[10px] font-medium">Created At</th>
+                                {isSurveySource ? (
+                                    <>
+                                        <th className="py-[12px] px-[10px] font-medium">Survey ID</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Question ID</th>
+                                        <th className="py-[12px] px-[10px] font-medium">ID</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Language</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Answer</th>
+                                        <th className="py-[12px] px-[10px] font-medium">User ID</th>
+                                        <th className="py-[12px] px-[10px] font-medium">User Location</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Date Answered</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Status</th>
+                                    </>
+                                ) : (
+                                    <>
+                                        <th className="py-[12px] px-[10px] font-medium">ID</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Language</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Text</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Location</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Date Reported</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Status</th>
+                                    </>
+                                )}
                             </tr>
                         </thead>
                         <tbody>
@@ -1394,27 +1412,64 @@ const AnalyticsEntriesPanel = ({
                                                 disabled={!isProcessable}
                                             />
                                         </td>
-                                        <td className="py-[14px] px-[10px] text-gray-600">
-                                            {entry.source_type || "-"}
-                                        </td>
-                                        <td className="max-w-[360px] truncate py-[14px] px-[10px] text-gray-800">
-                                            {entry.text || "-"}
-                                        </td>
-                                        <td className="py-[14px] px-[10px] text-gray-600">
-                                            {entry.language || "-"}
-                                        </td>
-                                        <td className="py-[14px] px-[10px] text-gray-600">
-                                            {entry.location?.raw || "-"}
-                                        </td>
-                                        <td className="py-[14px] px-[10px]">
-                                            <DatasetStatusBadge status={entry.analysis_status || "pending"} />
-                                        </td>
-                                        <td className="py-[14px] px-[10px] text-gray-600">
-                                            {entry.created_at
-                                                ? format(new Date(entry.created_at), "MMM dd, yyyy hh:mm a")
-                                                : "-"
-                                            }
-                                        </td>
+                                        {isSurveySource ? (
+                                            <>
+                                                <td className="max-w-[140px] truncate py-[14px] px-[10px] text-gray-600">
+                                                    {entry.survey_id || "-"}
+                                                </td>
+                                                <td className="max-w-[140px] truncate py-[14px] px-[10px] text-gray-600">
+                                                    {entry.question_id || entry.metadata?.question_id || "-"}
+                                                </td>
+                                                <td className="max-w-[150px] truncate py-[14px] px-[10px] font-medium text-gray-800">
+                                                    {entry.response_id || entry.source_id || entry.id || "-"}
+                                                </td>
+                                                <td className="py-[14px] px-[10px] text-gray-600">
+                                                    {entry.language || "-"}
+                                                </td>
+                                                <td className="max-w-[360px] truncate py-[14px] px-[10px] text-gray-800">
+                                                    {entry.text || "-"}
+                                                </td>
+                                                <td className="max-w-[150px] truncate py-[14px] px-[10px] text-gray-600">
+                                                    {entry.user_id || entry.metadata?.user_id || entry.metadata?.visitor_id || "-"}
+                                                </td>
+                                                <td className="py-[14px] px-[10px] text-gray-600">
+                                                    {entry.location?.raw || entry.location?.region || "-"}
+                                                </td>
+                                                <td className="py-[14px] px-[10px] text-gray-600">
+                                                    {entry.event_time
+                                                        ? format(new Date(entry.event_time), "MMM dd, yyyy hh:mm a")
+                                                        : "-"
+                                                    }
+                                                </td>
+                                                <td className="py-[14px] px-[10px]">
+                                                    <DatasetStatusBadge status={entry.analysis_status || "pending"} />
+                                                </td>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <td className="max-w-[150px] truncate py-[14px] px-[10px] font-medium text-gray-800">
+                                                    {entry.source_id || entry.report_id || entry.id || "-"}
+                                                </td>
+                                                <td className="py-[14px] px-[10px] text-gray-600">
+                                                    {entry.language || "-"}
+                                                </td>
+                                                <td className="max-w-[420px] truncate py-[14px] px-[10px] text-gray-800">
+                                                    {entry.text || "-"}
+                                                </td>
+                                                <td className="py-[14px] px-[10px] text-gray-600">
+                                                    {entry.location?.raw || entry.location?.city || entry.location?.province || entry.location?.region || "-"}
+                                                </td>
+                                                <td className="py-[14px] px-[10px] text-gray-600">
+                                                    {entry.created_at
+                                                        ? format(new Date(entry.created_at), "MMM dd, yyyy hh:mm a")
+                                                        : "-"
+                                                    }
+                                                </td>
+                                                <td className="py-[14px] px-[10px]">
+                                                    <DatasetStatusBadge status={entry.analysis_status || "pending"} />
+                                                </td>
+                                            </>
+                                        )}
                                     </tr>
                                 );
                             })}
