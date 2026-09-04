@@ -354,6 +354,20 @@ const formatBytes = (size = 0) => {
     return `${(kb / 1024).toFixed(2).replace(/\.?0+$/, "")} MB`;
 }
 
+const getRequestErrorMessage = (error, fallback) => {
+    const detail = error?.data?.detail;
+
+    if (typeof detail === "string") {
+        return detail;
+    }
+
+    if (Array.isArray(detail) && detail[0]?.msg) {
+        return detail[0].msg;
+    }
+
+    return error?.error || fallback;
+};
+
 /* SUBTAB 2 = DATA MANAGEMENT */
 const DataManagement = () => {
     const user = useSelector((state) => state.auth.user);
@@ -386,7 +400,10 @@ const DataManagement = () => {
     const {
         data: analyticsEntriesData,
         isFetching: isAnalyticsEntriesFetching,
-    } = useFetchAnalyticsEntriesQuery(
+        isError: isAnalyticsEntriesError,
+        error: analyticsEntriesError,
+        refetch: refetchAnalyticsEntries,
+    } = useFetchAnalyticsEntriesQuery (
         {
             sourceType: dataSourceView,
             analysisStatus: entryStatusFilter,
@@ -404,6 +421,20 @@ const DataManagement = () => {
 
     const [processAnalyticsEntries, { isLoading: isProcessEntriesLoading }] =
         useProcessAnalyticsEntriesMutation();
+
+    /* PREVIE MODAL STATE */
+    const [entryDetailsModalActive, setEntryDetailsModalActive] = useState(false);
+    const [entryDetailsModalData, setEntryDetailsModalData] = useState(null);
+
+    const openEntryDetailsModal = (entry) => {
+        setEntryDetailsModalData(entry);
+        setEntryDetailsModalActive(true);
+    };
+
+    const closeEntryDetailsModal = () => {
+        setEntryDetailsModalData(null);
+        setEntryDetailsModalActive(false);
+    };
 
     /* UPLOAD MODAL STATE */
     const inputFile = useRef(null);
@@ -934,7 +965,7 @@ const DataManagement = () => {
             description: "Uploaded social media CSV files prepared for analytics and model processing.",
             totalLabel: "Total datasets",
         },
-        survey: {
+        survey_response: {
             title: "Survey Responses",
             description: "Survey response entries prepared for analytics and NLP processing.",
             totalLabel: "Total entries",
@@ -964,8 +995,8 @@ const DataManagement = () => {
                     />
                     <DataSourcePill
                         label="Survey Responses"
-                        active={dataSourceView === "survey"}
-                        onClick={() => setDataSourceView("survey")}
+                        active={dataSourceView === "survey_response"}
+                        onClick={() => setDataSourceView("survey_response")}
                     />
                     <DataSourcePill
                         label="Self Reports"
@@ -1203,6 +1234,8 @@ const DataManagement = () => {
                     entries={analyticsEntries}
                     total={analyticsEntriesTotal}
                     isLoading={isAnalyticsEntriesFetching}
+                    isError={isAnalyticsEntriesError}
+                    error={analyticsEntriesError}
                     selectedEntryIds={selectedEntryIds}
                     selectedProcessableCount={selectedProcessableEntries.length}
                     isProcessing={isProcessEntriesLoading}
@@ -1210,6 +1243,8 @@ const DataManagement = () => {
                     onToggleAllVisible={toggleAllVisibleEntries}
                     onClearSelected={clearSelectedEntries}
                     onProcessSelected={handleProcessSelectedEntries}
+                    onViewDetails={openEntryDetailsModal}
+                    onRetry={refetchAnalyticsEntries}
                 />
             )}
         </div>
@@ -1250,6 +1285,13 @@ const DataManagement = () => {
                 }
             />
         )}
+        {entryDetailsModalActive && entryDetailsModalData && (
+            <AnalyticsEntryDetailsModal
+                entry={entryDetailsModalData}
+                sourceType={dataSourceView}
+                onClose={closeEntryDetailsModal}
+            />
+        )}
         {deleteModalActive && (
             <DeleteDatasetModal
                 filename={deleteModalData.filename}
@@ -1288,6 +1330,7 @@ const DataSourcePill = ({ label, active, onClick }) => {
     );
 };
 
+/* CHANGE THIS ONCE CSS AND UTILS ARE UPDATED */
 const MODAL_PRIMARY_BUTTON_CLASSES =
     "inline-flex items-center justify-center rounded-[8px] !bg-[#32418C] px-[14px] py-[9px] text-sm font-medium !text-white shadow-sm transition hover:!bg-[#27346F] disabled:cursor-not-allowed disabled:!bg-[#98A2B3] disabled:!text-[#F8FAFC]";
 
@@ -1298,6 +1341,8 @@ const AnalyticsEntriesPanel = ({
     sourceType,
     entries = [],
     isLoading = false,
+    isError = false,
+    error,
     selectedEntryIds = [],
     selectedProcessableCount = 0,
     isProcessing = false,
@@ -1305,6 +1350,8 @@ const AnalyticsEntriesPanel = ({
     onToggleAllVisible,
     onClearSelected,
     onProcessSelected,
+    onViewDetails,
+    onRetry
 }) => {
 
     const processableEntries = entries.filter((entry) =>
@@ -1317,7 +1364,14 @@ const AnalyticsEntriesPanel = ({
 
     const selectedCount = selectedEntryIds.length;
 
-    const isSurveySource = sourceType === "survey";
+    const isSurveySource = sourceType === "survey_response";
+
+    const errorMessage = getRequestErrorMessage(
+        error,
+        isSurveySource
+            ? "Unable to load survey responses. Please try again."
+            : "Unable to load self reports. Please try again."
+    );
 
     return (
         <div>
@@ -1354,6 +1408,20 @@ const AnalyticsEntriesPanel = ({
                 <div className="overflow-y-hidden min-w-full h-[300px]">
                     <SkeletonBody columns={6} />
                 </div>
+            ) : isError ? (
+                <EmptyState
+                    iconName="Error"
+                    heading="Unable to Load Entries"
+                    content={errorMessage}
+                >
+                    <button
+                        type="button"
+                        className="prod-btn-base prod-btn-secondary"
+                        onClick={onRetry}
+                    >
+                        Retry
+                    </button>
+                </EmptyState>
             ) : entries.length > 0 ? (
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
@@ -1400,15 +1468,17 @@ const AnalyticsEntriesPanel = ({
                                 return (
                                     <tr
                                         key={entry.id}
-                                        className={`border-b border-[#F0F0F0] ${
+                                        className={`cursor-pointer border-b border-[#F0F0F0] transition hover:bg-[#F8FAFC] ${
                                             isProcessed ? "bg-[#F8FAFC] text-gray-400" : ""
                                         }`}
+                                        onClick={() => onViewDetails(entry)}
                                     >
                                         <td className="py-[14px] px-[10px]">
                                             <input 
                                                 type="checkbox"
                                                 checked={selectedEntryIds.includes(entry.id)}
                                                 onChange={() => onToggleEntry(entry.id)}
+                                                onClick={(event) => event.stopPropagation()}
                                                 disabled={!isProcessable}
                                             />
                                         </td>
@@ -1481,12 +1551,152 @@ const AnalyticsEntriesPanel = ({
                     iconName="Document"
                     heading="No Analytics Entries Yet"
                     content={
-                        sourceType === "survey"
+                        sourceType === "survey_response"
                             ? "Survey responses with analyzable text will appear here."
                             : "Mobile self-report entries with analyzable text will appear here."
                     }
                 />
             )}
+        </div>
+    );
+};
+
+const displayEntryDateTime = (value) => {
+    if (!value) return "-";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return "-";
+    }
+
+    return format(date, "MMM dd, yyyy hh:mm a");
+};
+
+const DetailRow = ({ label, value }) => (
+    <div>
+        <p className="text-xs font-medium uppercase text-gray-400">
+            {label}
+        </p>
+        <p className="mt-[4px] break-words text-sm text-gray-800">
+            {value || "-"}
+        </p>
+    </div>
+);
+
+const AnalyticsEntryDetailsModal = ({ entry, sourceType, onClose }) => {
+    const isSurveySource = sourceType === "survey_response";
+
+    const location =
+        entry.location?.raw ||
+        entry.location?.city ||
+        entry.location?.province ||
+        entry.location?.region ||
+        entry.user_location ||
+        "-";
+
+    const primaryId = isSurveySource
+        ? entry.response_id || entry.source_id || entry.id
+        : entry.source_id || entry.report_id || entry.id;
+
+    const title = isSurveySource
+        ? "Survey Response Details"
+        : "Self Report Details";
+
+    const dateLabel = isSurveySource ? "Date Answered" : "Date Reported";
+    const dateValue = isSurveySource
+        ? entry.event_time || entry.date_answered || entry.created_at
+        : entry.created_at || entry.event_time;
+
+    return (
+        <div className="fixed inset-x-0 bottom-0 top-[49px] z-50 flex items-center justify-center px-[20px] py-[32px]">
+            <button 
+                type="button"
+                className="absolute inset-0 bg-[#34405499] backdrop-blur-sm"
+                onClick={onClose}
+                aria-label="Close Analytics entry details"
+            />
+
+            <div className="relative flex max-h-[calc(100vh-113px)] w-full max-w-[900px] flex-col overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-white shadow-xl">
+                <div className="border-b border-[#E5E5E5] px-[20px] py-[16px]">
+                    <div className="flex items-start justify-between gap-[20px]">
+                        <div>
+                            <h3 className="text-[18px] font-semibold text-gray-800">
+                                {title}
+                            </h3>
+                            <p className="mt-[4px] text-sm text-gray-500">
+                                {primaryId || "-"}
+                            </p>
+                        </div>
+
+                        <DatasetStatusBadge status={entry.analysis_status || "pending"} />
+                    </div>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto p-[20px]">
+                    <div className="grid gap-[16px] md:grid-cols-2">
+                        {isSurveySource && (
+                            <>
+                                <DetailRow label="Survey ID" value={entry.survey_id} />
+                                <DetailRow label="Question ID" value={entry.question_id || entry.metadata?.question_id} />
+                            </>
+                        )}
+
+                        <DetailRow label="ID" value={primaryId} />
+                        <DetailRow label="Language" value={entry.language} />
+                        <DetailRow label={dateLabel} value={displayEntryDateTime(dateValue)} />
+                        <DetailRow label="Location" value={location} />
+
+                        {isSurveySource && (
+                            <DetailRow
+                                label="User ID"
+                                value={entry.user_id || entry.metadata?.user_id || entry.metadata?.visitor_id}
+                            />
+                        )}
+
+                        <DetailRow label="Source Type" value={entry.source_type} />
+                    </div>
+
+                    <div className="mt-[18px]">
+                        <p className="text-xs font-medium uppercase text-gray-400">
+                            {isSurveySource ? "Answer" : "Text"}
+                        </p>
+                        <div className="mt-[6px] rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] p-[12px] text-sm leading-6 text-gray-800">
+                            {entry.text || "-"}
+                        </div>
+                    </div>
+
+                    <div className="mt-[18px] grid gap-[16px] md:grid-cols-2">
+                        <div>
+                            <p className="text-xs font-medium uppercase text-gray-400">
+                                Metadata
+                            </p>
+                            <pre className="mt-[6px] max-h-[220px] overflow-auto rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] p-[12px] text-xs text-gray-700">
+                                {JSON.stringify(entry.metadata || {}, null, 2)}
+                            </pre>
+                        </div>
+
+                        <div>
+                            <p className="text-xs font-medium uppercase text-gray-400">
+                                Analysis
+                            </p>
+                            <pre className="mt-[6px] max-h-[220px] overflow-auto rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] p-[12px] text-xs text-gray-700">
+                                {JSON.stringify(entry.analysis || {}, null, 2)}
+                            </pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex justify-end border-t border-[#E5E5E5] px-[20px] py-[16px]">
+                    <button
+                        type="button"
+                        className="prod-btn-base prod-btn-secondary"
+                        onClick={onClose}
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
         </div>
     );
 };

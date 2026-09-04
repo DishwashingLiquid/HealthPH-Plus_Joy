@@ -119,7 +119,7 @@ def build_survey_response_analytics_entries(response_document):
 
         entries.append(
             {
-                "source_type": "survey",
+                "source_type": "survey_response",
                 "source_id": f"{response_id}:{question_id}",
                 "survey_id": survey_id,
                 "response_id": response_id,
