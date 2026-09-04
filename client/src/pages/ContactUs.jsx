@@ -1,14 +1,15 @@
+/* eslint-disable react/prop-types */
 import { useState } from "react";
 import HomeFooter from "../components/HomeFooter";
 import HomeNavbar from "../components/HomeNavbar";
+import "../assets/css/home.css";
 import Icon from "../components/Icon";
 import ContactDetailItem from "../components/about-us/ContactDetailItem";
 import FieldGroup from "../components/FieldGroup";
 import Input from "../components/Input";
-import Textarea from "../components/Textarea";
 import { useSendContactUsMutation } from "../features/api/miscSlice";
 
-const ContactUs = () => {
+const ContactUs = ({ embedded = false }) => {
   const contactDetails = [
     {
       icon: "Mail",
@@ -146,11 +147,11 @@ const ContactUs = () => {
     return flag;
   };
 
-  return (
-    <div className="contact-us-layout flex flex-col min-h-[100vh]">
-      <HomeNavbar background="solid" />
+  const content = (
+    <section id={embedded ? "contact" : undefined} className={embedded ? "public-section public-content-section" : ""}>
       <div className="contact-us-container flex-grow">
         <div className="contact-us-wrapper">
+          {embedded && <p className="public-section-intro">Reach the HealthPH+ team, send a message, or find us on the map.</p>}
           <p className="heading">Contact Us</p>
 
           {/* CONTACT US GRID */}
@@ -329,8 +330,11 @@ const ContactUs = () => {
           </div>
         </div>
       </div>
-      <HomeFooter />
-    </div>
+    </section>
   );
+
+  if (embedded) return <div className="contact-us-layout">{content}</div>;
+
+  return <div className="contact-us-layout flex flex-col min-h-[100vh]"><HomeNavbar />{content}<HomeFooter /></div>;
 };
 export default ContactUs;

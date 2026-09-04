@@ -12,9 +12,7 @@ import AdminLayout from "./layouts/AdminLayout";
 import DashboardMiddleware from "./middlewares/DashboardMiddleware";
 import AuthMiddleware from "./middlewares/AuthMiddleware";
 
-import Articles from "./pages/Articles";
 import ArticlePage from "./pages/ArticlePage";
-import ContactUs from "./pages/ContactUs";
 
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
@@ -42,8 +40,6 @@ import FullMap from "./pages/admin/FullMap";
 import Print from "./pages/Print";
 
 const Home = lazy(() => import("./pages/Home"));
-const AboutUs = lazy(() => import("./pages/AboutUs"));
-const ResearchTeam = lazy(() => import("./pages/ResearchTeam"));
 const Login = lazy(() => import("./pages/auth/Login"));
 const HealthLiteracyHub = lazy(() =>
   import("./pages/admin/healthLiteracyHub/HealthLiteracyHub")
@@ -104,7 +100,7 @@ function App() {
             path="about-the-project"
             element={
               !isPWA ? (
-                renderLazyRoute("HealthPH | About Us", AboutUs)
+                <Navigate to={{ pathname: "/", hash: "#about" }} replace />
               ) : (
                 <Navigate to="/login" />
               )
@@ -114,10 +110,7 @@ function App() {
             path="articles"
             element={
               !isPWA ? (
-                <>
-                  <HelmetTitle title="HealthPH | Articles" />
-                  <Articles />
-                </>
+                <Navigate to={{ pathname: "/", hash: "#articles" }} replace />
               ) : (
                 <Navigate to="/login" />
               )
@@ -140,7 +133,7 @@ function App() {
             path="research-team"
             element={
               !isPWA ? (
-                renderLazyRoute("HealthPH | Research Team", ResearchTeam)
+                <Navigate to={{ pathname: "/", hash: "#research-team" }} replace />
               ) : (
                 <Navigate to="/login" />
               )
@@ -150,10 +143,7 @@ function App() {
             path="contact-us"
             element={
               !isPWA ? (
-                <>
-                  <HelmetTitle title="HealthPH | Contact Us" />
-                  <ContactUs />
-                </>
+                <Navigate to={{ pathname: "/", hash: "#contact" }} replace />
               ) : (
                 <Navigate to="/login" />
               )
