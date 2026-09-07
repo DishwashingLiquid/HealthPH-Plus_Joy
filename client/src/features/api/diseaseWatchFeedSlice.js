@@ -29,10 +29,17 @@ export const diseaseWatchFeedApi = baseAPI.injectEndpoints({
         params: buildParams(params),
       }),
     }),
+    getDiseaseWatchFeedUserAnalytics: builder.query({
+      query: (params = {}) => ({
+        url: "/mobile/disease-watch-feed/user-analytics",
+        params: buildParams(params),
+      }),
+    }),
   }),
 });
 
 export const {
+  useGetDiseaseWatchFeedUserAnalyticsQuery,
   useGetMobileSelfReportsExportQuery,
   useGetMobileSelfReportsMapPinsQuery,
 } = diseaseWatchFeedApi;

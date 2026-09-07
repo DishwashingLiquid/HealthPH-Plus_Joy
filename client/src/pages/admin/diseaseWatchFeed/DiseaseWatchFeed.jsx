@@ -6,6 +6,7 @@ import {
   SymptomReporting,
 } from "../../../assets/icons/icons";
 import {
+  useGetDiseaseWatchFeedUserAnalyticsQuery,
   useGetMobileSelfReportsExportQuery,
   useGetMobileSelfReportsMapPinsQuery,
 } from "../../../features/api/diseaseWatchFeedSlice";
@@ -198,25 +199,6 @@ const toDate = (value) => {
   return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
 };
 
-const buildMetricSummary = (current, previous) => {
-  const change = current - previous;
-  let percentage = 0;
-
-  if (previous) {
-    percentage = Math.abs((change / previous) * 100);
-  } else if (current) {
-    percentage = 100;
-  }
-
-  return {
-    current,
-    previous,
-    change,
-    percentage: Math.round(percentage * 10) / 10,
-    trend: change >= 0 ? "up" : "down",
-  };
-};
-
 const buildLocationLookup = (mapPins) =>
   new Map(mapPins.map((pin) => [pin.id, pin]));
 
@@ -367,53 +349,6 @@ const buildTopMetricCards = (reports, locationLookup) => {
   ];
 };
 
-const buildUserAnalytics = (reports) => {
-  const now = new Date();
-  const currentFrom = new Date(now);
-  currentFrom.setDate(currentFrom.getDate() - 30);
-  const previousTo = new Date(currentFrom);
-  const previousFrom = new Date(currentFrom);
-  previousFrom.setDate(previousFrom.getDate() - 30);
-
-  const distinctCurrentUsers = new Set();
-  const distinctPreviousUsers = new Set();
-  let currentSymptomReports = 0;
-  let previousSymptomReports = 0;
-
-  reports.forEach((report) => {
-    const createdAt = toDate(report.createdAt);
-    const reporterId = report.mobileReporterId || report.id;
-    if (!createdAt || !reporterId) {
-      return;
-    }
-
-    if (createdAt <= now) {
-      distinctCurrentUsers.add(reporterId);
-    }
-    if (createdAt <= previousTo) {
-      distinctPreviousUsers.add(reporterId);
-    }
-    if (createdAt >= currentFrom && createdAt <= now) {
-      currentSymptomReports += 1;
-    }
-    if (createdAt >= previousFrom && createdAt <= previousTo) {
-      previousSymptomReports += 1;
-    }
-  });
-
-  return {
-    totalUsers: buildMetricSummary(
-      distinctCurrentUsers.size,
-      distinctPreviousUsers.size
-    ),
-    alertOpenRate: EMPTY_USER_ANALYTICS.alertOpenRate,
-    symptomReports: buildMetricSummary(
-      currentSymptomReports,
-      previousSymptomReports
-    ),
-  };
-};
-
 export default function DiseaseWatchFeed() {
   const [activeTab, setActiveTab] = useState("recent-alerts");
   const [selectedRegions, setSelectedRegions] = useState([]);
@@ -440,6 +375,13 @@ export default function DiseaseWatchFeed() {
     isLoading: isSelfReportsLoading,
   } = useGetMobileSelfReportsExportQuery({ format: "json" });
 
+  const {
+    data: userAnalyticsResponse,
+    error: userAnalyticsError,
+    isFetching: isUserAnalyticsFetching,
+    isLoading: isUserAnalyticsLoading,
+  } = useGetDiseaseWatchFeedUserAnalyticsQuery();
+
   const mapPins = mapPinsResponse?.items || [];
   const selfReports = selfReportsResponse?.items || [];
 
@@ -456,13 +398,7 @@ export default function DiseaseWatchFeed() {
     () => buildRegionalCoverage(selfReports, locationLookup),
     [locationLookup, selfReports]
   );
-  const userAnalytics = useMemo(
-    () =>
-      selfReports.length > 0
-        ? buildUserAnalytics(selfReports)
-        : EMPTY_USER_ANALYTICS,
-    [selfReports]
-  );
+  const userAnalytics = userAnalyticsResponse || EMPTY_USER_ANALYTICS;
   const topMetricCards = useMemo(
     () =>
       buildTopMetricCards(selfReports, locationLookup).map((card) => ({
@@ -565,14 +501,14 @@ export default function DiseaseWatchFeed() {
         {activeTab === "user-analytics" && (
           <UserAnalyticsTab
             errorMessage={
-              sharedError
+              userAnalyticsError
                 ? getErrorMessage(
-                    sharedError,
+                    userAnalyticsError,
                     "Failed to load user analytics."
                   )
                 : ""
             }
-            isLoading={isDashboardLoading}
+            isLoading={isUserAnalyticsLoading || isUserAnalyticsFetching}
             userAnalytics={userAnalytics}
           />
         )}

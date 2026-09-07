@@ -82,6 +82,8 @@ const normalizeQuestion = (question = {}, index = 0) => ({
       : ["Option 1", "Option 2"],
   rateMin: question.type === "rating" ? Number(question.rateMin) || 1 : 1,
   rateMax: question.type === "rating" ? Number(question.rateMax) || 5 : 5,
+  displayId: question.displayId || "",
+  position: Number(question.position) || index + 1,
 });
 
 export const createDraftFromSurvey = (survey = {}) => ({
@@ -284,6 +286,11 @@ function MobileSurveyResultsModal({ surveyId, onClose }) {
                 <h3 className="text-[18px] font-semibold text-gray-800">
                   {survey.title}
                 </h3>
+                {survey.displayId && (
+                  <span className="rounded-full bg-[#EEF2FF] px-2.5 py-1 font-mono text-xs font-semibold text-[#32418C]">
+                    {survey.displayId}
+                  </span>
+                )}
                 {survey.status && (
                   <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700">
                     {survey.status}
@@ -364,7 +371,7 @@ function MobileSurveyResultsModal({ surveyId, onClose }) {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Question {index + 1}
+                        {question.displayId || `Question ${question.position || index + 1}`}
                       </p>
                       <h4 className="mt-1 text-[16px] font-semibold text-gray-800">
                         {question.title}
@@ -432,6 +439,8 @@ export function MobileSurveyCreateModal({
   onAddChoice,
   onRemoveChoice,
   onRemoveQuestion,
+  onMoveQuestion = () => {},
+  surveyDisplayId = "",
   onSubmitSurvey,
   submitLabel = "Create Draft",
   submitLoadingLabel = "Creating...",
@@ -520,12 +529,12 @@ export function MobileSurveyCreateModal({
     >
       <div className="max-h-[calc(100vh-230px)] overflow-y-auto px-5 py-5">
         <div className="space-y-5">
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_180px]">
-              <div>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_180px]">
+                <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   Survey Title
                 </label>
-                <input
+                  <input
                   type="text"
                   value={draft.title}
                   onChange={(event) =>
@@ -533,7 +542,12 @@ export function MobileSurveyCreateModal({
                   }
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
                   placeholder="Ex. Dengue prevention awareness"
-                />
+                  />
+                  {surveyDisplayId && (
+                    <p className="mt-2 text-xs font-medium text-gray-500">
+                      Survey ID: {surveyDisplayId}
+                    </p>
+                  )}
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
@@ -604,17 +618,37 @@ export function MobileSurveyCreateModal({
                           Question {index + 1}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {getQuestionTypeLabel(question.type)}
+                          {question.displayId
+                            ? `${question.displayId} - ${getQuestionTypeLabel(question.type)}`
+                            : getQuestionTypeLabel(question.type)}
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => onRemoveQuestion(question.id)}
-                        className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600"
-                        style={questionRemoveButtonStyle}
-                      >
-                        Remove
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onMoveQuestion(question.id, -1)}
+                          disabled={index === 0}
+                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Move up
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onMoveQuestion(question.id, 1)}
+                          disabled={index === draft.questions.length - 1}
+                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Move down
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onRemoveQuestion(question.id)}
+                          className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600"
+                          style={questionRemoveButtonStyle}
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-4">
@@ -1083,6 +1117,11 @@ export default function MobileSurveys({
                     <h3 className="text-[16px] font-semibold text-gray-800">
                       {survey.title}
                     </h3>
+                    {survey.displayId && (
+                      <span className="rounded-full bg-[#EEF2FF] px-[10px] py-[4px] font-mono text-xs font-semibold text-[#32418C]">
+                        {survey.displayId}
+                      </span>
+                    )}
                     <span
                       className={`rounded-full px-[10px] py-[4px] text-xs font-semibold ${statusClass}`}
                     >

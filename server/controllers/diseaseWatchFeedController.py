@@ -9,6 +9,8 @@ from typing import Iterable
 
 from bson import ObjectId
 from fastapi import Depends, HTTPException, Query, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from typing_extensions import Annotated
@@ -25,6 +27,13 @@ from config.database import (
 from helpers.analyticsEntryHelpers import build_self_report_analytics_entry
 from helpers.miscHelpers import get_ph_datetime
 from middleware.requireAuth import require_auth
+from middleware.requireMobileAuth import optional_mobile_auth, require_mobile_auth
+from models.mobileUser import (
+    MOBILE_REGISTRATION_SOURCE,
+    MOBILE_ROLE_ID,
+    MOBILE_ROLE_LABEL,
+)
+import os
 
 REGION_ORDER = [
     "NCR",
@@ -120,13 +129,12 @@ ALERT_OPEN_RATE_FALLBACK = {
     "percentage": None,
     "trend": None,
     "isAvailable": False,
-    "fallbackReason": (
-        "No alert-open tracking source was found in the existing collections "
-        "or dataset flow."
-    ),
+    "fallbackReason": "No alert-open event source available.",
 }
 
 SELF_REPORT_SOURCE = "mobile_self_report"
+# Legacy report-derived records use this sourceTag. They are intentionally not
+# registrations and are excluded from registration analytics.
 USER_ANALYTICS_SOURCE = "viewer"
 SELF_REPORT_MAP_SOURCE = "selfReport"
 SELF_REPORT_CATEGORY = "Self-reported respiratory symptoms"
@@ -135,6 +143,7 @@ SELF_REPORT_REPORTER_TYPES = {"guest", "registered"}
 SELF_REPORT_PIN_ACCURACY = {"geocoded", "region_estimate"}
 SELF_REPORT_ROLE_ID_TO_LABEL = {
     "guest": "Guest Tester",
+    "user": "User",
     "citizen": "Citizen",
     "field_health_worker": "Field Health Worker",
     "lgu_doh_user": "LGU/DOH User",
@@ -187,10 +196,55 @@ REGION_CENTER_PATH = (
     / "regions_center.json"
 )
 _region_center_lookup = None
+desktop_bearer = OAuth2PasswordBearer(tokenUrl="/api/auth/authenticate")
+
+
+def _desktop_admin_credentials_exception():
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate administrator credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+async def require_desktop_admin(
+    token: Annotated[str, Depends(desktop_bearer)],
+):
+    """Accept only an existing desktop Admin/Superadmin account.
+
+    Mobile access tokens have a dedicated audience and are rejected before a
+    desktop user lookup, even though both token types use the signing key.
+    """
+    try:
+        claims = jwt.decode(
+            token,
+            os.getenv("SECRET_KEY"),
+            algorithms=[os.getenv("ALGORITHM")],
+        )
+    except JWTError as error:
+        raise _desktop_admin_credentials_exception() from error
+
+    if claims.get("aud") == "mobile" or claims.get("typ") == "mobile_access":
+        raise _desktop_admin_credentials_exception()
+
+    user_id = claims.get("sub")
+    if not isinstance(user_id, str) or not ObjectId.is_valid(user_id):
+        raise _desktop_admin_credentials_exception()
+
+    user = user_collection.find_one({"_id": ObjectId(user_id)})
+    if not user or (
+        user.get("user_type") != "SUPERADMIN" and user.get("role_label") != "Admin"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator authorization is required",
+        )
+    return user
 
 
 class SelfReportReporterPayload(BaseModel):
     userId: str | None = None
+    mobileUserId: str | None = None
     reporterType: str = "guest"
     roleId: str | None = None
     roleLabel: str | None = None
@@ -519,6 +573,9 @@ def _build_mobile_reporter_identity_key(report: dict, reports=None) -> str:
     normalized_full_name = _clean_string(reporter.get("fullName")).lower()
 
     if reporter_type == "registered":
+        mobile_user_id = _clean_string(reporter.get("mobileUserId"))
+        if mobile_user_id:
+            return f"mobile_registered_user:{mobile_user_id}"
         canonical_user_id = _resolve_registered_canonical_user_id(
             user_id=reporter.get("userId"),
             email=reporter.get("email"),
@@ -593,132 +650,6 @@ def _build_mobile_user_key(
     return None
 
 
-def _serialize_mobile_user(document: dict) -> dict:
-    location = document.get("location") or {}
-    return {
-        "id": str(document.get("_id") or ""),
-        "userKey": document.get("userKey"),
-        "sourceTag": document.get("sourceTag") or USER_ANALYTICS_SOURCE,
-        "mobileReporterId": document.get("mobileReporterId"),
-        "reporterType": document.get("reporterType"),
-        "roleId": document.get("roleId"),
-        "roleLabel": document.get("roleLabel"),
-        "userId": str(document.get("userId")) if document.get("userId") else None,
-        "fullName": document.get("fullName"),
-        "email": document.get("email"),
-        "sessionKey": document.get("sessionKey"),
-        "location": {
-            "regionCode": location.get("regionCode"),
-            "regionName": location.get("regionName"),
-            "provinceCode": location.get("provinceCode"),
-            "provinceName": location.get("provinceName"),
-            "cityCode": location.get("cityCode"),
-            "cityName": location.get("cityName"),
-            "barangayCode": location.get("barangayCode"),
-            "barangayName": location.get("barangayName"),
-        },
-        "createdAt": _to_iso_or_none(document.get("createdAt")),
-        "updatedAt": _to_iso_or_none(document.get("updatedAt")),
-        "lastSeenAt": _to_iso_or_none(document.get("lastSeenAt")),
-        "latestSelfReportId": str(document.get("latestSelfReportId") or "") or None,
-    }
-
-
-def _upsert_mobile_user_from_report(report_document: dict) -> dict:
-    reporter = report_document.get("reporter") or {}
-    location = report_document.get("location") or {}
-    report_id = str(report_document.get("_id") or "")
-    reporter_type = _normalize_reporter_type(reporter.get("reporterType"))
-    user_key = _build_mobile_user_key(
-        reporter_type=reporter_type,
-        user_id=reporter.get("userId"),
-        email=reporter.get("email"),
-        full_name=reporter.get("fullName"),
-        report_fallback_id=report_id,
-        reports=_get_self_reports(),
-    )
-    report_created_at = _coerce_datetime(report_document.get("createdAt")) or get_ph_datetime()
-    report_updated_at = _coerce_datetime(report_document.get("updatedAt")) or report_created_at
-    mobile_reporter_id = _build_mobile_reporter_public_id(
-        report_document,
-        reports=_get_self_reports(),
-    )
-
-    if not user_key:
-        created_mobile_user = {
-            "userKey": f"mobile_guest_report:{report_id}",
-            "sourceTag": USER_ANALYTICS_SOURCE,
-            "mobileReporterId": mobile_reporter_id,
-            "reporterType": reporter_type,
-            "roleId": reporter.get("roleId") or "guest",
-            "roleLabel": reporter.get("roleLabel") or SELF_REPORT_ROLE_ID_TO_LABEL["guest"],
-            "userId": reporter.get("userId"),
-            "fullName": reporter.get("fullName"),
-            "email": reporter.get("email"),
-            "sessionKey": _clean_string(reporter.get("sessionKey")) or None,
-            "location": {
-                "regionCode": location.get("regionCode"),
-                "regionName": location.get("regionName"),
-                "provinceCode": location.get("provinceCode"),
-                "provinceName": location.get("provinceName"),
-                "cityCode": location.get("cityCode"),
-                "cityName": location.get("cityName"),
-                "barangayCode": location.get("barangayCode"),
-                "barangayName": location.get("barangayName"),
-            },
-            "createdAt": report_created_at,
-            "updatedAt": report_updated_at,
-            "lastSeenAt": report_updated_at,
-            "latestSelfReportId": report_document.get("_id"),
-        }
-        inserted_result = mobile_users_collection.insert_one(created_mobile_user)
-        return mobile_users_collection.find_one({"_id": inserted_result.inserted_id}) or created_mobile_user
-
-    mobile_users_collection.update_one(
-        {"userKey": user_key},
-        {
-            "$setOnInsert": {
-                "userKey": user_key,
-                "sourceTag": USER_ANALYTICS_SOURCE,
-                "mobileReporterId": mobile_reporter_id,
-                "reporterType": reporter_type,
-                "roleId": reporter.get("roleId") or "guest",
-                "roleLabel": reporter.get("roleLabel") or SELF_REPORT_ROLE_ID_TO_LABEL["guest"],
-                "userId": reporter.get("userId"),
-                "fullName": reporter.get("fullName"),
-                "email": reporter.get("email"),
-                "sessionKey": _clean_string(reporter.get("sessionKey")) or None,
-                "createdAt": report_created_at,
-            },
-            "$set": {
-                "updatedAt": report_updated_at,
-                "lastSeenAt": report_updated_at,
-                "latestSelfReportId": report_document.get("_id"),
-                "mobileReporterId": mobile_reporter_id,
-                "location": {
-                    "regionCode": location.get("regionCode"),
-                    "regionName": location.get("regionName"),
-                    "provinceCode": location.get("provinceCode"),
-                    "provinceName": location.get("provinceName"),
-                    "cityCode": location.get("cityCode"),
-                    "cityName": location.get("cityName"),
-                    "barangayCode": location.get("barangayCode"),
-                    "barangayName": location.get("barangayName"),
-                },
-                "reporterType": reporter_type,
-                "roleId": reporter.get("roleId") or "guest",
-                "roleLabel": reporter.get("roleLabel") or SELF_REPORT_ROLE_ID_TO_LABEL["guest"],
-                "fullName": reporter.get("fullName"),
-                "email": reporter.get("email"),
-                "sessionKey": _clean_string(reporter.get("sessionKey")) or None,
-            },
-        },
-        upsert=True,
-    )
-
-    return mobile_users_collection.find_one({"userKey": user_key}) or {}
-
-
 def _get_mobile_users(date_from=None, date_to=None):
     query = {"sourceTag": USER_ANALYTICS_SOURCE}
 
@@ -767,6 +698,7 @@ def _serialize_self_report(document: dict) -> dict:
         "id": _build_public_report_id(document),
         "reporter": {
             "userId": str(reporter["userId"]) if reporter.get("userId") else None,
+            "mobileUserId": reporter.get("mobileUserId"),
             "reporterType": reporter.get("reporterType"),
             "roleId": reporter.get("roleId"),
             "roleLabel": reporter.get("roleLabel"),
@@ -810,6 +742,7 @@ def _serialize_self_report_export_item(document: dict, reports=None) -> dict:
         ),
         "reporter": {
             "userId": str(reporter["userId"]) if reporter.get("userId") else None,
+            "mobileUserId": reporter.get("mobileUserId"),
             "reporterType": reporter.get("reporterType"),
             "roleId": reporter.get("roleId"),
             "roleLabel": reporter.get("roleLabel"),
@@ -824,12 +757,37 @@ def _serialize_self_report_export_item(document: dict, reports=None) -> dict:
     }
 
 
-def _build_self_report_document(payload: SelfReportPayload) -> dict:
-    role_id, role_label = _normalize_role_fields(
-        role_id=payload.reporter.roleId,
-        role_label=payload.reporter.roleLabel,
-        legacy_role=payload.reporter.role,
-    )
+def _build_self_report_document(
+    payload: SelfReportPayload,
+    authenticated_mobile_user: dict | None = None,
+) -> dict:
+    if authenticated_mobile_user:
+        reporter = {
+            "userId": None,
+            "mobileUserId": authenticated_mobile_user["id"],
+            "reporterType": "registered",
+            "roleId": MOBILE_ROLE_ID,
+            "roleLabel": MOBILE_ROLE_LABEL,
+            "fullName": authenticated_mobile_user["fullName"],
+            "email": authenticated_mobile_user["email"],
+            "sessionKey": None,
+        }
+    else:
+        role_id, role_label = _normalize_role_fields(
+            role_id=payload.reporter.roleId,
+            role_label=payload.reporter.roleLabel,
+            legacy_role=payload.reporter.role,
+        )
+        reporter = {
+            "userId": _to_object_id_or_none(payload.reporter.userId),
+            "mobileUserId": None,
+            "reporterType": "guest",
+            "roleId": role_id,
+            "roleLabel": role_label,
+            "fullName": _clean_string(payload.reporter.fullName) or None,
+            "email": _clean_string(payload.reporter.email).lower() or None,
+            "sessionKey": _clean_string(payload.reporter.sessionKey) or None,
+        }
     symptom_ids, symptom_labels = _normalize_symptom_fields(
         symptom_ids=payload.symptomIds,
         symptom_labels=payload.symptomLabels,
@@ -857,13 +815,7 @@ def _build_self_report_document(payload: SelfReportPayload) -> dict:
 
     return {
         "reporter": {
-            "userId": _to_object_id_or_none(payload.reporter.userId),
-            "reporterType": _normalize_reporter_type(payload.reporter.reporterType),
-            "roleId": role_id,
-            "roleLabel": role_label,
-            "fullName": _clean_string(payload.reporter.fullName) or None,
-            "email": _clean_string(payload.reporter.email) or None,
-            "sessionKey": _clean_string(payload.reporter.sessionKey) or None,
+            **reporter,
         },
         "location": {
             "regionCode": region_code,
@@ -1615,12 +1567,11 @@ async def fetch_mobile_regional_coverage(
 
 
 async def fetch_mobile_user_analytics_summary(
-    current_user_id: Annotated[str, Depends(require_auth)],
+    current_admin: Annotated[dict, Depends(require_desktop_admin)],
     region: str | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
 ):
-    _get_current_user(current_user_id)
     normalized_regions = _parse_region_list(region)
     parsed_date_from = _parse_datetime(date_from)
     parsed_date_to = _parse_datetime(date_to, end_of_day=True)
@@ -1631,45 +1582,50 @@ async def fetch_mobile_user_analytics_summary(
         previous_from,
         previous_to,
     ) = _resolve_window(parsed_date_from, parsed_date_to, default_days=30)
-    reports = _get_self_reports()
-    mobile_users = _get_mobile_users()
-    filtered_mobile_users_current = _filter_mobile_users(
-        mobile_users,
-        regions=normalized_regions,
-        cutoff=current_to,
-    )
-    filtered_mobile_users_previous = _filter_mobile_users(
-        mobile_users,
-        regions=normalized_regions,
-        cutoff=previous_to,
+    # This is deliberately the complete registration base filter. Legacy
+    # sourceTag: viewer projections and desktop users never participate here.
+    registration_base_filter = {
+        "source": MOBILE_REGISTRATION_SOURCE,
+        "roleId": MOBILE_ROLE_ID,
+    }
+    registration_scope = dict(registration_base_filter)
+    if normalized_regions:
+        registration_scope["regionCode"] = {"$in": normalized_regions}
+
+    current_registration_query = dict(registration_scope)
+    current_registration_query["createdAt"] = {"$lte": current_to}
+    total_users_current = mobile_users_collection.count_documents(
+        current_registration_query
     )
 
-    if filtered_mobile_users_current or filtered_mobile_users_previous:
-        total_users_current = len(filtered_mobile_users_current)
-        total_users_previous = len(filtered_mobile_users_previous)
-    else:
-        total_users_current = _count_unique_viewers(
-            reports,
-            cutoff=current_to,
-            regions=normalized_regions,
-        )
-        total_users_previous = _count_unique_viewers(
-            reports,
-            cutoff=previous_to,
-            regions=normalized_regions,
-        )
-
-    symptom_reports_current = len(
-        _filter_self_reports(
-            _get_self_reports(date_from=current_from, date_to=current_to),
-            regions=normalized_regions,
-        )
+    # Report windows are [start, end] and [previous_start, current_start), so
+    # an event at the exact current start belongs to only the current period.
+    previous_comparison_period_end = current_from - timedelta(microseconds=1)
+    previous_registration_query = dict(registration_scope)
+    previous_registration_query["createdAt"] = {
+        "$lte": previous_comparison_period_end
+    }
+    total_users_previous = mobile_users_collection.count_documents(
+        previous_registration_query
     )
-    symptom_reports_previous = len(
-        _filter_self_reports(
-            _get_self_reports(date_from=previous_from, date_to=previous_to),
-            regions=normalized_regions,
-        )
+
+    report_scope = {"source": SELF_REPORT_SOURCE}
+    if normalized_regions:
+        report_scope["location.regionCode"] = {"$in": normalized_regions}
+
+    current_reports_query = dict(report_scope)
+    current_reports_query["createdAt"] = {"$gte": current_from, "$lte": current_to}
+    symptom_reports_current = self_reports_collection.count_documents(
+        current_reports_query
+    )
+
+    previous_reports_query = dict(report_scope)
+    previous_reports_query["createdAt"] = {
+        "$gte": previous_from,
+        "$lt": current_from,
+    }
+    symptom_reports_previous = self_reports_collection.count_documents(
+        previous_reports_query
     )
 
     return JSONResponse(
@@ -1684,7 +1640,12 @@ async def fetch_mobile_user_analytics_summary(
                 symptom_reports_current,
                 symptom_reports_previous,
             ),
-            "userSource": USER_ANALYTICS_SOURCE,
+            "period": {
+                "currentStart": current_from.isoformat(),
+                "currentEnd": current_to.isoformat(),
+                "previousStart": previous_from.isoformat(),
+                "previousEnd": previous_comparison_period_end.isoformat(),
+            },
             "updatedAt": get_ph_datetime().isoformat(),
         },
     )
@@ -1789,7 +1750,10 @@ async def fetch_mobile_filter_options(
     )
 
 
-async def create_mobile_self_report(payload: SelfReportPayload):
+async def create_mobile_self_report(
+    payload: SelfReportPayload,
+    mobile_claims: Annotated[dict | None, Depends(optional_mobile_auth)],
+):
     symptom_ids, _ = _normalize_symptom_fields(
         symptom_ids=payload.symptomIds,
         symptom_labels=payload.symptomLabels,
@@ -1801,7 +1765,28 @@ async def create_mobile_self_report(payload: SelfReportPayload):
             detail="At least one symptom is required",
         )
 
-    document = _build_self_report_document(payload)
+    authenticated_mobile_user = None
+    if mobile_claims:
+        authenticated_mobile_user = mobile_users_collection.find_one(
+            {
+                "id": mobile_claims["sub"],
+                "source": MOBILE_REGISTRATION_SOURCE,
+                "roleId": MOBILE_ROLE_ID,
+            }
+        )
+        if not authenticated_mobile_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Mobile user not found",
+            )
+    elif _normalize_reporter_type(payload.reporter.reporterType) == "registered":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Mobile authentication is required for registered reports",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    document = _build_self_report_document(payload, authenticated_mobile_user)
     inserted_report = self_reports_collection.insert_one(document)
     created_report = self_reports_collection.find_one({"_id": inserted_report.inserted_id})
 
@@ -1810,82 +1795,37 @@ async def create_mobile_self_report(payload: SelfReportPayload):
     if analytics_entry:
         analytics_entries_collection.insert_one(analytics_entry)
 
-    mobile_user = _upsert_mobile_user_from_report(created_report)
-
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
         content={
             "message": "Self-report submitted successfully",
             "item": _serialize_self_report(created_report),
-            "mobileUser": _serialize_mobile_user(mobile_user),
         },
     )
 
 
 async def fetch_mobile_self_reports_mine(
-    mobileUserId: str | None = None,
-    reporterType: str | None = None,
-    sessionKey: str | None = None,
+    mobile_claims: Annotated[dict, Depends(require_mobile_auth)],
 ):
-    if not mobileUserId:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="mobileUserId is required",
-        )
-
-    mobile_user = mobile_users_collection.find_one({"_id": ObjectId(mobileUserId)}) if ObjectId.is_valid(mobileUserId) else None
+    mobile_user_id = mobile_claims["sub"]
+    mobile_user = mobile_users_collection.find_one(
+        {
+            "id": mobile_user_id,
+            "source": MOBILE_REGISTRATION_SOURCE,
+            "roleId": MOBILE_ROLE_ID,
+        }
+    )
     if not mobile_user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Mobile user not found",
         )
 
-    effective_reporter_type = _normalize_reporter_type(
-        reporterType or mobile_user.get("reporterType")
+    reports = list(
+        self_reports_collection.find(
+            {"source": SELF_REPORT_SOURCE, "reporter.mobileUserId": mobile_user_id}
+        ).sort([("createdAt", -1), ("_id", -1)])
     )
-    if effective_reporter_type == "registered" and not _clean_string(sessionKey):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="sessionKey is required for registered mobile users",
-        )
-
-    stored_session_key = _clean_string(mobile_user.get("sessionKey"))
-    if effective_reporter_type == "registered" and stored_session_key and stored_session_key != _clean_string(sessionKey):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid sessionKey for registered mobile user",
-        )
-
-    all_reports = _get_self_reports()
-    if effective_reporter_type == "registered":
-        canonical_user_id = _resolve_registered_canonical_user_id(
-            user_id=mobile_user.get("userId"),
-            email=mobile_user.get("email"),
-            full_name=mobile_user.get("fullName"),
-            reports=all_reports,
-        )
-        reports = [
-            report
-            for report in all_reports
-            if (
-                report.get("reporter") or {}
-            ).get("userId") and canonical_user_id and str((report.get("reporter") or {}).get("userId")) == str(canonical_user_id)
-        ]
-    else:
-        guest_user_key = _build_mobile_user_key(
-            reporter_type=effective_reporter_type,
-            user_id=mobile_user.get("userId"),
-            email=mobile_user.get("email"),
-            full_name=mobile_user.get("fullName"),
-            report_fallback_id=mobile_user.get("latestSelfReportId"),
-            reports=all_reports,
-        )
-        reports = [
-            report
-            for report in all_reports
-            if _build_mobile_reporter_identity_key(report, reports=all_reports)
-            == guest_user_key
-        ]
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,

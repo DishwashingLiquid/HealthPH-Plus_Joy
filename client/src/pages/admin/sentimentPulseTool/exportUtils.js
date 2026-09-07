@@ -56,10 +56,11 @@ export const exportSentimentPulseCsv = ({
     csvContent += regionalRows.length > 0 ? "\n" : "";
   } else if (activeTab === "mobile-surveys") {
     csvContent +=
-      "Survey Title,Status,Scheduled At,Responses,Target,Dominant Sentiment\n";
+      "Survey ID,Survey Title,Status,Scheduled At,Responses,Target,Dominant Sentiment\n";
     csvContent += surveys
       .map((survey) =>
         [
+          survey.displayId || "",
           survey.title,
           survey.status,
           survey.scheduledAt || "",

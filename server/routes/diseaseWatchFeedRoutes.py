@@ -5,6 +5,7 @@ from controllers.diseaseWatchFeedController import (
     export_mobile_self_reports,
     fetch_mobile_self_reports_map_pins,
     fetch_mobile_self_reports_mine,
+    fetch_mobile_user_analytics_summary,
 )
 
 mobile_self_reports_router = APIRouter()
@@ -35,4 +36,11 @@ mobile_self_reports_router.add_api_route(
     "/self-reports/export",
     methods=["GET"],
     endpoint=export_mobile_self_reports,
+)
+
+# GET       /mobile/disease-watch-feed/user-analytics
+mobile_self_reports_router.add_api_route(
+    "/disease-watch-feed/user-analytics",
+    methods=["GET"],
+    endpoint=fetch_mobile_user_analytics_summary,
 )

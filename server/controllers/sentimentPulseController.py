@@ -93,6 +93,7 @@ async def fetch_survey_results(
         content={
             "survey": {
                 "id": serialized_survey.get("id"),
+                "displayId": serialized_survey.get("displayId"),
                 "title": serialized_survey.get("title"),
                 "subtitle": serialized_survey.get("subtitle"),
                 "status": serialized_survey.get("status"),
@@ -155,7 +156,7 @@ async def update_survey(
     survey = get_survey_or_404(survey_id)
     validate_survey_payload(data)
 
-    update = build_survey_update_document(data, current_user)
+    update = build_survey_update_document(data, current_user, survey)
     surveys_collection.update_one(
         {"id": survey_id},
         {"$set": update},

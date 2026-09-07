@@ -40,8 +40,9 @@ No mobile application source is present in this repository. Public-survey client
 
 | Field | Meaning / expected value |
 | --- | --- |
-| `id` | Server-generated UUID. Used in API path parameters and as `survey_responses.surveyId`. |
-| `questions` | Admin-authored array, normally containing `id`, `type` (`text`, `multipleChoice`, or `rating`), `title`, `required`, and choices or rating bounds. The backend does not validate the internal question shape. |
+| `id` | Server-generated UUID. Used in API path parameters and as `survey_responses.surveyId`; it remains the canonical integration key. |
+| `displayId` | Immutable dashboard/display identifier in `SUR-00001` form. It is not used in URL paths, response references, or mobile answer keys. |
+| `questions` | Admin-authored array, normally containing immutable UUID/random `id`, display-only `displayId` (`Q-SUR00001-01`), mutable `position`, type (`text`, `multipleChoice`, or `rating`), title, required, and choices or rating bounds. |
 | `surveyJson` | SurveyJS-compatible rendering document. Question `id` values become SurveyJS element `name` values (`MobileSurveys.jsx:100-148`). |
 | `publishToMobile` | Must be `true` for mobile public retrieval. New surveys always set it to `true`. |
 | `publishToWebsite` | Website equivalent. New surveys always set it to `true`. |
@@ -52,6 +53,8 @@ No mobile application source is present in this repository. Public-survey client
 | `createdBy`, `updatedBy` | Admin snapshots, omitted from public survey output. |
 
 There is no expiry/end date, response cap, or visibility window in the current code.
+
+Display IDs are backfilled automatically. Their sequence is allocated atomically from the singleton `application_settings` document named `sentiment_pulse_display_sequences`; numbers consumed by a deleted survey or question are never reused. Reordering changes a question's `position`, not its `id` or `displayId`.
 
 ## API Endpoints
 

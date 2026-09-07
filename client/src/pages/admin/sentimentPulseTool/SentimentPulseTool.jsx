@@ -309,6 +309,31 @@ export default function SentimentPulseTool() {
     setDraftError("");
   };
 
+  const handleMoveQuestion = (questionId, direction) => {
+    setDraft((currentDraft) => {
+      const questionIndex = currentDraft.questions.findIndex(
+        (question) => question.id === questionId
+      );
+      const destinationIndex = questionIndex + direction;
+
+      if (
+        questionIndex < 0 ||
+        destinationIndex < 0 ||
+        destinationIndex >= currentDraft.questions.length
+      ) {
+        return currentDraft;
+      }
+
+      const questions = [...currentDraft.questions];
+      [questions[questionIndex], questions[destinationIndex]] = [
+        questions[destinationIndex],
+        questions[questionIndex],
+      ];
+      return { ...currentDraft, questions };
+    });
+    setDraftError("");
+  };
+
   const handleCreateSurvey = () => {
     const validationMessage = validateDraft(draft);
 
@@ -662,6 +687,8 @@ export default function SentimentPulseTool() {
           onAddChoice={handleAddChoice}
           onRemoveChoice={handleRemoveChoice}
           onRemoveQuestion={handleRemoveQuestion}
+          onMoveQuestion={handleMoveQuestion}
+          surveyDisplayId={editingSurvey?.displayId}
           onSubmitSurvey={editingSurvey ? handleUpdateSurvey : handleCreateSurvey}
           submitLabel={editingSurvey ? "Update Survey" : "Create Draft"}
           submitLoadingLabel={editingSurvey ? "Updating..." : "Creating..."}

@@ -1,4 +1,5 @@
 from config.database import (
+    application_settings_collection,
     analytics_events_collection,
     survey_responses_collection,
     surveys_collection,

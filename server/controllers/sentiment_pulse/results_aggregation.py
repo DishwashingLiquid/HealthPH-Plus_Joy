@@ -148,6 +148,8 @@ def build_question_results(question: dict, index: int, responses: list[dict]) ->
 
     return {
         "id": question_id,
+        "displayId": question.get("displayId") or "",
+        "position": question.get("position") or index + 1,
         "title": get_question_label(question, index),
         "type": result_type,
         "answeredResponses": answered_count,

@@ -29,7 +29,7 @@ Primary sources:
 
 Flutter should retrieve public, eligible surveys with `GET /api/sentiment-pulse/public-surveys?platform=mobile`, render the returned questions, and submit one non-empty `answers` map to the public response endpoint. No Flutter client source is present in this repository; the public query/mutation hooks exist but have no web caller.
 
-New surveys are always created with both `publishToMobile: true` and `publishToWebsite: true`. The current admin UI has no mobile-only switch.
+New surveys are always created with both `publishToMobile: true` and `publishToWebsite: true`. The current admin UI has no mobile-only switch. Survey `id` and question `id` remain the canonical mobile integration keys; optional `displayId` fields (`SUR-00001`, `Q-SUR00001-01`) are dashboard-facing only and must not replace response answer keys or API path IDs.
 
 ## API Endpoints
 

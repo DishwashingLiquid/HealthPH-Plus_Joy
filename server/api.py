@@ -29,6 +29,7 @@ from routes.sentimentPulseRoutes import router as sentimentPulseRouter
 from routes.diseaseWatchFeedRoutes import (
     mobile_self_reports_router as mobileSelfReportsRouter,
 )
+from routes.mobileUserRoutes import mobile_users_router as mobileUsersRouter
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -84,6 +85,7 @@ api_app.include_router(
     tags=["Disease Watch Feed"],
     prefix="/mobile",
 )
+api_app.include_router(router=mobileUsersRouter, tags=["Mobile Users"], prefix="/mobile")
 
 app.mount("/api", api_app, name="api")
 

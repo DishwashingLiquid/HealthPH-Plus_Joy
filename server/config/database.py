@@ -37,5 +37,8 @@ analytics_events_collection = db["analytics_events"]
 content_collection = db["content"]
 surveys_collection = db["surveys"]
 survey_responses_collection = db["survey_responses"]
+# Singleton application settings documents. This is deliberately a settings
+# collection, not a general-purpose sequence/counters collection.
+application_settings_collection = db["application_settings"]
 self_reports_collection = db["self_reports"]
 mobile_users_collection = db["mobile_users"]
