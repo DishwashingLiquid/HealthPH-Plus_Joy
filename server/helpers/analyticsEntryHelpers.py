@@ -9,6 +9,24 @@ DEFAULT_ANALYSIS_TASKS = [
     "ner",
 ]
 
+ALLOWED_ANALYTICS_SOURCE_TYPES = {
+    "social_media",
+    "survey_response",
+    "self_report",
+}
+
+REQUIRED_ANALYTICS_FIELDS_BY_SOURCE = {
+    "social_media": ["source_type", "source_id", "dataset_id", "text"],
+    "survey_response": [
+        "source_type",
+        "source_id",
+        "survey_id",
+        "response_id",
+        "text",
+        "user_location",
+    ],
+    "self_report": ["source_type", "source_id", "report_id", "text", "location"],
+}
 
 def _clean_text_value(value):
     if value is None:
@@ -32,6 +50,57 @@ def _clean_text_value(value):
         )
 
     return str(value).strip()
+
+def _has_value(value):
+    if value is None:
+        return False
+
+    if isinstance(value, str):
+        return bool(value.strip())
+
+    if isinstance(value, dict):
+        return bool(value)
+
+    if isinstance(value, list):
+        return bool(value)
+
+    return True
+
+def validate_analytics_entry(entry):
+    source_type = entry.get("source_type")
+
+    if source_type not in ALLOWED_ANALYTICS_SOURCE_TYPES:
+        return f"Unsupported analytics entry source_type: {source_type}"
+
+    required_fields = REQUIRED_ANALYTICS_FIELDS_BY_SOURCE[source_type]
+
+    missing_fields = [
+        field
+        for field in required_fields
+        if not _has_value(entry.get(field))
+    ]
+
+    if missing_fields:
+        return (
+            f"Analytics entry for {source_type} is missing required field(s): "
+            f"{', '.join(missing_fields)}"
+        )
+
+    return ""
+
+def get_valid_analytics_entries(entries):
+    valid_entries = []
+
+    for entry in entries:
+        validation_error = validate_analytics_entry(entry)
+
+        if validation_error:
+            print("Skipped invalid analytics entry:", validation_error)
+            continue
+
+        valid_entries.append(entry)
+
+    return valid_entries
 
 
 def build_social_media_analytics_entries(
@@ -111,6 +180,8 @@ def build_survey_response_analytics_entries(response_document):
     answers = response_document.get("answers") or {}
     created_at = response_document.get("createdAt") or get_ph_datetime()
 
+    user_location = response_document.get("user_location") or response_document.get("userLocation") or {}
+
     for question_id, answer_value in answers.items():
         text = _clean_text_value(answer_value)
 
@@ -136,6 +207,8 @@ def build_survey_response_analytics_entries(response_document):
                     "city": "",
                     "barangay": "",
                 },
+
+                "user_location": user_location,
 
                 "event_time": str(created_at),
                 "collected_at": str(created_at),

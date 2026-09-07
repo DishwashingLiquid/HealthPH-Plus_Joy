@@ -22,7 +22,10 @@ from config.database import (
     user_collection,
 )
 
-from helpers.analyticsEntryHelpers import build_self_report_analytics_entry
+from helpers.analyticsEntryHelpers import (
+    build_self_report_analytics_entry,
+    validate_analytics_entry,
+)
 from helpers.miscHelpers import get_ph_datetime
 from middleware.requireAuth import require_auth
 
@@ -1809,9 +1812,14 @@ async def create_mobile_self_report(payload: SelfReportPayload):
     analytics_entry = build_self_report_analytics_entry(created_report)
 
     if analytics_entry:
-        analytics_entry_result = analytics_entries_collection.insert_one(analytics_entry)
-        analytics_entry_id = str(analytics_entry_result.inserted_id)
+        validation_error = validate_analytics_entry(analytics_entry)
 
+        if validation_error:
+            print("Skipped invalid self-report analytics entry:", validation_error)
+        else:
+            analytics_entry_result = analytics_entries_collection.insert_one(analytics_entry)
+            analytics_entry_id = str(analytics_entry_result.inserted_id)
+    
     print(
         "Self-report analytics bridge:",
         {

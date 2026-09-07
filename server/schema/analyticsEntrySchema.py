@@ -13,6 +13,7 @@ def individual_analytics_entry(entry) -> dict:
         "language": entry.get("language", ""),
         "source_platform": entry.get("source_platform", ""),
         "location": entry.get("location", {}),
+        "user_location": entry.get("user_location", {}),
         "event_time": str(entry.get("event_time", "")),
         "collected_at": str(entry.get("collected_at", "")),
         "analysis_status": entry.get("analysis_status", "pending"),

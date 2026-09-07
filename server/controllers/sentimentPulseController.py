@@ -6,7 +6,11 @@ from fastapi.responses import JSONResponse
 from typing_extensions import Annotated
 
 from config.database import analytics_entries_collection
-from helpers.analyticsEntryHelpers import build_survey_response_analytics_entries
+
+from helpers.analyticsEntryHelpers import (
+    build_survey_response_analytics_entries,
+    get_valid_analytics_entries,
+)
 
 from helpers.miscHelpers import get_ph_datetime
 from middleware.requireAuth import require_auth
@@ -302,7 +306,9 @@ async def create_public_survey_response(
 
     response["_id"] = inserted_response.inserted_id
 
-    analytics_entries = build_survey_response_analytics_entries(response)
+    analytics_entries = get_valid_analytics_entries(
+        build_survey_response_analytics_entries(response)
+    )
 
     if analytics_entries:
         analytics_entries_collection.insert_many(analytics_entries)

@@ -1502,8 +1502,8 @@ const AnalyticsEntriesPanel = ({
                                                 <td className="max-w-[150px] truncate py-[14px] px-[10px] text-gray-600">
                                                     {entry.user_id || entry.metadata?.user_id || entry.metadata?.visitor_id || "-"}
                                                 </td>
-                                                <td className="py-[14px] px-[10px] text-gray-600">
-                                                    {entry.location?.raw || entry.location?.region || "-"}
+                                                <td className="max-w-[260px] truncate py-[14px] px-[10px] text-gray-600">
+                                                    {formatUserLocation(entry.user_location)}
                                                 </td>
                                                 <td className="py-[14px] px-[10px] text-gray-600">
                                                     {entry.event_time
@@ -1573,6 +1573,18 @@ const displayEntryDateTime = (value) => {
     return format(date, "MMM dd, yyyy hh:mm a");
 };
 
+const formatUserLocation = (location = {}) => {
+    const parts = [
+        location.barangay,
+        location.city,
+        location.province,
+        location.regionLabel,
+        location.regionCode,
+    ].filter(Boolean);
+
+    return parts.length > 0 ? parts.join(", ") : "-";
+};
+
 const DetailRow = ({ label, value }) => (
     <div>
         <p className="text-xs font-medium uppercase text-gray-400">
@@ -1587,13 +1599,13 @@ const DetailRow = ({ label, value }) => (
 const AnalyticsEntryDetailsModal = ({ entry, sourceType, onClose }) => {
     const isSurveySource = sourceType === "survey_response";
 
-    const location =
-        entry.location?.raw ||
-        entry.location?.city ||
-        entry.location?.province ||
-        entry.location?.region ||
-        entry.user_location ||
-        "-";
+    const location = isSurveySource
+        ? formatUserLocation(entry.user_location)
+        : entry.location?.raw ||
+            entry.location?.city ||
+            entry.location?.province ||
+            entry.location?.region ||
+            "-";
 
     const primaryId = isSurveySource
         ? entry.response_id || entry.source_id || entry.id
