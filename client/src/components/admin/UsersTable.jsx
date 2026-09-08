@@ -736,10 +736,8 @@ const UsersTable = ({
       {updateModalActive && (
         <ModalWithBody
           onLoading={isModalLoading}
-          onLoadingLabel={"Updating"}
-          onConfirm={() => {
-            handleUpdateUser();
-          }}
+          onLoadingLabel="Updating"
+          onConfirm={handleUpdateUser}
           onConfirmLabel="Update"
           onConfirmDisabled={!hasOrganizationOptions}
           onCancel={() => {
@@ -747,66 +745,45 @@ const UsersTable = ({
             setUpdateModalErrors(emptyUpdateModalErrors);
             setUpdateModalActive(false);
           }}
-          heading={`Update ${updateModalData.name}'s account`}
-          content="This user will receive full access to HealthPH+ such as the Analytics, Trends Map, and other modules."
+          heading="Update Account"
+          content="This user can access HealthPH+ modules based on their role label and organization permissions."
           color="primary"
+          additionalClasses="account-form-modal"
         >
           <div className="p-[20px]">
-            <div className="grid grid-cols-1 gap-x-[16px] p-[20px] md:grid-cols-2">
-              <FieldGroup 
-                label="First Name" 
-                labelFor="update-first-name" 
-                additionalClasses="mb-[16px]" 
-                caption={updateModalErrors.first_name} 
-                state={updateModalErrors.first_name ? "error" : ""}
-              >
-                <Input 
-                  size="input-md" 
-                  id="update-first-name" 
-                  type="text" 
-                  additionalClasses="mt-[8px] w-full" 
-                  value={updateModalData.first_name} 
-                  onChange={(e) => setUpdateModalData({ ...updateModalData, first_name: e.target.value })} 
-                  state={updateModalErrors.first_name ? "error" : ""} 
-                />
-              </FieldGroup>
-
-              <FieldGroup 
-                label="Last Name" 
-                labelFor="update-last-name" 
-                additionalClasses="mb-[16px]" 
-                caption={updateModalErrors.last_name} 
-                state={updateModalErrors.last_name ? "error" : ""}
-              >
-                <Input 
-                  size="input-md" 
-                  id="update-last-name" 
-                  type="text" 
-                  additionalClasses="mt-[8px] w-full" 
-                  value={updateModalData.last_name} 
-                  onChange={(e) => setUpdateModalData({ ...updateModalData, last_name: e.target.value })} 
-                  state={updateModalErrors.last_name ? "error" : ""}
-                />
-              </FieldGroup>
-
+            <div className="grid grid-cols-1 gap-x-[16px] md:grid-cols-2">
               <FieldGroup
-                label="Email" 
-                labelFor="update-email" 
-                additionalClasses="mb-[16px]" 
-                caption={updateModalErrors.email} 
-                state={updateModalErrors.email ? "error" : ""}
+                label="Account Type"
+                labelFor="update-user-type"
+                additionalClasses="mb-[16px]"
               >
-                <Input 
-                  size="input-md" 
-                  id="update-email" 
-                  type="email" 
-                  additionalClasses="mt-[8px] w-full" 
-                  value={updateModalData.email} 
-                  onChange={(e) => setUpdateModalData({ ...updateModalData, email: e.target.value })} 
-                  state={updateModalErrors.email ? "error" : ""}
+                <Input
+                  size="input-md"
+                  id="update-user-type"
+                  type="text"
+                  additionalClasses="mt-[8px] w-full"
+                  value={updateModalData.user_type}
+                  disabled
                 />
               </FieldGroup>
-
+              <FieldGroup 
+                label="Role" 
+                labelFor="update-role-label" 
+                additionalClasses="mb-[16px]" 
+                caption={updateModalErrors.role_label} 
+                state={updateModalErrors.role_label ? "error" : ""}
+              >
+                <CustomSelect 
+                  options={roleLabelOptions} 
+                  id="update-role-label" 
+                  placeholder="Select role" 
+                  size="input-select-md" 
+                  value={updateModalData.role_label} 
+                  handleChange={(value) => setUpdateModalData({ ...updateModalData, role_label: value })} 
+                  additionalClasses="mt-[8px] w-full" 
+                  state={updateModalErrors.role_label ? "error" : ""}
+                />
+              </FieldGroup>
               <FieldGroup 
                 label="Regional Office"
                 labelFor="update-region" 
@@ -823,11 +800,28 @@ const UsersTable = ({
                   handleChange={(value) => setUpdateModalData({ ...updateModalData, region: value })} additionalClasses="mt-[8px] w-full" state={updateModalErrors.region ? "error" : ""} menuMaxHeight="max-h-[250px]"
                 />
               </FieldGroup>
-
+              <FieldGroup 
+                label="Accessible Regions" 
+                labelFor="accessible-regions" 
+                additionalClasses="w-full mb-[16px]" 
+                caption={updateModalErrors.accessible_regions} 
+                state={updateModalErrors.accessible_regions ? "error" : ""}
+              >
+                <MultiSelect 
+                  options={Regions.regions} 
+                  defaultValue={updateModalData.accessible_regions} 
+                  placeHolder="Select Region/s" 
+                  onChange={(e) => setUpdateModalData({ ...updateModalData, accessible_regions: e.map((v) => v.value) })} selectAllLabel="All Regions" 
+                  selectAll={false} 
+                  additionalClassname="w-full mt-[8px]" 
+                  editable={true} 
+                  state={updateModalErrors.accessible_regions ? "error" : ""}
+                />
+              </FieldGroup>
               <FieldGroup 
                 label="Organization" 
                 labelFor="update-organization" 
-                additionalClasses="mb-[16px]" 
+                additionalClasses="mb-[16px] md:col-span-2" 
                 caption={
                   updateModalErrors.organization ||
                   (!hasOrganizationOptions
@@ -862,55 +856,58 @@ const UsersTable = ({
                   editable={hasOrganizationOptions}
                 />
               </FieldGroup>
-              <FieldGroup
-                label="Account Type"
-                labelFor="update-user-type"
-                additionalClasses="mb-[16px]"
-              >
-                <Input
-                  size="input-md"
-                  id="update-user-type"
-                  type="text"
-                  additionalClasses="mt-[8px] w-full"
-                  value={updateModalData.user_type}
-                  disabled
-                />
-              </FieldGroup>
               <FieldGroup 
-                label="Role" 
-                labelFor="update-role-label" 
+                label="First Name" 
+                labelFor="update-first-name" 
                 additionalClasses="mb-[16px]" 
-                caption={updateModalErrors.role_label} 
-                state={updateModalErrors.role_label ? "error" : ""}
+                caption={updateModalErrors.first_name} 
+                state={updateModalErrors.first_name ? "error" : ""}
               >
-                <CustomSelect 
-                  options={roleLabelOptions} 
-                  id="update-role-label" 
-                  placeholder="Select role" 
-                  size="input-select-md" 
-                  value={updateModalData.role_label} 
-                  handleChange={(value) => setUpdateModalData({ ...updateModalData, role_label: value })} 
+                <Input 
+                  size="input-md" 
+                  id="update-first-name" 
+                  type="text" 
                   additionalClasses="mt-[8px] w-full" 
-                  state={updateModalErrors.role_label ? "error" : ""}
+                  value={updateModalData.first_name} 
+                  onChange={(e) => setUpdateModalData({ ...updateModalData, first_name: e.target.value })} 
+                  state={updateModalErrors.first_name ? "error" : ""} 
                 />
               </FieldGroup>
-
               <FieldGroup 
-                label="Accessible Regions" 
-                labelFor="accessible-regions" 
-                additionalClasses="w-full mb-[16px]" 
-                caption={updateModalErrors.accessible_regions} 
-                state={updateModalErrors.accessible_regions ? "error" : ""}
+                label="Last Name" 
+                labelFor="update-last-name" 
+                additionalClasses="mb-[16px]" 
+                caption={updateModalErrors.last_name} 
+                state={updateModalErrors.last_name ? "error" : ""}
               >
-                <MultiSelect 
-                  options={Regions.regions} 
-                  defaultValue={updateModalData.accessible_regions} 
-                  placeHolder="Select Region/s" 
-                  onChange={(e) => setUpdateModalData({ ...updateModalData, accessible_regions: e.map((v) => v.value) })} selectAllLabel="All Regions" 
-                  selectAll={false} 
-                  additionalClassname="w-full mt-[8px]" 
-                  editable={true} 
-                  state={updateModalErrors.accessible_regions ? "error" : ""}
+                <Input 
+                  size="input-md" 
+                  id="update-last-name" 
+                  type="text" 
+                  additionalClasses="mt-[8px] w-full" 
+                  value={updateModalData.last_name} 
+                  onChange={(e) => setUpdateModalData({ ...updateModalData, last_name: e.target.value })} 
+                  state={updateModalErrors.last_name ? "error" : ""}
+                />
+              </FieldGroup>
+              <FieldGroup
+                label="Email" 
+                labelFor="update-email" 
+                additionalClasses="mb-[16px]" 
+                caption={updateModalErrors.email} 
+                state={updateModalErrors.email ? "error" : ""}
+              >
+                <Input 
+                  size="input-md" 
+                  id="update-email" 
+                  type="email" 
+                  additionalClasses="mt-[8px] w-full" 
+                  value={updateModalData.email} 
+                  onChange={(e) => {
+                    setUpdateModalData({ ...updateModalData, email: e.target.value });
+                    setUpdateModalErrors({ ...updateModalErrors, email: ""});
+                  }} 
+                  state={updateModalErrors.email ? "error" : ""}
                 />
               </FieldGroup>
               <FieldGroup

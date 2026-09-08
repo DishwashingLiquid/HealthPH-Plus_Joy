@@ -48,7 +48,11 @@ import {
   useDeleteOrganizationMutation,
 } from "../../features/api/organizationSlice";
 
-import { useFetchRoleLabelsQuery } from "../../features/api/roleLabelsSlice";
+import {
+  useFetchRoleLabelsQuery,
+  useCreateRoleLabelMutation,
+  useUpdateRoleLabelMutation,
+} from "../../features/api/roleLabelsSlice";
 
 import {
   useCreateAccountActivityMutation,
@@ -63,12 +67,12 @@ import { toPng } from "html-to-image";
 const ADMIN_ROLE_LABEL = "Admin";
 
 const DEFAULT_ROLE_LABELS = [
-  { name: "Admin", description: "Administrative platform access", is_active: true },
-  { name: "Analyst", description: "Access to analytics and analysis tools", is_active: true },
-  { name: "DOH Official", description: "Official DOH representative", is_active: true },
-  { name: "LGU Worker", description: "Local government health worker", is_active: true },
+  { name: "Admin", description: "Full system access and control", is_active: true },
+  { name: "Analyst", description: "Access to all data and analysis tools", is_active: true },
+  { name: "DOH Official", description: "Official DOH representative with verification powers", is_active: true },
+  { name: "LGU Worker", description: "Local government health worker with regional access", is_active: true },
   { name: "Researcher", description: "Academic or research institution member", is_active: true },
-  { name: "Viewer", description: "Read-only dashboard access", is_active: true },
+  { name: "Viewer", description: "Read-only access to public dashboards", is_active: true },
 ];
 
 const ROLE_COLORS = [
@@ -80,6 +84,17 @@ const ROLE_COLORS = [
   "#F97316",
   "#14B8A6",
   "#A855F7",
+];
+
+const HEALTHPH_PLUS_MODULE_COVERAGE = [
+  "AI Surveillance",
+  "NLP Insights",
+  "Misinformation Tracker",
+  "User Management",
+  "Model Access and Toolkit",
+  "Disease Watch Feed",
+  "Health Literacy Hub",
+  "Sentiment Pulse Tool",
 ];
 
 const UserManagement = () => {
@@ -125,6 +140,12 @@ const UserManagement = () => {
     isError: isRoleLabelsError,
   } = useFetchRoleLabelsQuery();
 
+  const [createRoleLabel, { isLoading: isCreateRoleLabelLoading }] =
+    useCreateRoleLabelMutation();
+
+  const [updateRoleLabel, { isLoading: isUpdateRoleLabelLoading }] =
+    useUpdateRoleLabelMutation();
+
   const [createOrganization, { isLoading: isCreateOrganizationLoading }] =
     useCreateOrganizationMutation();
 
@@ -145,6 +166,11 @@ const UserManagement = () => {
 
   const [organizationDeleteModalActive, setOrganizationDeleteModalActive] =
     useState(false);
+
+  const [roleLabelFormModalActive, setRoleLabelFormModalActive] =
+    useState(false);
+  const [roleLabelFormMode, setRoleLabelFormMode] = useState("create");
+  const [selectedRoleLabel, setSelectedRoleLabel] = useState(null);
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -174,12 +200,12 @@ const UserManagement = () => {
 
   const handlePrintUserManagement = useReactToPrint({
     content: () => printRef.current,
-    documentTitle: "HealthPH - User Management",
+    documentTitle: "HealthPH+ - User Management",
     pageStyle:
       "@page { size: A4;  margin: 0mm; } @media print { body { -webkit-print-color-adjust: exact; } }",
     onAfterPrint: () => {
       setIsPrinting(false);
-      document.getElementById("printWindow").remove();
+      document.getElementById("printWindow")?.remove();
 
       log_activity({
         user_id: user.id,
@@ -213,7 +239,7 @@ const UserManagement = () => {
       navigate("/print", {
         state: {
           data: {
-            documentTitle: "HealthPH - User Management",
+            documentTitle: "HealthPH+ - User Management",
             imageType: "list",
             imageData: imageList,
             log_activity: {
@@ -338,8 +364,26 @@ const UserManagement = () => {
     roleLabel.name.toLowerCase()
   );
 
+  const databaseRoleLabelsByName = new Map(
+    roleLabels
+      .filter((roleLabel) => roleLabel?.name)
+      .map((roleLabel) => [roleLabel.name.toLowerCase(), roleLabel])
+  );
+
   const effectiveRoleLabels = [
-    ...DEFAULT_ROLE_LABELS,
+    ...DEFAULT_ROLE_LABELS.map((defaultRoleLabel) => {
+      const savedRoleLabel = databaseRoleLabelsByName.get(
+        defaultRoleLabel.name.toLowerCase()
+      );
+
+      return savedRoleLabel
+        ? {
+            ...defaultRoleLabel,
+            ...savedRoleLabel,
+            description: savedRoleLabel.description || defaultRoleLabel.description,
+          }
+        : defaultRoleLabel;
+    }),
     ...roleLabels.filter(
       (roleLabel) =>
         roleLabel?.name &&
@@ -347,7 +391,11 @@ const UserManagement = () => {
     ),
   ];
 
-  const activeRoleLabels = effectiveRoleLabels.filter(
+  const displayRoleLabels = effectiveRoleLabels.filter(
+    (roleLabel) => roleLabel?.name
+  );
+
+  const activeRoleLabels = displayRoleLabels.filter(
     (roleLabel) => roleLabel?.name && roleLabel.is_active !== false
   );
 
@@ -363,6 +411,42 @@ const UserManagement = () => {
     label: roleLabel.name,
     color: ROLE_COLORS[index % ROLE_COLORS.length],
   }));
+
+  const roleSummaries = displayRoleLabels
+    .map((roleLabel) => {
+      const roleUsers = users.filter(
+        (account) => account.role_label === roleLabel.name
+      );
+
+      return {
+        id: roleLabel.id || roleLabel.name,
+        databaseId: roleLabel.id || "",
+        name: roleLabel.name,
+        description: roleLabel.description || "HealthPH+ account role.",
+        isActive: roleLabel.is_active !== false,
+        isSystem: roleLabel.is_system === true,
+        totalUsers: roleUsers.length,
+        activeUsers: roleUsers.filter((account) => !account.is_disabled).length,
+        disabledUsers: roleUsers.filter((account) => account.is_disabled).length,
+        moduleCoverage: HEALTHPH_PLUS_MODULE_COVERAGE,
+      };
+    })
+    .sort((a, b) => b.totalUsers - a.totalUsers || a.name.localeCompare(b.name));
+
+  const filteredRoleSummaries = searchQuery.trim()
+    ? roleSummaries.filter((role) => {
+      const terms = searchQuery.toLowerCase().split(" ").filter(Boolean);
+      const searchableText = [
+        role.name,
+        role.description,
+        ...role.moduleCoverage,
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return terms.some((term) => searchableText.includes(term));
+    })
+    : roleSummaries;
 
   const filteredOrganizations = searchQuery.trim()
     ? organizationList.filter((organization) => {
@@ -381,7 +465,7 @@ const UserManagement = () => {
   const [tabs, setTabs] = useState([
     { label: "Superadmins", count: 0 },
     { label: "Users", count: 0 },
-    { label: "Organizations", count: 0 },
+    { label: "Organizations & Roles", count: 0 },
     { label: "Account Analytics", count: 0 },
   ]);
 
@@ -392,6 +476,9 @@ const UserManagement = () => {
   };
 
   const [currentTableTab, setCurrentTableTab] = useState(getDefaultTab);
+
+  const [currentOrganizationSubtab, setCurrentOrganizationSubtab] =
+    useState("Organizations");
 
   useEffect(() => {
     if (admins && users) {
@@ -429,14 +516,14 @@ const UserManagement = () => {
         setTabs([
           { label: "Superadmins", count: filteredAdmins.length },
           { label: "Users", count: filteredUsers.length },
-          { label: "Organizations", count: filteredOrganizations.length },
+          { label: "Organizations & Roles", count: filteredOrganizations.length },
           { label: "Account Analytics", count: allAccounts.length },
         ]);
       } else {
         setTabs([
           { label: "Superadmins", count: admins.length },
           { label: "Users", count: users.length },
-          { label: "Organizations", count: organizationList.length },
+          { label: "Organizations & Roles", count: organizationList.length },
           { label: "Account Analytics", count: allAccounts.length },
         ]);
       }
@@ -470,12 +557,22 @@ const UserManagement = () => {
 
   const addButtonLabel = currentTableTab == "Superadmins" ? "Add Superadmin" : "Add User";
 
-  const isAccountTableTab = ["Superadmins", "Users"].includes(currentTableTab);
-  const isOrganizationsTab = currentTableTab == "Organizations";
+  const isUsersTab = currentTableTab == "Users";
+  const isOrganizationsRoleTab = currentTableTab == "Organizations & Roles";
+  const isOrganizationsSubtab =
+    isOrganizationsRoleTab && currentOrganizationSubtab == "Organizations";
+  const isRolesSubtab =
+    isOrganizationsRoleTab && currentOrganizationSubtab == "Roles";
+
+  const isAccountTableTab = currentTableTab == "Superadmins" || isUsersTab;
+
+  const isOrganizationsTab = isOrganizationsSubtab;
   const isAnalyticsTab = currentTableTab == "Account Analytics";
 
   const searchPlaceholder =
-    currentTableTab == "Organizations"
+    isRolesSubtab
+      ? "Search roles..."
+      : isOrganizationsSubtab
       ? "Search organizations..."
       : `Search ${currentTableTab.toLowerCase()}...`;
 
@@ -487,13 +584,24 @@ const UserManagement = () => {
   const currentTabTotal =
     currentTableTab == "Superadmins"
       ? currentAdminsData.length
+      : isRolesSubtab
+      ? filteredRoleSummaries.length
       : currentTableTab == "Users"
       ? currentUsersData.length
-      : currentTableTab == "Organizations"
+      : isOrganizationsSubtab
       ? filteredOrganizations.length
       : 0;
 
-  const toolbarTotalLabel = `Total ${currentTableTab.toLowerCase()}`;
+  const toolbarTotalLabel = isRolesSubtab
+    ? "Total roles"
+    : isOrganizationsSubtab
+    ? "Total organizations"
+    : `Total ${currentTableTab.toLowerCase()}`;
+
+  const organizationRoleSectionTitle = isRolesSubtab ? "Roles" : "Organizations";
+  const organizationRoleSectionSubtitle = isRolesSubtab
+    ? "Role labels, account counts, and accessible HealthPH+ pages."
+    : "Partnered organizations and account coverage across HealthPH+.";
 
   const openAddUserModal = () => {
     setAddUserMode(currentTableTab == "Superadmins" ? "SUPERADMIN" : "USER");
@@ -515,6 +623,20 @@ const UserManagement = () => {
     setSelectedOrganization(null);
     setOrganizationFormMode("create");
     setOrganizationFormModalActive(true);
+  };
+
+  const openCreateRoleLabelModal = () => {
+    setSelectedRoleLabel(null);
+    setRoleLabelFormMode("create");
+    setRoleLabelFormModalActive(true);
+  };
+
+  const openEditRoleLabelModal = (roleLabel) => {
+    if (!isSuperadmin || !roleLabel?.databaseId) return;
+
+    setSelectedRoleLabel(roleLabel);
+    setRoleLabelFormMode("edit");
+    setRoleLabelFormModalActive(true);
   };
 
   const openEditOrganizationModal = (organization) => {
@@ -551,15 +673,23 @@ const UserManagement = () => {
     setSelectedOrganization(null);
   };
 
+  const closeRoleLabelFormModal = () => {
+    if (isCreateRoleLabelLoading || isUpdateRoleLabelLoading) return;
+
+    setRoleLabelFormModalActive(false);
+    setRoleLabelFormMode("create");
+    setSelectedRoleLabel(null);
+  };
+
   const isCurrentTableLoading =
     currentTableTab == "Superadmins"
       ? canManageSuperadmins && isAdminsLoading
       : currentTableTab == "Users"
       ? canViewUsers && isUsersLoading
-      : currentTableTab == "Organizations"
+      : isOrganizationsRoleTab
       ? (canManageSuperadmins && isAdminsLoading) ||
         (canViewUsers && isUsersLoading) ||
-        isOrganizationsLoading
+        (isOrganizationsSubtab ? isOrganizationsLoading : isRoleLabelsLoading)
       : false;
 
   const isToolbarTotalLoading =
@@ -606,6 +736,46 @@ const UserManagement = () => {
       entry: isEditMode
         ? `Updated organization: ${payload.name}`
         : `Added organization: ${payload.name}`,
+      module: "User Management",
+    });
+
+    return { ok: true };
+  };
+
+  const handleSaveRoleLabel = async (payload) => {
+    const isEditMode =
+      roleLabelFormMode === "edit" && selectedRoleLabel?.databaseId;
+
+    const response = isEditMode
+      ? await updateRoleLabel({
+          id: selectedRoleLabel.databaseId,
+          ...payload,
+        })
+      : await createRoleLabel(payload);
+
+    if ("error" in response) {
+      const detail = response.error?.data?.detail;
+
+      return {
+        ok: false,
+        errors: Array.isArray(detail)
+          ? detail
+          : [{ field: "error", error: detail || "Failed to save role." }],
+      };
+    }
+
+    toast(
+      <Snackbar
+        iconName="CheckCircle"
+        size="snackbar-sm"
+        color="success"
+        message={isEditMode ? "Role updated successfully" : "Role added successfully"}
+      />
+    );
+
+    await log_activity({
+      user_id: user.id,
+      entry: `${isEditMode ? "Updated" : "Added"} role: ${payload.name}`,
       module: "User Management",
     });
 
@@ -692,6 +862,40 @@ const UserManagement = () => {
 
         {/* TOOLBAR */}
         <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
+          {isOrganizationsRoleTab && (
+            <div className="mb-[18px] flex justify-center">
+              <div className="flex flex-wrap items-center justify-center gap-[8px]">
+                <UserManagementInnerPill
+                  label="Organizations"
+                  active={currentOrganizationSubtab === "Organizations"}
+                  onClick={() => {
+                    setCurrentOrganizationSubtab("Organizations");
+                    setSearchQuery("");
+                  }}
+                />
+                <UserManagementInnerPill
+                  label="Roles"
+                  active={currentOrganizationSubtab === "Roles"}
+                  onClick={() => {
+                    setCurrentOrganizationSubtab("Roles");
+                    setSearchQuery("");
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {isOrganizationsRoleTab && (
+            <div className="mb-[16px]">
+              <h2 className="text-[20px] font-semibold text-gray-800">
+                {organizationRoleSectionTitle}
+              </h2>
+              <p className="mt-[4px] text-sm text-gray-500">
+                {organizationRoleSectionSubtitle}
+              </p>
+            </div>
+          )}
+
           <div className="mb-[20px] flex flex-col gap-[16px] xl:flex-row xl:items-center xl:justify-between">
             <div className="flex flex-wrap gap-[12px]">
               {!isAnalyticsTab && (
@@ -733,7 +937,7 @@ const UserManagement = () => {
                 <span>{isPrinting ? "Printing..." : "Print"}</span>
               </button>
 
-              {canManageUsers && isAccountTableTab && (
+              {canManageUsers && isAccountTableTab && !isRolesSubtab && (
                 <button
                   type="button"
                   className="admin-module-brand-btn flex items-center gap-[8px] rounded-[10px] border px-[16px] py-[10px] text-sm text-white"
@@ -768,6 +972,22 @@ const UserManagement = () => {
                     fill="#FFF"
                   />
                   <span>Add Organization</span>
+                </button>
+              )}
+
+              {isSuperadmin && isRolesSubtab && (
+                <button
+                  type="button"
+                  className="flex items-center gap-[8px] rounded-[10px] bg-[#32418C] px-[16px] py-[10px] text-sm text-white"
+                  onClick={openCreateRoleLabelModal}
+                >
+                  <Icon
+                    iconName="Plus"
+                    height="16px"
+                    width="16px"
+                    fill="#FFF"
+                  />
+                  <span>Add Role</span>
                 </button>
               )}
 
@@ -862,17 +1082,27 @@ const UserManagement = () => {
                 organizationOptions={organizationOptions}
                 roleLabelOptions={roleLabelOptions}
               />
-            ) : currentTableTab == "Organizations" ? (
-              <OrganizationsPanel 
-                organizations={filteredOrganizations}
-                isSuperadmin={isSuperadmin}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                onCreateOrganization={openCreateOrganizationModal}
-                onViewOrganization={openViewOrganizationModal}
-                onEditOrganization={openEditOrganizationModal}
-                onDeleteOrganization={openDeleteOrganizationModal}
-              />
+            ) : isOrganizationsRoleTab ? (
+              isRolesSubtab ? (
+                <RolesPanel
+                  roles={filteredRoleSummaries}
+                  canEditRoles={isSuperadmin}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  onEditRole={openEditRoleLabelModal}
+                />
+              ) : (
+                <OrganizationsPanel 
+                  organizations={filteredOrganizations}
+                  isSuperadmin={isSuperadmin}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  onCreateOrganization={openCreateOrganizationModal}
+                  onViewOrganization={openViewOrganizationModal}
+                  onEditOrganization={openEditOrganizationModal}
+                  onDeleteOrganization={openDeleteOrganizationModal}
+                />
+              )
             ) : (
               <AccountAnalyticsPanel
                 accountAnalytics={accountAnalytics}
@@ -908,6 +1138,16 @@ const UserManagement = () => {
             isLoading={isCreateOrganizationLoading || isUpdateOrganizationLoading}
             onClose={closeOrganizationFormModal}
             onSubmit={handleSaveOrganization}
+          />
+        )}
+
+        {roleLabelFormModalActive && isSuperadmin && (
+          <RoleLabelFormModal
+            mode={roleLabelFormMode}
+            roleLabel={selectedRoleLabel}
+            isLoading={isCreateRoleLabelLoading || isUpdateRoleLabelLoading}
+            onClose={closeRoleLabelFormModal}
+            onSubmit={handleSaveRoleLabel}
           />
         )}
 
@@ -1000,6 +1240,31 @@ const UserAccountModal = ({
   const [error, setError] = useState("");
 
   const title = isSuperadminMode ? "Add Superadmin" : "Add User";
+
+  const formGridClass = isSuperadminMode
+    ? "grid grid-cols-1 gap-x-[16px] md:grid-cols-6"
+    : "grid grid-cols-1 gap-x-[16px] md:grid-cols-2";
+
+  const superadminTopFieldClass = isSuperadminMode
+    ? "mb-[16px] md:col-span-2"
+    : "mb-[16px]";
+
+  const halfFieldClass = isSuperadminMode
+    ? "mb-[16px] md:col-span-3"
+    : "mb-[16px]";
+
+  const emailFieldClass = isSuperadminMode
+    ? "mb-[16px] md:col-span-6"
+    : "mb-[16px]";
+
+  const passwordWrapperClass = isSuperadminMode
+    ? "md:col-span-3"
+    : "md:col-span-2";
+
+  const disabledAccountTypeHint = "Account type is fixed for this form.";
+
+  const disabledSuperadminRegionHint = 
+    "SUPERADMIN accounts automatically cover all regions.";
 
   const hasOrganizationOptions = organizationOptions.length > 0;
   const hasAvailableRoleOptions = isSuperadminMode || roleLabelOptions.length > 0;
@@ -1270,12 +1535,12 @@ const UserAccountModal = ({
             </p>
           )}
 
-          <div className="grid grid-cols-1 gap-x-[16px] md:grid-cols-2">
+          <div className={formGridClass}>
             <FieldGroup
               label="Account Type"
               labelFor="user-type"
-              additionalClasses="mb-[16px]"
-              caption={formErrors.user_type}
+              additionalClasses={isSuperadminMode ? superadminTopFieldClass : "mb-[16px]"}
+              caption={formErrors.user_type || disabledAccountTypeHint}
               state={formErrors.user_type ? "error" : ""}
             >
               <CustomSelect
@@ -1298,6 +1563,7 @@ const UserAccountModal = ({
                 additionalClasses="mt-[8px] w-full"
                 state={formErrors.user_type ? "error" : ""}
                 editable={false}
+                isDisabled={true}
               />
             </FieldGroup>
 
@@ -1368,8 +1634,11 @@ const UserAccountModal = ({
             <FieldGroup
               label="Accessible Regions"
               labelFor="accessible-regions"
-              additionalClasses="mb-[16px]"
-              caption={formErrors.accessible_regions}
+              additionalClasses={isSuperadminMode ? superadminTopFieldClass : "mb-[16px]"}
+              caption={
+                formErrors.accessible_regions ||
+                (isSuperadminMode ? disabledSuperadminRegionHint : "")
+              }
               state={formErrors.accessible_regions ? "error" : ""}
             >
               <MultiSelect
@@ -1380,6 +1649,7 @@ const UserAccountModal = ({
                 selectAll={isSuperadminMode}
                 additionalClassname="mt-[8px] w-full"
                 editable={!isSuperadminMode}
+                selectable={!isSuperadminMode}
                 state={formErrors.accessible_regions ? "error" : ""}
               />
             </FieldGroup>
@@ -1387,7 +1657,7 @@ const UserAccountModal = ({
             <FieldGroup
               label="Organization"
               labelFor="organization"
-              additionalClasses="mb-[16px]"
+              additionalClasses={isSuperadminMode ? superadminTopFieldClass : "mb-[16px]"}
               caption={
                 formErrors.organization ||
                 (!hasOrganizationOptions
@@ -1426,7 +1696,7 @@ const UserAccountModal = ({
             <FieldGroup
               label="First Name"
               labelFor="first-name"
-              additionalClasses="mb-[16px]"
+              additionalClasses={halfFieldClass}
               caption={formErrors.first_name}
               state={formErrors.first_name ? "error" : ""}
             >
@@ -1448,7 +1718,7 @@ const UserAccountModal = ({
             <FieldGroup
               label="Last Name"
               labelFor="last-name"
-              additionalClasses="mb-[16px]"
+              additionalClasses={halfFieldClass}
               caption={formErrors.last_name}
               state={formErrors.last_name ? "error" : ""}
             >
@@ -1470,7 +1740,7 @@ const UserAccountModal = ({
             <FieldGroup
               label="Email"
               labelFor="email"
-              additionalClasses="mb-[16px]"
+              additionalClasses={emailFieldClass}
               caption={formErrors.email}
               state={formErrors.email ? "error" : ""}
             >
@@ -1489,7 +1759,7 @@ const UserAccountModal = ({
               />
             </FieldGroup>
 
-            <div className="md:col-span-2">
+            <div className={passwordWrapperClass}>
               <FieldGroup
                 label="Password"
                 labelFor="password"
@@ -1838,6 +2108,365 @@ const OrganizationFormModal = ({
   );
 };
 
+const RoleLabelFormModal = ({
+  mode = "create",
+  roleLabel,
+  isLoading,
+  onClose,
+  onSubmit,
+}) => {
+  const isEditMode = mode === "edit";
+  const isNameLocked = isEditMode && Number(roleLabel?.totalUsers || 0) > 0;
+
+  const initialFormErrors = {
+    name: "",
+    description: "",
+    is_active: "",
+  };
+
+  const [formData, setFormData] = useState({
+    name: roleLabel?.name || "",
+    description: roleLabel?.description || "",
+    is_active: roleLabel?.isActive === false ? "INACTIVE" : "ACTIVE",
+  });
+
+  const [formErrors, setFormErrors] = useState(initialFormErrors);
+  const [error, setError] = useState("");
+
+  const resetFieldError = (field) => {
+    setFormErrors((errors) => ({
+      ...errors,
+      [field]: "",
+    }));
+    setError("");
+  };
+
+  const checkError = () => {
+    let hasError = false;
+    const nextErrors = { ...initialFormErrors };
+
+    if (!formData.name.trim()) {
+      nextErrors.name = "Must enter role name.";
+      hasError = true;
+    }
+
+    if (!formData.is_active) {
+      nextErrors.is_active = "Must choose status.";
+      hasError = true;
+    }
+
+    setFormErrors(nextErrors);
+    return hasError;
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    if (checkError()) return;
+
+    const response = await onSubmit({
+      name: formData.name.trim(),
+      description: formData.description.trim(),
+      is_active: formData.is_active === "ACTIVE",
+    });
+
+    if (response.ok) {
+      onClose();
+      return;
+    }
+
+    const nextErrors = { ...initialFormErrors };
+    let nextError = "";
+
+    response.errors.forEach(({ field, error }) => {
+      if (field in nextErrors) {
+        nextErrors[field] = error;
+      } else {
+        nextError = error;
+      }
+    });
+
+    setFormErrors(nextErrors);
+    setError(nextError);
+  };
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 top-[49px] z-50 flex items-center justify-center px-[20px] py-[32px]">
+      <button
+        type="button"
+        className="absolute inset-0 bg-[#34405499] backdrop-blur-sm"
+        onClick={onClose}
+        aria-label="Close role modal"
+        disabled={isLoading}
+      />
+
+      <form
+        method="post"
+        onSubmit={handleSubmit}
+        className="relative flex max-h-[calc(100vh-113px)] w-full max-w-[680px] flex-col overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-white shadow-xl"
+      >
+        <div className="border-b border-[#E5E5E5] px-[20px] py-[16px]">
+          <h3 className="text-[18px] font-semibold text-gray-800">
+            {isEditMode ? "Edit Role" : "Add Role"}
+          </h3>
+          <p className="mt-[2px] text-sm text-gray-500">
+            {isEditMode
+              ? "Update the role label used by HealthPH+ accounts."
+              : "Create a role label that can be assigned to user accounts."}
+          </p>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-[20px]">
+          {error && (
+            <p className="mb-[14px] text-sm text-[#B42318]">
+              {error}
+            </p>
+          )}
+
+          <div className="grid grid-cols-1 gap-x-[16px] md:grid-cols-2">
+            <FieldGroup
+              label="Role Name"
+              labelFor="role-name"
+              additionalClasses="mb-[16px]"
+              caption={
+                formErrors.name ||
+                (isNameLocked
+                  ? "Role name cannot be changed while accounts use this role."
+                  : "")
+              }
+              state={formErrors.name ? "error" : ""}
+            >
+              <Input
+                size="input-md"
+                id="role-name"
+                type="text"
+                additionalClasses="mt-[8px] w-full"
+                placeholder="Enter role name"
+                value={formData.name}
+                disabled={isLoading || isNameLocked}
+                onChange={(e) => {
+                  setFormData({ ...formData, name: e.target.value });
+                  resetFieldError("name");
+                }}
+                state={formErrors.name ? "error" : ""}
+              />
+            </FieldGroup>
+
+            <FieldGroup
+              label="Status"
+              labelFor="role-status"
+              additionalClasses="mb-[16px]"
+              caption={formErrors.is_active}
+              state={formErrors.is_active ? "error" : ""}
+            >
+              <CustomSelect
+                options={[
+                  { label: "Active", value: "ACTIVE" },
+                  { label: "Inactive", value: "INACTIVE" },
+                ]}
+                id="role-status"
+                placeholder="Select status"
+                size="input-select-md"
+                value={formData.is_active}
+                handleChange={(value) => {
+                  setFormData({ ...formData, is_active: value });
+                  resetFieldError("is_active");
+                }}
+                additionalClasses="mt-[8px] w-full"
+                state={formErrors.is_active ? "error" : ""}
+              />
+            </FieldGroup>
+
+            <div className="md:col-span-2">
+              <FieldGroup
+                label="Description"
+                labelFor="role-description"
+                optional="Optional"
+                additionalClasses="mb-[16px]"
+                caption={formErrors.description}
+                state={formErrors.description ? "error" : ""}
+              >
+                <Input
+                  size="input-md"
+                  id="role-description"
+                  type="text"
+                  additionalClasses="mt-[8px] w-full"
+                  placeholder="Enter short role description"
+                  value={formData.description}
+                  disabled={isLoading}
+                  onChange={(e) => {
+                    setFormData({ ...formData, description: e.target.value });
+                    resetFieldError("description");
+                  }}
+                  state={formErrors.description ? "error" : ""}
+                />
+              </FieldGroup>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-[10px] border-t border-[#E5E5E5] px-[20px] py-[14px]">
+          <button
+            type="button"
+            className="rounded-[8px] border border-[#D0D5DD] bg-white px-[14px] py-[9px] text-sm text-gray-700"
+            onClick={onClose}
+            disabled={isLoading}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="rounded-[8px] bg-[#32418C] px-[14px] py-[9px] text-sm text-white disabled:cursor-not-allowed disabled:bg-[#98A2B3]"
+            disabled={isLoading}
+          >
+            {isLoading ? "Saving..." : isEditMode ? "Update" : "Save"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+const UserManagementInnerPill = ({ label, active, onClick }) => (
+  <button
+    type="button"
+    className={`rounded-full px-[16px] py-[8px] text-sm font-medium transition ${
+      active
+        ? "bg-gray-900 text-white shadow-sm"
+        : "bg-[#F5F5F5] text-gray-600 hover:bg-[#EAEAEA] hover:text-gray-900"
+    }`}
+    onClick={onClick}
+  >
+    {label}
+  </button>
+);
+
+const RolesPanel = ({
+  roles,
+  canEditRoles,
+  searchQuery,
+  setSearchQuery,
+  onEditRole,
+}) => {
+  if (roles.length === 0) {
+    const hasSearch = searchQuery.trim().length > 0;
+
+    return (
+      <EmptyState
+        iconName={hasSearch ? "Search" : "Users"}
+        heading={hasSearch ? "No Results Found" : "No Roles Found"}
+        content={
+          hasSearch
+            ? "We couldn't find any matches for your search. Please try adjusting your search terms or criteria."
+            : "Role labels will appear here once available."
+        }
+      >
+        {hasSearch && (
+          <button
+            type="button"
+            className="rounded-[10px] border border-[#E5E5E5] bg-white px-[14px] py-[9px] text-sm text-gray-700"
+            onClick={() => setSearchQuery("")}
+          >
+            Clear Search
+          </button>
+        )}
+      </EmptyState>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-[16px] md:grid-cols-2 xl:grid-cols-3">
+      {roles.map((role) => (
+        <div
+          key={role.id}
+          className="rounded-[12px] border border-[#E5E5E5] bg-white"
+        >
+          <div className="p-[16px]">
+            <div className="flex items-start justify-between gap-[12px]">
+              <div>
+                <div className="flex flex-wrap items-center gap-[8px]">
+                  <h3 className="text-[16px] font-semibold text-gray-900">
+                    {role.name}
+                  </h3>
+                  <span
+                    className={`rounded-full px-[8px] py-[4px] text-xs font-medium ${
+                      role.isActive
+                        ? "bg-[#ECFDF3] text-[#027A48]"
+                        : "bg-[#F2F4F7] text-gray-600"
+                    }`}
+                  >
+                    {role.isActive ? "Active" : "Inactive"}
+                  </span>
+                </div>
+                <p className="mt-[4px] text-sm text-gray-500">
+                  {role.description}
+                </p>
+              </div>
+
+              {canEditRoles && (
+                <button
+                  type="button"
+                  className="rounded-[8px] border border-[#E5E5E5] bg-white px-[12px] py-[7px] text-sm text-gray-700 hover:bg-[#F8FAFC] disabled:cursor-not-allowed disabled:text-gray-400"
+                  onClick={() => onEditRole(role)}
+                  disabled={!role.databaseId}
+                  title={
+                    role.databaseId
+                      ? "Edit role"
+                      : "Refresh role labels before editing this role."
+                  }
+                >
+                  Edit
+                </button>
+              )}
+            </div>
+
+            <div className="mt-[14px] grid grid-cols-1 gap-[12px] sm:grid-cols-3">
+              <div className="rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] p-[10px]">
+                <p className="text-sm text-gray-500">Users</p>
+                <p className="mt-[2px] font-semibold text-gray-900">
+                  {role.totalUsers}
+                </p>
+              </div>
+              <div className="rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] p-[10px]">
+                <p className="text-sm text-gray-500">Active</p>
+                <p className="mt-[2px] font-semibold text-[#027A48]">
+                  {role.activeUsers}
+                </p>
+              </div>
+              <div className="rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] p-[10px]">
+                <p className="text-sm text-gray-500">Disabled</p>
+                <p className="mt-[2px] font-semibold text-[#B42318]">
+                  {role.disabledUsers}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-[16px]">
+              <p className="text-sm font-medium text-gray-800">
+                Accessible Pages
+              </p>
+              <p className="mt-[2px] text-xs text-gray-500">
+                All listed pages are available for this role for now.
+              </p>
+
+              <div className="mt-[10px] flex flex-wrap gap-[8px]">
+                {role.moduleCoverage.map((moduleName) => (
+                  <span
+                    key={moduleName}
+                    className="rounded-full bg-[#F8FAFC] px-[10px] py-[5px] text-xs text-gray-700 ring-1 ring-[#E5E5E5]"
+                  >
+                    {moduleName}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const OrganizationDetailsModal = ({
   organization,
   isSuperadmin,
@@ -1988,15 +2617,6 @@ const OrganizationsPanel = ({
 
   return (
     <div>
-      <div className="mb-[16px]">
-        <h2 className="text-[18px] font-semibold text-gray-800">
-          Partnered Organizations
-        </h2>
-        <p className="text-sm text-gray-500">
-          Organizations derived from registered HealthPH+ accounts.
-        </p>
-      </div>
-
       <div className="grid grid-cols-1 gap-[12px] md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {organizations.map((organization) => (
           <div

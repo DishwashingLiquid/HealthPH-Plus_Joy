@@ -986,7 +986,7 @@ const DataManagement = () => {
     return (
         <>
         <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
-            <div className="mb-[18px] flex justify-center">
+            <div className="flex justify-center">
                 <div className="flex flex-wrap items-center justify-center gap-[8px]">
                     <DataSourcePill
                         label="Social Media Datasets"

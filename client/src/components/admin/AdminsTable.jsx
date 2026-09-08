@@ -629,66 +629,49 @@ const AdminsTable = ({
                         setUpdateModalErrors(emptyUpdateModalErrors);
                         setUpdateModalActive(false);
                     }}
-                    heading={`Update ${updateModalData.name}'s superadmin account`}
+                    heading="Update Account"
                     color="primary"
+                    additionalClasses="account-form-modal"
                 >
                     <div className="p-[20px]">
-                        <div className="grid grid-cols-1 gap-x-[16px] p-[20px] md:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-x-[16px] md:grid-cols-6">
                             <FieldGroup
-                                label="First Name"
-                                labelFor="update-admin-first-name"
-                                additionalClasses="mb-[16px]"
-                                caption={updateModalErrors.first_name}
-                                state={updateModalErrors.first_name ? "error" : ""}
+                                label="Account Type"
+                                labelFor="update-admin-user-type"
+                                additionalClasses="mb-[16px] md:col-span-2"
+                                caption="Account type is fixed for this account."
                             >
                                 <Input
                                     size="input-md"
-                                    id="update-admin-first-name"
+                                    id="update-admin-user-type"
                                     type="text"
                                     additionalClasses="mt-[8px] w-full"
-                                    value={updateModalData.first_name}
-                                    onChange={(e) => setUpdateModalData({ ...updateModalData, first_name: e.target.value })}
-                                    state={updateModalErrors.first_name ? "error" : ""}
+                                    value={updateModalData.user_type}
+                                    disabled
                                 />
                             </FieldGroup>
                             <FieldGroup
-                                label="Last Name"
-                                labelFor="update-admin-last-name"
-                                additionalClasses="mb-[16px]"
-                                caption={updateModalErrors.last_name}
-                                state={updateModalErrors.last_name ? "error" : ""}
+                                label="Accessible Regions"
+                                labelFor="update-admin-accessible-regions"
+                                additionalClasses="mb-[16px] md:col-span-2"
+                                caption="SUPERADMIN accounts automatically cover all regions."
                             >
-                                <Input
-                                    size="input-md"
-                                    id="update-admin-last-name"
-                                    type="text"
-                                    additionalClasses="mt-[8px] w-full"
-                                    value={updateModalData.last_name}
-                                    onChange={(e) => setUpdateModalData({ ...updateModalData, last_name: e.target.value })}
-                                    state={updateModalErrors.last_name ? "error" : ""}
-                                />
-                            </FieldGroup>
-                            <FieldGroup
-                                label="Email"
-                                labelFor="update-admin-email"
-                                additionalClasses="mb-[16px]"
-                                caption={updateModalErrors.email}
-                                state={updateModalErrors.email ? "error" : ""}
-                            >
-                                <Input
-                                    size="input-md"
-                                    id="update-admin-email"
-                                    type="text"
-                                    additionalClasses="mt-[8px] w-full"
-                                    value={updateModalData.email}
-                                    onChange={(e) => setUpdateModalData({ ...updateModalData, email: e.target.value })}
-                                    state={updateModalErrors.email ? "error" : ""}
+                                <MultiSelect
+                                    options={Regions.regions}
+                                    defaultValue={updateModalData.accessible_regions}
+                                    placeHolder="Select region/s"
+                                    onChange={() => {}}
+                                    selectAllLabel="All Regions"
+                                    selectAll={false}
+                                    additionalClassname="mt-[8px] w-full"
+                                    editable={false}
+                                    selectable={false}
                                 />
                             </FieldGroup>
                             <FieldGroup
                                 label="Organization"
                                 labelFor="update-admin-organization"
-                                additionalClasses="mb-[16px]"
+                                additionalClasses="mb-[16px] md:col-span-2"
                                 caption={
                                     updateModalErrors.organization ||
                                     (!hasOrganizationOptions
@@ -724,40 +707,60 @@ const AdminsTable = ({
                                 />
                             </FieldGroup>
                             <FieldGroup
-                                label="Account Type"
-                                labelFor="update-admin-user-type"
-                                additionalClasses="mb-[16px]"
+                                label="First Name"
+                                labelFor="update-admin-first-name"
+                                additionalClasses="mb-[16px] md:col-span-3"
+                                caption={updateModalErrors.first_name}
+                                state={updateModalErrors.first_name ? "error" : ""}
                             >
                                 <Input
                                     size="input-md"
-                                    id="update-admin-user-type"
+                                    id="update-admin-first-name"
                                     type="text"
                                     additionalClasses="mt-[8px] w-full"
-                                    value={updateModalData.user_type}
-                                    disabled
+                                    value={updateModalData.first_name}
+                                    onChange={(e) => setUpdateModalData({ ...updateModalData, first_name: e.target.value })}
+                                    state={updateModalErrors.first_name ? "error" : ""}
                                 />
                             </FieldGroup>
                             <FieldGroup
-                                label="Accessible Regions"
-                                labelFor="update-admin-accessible-regions"
-                                additionalClasses="mb-[16px]"
+                                label="Last Name"
+                                labelFor="update-admin-last-name"
+                                additionalClasses="mb-[16px] md:col-span-3"
+                                caption={updateModalErrors.last_name}
+                                state={updateModalErrors.last_name ? "error" : ""}
                             >
-                                <MultiSelect
-                                    options={Regions.regions}
-                                    defaultValue={updateModalData.accessible_regions}
-                                    placeHolder="Select region/s"
-                                    onChange={() => {}}
-                                    selectAllLabel="All Regions"
-                                    selectAll={false}
-                                    additionalClassname="mt-[8px] w-full"
-                                    editable={false}
-                                    selectable={false}
+                                <Input
+                                    size="input-md"
+                                    id="update-admin-last-name"
+                                    type="text"
+                                    additionalClasses="mt-[8px] w-full"
+                                    value={updateModalData.last_name}
+                                    onChange={(e) => setUpdateModalData({ ...updateModalData, last_name: e.target.value })}
+                                    state={updateModalErrors.last_name ? "error" : ""}
+                                />
+                            </FieldGroup>
+                            <FieldGroup
+                                label="Email"
+                                labelFor="update-admin-email"
+                                additionalClasses="mb-[16px] md:col-span-3"
+                                caption={updateModalErrors.email}
+                                state={updateModalErrors.email ? "error" : ""}
+                            >
+                                <Input
+                                    size="input-md"
+                                    id="update-admin-email"
+                                    type="text"
+                                    additionalClasses="mt-[8px] w-full"
+                                    value={updateModalData.email}
+                                    onChange={(e) => setUpdateModalData({ ...updateModalData, email: e.target.value })}
+                                    state={updateModalErrors.email ? "error" : ""}
                                 />
                             </FieldGroup>
                             <FieldGroup
                                 label="Date Created"
                                 labelFor="update-admin-created-at"
-                                additionalClasses="mb-[16px]"
+                                additionalClasses="mb-[16px] md:col-span-3"
                             >
                                 <Input
                                     size="input-md"
