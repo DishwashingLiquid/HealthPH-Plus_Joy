@@ -6,7 +6,11 @@ from fastapi.responses import JSONResponse
 from typing_extensions import Annotated
 
 from config.database import analytics_entries_collection
-from helpers.analyticsEntryHelpers import build_survey_response_analytics_entries
+
+from helpers.analyticsEntryHelpers import (
+    build_survey_response_analytics_entries,
+    get_valid_analytics_entries,
+)
 
 from helpers.miscHelpers import get_ph_datetime
 from middleware.requireAuth import require_auth
@@ -93,7 +97,6 @@ async def fetch_survey_results(
         content={
             "survey": {
                 "id": serialized_survey.get("id"),
-                "displayId": serialized_survey.get("displayId"),
                 "title": serialized_survey.get("title"),
                 "subtitle": serialized_survey.get("subtitle"),
                 "status": serialized_survey.get("status"),
@@ -157,11 +160,18 @@ async def update_survey(
     validate_survey_payload(data)
 
     update = build_survey_update_document(data, current_user, survey)
-    surveys_collection.update_one(
-        {"id": survey_id},
+    result = surveys_collection.update_one(
+        # Avoid a stale full-question-array update silently overwriting a
+        # concurrent admin edit. Sequence reservations remain consumed even
+        # when the caller must retry, so IDs are never reused.
+        {"id": survey_id, "questions": survey.get("questions") or []},
         {"$set": update},
     )
-    survey_responses_collection.delete_many({"surveyId": survey_id})
+    if not result.matched_count:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Survey questions changed concurrently; reload and try again",
+        )
     updated_survey = {**survey, **update}
 
     return JSONResponse(
@@ -303,7 +313,9 @@ async def create_public_survey_response(
 
     response["_id"] = inserted_response.inserted_id
 
-    analytics_entries = build_survey_response_analytics_entries(response)
+    analytics_entries = get_valid_analytics_entries(
+        build_survey_response_analytics_entries(response)
+    )
 
     if analytics_entries:
         analytics_entries_collection.insert_many(analytics_entries)

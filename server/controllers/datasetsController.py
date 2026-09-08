@@ -21,7 +21,10 @@ from middleware.requireRole import require_role
 from schema.datasetSchema import individual_dataset, list_datasets
 from helpers.datasetsHelpers import annotation
 from helpers.miscHelpers import get_ph_datetime
-from helpers.analyticsEntryHelpers import build_social_media_analytics_entries
+from helpers.analyticsEntryHelpers import (
+    build_social_media_analytics_entries,
+    get_valid_analytics_entries,
+)
 from controllers.pointControllers import delete_point, create_points
 
 # Folder to store datasets
@@ -381,10 +384,12 @@ async def upload_dataset(
             detail="Failed to upload dataset",
         )
 
-    analytics_entries = build_social_media_analytics_entries(
-        raw_dataset_df=raw_dataset_df,
-        dataset_id=new_dataset.inserted_id,
-        uploaded_by=user_data["_id"],
+    analytics_entries = get_valid_analytics_entries(
+        build_social_media_analytics_entries(
+            raw_dataset_df=raw_dataset_df,
+            dataset_id=new_dataset.inserted_id,
+            uploaded_by=user_data["_id"],
+        )
     )
 
     if analytics_entries:

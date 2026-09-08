@@ -102,20 +102,23 @@ export const ILLUSTRATIONS = [
   {
     id: 1,
     title: "Educational Content",
-    icon: "BookOpen",
-    description: "Access curated health education materials",
+    icon: "Heart",
+    iconColor: "#EF4444",
+    description: "Verified health information in easy-to-understand formats",
   },
   {
     id: 2,
     title: "Multilingual Resources",
-    icon: "Globe",
-    description: "Content available in multiple languages",
+    icon: "Languages",
+    iconColor: "#22C55E",
+    description: "Content translated into major Philippine languages",
   },
   {
     id: 3,
     title: "Community Q&A",
-    icon: "MessageCircle",
-    description: "Ask and answer health-related questions",
+    icon: "MessageSquare",
+    iconColor: "#3B82F6",
+    description: "Expert responses to common health questions",
   },
 ];
 

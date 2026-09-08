@@ -20,7 +20,7 @@ Primary sources:
 1. The tab loads all surveys with `GET /api/sentiment-pulse/surveys`; it shows loading, generic error, or an empty state.
 2. An admin can create a draft with text, multiple-choice, and rating questions. The web form requires a title, `target >= 1`, at least one question, every question title, at least two non-blank multiple-choice options, and `rateMin < rateMax` for ratings.
 3. Before create/update, the web app displays a SurveyJS preview. An update requires an acknowledgement if the existing survey has responses or a schedule.
-4. Create/update/delete actions are admin-only. Updating clears the schedule, resets response/sentiment data, and deletes stored survey responses. Deleting removes the survey and its stored responses.
+4. Create/update/delete actions are admin-only. Updating preserves the schedule, response/sentiment data, and stored survey responses; concurrent question edits can return `409` and should be reloaded. Deleting removes the survey and its stored responses.
 5. **Publish Survey** is a scheduling action: it shows Draft surveys only and sends one schedule request per selected survey. The default UI time is the browser's local time plus 15 minutes.
 6. A scheduled survey is public for mobile when `scheduledAt` is at or before the server's current Philippines time and `publishToMobile` is `true`. There is no background publishing job; status is calculated when serialized.
 7. The Results action loads aggregate per-question results. It does not expose individual answers.
@@ -29,7 +29,7 @@ Primary sources:
 
 Flutter should retrieve public, eligible surveys with `GET /api/sentiment-pulse/public-surveys?platform=mobile`, render the returned questions, and submit one non-empty `answers` map to the public response endpoint. No Flutter client source is present in this repository; the public query/mutation hooks exist but have no web caller.
 
-New surveys are always created with both `publishToMobile: true` and `publishToWebsite: true`. The current admin UI has no mobile-only switch. Survey `id` and question `id` remain the canonical mobile integration keys; optional `displayId` fields (`SUR-00001`, `Q-SUR00001-01`) are dashboard-facing only and must not replace response answer keys or API path IDs.
+New surveys are always created with both `publishToMobile: true` and `publishToWebsite: true`. The current admin UI has no mobile-only switch. Existing surveys/questions retain their legacy IDs. New surveys receive `id: "SUR-00001"` and their questions receive IDs such as `Q-SUR00001-01`; these actual IDs are the canonical API-path, SurveyJS-name, and answer-key values. Clients must support both formats and must not treat either as an authorization credential.
 
 ## API Endpoints
 
@@ -120,7 +120,7 @@ New surveys are always created with both `publishToMobile: true` and `publishToW
 ```json
 {
   "message": "Sentiment Pulse survey draft created successfully",
-  "survey": { "id": "<server UUID>", "status": "Draft" }
+  "survey": { "id": "SUR-00001", "status": "Draft" }
 }
 ```
 
@@ -129,10 +129,10 @@ New surveys are always created with both `publishToMobile: true` and `publishToW
 **Purpose:** Admin update. The web calls this after a confirmation warning when the survey has responses or a schedule.
 
 - Authentication: Bearer JWT; exact allowed strings are `ADMIN` or `SUPERADMIN` (note the case differs from list/create/schedule).
-- Path parameter: `survey_id` — server-generated survey UUID.
+- Path parameter: `survey_id` — the returned legacy ID or new `SUR-*` application ID.
 - Body: same `SentimentPulseSurveyDraft` JSON as create.
 - Success: `200`, `{"message":"Sentiment Pulse survey updated successfully","survey":{...}}`.
-- Side effects: resets `scheduledAt`, `responseCount`, `sentimentBreakdown`, and `dominantSentiment`; deletes matching `survey_responses` records. It does not delete already-created `analytics_entries`.
+- Side effects: preserves schedule, response/sentiment data, `survey_responses`, and analytics. A stale concurrent question update returns `409`; refresh and retry with the returned IDs.
 - Errors/UI handling: missing survey is `404` with `Sentiment Pulse survey not found`; validation is `400`/`422`; the web modal displays `detail` or a generic update error.
 
 ### `DELETE /api/sentiment-pulse/surveys/{survey_id}`
@@ -308,9 +308,13 @@ Persistence is MongoDB (`surveys` and `survey_responses`) with documents assembl
 | `text`, `multipleChoice`, `rating` | Web question-type constants. |
 | `Concerned`, `Proactive`, `Misinformed`, `Neutral` | UI sentiment labels; stored breakdown keys are lowercase. |
 | `publishToMobile`, `publishToWebsite` | Publication fields, currently hard-coded `true` at creation. They are not runtime feature flags. |
-| `source_type: "survey"` | Analytics-entry side-effect metadata for qualifying text answers. Entries also include `survey_id`, `response_id`, `question_id`, `source_platform`, and region. |
+| `source_type: "survey_response"` | Analytics-entry side-effect metadata for qualifying text answers. Entries also include `survey_id`, `response_id`, `question_id`, `source_platform`, and region. |
 
 No Mobile Surveys analytics event name, feature flag, real-time event, or push-notification event was found in the inspected code.
+
+### Deployment note
+
+No production migration or destructive database cleanup is part of this change. Deploy the API before relying on the new IDs, and ensure mobile releases use the IDs returned by the API verbatim. Historic `displayId` fields can remain in MongoDB to preserve consumed sequence numbers, but they are no longer an API/UI field.
 
 ## Relevant Dependencies
 

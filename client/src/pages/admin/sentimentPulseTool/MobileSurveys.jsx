@@ -82,7 +82,6 @@ const normalizeQuestion = (question = {}, index = 0) => ({
       : ["Option 1", "Option 2"],
   rateMin: question.type === "rating" ? Number(question.rateMin) || 1 : 1,
   rateMax: question.type === "rating" ? Number(question.rateMax) || 5 : 5,
-  displayId: question.displayId || "",
   position: Number(question.position) || index + 1,
 });
 
@@ -286,9 +285,9 @@ function MobileSurveyResultsModal({ surveyId, onClose }) {
                 <h3 className="text-[18px] font-semibold text-gray-800">
                   {survey.title}
                 </h3>
-                {survey.displayId && (
+                {survey.id && (
                   <span className="rounded-full bg-[#EEF2FF] px-2.5 py-1 font-mono text-xs font-semibold text-[#32418C]">
-                    {survey.displayId}
+                    {survey.id}
                   </span>
                 )}
                 {survey.status && (
@@ -371,7 +370,7 @@ function MobileSurveyResultsModal({ surveyId, onClose }) {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        {question.displayId || `Question ${question.position || index + 1}`}
+                        {question.id || `Question ${question.position || index + 1}`}
                       </p>
                       <h4 className="mt-1 text-[16px] font-semibold text-gray-800">
                         {question.title}
@@ -440,7 +439,7 @@ export function MobileSurveyCreateModal({
   onRemoveChoice,
   onRemoveQuestion,
   onMoveQuestion = () => {},
-  surveyDisplayId = "",
+  surveyId = "",
   onSubmitSurvey,
   submitLabel = "Create Draft",
   submitLoadingLabel = "Creating...",
@@ -543,9 +542,9 @@ export function MobileSurveyCreateModal({
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
                   placeholder="Ex. Dengue prevention awareness"
                   />
-                  {surveyDisplayId && (
+                  {surveyId && (
                     <p className="mt-2 text-xs font-medium text-gray-500">
-                      Survey ID: {surveyDisplayId}
+                      Survey ID: {surveyId}
                     </p>
                   )}
               </div>
@@ -618,8 +617,8 @@ export function MobileSurveyCreateModal({
                           Question {index + 1}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {question.displayId
-                            ? `${question.displayId} - ${getQuestionTypeLabel(question.type)}`
+                          {question.id
+                            ? `${question.id} - ${getQuestionTypeLabel(question.type)}`
                             : getQuestionTypeLabel(question.type)}
                         </p>
                       </div>
@@ -1117,9 +1116,9 @@ export default function MobileSurveys({
                     <h3 className="text-[16px] font-semibold text-gray-800">
                       {survey.title}
                     </h3>
-                    {survey.displayId && (
+                    {survey.id && (
                       <span className="rounded-full bg-[#EEF2FF] px-[10px] py-[4px] font-mono text-xs font-semibold text-[#32418C]">
-                        {survey.displayId}
+                        {survey.id}
                       </span>
                     )}
                     <span

@@ -688,7 +688,7 @@ export default function SentimentPulseTool() {
           onRemoveChoice={handleRemoveChoice}
           onRemoveQuestion={handleRemoveQuestion}
           onMoveQuestion={handleMoveQuestion}
-          surveyDisplayId={editingSurvey?.displayId}
+          surveyId={editingSurvey?.id}
           onSubmitSurvey={editingSurvey ? handleUpdateSurvey : handleCreateSurvey}
           submitLabel={editingSurvey ? "Update Survey" : "Create Draft"}
           submitLoadingLabel={editingSurvey ? "Updating..." : "Creating..."}

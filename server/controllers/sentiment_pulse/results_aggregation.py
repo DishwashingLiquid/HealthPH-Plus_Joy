@@ -93,6 +93,7 @@ def build_choice_or_rating_rows(
 
 def build_question_results(question: dict, index: int, responses: list[dict]) -> dict:
     question_id = question.get("id")
+    answer_key = question.get("name") or question_id
     result_type = get_question_result_type(question)
     answer_counts = Counter()
     answered_count = 0
@@ -100,10 +101,10 @@ def build_question_results(question: dict, index: int, responses: list[dict]) ->
     for response in responses:
         answers = response.get("answers") or {}
 
-        if question_id not in answers:
+        if answer_key not in answers:
             continue
 
-        answer_value = answers.get(question_id)
+        answer_value = answers.get(answer_key)
 
         if is_empty_answer(answer_value):
             continue
@@ -148,7 +149,6 @@ def build_question_results(question: dict, index: int, responses: list[dict]) ->
 
     return {
         "id": question_id,
-        "displayId": question.get("displayId") or "",
         "position": question.get("position") or index + 1,
         "title": get_question_label(question, index),
         "type": result_type,

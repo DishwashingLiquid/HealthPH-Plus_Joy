@@ -40,20 +40,26 @@ const REGION_ORDER = [
   "BARMM",
 ];
 
-const TOP_METRIC_CARD_META = {
-  "alert-distribution": {
+const STATIC_SUMMARY_CARDS = [
+  {
+    title: "Alert Distribution",
+    subtitle: "Push notifications for disease outbreaks to targeted regions",
     icon: AlertDistribution,
     iconColor: "#ef4444",
   },
-  "early-warning": {
+  {
+    title: "Early Warning",
+    subtitle: "Citizens receive alerts before official announcements",
     icon: EarlyWarning,
     iconColor: "#f59e0b",
   },
-  "symptom-report": {
+  {
+    title: "Symptom Reporting",
+    subtitle: "Community-driven symptom reporting for early detection",
     icon: SymptomReporting,
     iconColor: "#3b82f6",
   },
-};
+];
 
 const EMPTY_USER_ANALYTICS = {
   totalUsers: {
@@ -113,91 +119,29 @@ const getErrorMessage = (error, fallback) => {
   return error?.error || fallback;
 };
 
-const formatNumber = (value) =>
-  new Intl.NumberFormat("en-US").format(value ?? 0);
-
-const renderTopMetricCards = (cards, errorMessage, isLoading) => {
-  if (isLoading) {
-    return (
-      <div className="grid grid-cols-1 gap-[10px] xl:grid-cols-3">
-        {cards.map((card) => (
-          <div
-            key={card.label}
-            className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 text-sm mb-[8px]">{card.label}</p>
-                <h2 className="flex h-[32px] items-center text-[32px] font-semibold leading-none">
-                  <span
-                    className="h-[28px] w-[28px] animate-spin rounded-full border-4 border-[#E4E7EB] border-t-[#6A8EB5]"
-                    role="status"
-                    aria-label={`Loading ${card.label}`}
-                  />
-                </h2>
-                <p className="text-xs text-gray-500 mt-[4px]">{card.helper}</p>
-              </div>
-              <div
-                className="flex h-[40px] w-[40px] shrink-0 items-center justify-center"
-                style={{ color: card.iconColor }}
-              >
-                <card.icon aria-hidden="true" className="h-[34px] w-[34px]" />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (errorMessage) {
-    return (
-      <div className="rounded-[12px] border border-[#F2CACA] bg-[#FFF6F6] px-[20px] py-[18px] text-sm text-[#B42318]">
-        {errorMessage}
-      </div>
-    );
-  }
-
-  if (cards.length === 0) {
-    return (
-      <div className="rounded-[12px] border border-[#E5E5E5] bg-white px-[20px] py-[18px] text-sm text-gray-500">
-        No top metrics are available yet.
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-1 gap-[10px] xl:grid-cols-3">
-      {cards.map((card) => (
+const renderTopMetricCards = () => (
+  <div className="grid grid-cols-1 gap-[20px] md:grid-cols-3">
+    {STATIC_SUMMARY_CARDS.map((card) => (
+      <section
+        key={card.title}
+        className="min-h-[182px] rounded-[10px] bg-[#F8FAFC] px-[20px] py-[20px] text-center"
+      >
         <div
-          key={card.label}
-          className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]"
+          className="mx-auto flex h-[48px] w-[48px] items-center justify-center"
+          style={{ color: card.iconColor }}
         >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-500 text-sm mb-[8px]">{card.label}</p>
-              <h2 className="text-[32px] font-semibold text-gray-800 leading-none">
-                {formatNumber(card.value)}
-              </h2>
-              <p className="text-xs text-gray-500 mt-[4px]">{card.helper}</p>
-            </div>
-            <div
-              className="flex h-[40px] w-[40px] shrink-0 items-center justify-center"
-              style={{ color: card.iconColor }}
-            >
-              <card.icon aria-hidden="true" className="h-[34px] w-[34px]" />
-            </div>
-          </div>
+          <card.icon aria-hidden="true" className="h-[40px] w-[40px]" />
         </div>
-      ))}
-    </div>
-  );
-};
-
-const toDate = (value) => {
-  const parsedDate = new Date(value);
-  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
-};
+        <h2 className="mt-[12px] text-[18px] font-medium leading-[24px] text-gray-900">
+          {card.title}
+        </h2>
+        <p className="mt-[8px] text-[16px] leading-[24px] text-[#5B7294]">
+          {card.subtitle}
+        </p>
+      </section>
+    ))}
+  </div>
+);
 
 const buildLocationLookup = (mapPins) =>
   new Map(mapPins.map((pin) => [pin.id, pin]));
@@ -294,61 +238,6 @@ const buildRegionalCoverage = (reports, locationLookup) => {
   });
 };
 
-const buildTopMetricCards = (reports, locationLookup) => {
-  const now = new Date();
-  const windowStart = new Date(now);
-  windowStart.setDate(windowStart.getDate() - 7);
-
-  const clusterCounts = new Map();
-  let symptomReportCount = 0;
-
-  reports.forEach((report) => {
-    const createdAt = toDate(report.createdAt);
-    if (!createdAt || createdAt < windowStart || createdAt > now) {
-      return;
-    }
-
-    const mapPin = locationLookup.get(report.id);
-    const region = mapPin?.name;
-    const diseaseId = mapPin?.diseaseId || report.possibleConditionId;
-    if (!region || !diseaseId) {
-      return;
-    }
-
-    symptomReportCount += 1;
-    const clusterKey = `${region}:${diseaseId}`;
-    clusterCounts.set(clusterKey, (clusterCounts.get(clusterKey) || 0) + 1);
-  });
-
-  const alertDistributionCount = [...clusterCounts.values()].filter(
-    (count) => count >= 2
-  ).length;
-  const earlyWarningCount = [...clusterCounts.values()].filter(
-    (count) => count >= 5
-  ).length;
-
-  return [
-    {
-      key: "alert-distribution",
-      label: "Alert Distribution",
-      value: alertDistributionCount,
-      helper: "condition clusters with 2+ self-reports",
-    },
-    {
-      key: "early-warning",
-      label: "Early Warning",
-      value: earlyWarningCount,
-      helper: "condition clusters with 5+ self-reports",
-    },
-    {
-      key: "symptom-report",
-      label: "Symptom Report",
-      value: symptomReportCount,
-      helper: "mobile self-reports submitted in the last 7 days",
-    },
-  ];
-};
-
 export default function DiseaseWatchFeed() {
   const [activeTab, setActiveTab] = useState("recent-alerts");
   const [selectedRegions, setSelectedRegions] = useState([]);
@@ -399,15 +288,6 @@ export default function DiseaseWatchFeed() {
     [locationLookup, selfReports]
   );
   const userAnalytics = userAnalyticsResponse || EMPTY_USER_ANALYTICS;
-  const topMetricCards = useMemo(
-    () =>
-      buildTopMetricCards(selfReports, locationLookup).map((card) => ({
-        ...card,
-        ...TOP_METRIC_CARD_META[card.key],
-      })),
-    [locationLookup, selfReports]
-  );
-
   const availableRegions = useMemo(
     () => regionUserData.map((region) => region.region),
     [regionUserData]
@@ -442,13 +322,7 @@ export default function DiseaseWatchFeed() {
         </p>
       </div>
 
-      {renderTopMetricCards(
-        topMetricCards,
-        sharedError
-          ? getErrorMessage(sharedError, "Failed to load top metrics.")
-          : "",
-        isDashboardLoading
-      )}
+      {renderTopMetricCards()}
 
       <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[12px]">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-[8px] bg-[#F5F5F5] rounded-[10px] p-[6px]">

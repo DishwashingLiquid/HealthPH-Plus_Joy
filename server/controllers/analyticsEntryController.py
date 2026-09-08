@@ -28,7 +28,11 @@ async def fetch_analytics_entries(
 ):
     query = {}
 
-    if source_type != "all":
+    if source_type == "survey_response":
+        # Earlier survey analytics were stored as `survey`. Keep them visible
+        # beside new entries without rewriting historic analytics documents.
+        query["source_type"] = {"$in": ["survey_response", "survey"]}
+    elif source_type != "all":
         query["source_type"] = source_type
 
     if analysis_status != "all":

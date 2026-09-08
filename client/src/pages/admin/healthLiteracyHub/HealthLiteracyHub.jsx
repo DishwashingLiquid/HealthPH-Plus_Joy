@@ -34,26 +34,21 @@ const HealthLiteracyHub = () => {
         {ILLUSTRATIONS.map((illustration) => (
           <div
             key={illustration.id}
-            className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]"
+            className="flex min-h-[182px] flex-col items-center justify-center rounded-[10px] bg-[#F8FAFC] px-[20px] py-[20px] text-center"
           >
-            <div className="flex items-start gap-[14px]">
-              <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[10px] bg-[#F5F8FD]">
-                <Icon
-                  iconName={illustration.icon}
-                  height="24px"
-                  width="24px"
-                  fill="#32418C"
-                />
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-[16px] font-semibold text-gray-800">
-                  {illustration.title}
-                </h3>
-                <p className="mt-[6px] text-[14px] leading-[20px] text-gray-500">
-                  {illustration.description}
-                </p>
-              </div>
-            </div>
+            <Icon
+              iconName={illustration.icon}
+              height="44px"
+              width="44px"
+              fill="none"
+              stroke={illustration.iconColor}
+            />
+            <h3 className="mt-[12px] text-[18px] font-semibold leading-[24px] text-gray-900">
+              {illustration.title}
+            </h3>
+            <p className="mt-[8px] max-w-[390px] text-[16px] leading-[24px] text-[#5B7194]">
+              {illustration.description}
+            </p>
           </div>
         ))}
       </div>

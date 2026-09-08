@@ -60,7 +60,7 @@ export const exportSentimentPulseCsv = ({
     csvContent += surveys
       .map((survey) =>
         [
-          survey.displayId || "",
+          survey.id || "",
           survey.title,
           survey.status,
           survey.scheduledAt || "",

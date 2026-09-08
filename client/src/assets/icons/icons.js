@@ -32,6 +32,7 @@ export { default as Location } from "./location.svg?react";
 export { default as Lock } from "./lock.svg?react";
 export { default as Logout } from "./logout.svg?react";
 export { default as Mail } from "./mail.svg?react";
+export { default as MessageSquare } from "./message-square.svg?react";
 export { default as Megaphone } from "./megaphone.svg?react";
 export { default as Minus } from "./minus.svg?react";
 export { default as PanelsTopLeft } from "./panels-top-left.svg?react";

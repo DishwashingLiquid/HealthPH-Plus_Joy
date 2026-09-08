@@ -34,15 +34,14 @@ No mobile application source is present in this repository. Public-survey client
 | --- | --- | --- | --- |
 | `surveys` | Request models: `SentimentPulseSurveyDraft` and `SentimentPulseSurveySchedule` in `server/models/sentimentPulseSurvey.py:6-15`. No persisted ODM schema exists. | `id`, `title`, `subtitle`, `target`, `questions`, `surveyJson`, publication flags, `scheduledAt`, response/sentiment fields, and audit fields. `status`, `publishedAt`, and `responses` are computed response fields. | Declared in `server/config/database.py:38`; indexes in `server/controllers/sentiment_pulse/survey_helpers.py:17-30`. |
 | `survey_responses` | `SentimentPulseSurveyResponse` in `server/models/sentimentPulseSurvey.py:18-23`. No persisted ODM schema exists. | `id`, `surveyId`, `answers`, `platform`, optional `visitorId`, `region`, `metadata`, and `createdAt`. One record is inserted per accepted submission. | Declared in `server/config/database.py:39`; index in `server/controllers/sentiment_pulse/survey_helpers.py:31-34`. |
-| `analytics_entries` | Serialization helper: `server/schema/analyticsEntrySchema.py:1-21`. | Response side effect. Qualifying text answers create pending analytics entries with `source_type: "survey"`, survey/response/question IDs, platform, and region metadata. | Declared in `server/config/database.py:33`; generated in `server/helpers/analyticsEntryHelpers.py:106-169`. |
+| `analytics_entries` | Serialization helper: `server/schema/analyticsEntrySchema.py:1-21`. | Response side effect. Qualifying text answers create pending analytics entries with `source_type: "survey_response"`, survey/response/question IDs, platform, and region metadata. | Declared in `server/config/database.py:33`; generated in `server/helpers/analyticsEntryHelpers.py`. |
 
 ### `surveys` fields
 
 | Field | Meaning / expected value |
 | --- | --- |
-| `id` | Server-generated UUID. Used in API path parameters and as `survey_responses.surveyId`; it remains the canonical integration key. |
-| `displayId` | Immutable dashboard/display identifier in `SUR-00001` form. It is not used in URL paths, response references, or mobile answer keys. |
-| `questions` | Admin-authored array, normally containing immutable UUID/random `id`, display-only `displayId` (`Q-SUR00001-01`), mutable `position`, type (`text`, `multipleChoice`, or `rating`), title, required, and choices or rating bounds. |
+| `id` | Legacy surveys retain their existing UUID/random value exactly. Newly created surveys receive the immutable server-generated application ID `SUR-00001`; this is used in API paths and as `survey_responses.surveyId`. |
+| `questions` | Legacy questions retain their existing IDs. Questions created with a new-format survey receive immutable server-generated IDs such as `Q-SUR00001-01`; new questions on a legacy survey keep the legacy client-generated format. Each question ID is also its SurveyJS element `name` and response-answer key. |
 | `surveyJson` | SurveyJS-compatible rendering document. Question `id` values become SurveyJS element `name` values (`MobileSurveys.jsx:100-148`). |
 | `publishToMobile` | Must be `true` for mobile public retrieval. New surveys always set it to `true`. |
 | `publishToWebsite` | Website equivalent. New surveys always set it to `true`. |
@@ -54,7 +53,7 @@ No mobile application source is present in this repository. Public-survey client
 
 There is no expiry/end date, response cap, or visibility window in the current code.
 
-Display IDs are backfilled automatically. Their sequence is allocated atomically from the singleton `application_settings` document named `sentiment_pulse_display_sequences`; numbers consumed by a deleted survey or question are never reused. Reordering changes a question's `position`, not its `id` or `displayId`.
+There is no identifier backfill. Historic `displayId` and sequence fields may remain stored but are not serialized or rendered. New application-ID allocation is atomic through the existing `application_settings` document named `sentiment_pulse_display_sequences`; its prior state and historic assigned display values are treated as consumed numbers. Deletion and reordering never reuse or renumber IDs.
 
 ## API Endpoints
 
@@ -120,7 +119,7 @@ The server confirms that the survey is already published for the selected platfo
 - Invalid ISO datetime: `400`.
 - Scheduling any non-Draft survey: `400`, `Only draft surveys can be scheduled`.
 - A past schedule is accepted and makes the survey immediately eligible.
-- Updating resets `scheduledAt`, `responseCount`, `sentimentBreakdown`, and `dominantSentiment`, then deletes matching `survey_responses` (`survey_helpers.py:193-208`; `sentimentPulseController.py:159-163`).
+- Updating preserves `scheduledAt`, response counters, stored `survey_responses`, and analytics. Concurrent question-array edits receive `409` and must be reloaded/retried.
 - Deleting removes the survey and matching response documents. Neither updating nor deleting removes previously created `analytics_entries`.
 
 ## Mobile Developer Implementation Notes
@@ -155,6 +154,12 @@ No Mobile Survey endpoint is marked legacy or deprecated in the current codebase
 `GET /surveys/{survey_id}/results` was added after the original survey routes but is current and used by the dashboard.
 
 Historical code used MongoDB collections named `sentiment_pulse_surveys` and `sentiment_pulse_survey_responses`; current code uses `surveys` and `survey_responses`. A data migration or backward-compatibility layer is **Not confirmed in repository**.
+
+### Mixed ID deployment contract
+
+No database migration or cleanup is performed by this code. Existing survey IDs, question IDs, MongoDB `_id` values, responses, SurveyJS names, and analytics references remain unchanged. Mobile clients must accept both the legacy IDs already returned by the API and new `SUR-*` / `Q-SUR*-*` IDs, using the returned values as route and answer keys. These readable IDs identify resources but are not authorization credentials.
+
+The Model Access Toolkit’s Survey Responses view requests the new `survey_response` analytics type; the API also includes historic `survey` analytics entries in that view without rewriting them. New entries carry the returned survey/question IDs directly, while historic entries retain their existing legacy values.
 
 ## Gaps and Verification Needed
 

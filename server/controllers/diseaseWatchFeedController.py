@@ -24,7 +24,10 @@ from config.database import (
     user_collection,
 )
 
-from helpers.analyticsEntryHelpers import build_self_report_analytics_entry
+from helpers.analyticsEntryHelpers import (
+    build_self_report_analytics_entry,
+    validate_analytics_entry,
+)
 from helpers.miscHelpers import get_ph_datetime
 from middleware.requireAuth import require_auth
 from middleware.requireMobileAuth import optional_mobile_auth, require_mobile_auth
@@ -1790,19 +1793,23 @@ async def create_mobile_self_report(
     inserted_report = self_reports_collection.insert_one(document)
     created_report = self_reports_collection.find_one({"_id": inserted_report.inserted_id})
 
+    analytics_entry_id = None
     analytics_entry = build_self_report_analytics_entry(created_report)
 
     if analytics_entry:
         analytics_entries_collection.insert_one(analytics_entry)
+
+    mobile_user = _upsert_mobile_user_from_report(created_report)
 
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
         content={
             "message": "Self-report submitted successfully",
             "item": _serialize_self_report(created_report),
+            "mobileUser": _serialize_mobile_user(mobile_user),
+            "analyticsEntryId": analytics_entry_id,
         },
     )
-
 
 async def fetch_mobile_self_reports_mine(
     mobile_claims: Annotated[dict, Depends(require_mobile_auth)],
