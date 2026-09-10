@@ -26,7 +26,6 @@ export default () => {
     mobileVendor: mobileVendor,
     // Mobile Device Model
     mobileModel,
-    mobileModel,
     // OS Name: Windows, Android, iOS
     osName: osName,
     //
@@ -34,7 +33,6 @@ export default () => {
     // Browser Name: Chrome, Firefox, Safari, Opera, Safari, etc.
     browserName: browserName,
     //
-    browserVersion,
     browserVersion,
     //
     fullBrowserVersion: fullBrowserVersion,

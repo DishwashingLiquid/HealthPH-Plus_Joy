@@ -2,6 +2,7 @@ import HomeNavbar from "../components/HomeNavbar";
 import TestimonialsList from "../assets/data/testimonials.json";
 import TestimonialItem from "../components/about-us/TestimonialItem";
 import HomeFooter from "../components/HomeFooter";
+import "../assets/css/about.css";
 
 const ResearchTeam = () => {
   const dostPCHRD = TestimonialsList["dost-pchrd"];

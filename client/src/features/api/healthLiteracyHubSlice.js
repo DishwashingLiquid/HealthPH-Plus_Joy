@@ -28,6 +28,8 @@ export const healthLiteracyHubApi = baseAPI.injectEndpoints({
       }),
       invalidatesTags: (result, error, { contentType }) => [
         { type: "HealthLiteracyContent", id: contentType },
+        { type: "HealthLiteracyContent", id: `website-${contentType}` },
+        { type: "HealthLiteracyContent", id: "website-all" },
         "HealthLiteracyAnalyticsOverview",
       ],
     }),
@@ -39,6 +41,8 @@ export const healthLiteracyHubApi = baseAPI.injectEndpoints({
       }),
       invalidatesTags: (result, error, { contentType }) => [
         { type: "HealthLiteracyContent", id: contentType },
+        { type: "HealthLiteracyContent", id: `website-${contentType}` },
+        { type: "HealthLiteracyContent", id: "website-all" },
         "HealthLiteracyAnalyticsOverview",
       ],
     }),
@@ -49,6 +53,8 @@ export const healthLiteracyHubApi = baseAPI.injectEndpoints({
       }),
       invalidatesTags: (result, error, { contentType }) => [
         { type: "HealthLiteracyContent", id: contentType },
+        { type: "HealthLiteracyContent", id: `website-${contentType}` },
+        { type: "HealthLiteracyContent", id: "website-all" },
         "HealthLiteracyAnalyticsOverview",
       ],
     }),

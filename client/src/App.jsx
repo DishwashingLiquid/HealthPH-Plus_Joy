@@ -1,5 +1,5 @@
 import "./App.css";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { ToastContainer } from "react-toastify";
@@ -12,36 +12,28 @@ import AdminLayout from "./layouts/AdminLayout";
 import DashboardMiddleware from "./middlewares/DashboardMiddleware";
 import AuthMiddleware from "./middlewares/AuthMiddleware";
 
-import Home from "./pages/Home";
-import AboutUs from "./pages/AboutUs";
-import ResearchTeam from "./pages/ResearchTeam";
 import Articles from "./pages/Articles";
 import ArticlePage from "./pages/ArticlePage";
 import ContactUs from "./pages/ContactUs";
 
-import Login from "./pages/auth/Login";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
 
 import AISurveillance from "./pages/admin/AISurveillance";
-import HealthLiteracyHub from "./pages/admin/HealthLiteracyHub";
-import DiseaseWatchFeed from "./pages/admin/DiseaseWatchFeed";
 import NLPInsights from "./pages/admin/NLPInsights";
 import MisinformationTracker from "./pages/admin/MisinformationTracker";
 import ModelAccessToolkit from "./pages/admin/ModelAccessToolkit";
 import Analytics from "./pages/admin/Analytics";
 import TrendsMap from "./pages/admin/TrendsMap";
-import SentimentPulseTool from "./pages/admin/SentimentPulseTool";
 import UploadDataset from "./pages/admin/UploadDataset";
 import UserManagement from "./pages/admin/UserManagement";
-import AddUser from "./pages/admin/AddUser";
 import Help from "./pages/admin/Help";
-import ActivityLogs from "./pages/admin/ActivityLogs";
 import Settings from "./pages/admin/Settings";
 import EditEmail from "./pages/admin/EditEmail";
 import EditPassword from "./pages/admin/EditPassword";
 
 import PageNotFound from "./pages/error/PageNotFound";
+import AccessDenied from "./pages/error/AccessDenied";
 import Test from "./Test";
 
 import HelmetTitle from "./components/HelmetTitle";
@@ -49,9 +41,29 @@ import HelmetTitle from "./components/HelmetTitle";
 import useDeviceDetect from "./hooks/useDeviceDetect";
 import FullMap from "./pages/admin/FullMap";
 import Print from "./pages/Print";
+import {
+  ROLE_PAGES,
+  hasRolePageAccess,
+} from "./utils/rolePageAccess";
+
+const Home = lazy(() => import("./pages/Home"));
+const AboutUs = lazy(() => import("./pages/AboutUs"));
+const ResearchTeam = lazy(() => import("./pages/ResearchTeam"));
+const Login = lazy(() => import("./pages/auth/Login"));
+const HealthLiteracyHub = lazy(() =>
+  import("./pages/admin/healthLiteracyHub/HealthLiteracyHub")
+);
+const DiseaseWatchFeed = lazy(() =>
+  import("./pages/admin/diseaseWatchFeed/DiseaseWatchFeed")
+);
+const SentimentPulseTool = lazy(() =>
+  import("./pages/admin/sentimentPulseTool/SentimentPulseTool")
+);
 
 function App() {
   const user = useSelector((state) => state.auth.user);
+  const canManageAccounts =
+    user && (user.user_type === "SUPERADMIN" || user.role_label === "Admin");
 
   const dispatch = useDispatch();
 
@@ -67,6 +79,18 @@ function App() {
     setIsLoading(false);
   }, []);
 
+  const renderLazyRoute = (title, Component) => (
+    <>
+      <HelmetTitle title={title} />
+      <Suspense fallback={<p>...</p>}>
+        <Component />
+      </Suspense>
+    </>
+  );
+
+  const renderRolePage = (pageName, element) =>
+    hasRolePageAccess(user, pageName) ? element : <AccessDenied />;
+
   return isLoading ? (
     <p>...</p>
   ) : (
@@ -78,10 +102,7 @@ function App() {
             index
             element={
               !isPWA ? (
-                <>
-                  <HelmetTitle title="HealthPH" />
-                  <Home />
-                </>
+                renderLazyRoute("HealthPH", Home)
               ) : (
                 <Navigate to="/login" />
               )
@@ -91,10 +112,7 @@ function App() {
             path="about-the-project"
             element={
               !isPWA ? (
-                <>
-                  <HelmetTitle title="HealthPH | About Us" />
-                  <AboutUs />
-                </>
+                renderLazyRoute("HealthPH | About Us", AboutUs)
               ) : (
                 <Navigate to="/login" />
               )
@@ -130,10 +148,7 @@ function App() {
             path="research-team"
             element={
               !isPWA ? (
-                <>
-                  <HelmetTitle title="HealthPH | Research Team" />
-                  <ResearchTeam />
-                </>
+                renderLazyRoute("HealthPH | Research Team", ResearchTeam)
               ) : (
                 <Navigate to="/login" />
               )
@@ -165,10 +180,7 @@ function App() {
             <Route
               path="login"
               element={
-                <>
-                  <HelmetTitle title="HealthPH | Sign In" />
-                  <Login />
-                </>
+                renderLazyRoute("HealthPH | Sign In", Login)
               }
             ></Route>
             <Route
@@ -196,57 +208,63 @@ function App() {
           <Route path="/dashboard" element={<AdminLayout />}>
             <Route
               index
-              element={
+              element={renderRolePage(
+                ROLE_PAGES.AI_SURVEILLANCE,
                 <>
                   <HelmetTitle title="HealthPH | AI Surveillance" />
                   <AISurveillance />
                 </>
-              }
+              )}
             />
             <Route
               path="health-literacy-hub"
-              element={
-                <>
-                  <HelmetTitle title="HealthPH | Health Literacy Hub" />
-                  <HealthLiteracyHub />
-                </>
-              }
+              element={renderRolePage(
+                ROLE_PAGES.HEALTH_LITERACY_HUB,
+                renderLazyRoute(
+                  "HealthPH | Health Literacy Hub",
+                  HealthLiteracyHub
+                )
+              )}
             />
             <Route
               path="NLP-insights"
-              element={
+              element={renderRolePage(
+                ROLE_PAGES.NLP_INSIGHTS,
                 <>
                   <HelmetTitle title="HealthPH | NLP Insights" />
                   <NLPInsights />
                 </>
-              }
+              )}
             />
-             <Route
+            <Route
               path="disease-watch-feed"
-              element={
-                <>
-                  <HelmetTitle title="HealthPH | Disease Watch Feed" />
-                  <DiseaseWatchFeed />
-                </>
-              }
+              element={renderRolePage(
+                ROLE_PAGES.DISEASE_WATCH_FEED,
+                renderLazyRoute(
+                  "HealthPH | Disease Watch Feed",
+                  DiseaseWatchFeed
+                )
+              )}
             />
             <Route
               path="misinformation-tracker"
-              element={
+              element={renderRolePage(
+                ROLE_PAGES.MISINFORMATION_TRACKER,
                 <>
                   <HelmetTitle title="HealthPH | Misinformation Tracker" />
                   <MisinformationTracker />
                 </>
-              }
+              )}
             />
             <Route
               path="model-access-toolkit"
-              element={
+              element={renderRolePage(
+                ROLE_PAGES.MODEL_ACCESS_TOOLKIT,
                 <>
                   <HelmetTitle title="HealthPH | Model Access and Toolkit" />
                   <ModelAccessToolkit />
                 </>
-              }
+              )}
             />
             <Route
               path="trends-map"
@@ -259,17 +277,18 @@ function App() {
             />
             <Route
               path="sentiment-pulse"
-              element={
-                <>
-                  <HelmetTitle title="HealthPH | Sentiment Pulse Tool" />
-                  <SentimentPulseTool />
-                </>
-              }
+              element={renderRolePage(
+                ROLE_PAGES.SENTIMENT_PULSE_TOOL,
+                renderLazyRoute(
+                  "HealthPH | Sentiment Pulse Tool",
+                  SentimentPulseTool
+                )
+              )}
             />
             <Route
               path="trends-map/upload-dataset"
               element={
-                user && ["ADMIN", "SUPERADMIN"].includes(user.user_type) ? (
+                canManageAccounts ? (
                   <>
                     <HelmetTitle title="HealthPH | Upload Dataset" />
                     <UploadDataset />
@@ -282,27 +301,21 @@ function App() {
             {!isPWA && (
               <Route
                 path="user-management"
-                element={
-                  user && ["ADMIN", "SUPERADMIN"].includes(user.user_type) ? (
+                element={renderRolePage(
+                  ROLE_PAGES.USER_MANAGEMENT,
                     <>
                       <HelmetTitle title="HealthPH | User Management" />
                       <UserManagement />
                     </>
-                  ) : (
-                    <Navigate to="/dashboard" />
-                  )
-                }
+                )}
               />
             )}
             {!isPWA && (
               <Route
                 path="user-management/add-user"
                 element={
-                  user && ["ADMIN", "SUPERADMIN"].includes(user.user_type) ? (
-                    <>
-                      <HelmetTitle title="HealthPH | Add User" />
-                      <AddUser />
-                    </>
+                  canManageAccounts ? (
+                    <Navigate to="/dashboard/user-management" replace />
                   ) : (
                     <Navigate to="/dashboard" />
                   )
@@ -318,21 +331,10 @@ function App() {
                 </>
               }
             />
-            {!isPWA && (
-              <Route
-                path="activity-logs"
-                element={
-                  user && ["ADMIN", "SUPERADMIN"].includes(user.user_type) ? (
-                    <>
-                      <HelmetTitle title="HealthPH | Activity Logs" />
-                      <ActivityLogs />
-                    </>
-                  ) : (
-                    <Navigate to="/dashboard" />
-                  )
-                }
-              />
-            )}
+            <Route
+              path="activity-logs"
+              element={<Navigate to="/dashboard/user-management" replace />}
+            />
             <Route
               path="settings"
               element={

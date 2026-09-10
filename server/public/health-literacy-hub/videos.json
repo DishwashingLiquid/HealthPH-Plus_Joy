@@ -1,1 +1,57 @@
-[]
+[
+  {
+    "id": "d3bedbdd-81b5-404c-9ba5-4a952d0df2d5",
+    "title": "test",
+    "description": "test",
+    "tags": [],
+    "topics": [],
+    "diseases": [],
+    "language": "en",
+    "media": {
+      "filename": "Mobile Wireframe Figma.mp4",
+      "contentType": "video/mp4",
+      "size": 62776622,
+      "storedFilename": "8bd00c5c-6e78-4d3b-8e11-1be27d5db412-Mobile-Wireframe-Figma.mp4",
+      "url": "/api/health-literacy-hub/media/videos/8bd00c5c-6e78-4d3b-8e11-1be27d5db412-Mobile-Wireframe-Figma.mp4"
+    },
+    "duration": "1:42",
+    "source": null,
+    "author": null,
+    "publishedDate": null,
+    "externalUrl": null,
+    "imageUrl": null,
+    "mediaUrl": null,
+    "publishToMobile": true,
+    "publishToWebsite": true,
+    "isPublished": true,
+    "createdAt": "2026-08-14T11:06:52.911155",
+    "updatedAt": "2026-08-14T11:08:56.783415",
+    "lastReviewedAt": "2026-08-14T11:08:56.783415",
+    "assignedReviewer": "",
+    "reviewRequestedAt": "",
+    "lastReviewedBy": {
+      "id": "6a72d1adb16c674ce125be9b",
+      "name": "Janzzen Cuentas"
+    },
+    "isArchived": false,
+    "archivedAt": "",
+    "archivedBy": {},
+    "isPinned": false,
+    "pinnedAt": "",
+    "pinnedBy": {},
+    "createdBy": {
+      "id": "6a72d1adb16c674ce125be9b",
+      "name": "Janzzen Cuentas"
+    },
+    "isFactCheck": false,
+    "claim": null,
+    "claimStatus": "Needs Expert Review",
+    "verifiedBy": "Project Researcher",
+    "verdict": "Needs Context",
+    "explanation": null,
+    "updatedBy": {
+      "id": "6a72d1adb16c674ce125be9b",
+      "name": "Janzzen Cuentas"
+    }
+  }
+]

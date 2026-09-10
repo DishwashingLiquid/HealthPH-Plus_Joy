@@ -5,7 +5,6 @@ import {
   formatNumber,
   getTimeDifference,
 } from "../../../assets/data/sentimentMockData";
-import { DASHBOARD_METRIC_LABEL_CLASS } from "../dashboardTypography";
 
 export default function StaticContainers() {
   const trendSentiment = getTrendIndicator(sentimentStats.comparisonRate);
@@ -13,19 +12,18 @@ export default function StaticContainers() {
   const trendRegions = getTrendIndicator(sentimentStats.regionsComparisonRate);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      {/* Sentiment Score Card */}
-      <div className="bg-white shadow-sm rounded-lg p-6">
-        <h3 className={`${DASHBOARD_METRIC_LABEL_CLASS} mb-2`}>Sentiment Score</h3>
+    <div className="grid grid-cols-1 gap-[10px] md:grid-cols-2 xl:grid-cols-4">
+      <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
+        <h3 className="mb-[8px] text-sm text-gray-500">Sentiment Score</h3>
         <div className="flex items-end justify-between">
           <div>
-            <p className="text-3xl font-bold text-gray-900">
+            <p className="text-[32px] font-semibold leading-none text-gray-800">
               {sentimentStats.currentScore}
             </p>
-            <p className="text-xs text-gray-500 mt-1">out of 100</p>
+            <p className="mt-[4px] text-xs text-gray-500">out of 100</p>
           </div>
           <div className={`text-right ${trendSentiment.color}`}>
-            <p className="text-xl font-semibold">
+            <p className="text-sm font-semibold">
               {trendSentiment.arrow} {formatPercentage(sentimentStats.comparisonRate)}%
             </p>
             <p className="text-xs text-gray-500">vs previous</p>
@@ -33,18 +31,17 @@ export default function StaticContainers() {
         </div>
       </div>
 
-      {/* Survey Responses Card */}
-      <div className="bg-white shadow-sm rounded-lg p-6">
-        <h3 className={`${DASHBOARD_METRIC_LABEL_CLASS} mb-2`}>Survey Responses</h3>
+      <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
+        <h3 className="mb-[8px] text-sm text-gray-500">Survey Responses</h3>
         <div className="flex items-end justify-between">
           <div>
-            <p className="text-3xl font-bold text-gray-900">
+            <p className="text-[32px] font-semibold leading-none text-gray-800">
               {formatNumber(sentimentStats.surveyResponses)}
             </p>
-            <p className="text-xs text-gray-500 mt-1">total responses</p>
+            <p className="mt-[4px] text-xs text-gray-500">total responses</p>
           </div>
           <div className={`text-right ${trendResponses.color}`}>
-            <p className="text-xl font-semibold">
+            <p className="text-sm font-semibold">
               {trendResponses.arrow} {formatPercentage(sentimentStats.responsesComparisonRate)}%
             </p>
             <p className="text-xs text-gray-500">vs previous</p>
@@ -52,18 +49,17 @@ export default function StaticContainers() {
         </div>
       </div>
 
-      {/* Active Regions Card */}
-      <div className="bg-white shadow-sm rounded-lg p-6">
-        <h3 className={`${DASHBOARD_METRIC_LABEL_CLASS} mb-2`}>Active Regions</h3>
+      <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
+        <h3 className="mb-[8px] text-sm text-gray-500">Active Regions</h3>
         <div className="flex items-end justify-between">
           <div>
-            <p className="text-3xl font-bold text-gray-900">
+            <p className="text-[32px] font-semibold leading-none text-gray-800">
               {sentimentStats.activeRegions}/{sentimentStats.totalRegions}
             </p>
-            <p className="text-xs text-gray-500 mt-1">regions active</p>
+            <p className="mt-[4px] text-xs text-gray-500">regions active</p>
           </div>
           <div className={`text-right ${trendRegions.color}`}>
-            <p className="text-xl font-semibold">
+            <p className="text-sm font-semibold">
               {trendRegions.arrow} {formatPercentage(sentimentStats.regionsComparisonRate)}%
             </p>
             <p className="text-xs text-gray-500">vs previous</p>
@@ -71,15 +67,14 @@ export default function StaticContainers() {
         </div>
       </div>
 
-      {/* Latest Update Card */}
-      <div className="bg-white shadow-sm rounded-lg p-6">
-        <h3 className={`${DASHBOARD_METRIC_LABEL_CLASS} mb-2`}>Latest Update</h3>
+      <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
+        <h3 className="mb-[8px] text-sm text-gray-500">Latest Update</h3>
         <div className="space-y-3">
           <div>
-            <p className="text-2xl font-bold text-gray-900">
+            <p className="text-[28px] font-semibold leading-none text-gray-800">
               {sentimentStats.lastUpdateTime}
             </p>
-            <p className="text-xs text-gray-500 mt-1">from last update</p>
+            <p className="mt-[4px] text-xs text-gray-500">from last update</p>
           </div>
           <div className="pt-2 border-t border-gray-200">
             <p className="text-sm text-gray-700">

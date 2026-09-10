@@ -13,13 +13,22 @@ load_dotenv()
 # Import Routes
 from routes.authRoutes import router as authRouter
 from routes.userRoutes import router as userRouter
+from routes.organizationRoutes import router as organizationRouter
+from routes.roleLabelRoutes import router as roleLabelRouter
 from routes.activityLogRoutes import router as activityLogRouter
 from routes.analyticsRoutes import router as analyticsRouter
 from routes.datasetsRoutes import router as datasetsRouter
+from routes.analyticsEntryRoutes import router as analyticsEntryRouter
 from routes.pointRoutes import router as pointRouter
 from routes.miscRoutes import router as miscRouter
-from routes.healthLiteracyHubRoutes import router as healthLiteracyHubRouter
+from routes.healthLiteracyHubRoutes import (
+    mobile_contract_router as healthLiteracyMobileContractRouter,
+    router as healthLiteracyHubRouter,
+)
 from routes.sentimentPulseRoutes import router as sentimentPulseRouter
+from routes.diseaseWatchFeedRoutes import (
+    mobile_self_reports_router as mobileSelfReportsRouter,
+)
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -55,22 +64,25 @@ api_app.add_middleware(
 # Include Routes
 api_app.include_router(router=authRouter, tags=["Auth"], prefix="/auth")
 api_app.include_router(router=userRouter, tags=["Users"], prefix="/users")
-api_app.include_router(
-    router=activityLogRouter, tags=["Activity Logs"], prefix="/activity-logs"
-)
+api_app.include_router(router=organizationRouter, tags=["Organizations"], prefix="/organizations")
+api_app.include_router(router=roleLabelRouter, tags=["Role Labels"], prefix="/role-labels")
+api_app.include_router(router=activityLogRouter, tags=["Activity Logs"], prefix="/activity-logs")
 api_app.include_router(router=datasetsRouter, tags=["Datasets"], prefix="/datasets")
+api_app.include_router(router=analyticsEntryRouter, tags=["Analytics Entries"], prefix="/analytics-entries")
 api_app.include_router(router=pointRouter, tags=["Points"], prefix="/points")
 api_app.include_router(router=analyticsRouter, tags=["Analytics"])
 api_app.include_router(router=miscRouter, tags=["Misc"])
+api_app.include_router(router=healthLiteracyHubRouter, tags=["Health Literacy Hub"], prefix="/health-literacy-hub")
 api_app.include_router(
-    router=healthLiteracyHubRouter,
+    router=healthLiteracyMobileContractRouter,
     tags=["Health Literacy Hub"],
-    prefix="/health-literacy-hub",
+    prefix="/health-literacy",
 )
+api_app.include_router(router=sentimentPulseRouter, tags=["Sentiment Pulse"], prefix="/sentiment-pulse")
 api_app.include_router(
-    router=sentimentPulseRouter,
-    tags=["Sentiment Pulse"],
-    prefix="/sentiment-pulse",
+    router=mobileSelfReportsRouter,
+    tags=["Disease Watch Feed"],
+    prefix="/mobile",
 )
 
 app.mount("/api", api_app, name="api")

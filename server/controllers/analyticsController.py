@@ -79,15 +79,14 @@ async def generate_frequent_words(
     # Get user data
     user_data = user_collection.find_one({"_id": ObjectId(user_id)})
 
-    # Check user_type
-    # If SUPERADMIN, fetch all ANNOTATED datasets
+    # Superadmin sees every annotated dataset.
     if user_data["user_type"] == "SUPERADMIN":
         datasets = dataset_collection.find(
             {"created_at": {"$gte": start_date}, "dataset_type": "ANNOTATED"},
             {"filename": 1},
         )
-    # If ADMIN, fetch all ANNOTATED datasets uploaded by ADMIN
-    elif user_data["user_type"] == "ADMIN":
+    # Admin-role users see annotated datasets they uploaded.
+    elif user_data.get("role_label") == "Admin":
         datasets = dataset_collection.find(
             {
                 "created_at": {"$gte": start_date},
@@ -96,7 +95,7 @@ async def generate_frequent_words(
             },
             {"filename": 1},
         )
-    # If USER, fetch all ANNOTATED datasets uploaded by ADMIN who added USER
+    # Other users see annotated datasets uploaded by the account that added them.
     else:
         datasets = dataset_collection.find(
             {
@@ -243,15 +242,14 @@ async def generate_wordcloud(
     # Get user data
     user_data = user_collection.find_one({"_id": ObjectId(user_id)})
 
-    # Check user_type
-    # If SUPERADMIN, fetch all ANNOTATED datasets
+    # Superadmin sees every annotated dataset.
     if user_data["user_type"] == "SUPERADMIN":
         datasets = dataset_collection.find(
             {"created_at": {"$gte": start_date}, "dataset_type": "ANNOTATED"},
             {"filename": 1},
         )
-    # If ADMIN, fetch all ANNOTATED datasets uploaded by ADMIN
-    elif user_data["user_type"] == "ADMIN":
+    # Admin-role users see annotated datasets they uploaded.
+    elif user_data.get("role_label") == "Admin":
         datasets = dataset_collection.find(
             {
                 "created_at": {"$gte": start_date},
@@ -260,7 +258,7 @@ async def generate_wordcloud(
             },
             {"filename": 1},
         )
-    # If USER, fetch all ANNOTATED datasets uploaded by ADMIN who added USER
+    # Other users see annotated datasets uploaded by the account that added them.
     else:
         datasets = dataset_collection.find(
             {

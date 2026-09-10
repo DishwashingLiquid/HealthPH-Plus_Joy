@@ -1,6 +1,6 @@
 import { baseAPI } from "./_baseAPI";
 
-export const activityLogApi = baseAPI.injectEndpoints({
+export const analyticsApi = baseAPI.injectEndpoints({
   endpoints: (builder) => ({
     generateSuspectedSymptoms: builder.query({
       query: () => {
@@ -45,4 +45,4 @@ export const {
   useGenerateFrequentWordsQuery,
   useGeneratePercentageQuery,
   useGenerateWordCloudQuery,
-} = activityLogApi;
+} = analyticsApi;

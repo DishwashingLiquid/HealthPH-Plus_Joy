@@ -30,6 +30,8 @@ export const getContentMediaSource = (media) => {
 export const getStaticArticleImageSource = (article) =>
   article?.articleImage ? `/assets/articles/preview/${article.articleImage}` : "";
 
+const getTrimmedUrl = (value) => String(value ?? "").trim();
+
 export const getArticleSortDate = (article) => {
   const date = new Date(article?.sortDate ?? article?.datePublished ?? article?.createdAt);
   return Number.isNaN(date.getTime()) ? new Date(0) : date;
@@ -49,8 +51,19 @@ export const formatContentDate = (value) => {
 };
 
 export const getResourceImageSource = (article) => {
-  if (article?.source === "api") {
-    return getContentMediaSource(article.media);
+  if (article?.contentOrigin === "api") {
+    const uploadedMediaSource = getContentMediaSource(article.media);
+    if (uploadedMediaSource) return uploadedMediaSource;
+
+    if (article?.resourceType === "video") {
+      return getTrimmedUrl(article.mediaUrl) || getTrimmedUrl(article.imageUrl);
+    }
+
+    if (article?.resourceType === "infographic") {
+      return getTrimmedUrl(article.imageUrl) || getTrimmedUrl(article.mediaUrl);
+    }
+
+    return getTrimmedUrl(article.imageUrl);
   }
 
   return getStaticArticleImageSource(article);
@@ -67,7 +80,7 @@ const getReadDuration = (text) => {
 
 export const normalizeStaticArticle = (article) => ({
   ...article,
-  source: "static",
+  contentOrigin: "static",
   contentType: "articles",
   contentTypeLabel: "Article",
   resourceType: "article",
@@ -86,13 +99,13 @@ export const normalizeDashboardContent = (item) => {
 
   return {
     ...item,
-    source: "api",
+    contentOrigin: "api",
     contentType,
     contentTypeLabel,
     resourceType,
     articleTitle: item.title ?? "Untitled content",
     articleSlug: getDashboardContentSlug(item),
-    datePublished: item.createdAt,
+    datePublished: item.publishedDate ?? item.createdAt,
     articlePreview: item.description ?? "",
     articleImage: "",
     articleImageCaption: item.title ?? "",
@@ -100,7 +113,7 @@ export const normalizeDashboardContent = (item) => {
     galleryImages: [],
     galleryFolder: "",
     readDuration: getReadDuration(item.description),
-    sortDate: item.createdAt,
+    sortDate: item.publishedDate ?? item.createdAt,
   };
 };
 

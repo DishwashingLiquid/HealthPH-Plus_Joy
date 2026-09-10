@@ -190,7 +190,7 @@ const MisinformationTracker = () => {
                         <button className="border border-[#E5E5E5] rounded-[10px] px-[14px] py-[9px] text-sm bg-[#F8F9FA]">
                             Export
                         </button>
-                        <button className="bg-[#32418C] text-white rounded-[10px] px-[14px] py-[9px] text-sm">
+                        <button className="admin-module-brand-btn border text-white rounded-[10px] px-[14px] py-[9px] text-sm">
                             Create Alert
                         </button>
                     </div>

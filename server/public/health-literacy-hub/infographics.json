@@ -1,1 +1,57 @@
-[]
+[
+  {
+    "id": "abf0e920-5b0b-4561-bb6b-a3e350cc7622",
+    "title": "test",
+    "description": "test",
+    "tags": [],
+    "topics": [],
+    "diseases": [],
+    "language": "en",
+    "media": {
+      "filename": "Screenshot_29-7-2026_153822_claude.ai.jpeg",
+      "contentType": "image/jpeg",
+      "size": 165882,
+      "storedFilename": "a40c1a44-8d16-4b78-8dfa-d93c70748119-Screenshot_29-7-2026_153822_claude.ai.jpeg",
+      "url": "/api/health-literacy-hub/media/infographics/a40c1a44-8d16-4b78-8dfa-d93c70748119-Screenshot_29-7-2026_153822_claude.ai.jpeg"
+    },
+    "duration": "",
+    "source": null,
+    "author": null,
+    "publishedDate": null,
+    "externalUrl": null,
+    "imageUrl": null,
+    "mediaUrl": null,
+    "publishToMobile": true,
+    "publishToWebsite": true,
+    "isPublished": true,
+    "createdAt": "2026-08-14T11:07:06.598414",
+    "updatedAt": "2026-08-14T11:32:25.519775",
+    "lastReviewedAt": "2026-08-14T11:32:25.519775",
+    "assignedReviewer": "",
+    "reviewRequestedAt": "",
+    "lastReviewedBy": {
+      "id": "6a72d1adb16c674ce125be9b",
+      "name": "Janzzen Cuentas"
+    },
+    "isArchived": false,
+    "archivedAt": "",
+    "archivedBy": {},
+    "isPinned": false,
+    "pinnedAt": "",
+    "pinnedBy": {},
+    "createdBy": {
+      "id": "6a72d1adb16c674ce125be9b",
+      "name": "Janzzen Cuentas"
+    },
+    "isFactCheck": false,
+    "claim": null,
+    "claimStatus": "Needs Expert Review",
+    "verifiedBy": "Project Researcher",
+    "verdict": "Needs Context",
+    "explanation": null,
+    "updatedBy": {
+      "id": "6a72d1adb16c674ce125be9b",
+      "name": "Janzzen Cuentas"
+    }
+  }
+]

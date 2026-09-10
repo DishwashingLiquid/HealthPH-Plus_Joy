@@ -1,7 +1,4 @@
-import { Link } from "react-router-dom";
-import Logo from "../assets/images/logo.png";
 import HomeNavbar from "../components/HomeNavbar.jsx";
-import Icon from "../components/Icon.jsx";
 
 const Home = () => {
   return (
@@ -13,34 +10,8 @@ const Home = () => {
             HealthPH+: Machine Learning and Multilingual NLP for Intelligent Public Health Surveillance
           </p>
           <p className="subheading">Innovating AI Solutions for Better Public Health</p>
-          {/* <Link
-            to="assets/healthph-pre-alpha.apk"
-            target="_blank"
-            className="prod-btn-lg prod-btn-secondary rounded-[8px] px-[18px] md:px-[28px] py-[10px] md:py-[16px] mt-[24px] flex justify-center items-center"
-          >
-            <span> Download HealthPH App</span>
-            <Icon
-              iconName="Download"
-              height="24"
-              width="24"
-              fill="#8693A0"
-              className="icon ms-[8px]"
-            />
-          </Link> */}
         </div>
-
-        {/* <div className="art"></div> */}
       </main>
-
-      {/* <footer className="flex-col sm:flex-row items-start sm:items-center">
-        <div className="footer-logo h-[24px] mb-[16px] sm:mb-0">
-          <img src={Logo} alt="" />
-        </div>
-
-        <p className="prod-l2 text-gray-300">
-          &#169; 2024 HealthPH. All Rights reserved.
-        </p>
-      </footer> */}
     </div>
   );
 };

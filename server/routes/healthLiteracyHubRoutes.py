@@ -7,6 +7,7 @@ from controllers.healthLiteracyHubController import (
     fetch_health_literacy_media,
     fetch_health_literacy_analytics_overview,
     fetch_health_literacy_content,
+    fetch_mobile_health_literacy_contract,
     fetch_mobile_health_literacy_content,
     fetch_mobile_health_literacy_content_by_type,
     fetch_website_health_literacy_content,
@@ -15,6 +16,7 @@ from controllers.healthLiteracyHubController import (
 )
 
 router = APIRouter()
+mobile_contract_router = APIRouter()
 
 # GET       /health-literacy-hub/analytics/overview
 router.add_api_route(
@@ -30,11 +32,25 @@ router.add_api_route(
     endpoint=create_health_literacy_analytics_event,
 )
 
+# POST      /health-literacy/analytics/events
+mobile_contract_router.add_api_route(
+    "/analytics/events",
+    methods=["POST"],
+    endpoint=create_health_literacy_analytics_event,
+)
+
 # GET       /health-literacy-hub/mobile
 router.add_api_route(
     "/mobile",
     methods=["GET"],
     endpoint=fetch_mobile_health_literacy_content,
+)
+
+# GET       /health-literacy/mobile
+mobile_contract_router.add_api_route(
+    "/mobile",
+    methods=["GET"],
+    endpoint=fetch_mobile_health_literacy_contract,
 )
 
 # GET       /health-literacy-hub/mobile/{content_type}

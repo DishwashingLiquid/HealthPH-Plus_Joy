@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useMemo, useState } from "react";
+import "../../assets/css/map.css";
 
 import Icon from "../../components/Icon";
 
