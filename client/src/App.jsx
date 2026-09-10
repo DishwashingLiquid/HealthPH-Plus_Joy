@@ -33,6 +33,7 @@ import EditEmail from "./pages/admin/EditEmail";
 import EditPassword from "./pages/admin/EditPassword";
 
 import PageNotFound from "./pages/error/PageNotFound";
+import AccessDenied from "./pages/error/AccessDenied";
 import Test from "./Test";
 
 import HelmetTitle from "./components/HelmetTitle";
@@ -40,6 +41,10 @@ import HelmetTitle from "./components/HelmetTitle";
 import useDeviceDetect from "./hooks/useDeviceDetect";
 import FullMap from "./pages/admin/FullMap";
 import Print from "./pages/Print";
+import {
+  ROLE_PAGES,
+  hasRolePageAccess,
+} from "./utils/rolePageAccess";
 
 const Home = lazy(() => import("./pages/Home"));
 const AboutUs = lazy(() => import("./pages/AboutUs"));
@@ -82,6 +87,9 @@ function App() {
       </Suspense>
     </>
   );
+
+  const renderRolePage = (pageName, element) =>
+    hasRolePageAccess(user, pageName) ? element : <AccessDenied />;
 
   return isLoading ? (
     <p>...</p>
@@ -200,57 +208,63 @@ function App() {
           <Route path="/dashboard" element={<AdminLayout />}>
             <Route
               index
-              element={
+              element={renderRolePage(
+                ROLE_PAGES.AI_SURVEILLANCE,
                 <>
                   <HelmetTitle title="HealthPH | AI Surveillance" />
                   <AISurveillance />
                 </>
-              }
+              )}
             />
             <Route
               path="health-literacy-hub"
-              element={
+              element={renderRolePage(
+                ROLE_PAGES.HEALTH_LITERACY_HUB,
                 renderLazyRoute(
                   "HealthPH | Health Literacy Hub",
                   HealthLiteracyHub
                 )
-              }
+              )}
             />
             <Route
               path="NLP-insights"
-              element={
+              element={renderRolePage(
+                ROLE_PAGES.NLP_INSIGHTS,
                 <>
                   <HelmetTitle title="HealthPH | NLP Insights" />
                   <NLPInsights />
                 </>
-              }
+              )}
             />
             <Route
               path="disease-watch-feed"
-              element={
+              element={renderRolePage(
+                ROLE_PAGES.DISEASE_WATCH_FEED,
                 renderLazyRoute(
                   "HealthPH | Disease Watch Feed",
                   DiseaseWatchFeed
                 )
-              }
+              )}
             />
             <Route
               path="misinformation-tracker"
-              element={
+              element={renderRolePage(
+                ROLE_PAGES.MISINFORMATION_TRACKER,
                 <>
                   <HelmetTitle title="HealthPH | Misinformation Tracker" />
                   <MisinformationTracker />
                 </>
-              }
+              )}
             />
             <Route
               path="model-access-toolkit"
-              element={
+              element={renderRolePage(
+                ROLE_PAGES.MODEL_ACCESS_TOOLKIT,
                 <>
                   <HelmetTitle title="HealthPH | Model Access and Toolkit" />
                   <ModelAccessToolkit />
                 </>
-              }
+              )}
             />
             <Route
               path="trends-map"
@@ -263,12 +277,13 @@ function App() {
             />
             <Route
               path="sentiment-pulse"
-              element={
+              element={renderRolePage(
+                ROLE_PAGES.SENTIMENT_PULSE_TOOL,
                 renderLazyRoute(
                   "HealthPH | Sentiment Pulse Tool",
                   SentimentPulseTool
                 )
-              }
+              )}
             />
             <Route
               path="trends-map/upload-dataset"
@@ -286,16 +301,13 @@ function App() {
             {!isPWA && (
               <Route
                 path="user-management"
-                element={
-                  user ? (
+                element={renderRolePage(
+                  ROLE_PAGES.USER_MANAGEMENT,
                     <>
                       <HelmetTitle title="HealthPH | User Management" />
                       <UserManagement />
                     </>
-                  ) : (
-                    <Navigate to="/dashboard" />
-                  )
-                }
+                )}
               />
             )}
             {!isPWA && (

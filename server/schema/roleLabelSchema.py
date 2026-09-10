@@ -1,10 +1,20 @@
+from helpers.roleLabelHelpers import HEALTHPH_PLUS_PAGES
+
+
 def individual_role_label(role_label) -> dict:
+    accessible_pages = role_label.get("accessible_pages")
+
     return {
         "id": str(role_label["_id"]),
         "name": role_label.get("name", ""),
         "description": role_label.get("description", ""),
         "is_active": role_label.get("is_active", True),
         "is_system": role_label.get("is_system", False),
+        "accessible_pages": (
+            accessible_pages
+            if isinstance(accessible_pages, list)
+            else HEALTHPH_PLUS_PAGES.copy()
+        ),
         "created_at": str(role_label.get("created_at", "")),
         "updated_at": str(role_label.get("updated_at", "")),
     }

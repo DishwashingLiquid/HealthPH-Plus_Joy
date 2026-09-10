@@ -21,6 +21,7 @@ import EmptyState from "../../components/admin/EmptyState";
 import Modal from "../../components/admin/Modal";
 
 import Regions from "../../assets/data/regions.json";
+import { ROLE_PAGES } from "../../utils/rolePageAccess";
 
 import {
   Bar,
@@ -86,16 +87,7 @@ const ROLE_COLORS = [
   "#A855F7",
 ];
 
-const HEALTHPH_PLUS_MODULE_COVERAGE = [
-  "AI Surveillance",
-  "NLP Insights",
-  "Misinformation Tracker",
-  "User Management",
-  "Model Access and Toolkit",
-  "Disease Watch Feed",
-  "Health Literacy Hub",
-  "Sentiment Pulse Tool",
-];
+const HEALTHPH_PLUS_MODULE_COVERAGE = Object.values(ROLE_PAGES);
 
 const UserManagement = () => {
   const user = useSelector((state) => state.auth.user);
@@ -428,7 +420,9 @@ const UserManagement = () => {
         totalUsers: roleUsers.length,
         activeUsers: roleUsers.filter((account) => !account.is_disabled).length,
         disabledUsers: roleUsers.filter((account) => account.is_disabled).length,
-        moduleCoverage: HEALTHPH_PLUS_MODULE_COVERAGE,
+        moduleCoverage: Array.isArray(roleLabel.accessible_pages)
+          ? roleLabel.accessible_pages
+          : HEALTHPH_PLUS_MODULE_COVERAGE,
       };
     })
     .sort((a, b) => b.totalUsers - a.totalUsers || a.name.localeCompare(b.name));
@@ -2122,12 +2116,16 @@ const RoleLabelFormModal = ({
     name: "",
     description: "",
     is_active: "",
+    accessible_pages: "",
   };
 
   const [formData, setFormData] = useState({
     name: roleLabel?.name || "",
     description: roleLabel?.description || "",
     is_active: roleLabel?.isActive === false ? "INACTIVE" : "ACTIVE",
+    accessible_pages: Array.isArray(roleLabel?.moduleCoverage)
+      ? roleLabel.moduleCoverage
+      : HEALTHPH_PLUS_MODULE_COVERAGE,
   });
 
   const [formErrors, setFormErrors] = useState(initialFormErrors);
@@ -2168,6 +2166,7 @@ const RoleLabelFormModal = ({
       name: formData.name.trim(),
       description: formData.description.trim(),
       is_active: formData.is_active === "ACTIVE",
+      accessible_pages: formData.accessible_pages,
     });
 
     if (response.ok) {
@@ -2301,6 +2300,96 @@ const RoleLabelFormModal = ({
                   state={formErrors.description ? "error" : ""}
                 />
               </FieldGroup>
+            </div>
+
+            <div className="md:col-span-2">
+              <fieldset className="mb-[16px]">
+                <div className="flex flex-wrap items-center justify-between gap-[8px]">
+                  <div>
+                    <legend className="text-sm font-medium text-gray-700">
+                      Accessible Pages
+                    </legend>
+                    <p className="mt-[2px] text-xs text-gray-500">
+                      Choose which HealthPH+ pages accounts with this role can access.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-[8px]">
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-[#32418C] hover:underline disabled:text-gray-400"
+                      disabled={isLoading}
+                      onClick={() => {
+                        setFormData({
+                          ...formData,
+                          accessible_pages: HEALTHPH_PLUS_MODULE_COVERAGE,
+                        });
+                        resetFieldError("accessible_pages");
+                      }}
+                    >
+                      Select all
+                    </button>
+                    <span className="text-gray-300">|</span>
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-[#B42318] hover:underline disabled:text-gray-400"
+                      disabled={isLoading}
+                      onClick={() => {
+                        setFormData({ ...formData, accessible_pages: [] });
+                        resetFieldError("accessible_pages");
+                      }}
+                    >
+                      Clear all
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-[12px] grid grid-cols-1 gap-[8px] sm:grid-cols-2">
+                  {HEALTHPH_PLUS_MODULE_COVERAGE.map((pageName) => {
+                    const isChecked = formData.accessible_pages.includes(pageName);
+
+                    return (
+                      <label
+                        key={pageName}
+                        className={`flex cursor-pointer items-center gap-[10px] rounded-[8px] border px-[12px] py-[10px] text-sm transition ${
+                          isChecked
+                            ? "border-[#32418C] bg-[#F5F7FF] text-gray-900"
+                            : "border-[#E5E5E5] bg-white text-gray-600 hover:bg-[#F8FAFC]"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-[16px] w-[16px] accent-[#32418C]"
+                          checked={isChecked}
+                          disabled={isLoading}
+                          onChange={() => {
+                            const accessiblePages = isChecked
+                              ? formData.accessible_pages.filter(
+                                  (selectedPage) => selectedPage !== pageName
+                                )
+                              : [...formData.accessible_pages, pageName];
+
+                            setFormData({
+                              ...formData,
+                              accessible_pages: accessiblePages,
+                            });
+                            resetFieldError("accessible_pages");
+                          }}
+                        />
+                        <span>{pageName}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                <p className="mt-[8px] text-xs text-gray-500">
+                  {formData.accessible_pages.length} of {HEALTHPH_PLUS_MODULE_COVERAGE.length} pages selected
+                </p>
+                {formErrors.accessible_pages && (
+                  <p className="mt-[4px] text-xs text-[#B42318]">
+                    {formErrors.accessible_pages}
+                  </p>
+                )}
+              </fieldset>
             </div>
           </div>
         </div>
@@ -2446,18 +2535,24 @@ const RolesPanel = ({
                 Accessible Pages
               </p>
               <p className="mt-[2px] text-xs text-gray-500">
-                All listed pages are available for this role for now.
+                {role.moduleCoverage.length} page{role.moduleCoverage.length === 1 ? "" : "s"} enabled.
               </p>
 
               <div className="mt-[10px] flex flex-wrap gap-[8px]">
-                {role.moduleCoverage.map((moduleName) => (
-                  <span
-                    key={moduleName}
-                    className="rounded-full bg-[#F8FAFC] px-[10px] py-[5px] text-xs text-gray-700 ring-1 ring-[#E5E5E5]"
-                  >
-                    {moduleName}
+                {role.moduleCoverage.length > 0 ? (
+                  role.moduleCoverage.map((moduleName) => (
+                    <span
+                      key={moduleName}
+                      className="rounded-full bg-[#F8FAFC] px-[10px] py-[5px] text-xs text-gray-700 ring-1 ring-[#E5E5E5]"
+                    >
+                      {moduleName}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs italic text-gray-500">
+                    No pages assigned
                   </span>
-                ))}
+                )}
               </div>
             </div>
           </div>

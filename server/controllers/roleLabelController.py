@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from config.database import role_label_collection, user_collection
 from helpers.miscHelpers import get_ph_datetime
 from helpers.roleLabelHelpers import (
+    HEALTHPH_PLUS_PAGES,
     ensure_default_role_labels,
     normalize_role_label_name,
 )
@@ -24,9 +25,26 @@ def validate_role_label_payload(data: RoleLabelRequest):
     name = normalize_role_label_name(data.name)
     description = data.description.strip() if data.description else ""
     is_active = data.is_active if data.is_active is not None else True
+    requested_pages = (
+        data.accessible_pages
+        if data.accessible_pages is not None
+        else HEALTHPH_PLUS_PAGES
+    )
+    accessible_pages = list(dict.fromkeys(requested_pages))
 
     if not name:
         errors.append({"field": "name", "error": "Must enter role label"})
+
+    invalid_pages = [
+        page for page in accessible_pages if page not in HEALTHPH_PLUS_PAGES
+    ]
+    if invalid_pages:
+        errors.append(
+            {
+                "field": "accessible_pages",
+                "error": f"Invalid accessible page: {invalid_pages[0]}",
+            }
+        )
 
     return {
         "errors": errors,
@@ -34,6 +52,7 @@ def validate_role_label_payload(data: RoleLabelRequest):
             "name": name,
             "description": description,
             "is_active": is_active,
+            "accessible_pages": accessible_pages,
         },
     }
 
