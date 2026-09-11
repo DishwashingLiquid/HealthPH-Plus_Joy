@@ -1,4 +1,9 @@
-"""Explicit repair command. Defaults to reads only; never imports the API."""
+"""Explicit repair command. Defaults to reads only; never imports the API.
+
+Completed automatic batches are represented by consumed summary events.  This
+repair intentionally preserves those events and never recreates them in an
+active regional summary.  It does not enable alert automation.
+"""
 import argparse
 import json
 import os
@@ -48,6 +53,7 @@ def main():
                         audit["savedSummaries"] = list(db.regional_symptom_summaries.find({}, {"_id": 0, "region": 1, "reportCount": 1, "isReady": 1}, session=session))
                         audit["previousMigration"] = db.application_settings.find_one({"_id": "regional_symptom_summary_backfill_v1"}, session=session)
                         audit["currentMigration"] = db.application_settings.find_one({"_id": MIGRATION_ID}, {"_id": 1, "completedAt": 1}, session=session)
+                        audit["automationSettings"] = db.application_settings.find_one({"_id": "regional_alert_automation"}, {"_id": 0, "enabled": 1, "threshold": 1, "intervalMinutes": 1}, session=session)
             audit.update(mode="apply" if args.apply else "dry-run", observedAt=datetime.now(timezone.utc).isoformat())
             encoded = json.dumps(audit, default=str, indent=2)
             if args.output:

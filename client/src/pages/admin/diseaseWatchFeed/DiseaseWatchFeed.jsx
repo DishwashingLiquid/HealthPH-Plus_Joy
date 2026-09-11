@@ -10,8 +10,9 @@ import {
   useGetMobileSelfReportsExportQuery,
   useGetMobileSelfReportsMapPinsQuery,
   useGetRegionalAlertsQuery,
+  useGetRegionalAlertSettingsQuery,
   useGetRegionalSymptomSummariesQuery,
-  useCreateRegionalAlertMutation,
+  useSaveRegionalAlertSettingsMutation,
   useCancelRegionalAlertMutation,
 } from "../../../features/api/diseaseWatchFeedSlice";
 import RecentAlertsTab from "./RecentAlertsTab";
@@ -289,9 +290,10 @@ export default function DiseaseWatchFeed() {
       pollingInterval: activeTab === "recent-alerts" ? 30000 : 0,
     });
   const { data: regionalAlertsResponse, error: regionalAlertsError } =
-    useGetRegionalAlertsQuery(undefined, { skip: !canSendAlert });
-  const [createRegionalAlert, { isLoading: isSchedulingAlert }] =
-    useCreateRegionalAlertMutation();
+    useGetRegionalAlertsQuery(undefined, { skip: !canSendAlert, pollingInterval: activeTab === "recent-alerts" ? 30000 : 0 });
+  const { data: alertSettingsResponse, isLoading: isSettingsLoading } =
+    useGetRegionalAlertSettingsQuery(undefined, { skip: !canSendAlert, pollingInterval: isSendAlertOpen ? 30000 : 0 });
+  const [saveRegionalAlertSettings, { isLoading: isSavingSettings }] = useSaveRegionalAlertSettingsMutation();
   const [cancelRegionalAlert] = useCancelRegionalAlertMutation();
 
   const mapPins = useMemo(() => mapPinsResponse?.items || [], [mapPinsResponse]);
@@ -336,13 +338,8 @@ export default function DiseaseWatchFeed() {
     isSelfReportsFetching;
   const sharedError = mapPinsError || selfReportsError;
 
-  const handleScheduleAlert = async (form) => {
-    await createRegionalAlert({
-      ...form,
-      // datetime-local is entered in Philippine dashboard time. Preserve the
-      // exact wall-clock value for the server's Philippine-time scheduler.
-      scheduledAt: form.scheduledAt,
-    }).unwrap();
+  const handleSaveAlertSettings = async (form) => {
+    await saveRegionalAlertSettings(form).unwrap();
     setIsSendAlertOpen(false);
   };
 
@@ -444,8 +441,10 @@ export default function DiseaseWatchFeed() {
       {isSendAlertOpen && (
         <SendAlertModal
           onClose={() => setIsSendAlertOpen(false)}
-          onSchedule={handleScheduleAlert}
-          isScheduling={isSchedulingAlert}
+          onSave={handleSaveAlertSettings}
+          isSaving={isSavingSettings}
+          settings={alertSettingsResponse?.item}
+          isLoading={isSettingsLoading}
         />
       )}
     </div>

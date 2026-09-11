@@ -9,9 +9,10 @@ from controllers.diseaseWatchFeedController import (
 )
 from controllers.regionalAlertsController import (
     cancel_regional_alert,
-    create_regional_alert,
+    fetch_regional_alert_settings,
     fetch_regional_alerts,
     fetch_regional_summaries,
+    save_regional_alert_settings,
 )
 
 mobile_self_reports_router = APIRouter()
@@ -30,8 +31,13 @@ mobile_self_reports_router.add_api_route(
 mobile_self_reports_router.add_api_route(
     "/disease-watch-feed/alerts", methods=["GET"], endpoint=fetch_regional_alerts
 )
+# Authenticated dashboard automation controls. These are deliberately not
+# mobile-facing inbox routes.
 mobile_self_reports_router.add_api_route(
-    "/disease-watch-feed/alerts", methods=["POST"], endpoint=create_regional_alert
+    "/disease-watch-feed/alert-settings", methods=["GET"], endpoint=fetch_regional_alert_settings
+)
+mobile_self_reports_router.add_api_route(
+    "/disease-watch-feed/alert-settings", methods=["PUT"], endpoint=save_regional_alert_settings
 )
 mobile_self_reports_router.add_api_route(
     "/disease-watch-feed/alerts/{alert_id}/cancel", methods=["PATCH"], endpoint=cancel_regional_alert

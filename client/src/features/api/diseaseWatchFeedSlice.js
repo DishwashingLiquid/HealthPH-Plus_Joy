@@ -43,13 +43,13 @@ export const diseaseWatchFeedApi = baseAPI.injectEndpoints({
       query: () => ({ url: "/mobile/disease-watch-feed/alerts" }),
       providesTags: ["RegionalAlerts"],
     }),
-    createRegionalAlert: builder.mutation({
-      query: (body) => ({
-        url: "/mobile/disease-watch-feed/alerts",
-        method: "POST",
-        body,
-      }),
-      invalidatesTags: ["RegionalAlerts"],
+    getRegionalAlertSettings: builder.query({
+      query: () => ({ url: "/mobile/disease-watch-feed/alert-settings" }),
+      providesTags: ["RegionalAlertSettings"],
+    }),
+    saveRegionalAlertSettings: builder.mutation({
+      query: (body) => ({ url: "/mobile/disease-watch-feed/alert-settings", method: "PUT", body }),
+      invalidatesTags: ["RegionalAlertSettings", "RegionalAlerts", "RegionalSymptomSummaries"],
     }),
     cancelRegionalAlert: builder.mutation({
       query: (alertId) => ({
@@ -66,7 +66,8 @@ export const {
   useGetMobileSelfReportsExportQuery,
   useGetMobileSelfReportsMapPinsQuery,
   useGetRegionalAlertsQuery,
+  useGetRegionalAlertSettingsQuery,
   useGetRegionalSymptomSummariesQuery,
-  useCreateRegionalAlertMutation,
+  useSaveRegionalAlertSettingsMutation,
   useCancelRegionalAlertMutation,
 } = diseaseWatchFeedApi;

@@ -18,6 +18,7 @@ function SummaryCard({ summary }) {
     <h3 className="font-semibold text-gray-800">{regionName}</h3>
     <p className="mt-2 text-sm leading-6 text-gray-700">{sentence}</p>
     <p className="mt-2 text-xs text-gray-500">Counts reflect submitted symptoms only and are not diagnoses.</p>
+    {summary.automationStatus === "CoolingDown" && <p className="mt-2 text-xs text-[#7E22CE]">Alert batch is waiting for symptom cooldown{summary.nextEligibleAt ? ` until ${new Date(summary.nextEligibleAt).toLocaleString()}` : ""}.</p>}
     {symptoms.length > 0 && <details className="mt-2 text-xs text-gray-700">
       <summary className="cursor-pointer font-medium">View all symptom counts ({symptoms.length})</summary>
       <ul className="mt-2 flex flex-wrap gap-2">

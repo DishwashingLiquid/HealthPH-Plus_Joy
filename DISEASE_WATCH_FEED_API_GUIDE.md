@@ -176,11 +176,14 @@ Example:
 
 ## Dashboard behavior to match
 
-- Both requests start when the Disease Watch Feed page loads.
+- The dashboard polls saved regional summaries and alert history about every 30 seconds while Recent Alerts is visible. Polling only refreshes display data; it never generates alerts.
+- Alert Settings are authenticated dashboard endpoints: `GET` and `PUT /api/mobile/disease-watch-feed/alert-settings`. New installations are paused by default. The accepted interval minutes are `15`, `30`, `60`, `480`, `720`, and `1440`; threshold is a positive integer and uses a strict `regionalReportCount > threshold` comparison.
+- Automatic records in regional alert history mean recipient preparation only. They do not assert inbox availability, device delivery, reads, or push delivery.
+- Eligible source records are `mobile_self_report` entries with `submitted`, `for_review`, or `verified` status. Legacy missing status is treated as `submitted`; rejected, invalid-region, future, and unparseable records do not trigger automation. Naive source timestamps are Philippine wall-clock times.
+- Completed batches are explicitly consumed in the derived event store, so the repair command does not recreate them. The repair command is still dry-run by default and does not enable automation.
 - If either request fails, the dashboard shows an error state for its sections.
 - The dashboard does not send region filters to the backend. Region selection filters already-loaded data in the browser.
 - Recent Alerts are built in the frontend and limited to the first **10** items.
-- There is no polling, server-side pagination, or automatic refresh behavior visible in the dashboard code.
 - Alert Open Rate is shown as unavailable because the dashboard has no alert-open tracking source.
 
 ## Scope note

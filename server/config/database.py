@@ -48,3 +48,7 @@ regional_symptom_summaries_collection = db["regional_symptom_summaries"]
 regional_summary_events_collection = db["regional_summary_events"]
 regional_alerts_collection = db["regional_alerts"]
 mobile_notification_deliveries_collection = db["mobile_notification_deliveries"]
+# Bounded per-region operational state and per-(region, symptom) cooldowns.
+# Alert history itself remains in regional_alerts; this is not an event log.
+regional_alert_batch_states_collection = db["regional_alert_batch_states"]
+regional_alert_cooldowns_collection = db["regional_alert_cooldowns"]

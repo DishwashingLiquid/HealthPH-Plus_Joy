@@ -1,5 +1,6 @@
 """Isolated summary tests: no config.database or application startup imports."""
 from copy import deepcopy
+from datetime import datetime
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -57,7 +58,7 @@ class Collection:
 
 def report(index, region="NCR", symptoms=None, **overrides):
     return {"_id": str(index), "source": "mobile_self_report", "status": "submitted", "location": {"regionCode": region},
-            "submittedSymptoms": symptoms if symptoms is not None else ["Cough"], "reporter": {"id": "same-person"}, **overrides}
+            "submittedSymptoms": symptoms if symptoms is not None else ["Cough"], "reporter": {"id": "same-person"}, "createdAt": datetime.now(), **overrides}
 
 
 class RegionalSummaryTests(unittest.TestCase):
@@ -106,10 +107,10 @@ class RegionalSummaryTests(unittest.TestCase):
                                  ({"symptomIds": ["legacy_id"]}, ["legacy_id"]), ({}, [])]:
             self.assertEqual(event_for_report(report(1, symptoms=[], **fields))[0]["symptoms"], expected)
 
-    def test_status_and_time_scope_preserved(self):
+    def test_status_scope_excludes_rejected_and_missing_defaults_to_submitted(self):
         reports = [report(i, status=value, createdAt="1900-01-01") for i, value in enumerate(["submitted", "for_review", "verified", "rejected", None])]
         audit = self.store(reports + [report(6, source="other")]).plan()[0]
-        self.assertEqual(audit["eligibleReportCount"], 5)
+        self.assertEqual(audit["eligibleReportCount"], 4)
         self.assertEqual(audit["statusCounts"]["rejected"], 1)
 
     def test_duplicate_processing_retries_failed_summary_and_no_inflation(self):
@@ -142,7 +143,9 @@ class RegionalSummaryTests(unittest.TestCase):
         self.assertFalse(store.summaries.find_one({"region": "NCR"})["isReady"])
         self.assertEqual(len(store.events.documents), 5)
         store.reconcile(object())
-        self.assertFalse(any(store.plan()[0]["proposedChanges"].values()))
+        # Rolling-window bounds intentionally change over wall-clock time; a
+        # same-instant audit must be idempotent.
+        self.assertFalse(any(store.plan(at=store.summaries.find_one({"region": "III"})["windowEnd"])[0]["proposedChanges"].values()))
         self.assertEqual(store.reports.documents, original)
         self.assertEqual(store.reports.writes, 0)
         self.assertIsNotNone(store.settings.find_one({"_id": MIGRATION_ID}))
