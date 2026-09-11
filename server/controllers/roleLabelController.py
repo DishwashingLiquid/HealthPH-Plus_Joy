@@ -46,6 +46,14 @@ def validate_role_label_payload(data: RoleLabelRequest):
             }
         )
 
+    if len(accessible_pages) == 0:
+        errors.append(
+            {
+                "field": "accessible_pages",
+                "error": "Must select at least one accessible page",
+            }
+        )
+
     return {
         "errors": errors,
         "payload": {

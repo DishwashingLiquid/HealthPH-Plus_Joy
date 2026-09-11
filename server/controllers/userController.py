@@ -974,6 +974,14 @@ async def update_user(
             detail="User does not exist.",
         )
 
+    current_user = user_collection.find_one({"_id": ObjectId(is_admin.id)})
+
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Failed to update user.",
+        )
+
     if not is_superadmin(current_user) and (
         user_data.get("user_type") == "SUPERADMIN"
         or user_data.get("role_label") == ADMIN_ROLE_LABEL
@@ -981,14 +989,6 @@ async def update_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authorized to update administrator accounts.",
-        )
-
-    current_user = user_collection.find_one({"_id": ObjectId(is_admin.id)})
-
-    if not current_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Failed to update user.",
         )
     
     first_name = data.first_name.strip() if data.first_name else ""
