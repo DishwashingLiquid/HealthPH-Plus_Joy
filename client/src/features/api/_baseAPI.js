@@ -44,6 +44,8 @@ export const baseAPI = createApi({
     "HealthLiteracyAnalyticsOverview",
     "SentimentPulseRegionalAnalysis",
     "SentimentPulseSurveys",
+    "RegionalSymptomSummaries",
+    "RegionalAlerts",
   ],
   endpoints: () => ({}),
 });

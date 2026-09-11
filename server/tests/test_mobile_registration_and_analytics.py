@@ -255,12 +255,14 @@ class MobileRegistrationAndAnalyticsTests(unittest.TestCase):
             disease.create_mobile_self_report(registered, {"sub": "mu_canonical"})
         )
         reporter = json.loads(response.body)["item"]["reporter"]
+        self.assertEqual(json.loads(response.body)["mobileUser"]["id"], "mu_canonical")
         self.assertEqual(reporter["mobileUserId"], "mu_canonical")
         self.assertEqual(reporter["fullName"], "Canonical Name")
         self.assertEqual(reporter["roleId"], "user")
 
         guest_response = asyncio.run(disease.create_mobile_self_report(self_report_payload(), None))
         guest = json.loads(guest_response.body)["item"]["reporter"]
+        self.assertIsNone(json.loads(guest_response.body)["mobileUser"])
         self.assertEqual(guest["reporterType"], "guest")
         self.assertIsNone(guest["mobileUserId"])
         self.assertEqual(len(fake_database.mobile_users_collection.documents), 1)
@@ -271,6 +273,35 @@ class MobileRegistrationAndAnalyticsTests(unittest.TestCase):
         mine = json.loads(mine_response.body)["items"]
         self.assertEqual(len(mine), 1)
         self.assertEqual(mine[0]["reporter"]["mobileUserId"], "mu_canonical")
+
+    def test_self_report_keeps_literal_submitted_symptoms_for_admin_summary(self):
+        payload = disease.SelfReportPayload(
+            reporter={"reporterType": "guest", "fullName": "Guest"},
+            location={"regionCode": "NCR", "regionName": "NCR"},
+            symptomLabels=["Cough", "Cough", "Fever"],
+        )
+        asyncio.run(disease.create_mobile_self_report(payload, None))
+        stored = fake_database.self_reports_collection.documents[0]
+
+        # The dashboard's separate summary pipeline must count exactly what the
+        # reporter submitted, rather than the legacy canonical symptom fields.
+        self.assertEqual(
+            stored["submittedSymptoms"],
+            ["Cough", "Cough", "Fever"],
+        )
+
+    def test_ingestion_and_summary_share_region_resolution(self):
+        from regional_summaries import event_for_report
+        for code, name, expected in [("030000000", "Central Luzon", "III"),
+                                     ("130000000", "NCR", "NCR"),
+                                     ("unknown", "Central Luzon", "III"),
+                                     ("030000000", "NCR", None)]:
+            payload = disease.SelfReportPayload(reporter={"reporterType": "guest"}, location={"regionCode": code, "regionName": name}, symptomLabels=["Cough"])
+            stored = disease._build_self_report_document(payload)
+            stored["_id"] = ObjectId()
+            event, issue = event_for_report(stored)
+            self.assertEqual(event["region"] if event else None, expected)
+            self.assertEqual(disease._get_report_region(stored), expected or "Unknown")
 
 
 if __name__ == "__main__":

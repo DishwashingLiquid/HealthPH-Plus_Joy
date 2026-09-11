@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -30,12 +32,41 @@ from routes.diseaseWatchFeedRoutes import (
     mobile_self_reports_router as mobileSelfReportsRouter,
 )
 from routes.mobileUserRoutes import mobile_users_router as mobileUsersRouter
+from controllers.regionalAlertsController import (
+    ensure_regional_alert_indexes,
+    process_due_regional_alerts,
+)
 
 # Initialize FastAPI app
 app = FastAPI()
 
 # Initialize FastAPI app for api routes
 api_app = FastAPI()
+regional_alert_scheduler_task = None
+
+
+async def _regional_alert_scheduler():
+    """Small durable-job poller; database claiming makes multi-worker ticks safe."""
+    while True:
+        try:
+            process_due_regional_alerts()
+        except Exception as error:
+            # Do not bring down the API for a transient delivery/store failure.
+            print(f"Regional alert scheduler failed: {error}")
+        await asyncio.sleep(30)
+
+
+@app.on_event("startup")
+async def start_regional_alert_scheduler():
+    global regional_alert_scheduler_task
+    ensure_regional_alert_indexes()
+    regional_alert_scheduler_task = asyncio.create_task(_regional_alert_scheduler())
+
+
+@app.on_event("shutdown")
+async def stop_regional_alert_scheduler():
+    if regional_alert_scheduler_task:
+        regional_alert_scheduler_task.cancel()
 
 # origins = os.getenv("CORS_ORIGINS").split(",")
 

@@ -42,3 +42,9 @@ survey_responses_collection = db["survey_responses"]
 application_settings_collection = db["application_settings"]
 self_reports_collection = db["self_reports"]
 mobile_users_collection = db["mobile_users"]
+# Disease Watch Feed's derived/admin-only data is kept apart from the source
+# reports so dashboard reads never need to aggregate raw submissions.
+regional_symptom_summaries_collection = db["regional_symptom_summaries"]
+regional_summary_events_collection = db["regional_summary_events"]
+regional_alerts_collection = db["regional_alerts"]
+mobile_notification_deliveries_collection = db["mobile_notification_deliveries"]

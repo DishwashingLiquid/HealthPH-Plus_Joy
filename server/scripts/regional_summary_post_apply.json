@@ -1,0 +1,452 @@
+{
+  "migration": "regional_symptom_summary_reconciliation_v2",
+  "sourceReportCount": 31,
+  "eligibleReportCount": 31,
+  "statusCounts": {
+    "submitted": 31
+  },
+  "locationCounts": [
+    {
+      "code": "010000000",
+      "name": "Ilocos Region",
+      "count": 1
+    },
+    {
+      "code": "020000000",
+      "name": "Cagayan Valley",
+      "count": 1
+    },
+    {
+      "code": "030000000",
+      "name": "Central Luzon",
+      "count": 11
+    },
+    {
+      "code": "040000000",
+      "name": "CALABARZON",
+      "count": 4
+    },
+    {
+      "code": "050000000",
+      "name": "Bicol Region",
+      "count": 2
+    },
+    {
+      "code": "110000000",
+      "name": "Davao Region",
+      "count": 1
+    },
+    {
+      "code": "130000000",
+      "name": "NCR",
+      "count": 6
+    },
+    {
+      "code": "170000000",
+      "name": "MIMAROPA Region",
+      "count": 2
+    },
+    {
+      "code": "NCR",
+      "name": "NCR",
+      "count": 3
+    }
+  ],
+  "skipped": [],
+  "failed": [],
+  "warnings": [],
+  "regions": [
+    {
+      "region": "NCR",
+      "reportCount": 9,
+      "symptomCounts": [
+        {
+          "symptom": "Cough",
+          "count": 7
+        },
+        {
+          "symptom": "Fever",
+          "count": 5
+        },
+        {
+          "symptom": "Headache",
+          "count": 5
+        },
+        {
+          "symptom": "Shortness of breath",
+          "count": 4
+        },
+        {
+          "symptom": "Chest Pain",
+          "count": 3
+        },
+        {
+          "symptom": "Loss of taste or smell",
+          "count": 3
+        },
+        {
+          "symptom": "Sore throat",
+          "count": 3
+        },
+        {
+          "symptom": "Body aches",
+          "count": 2
+        },
+        {
+          "symptom": "Wheezing",
+          "count": 2
+        },
+        {
+          "symptom": "Cough for 2+ weeks",
+          "count": 1
+        },
+        {
+          "symptom": "Night sweats",
+          "count": 1
+        },
+        {
+          "symptom": "Runny nose",
+          "count": 1
+        },
+        {
+          "symptom": "Weight loss",
+          "count": 1
+        }
+      ],
+      "isReady": true
+    },
+    {
+      "region": "I",
+      "reportCount": 1,
+      "symptomCounts": [
+        {
+          "symptom": "Cough",
+          "count": 1
+        },
+        {
+          "symptom": "Shortness of breath",
+          "count": 1
+        },
+        {
+          "symptom": "Sore throat",
+          "count": 1
+        }
+      ],
+      "isReady": false
+    },
+    {
+      "region": "II",
+      "reportCount": 1,
+      "symptomCounts": [
+        {
+          "symptom": "Cough",
+          "count": 1
+        },
+        {
+          "symptom": "Cough for 2+ weeks",
+          "count": 1
+        },
+        {
+          "symptom": "Fatigue",
+          "count": 1
+        },
+        {
+          "symptom": "Fever",
+          "count": 1
+        },
+        {
+          "symptom": "Loss of taste or smell",
+          "count": 1
+        },
+        {
+          "symptom": "Night sweats",
+          "count": 1
+        },
+        {
+          "symptom": "Sore throat",
+          "count": 1
+        },
+        {
+          "symptom": "Wheezing",
+          "count": 1
+        }
+      ],
+      "isReady": false
+    },
+    {
+      "region": "III",
+      "reportCount": 11,
+      "symptomCounts": [
+        {
+          "symptom": "Fatigue",
+          "count": 11
+        },
+        {
+          "symptom": "Cough",
+          "count": 8
+        },
+        {
+          "symptom": "Cough for 2+ weeks",
+          "count": 6
+        },
+        {
+          "symptom": "Headache",
+          "count": 5
+        },
+        {
+          "symptom": "Runny nose",
+          "count": 5
+        },
+        {
+          "symptom": "Sore throat",
+          "count": 5
+        },
+        {
+          "symptom": "Fever",
+          "count": 4
+        },
+        {
+          "symptom": "Loss of taste or smell",
+          "count": 4
+        },
+        {
+          "symptom": "Chest Pain",
+          "count": 3
+        },
+        {
+          "symptom": "Night sweats",
+          "count": 3
+        },
+        {
+          "symptom": "Shortness of breath",
+          "count": 3
+        },
+        {
+          "symptom": "Body aches",
+          "count": 1
+        },
+        {
+          "symptom": "Chills",
+          "count": 1
+        },
+        {
+          "symptom": "Weight loss",
+          "count": 1
+        },
+        {
+          "symptom": "Wheezing",
+          "count": 1
+        }
+      ],
+      "isReady": true
+    },
+    {
+      "region": "IVA",
+      "reportCount": 4,
+      "symptomCounts": [
+        {
+          "symptom": "Sore throat",
+          "count": 3
+        },
+        {
+          "symptom": "Body aches",
+          "count": 2
+        },
+        {
+          "symptom": "Chills",
+          "count": 2
+        },
+        {
+          "symptom": "Cough",
+          "count": 2
+        },
+        {
+          "symptom": "Fatigue",
+          "count": 2
+        },
+        {
+          "symptom": "Fever",
+          "count": 2
+        },
+        {
+          "symptom": "Loss of taste or smell",
+          "count": 2
+        },
+        {
+          "symptom": "Shortness of breath",
+          "count": 2
+        },
+        {
+          "symptom": "Chest Pain",
+          "count": 1
+        },
+        {
+          "symptom": "Headache",
+          "count": 1
+        },
+        {
+          "symptom": "Runny nose",
+          "count": 1
+        },
+        {
+          "symptom": "Wheezing",
+          "count": 1
+        }
+      ],
+      "isReady": false
+    },
+    {
+      "region": "IVB",
+      "reportCount": 2,
+      "symptomCounts": [
+        {
+          "symptom": "Body aches",
+          "count": 2
+        },
+        {
+          "symptom": "Cough",
+          "count": 2
+        },
+        {
+          "symptom": "Fever",
+          "count": 2
+        },
+        {
+          "symptom": "Headache",
+          "count": 2
+        },
+        {
+          "symptom": "Runny nose",
+          "count": 2
+        },
+        {
+          "symptom": "Sore throat",
+          "count": 2
+        }
+      ],
+      "isReady": false
+    },
+    {
+      "region": "V",
+      "reportCount": 2,
+      "symptomCounts": [
+        {
+          "symptom": "Body aches",
+          "count": 2
+        },
+        {
+          "symptom": "Cough",
+          "count": 2
+        },
+        {
+          "symptom": "Loss of taste or smell",
+          "count": 2
+        },
+        {
+          "symptom": "Runny nose",
+          "count": 2
+        },
+        {
+          "symptom": "Sore throat",
+          "count": 2
+        },
+        {
+          "symptom": "Cough for 2+ weeks",
+          "count": 1
+        },
+        {
+          "symptom": "Fatigue",
+          "count": 1
+        }
+      ],
+      "isReady": false
+    },
+    {
+      "region": "XI",
+      "reportCount": 1,
+      "symptomCounts": [
+        {
+          "symptom": "Chest Pain",
+          "count": 1
+        },
+        {
+          "symptom": "Cough",
+          "count": 1
+        },
+        {
+          "symptom": "Fever",
+          "count": 1
+        },
+        {
+          "symptom": "Headache",
+          "count": 1
+        },
+        {
+          "symptom": "Night sweats",
+          "count": 1
+        }
+      ],
+      "isReady": false
+    }
+  ],
+  "proposedChanges": {
+    "eventsUpserted": 0,
+    "eventsInserted": 0,
+    "eventsUpdated": 0,
+    "eventsRemoved": 0,
+    "summariesUpdated": 0,
+    "summariesRemoved": 0
+  },
+  "savedSummaries": [
+    {
+      "region": "NCR",
+      "isReady": true,
+      "reportCount": 9
+    },
+    {
+      "region": "I",
+      "isReady": false,
+      "reportCount": 1
+    },
+    {
+      "region": "II",
+      "isReady": false,
+      "reportCount": 1
+    },
+    {
+      "region": "III",
+      "isReady": true,
+      "reportCount": 11
+    },
+    {
+      "region": "IVA",
+      "isReady": false,
+      "reportCount": 4
+    },
+    {
+      "region": "IVB",
+      "isReady": false,
+      "reportCount": 2
+    },
+    {
+      "region": "V",
+      "isReady": false,
+      "reportCount": 2
+    },
+    {
+      "region": "XI",
+      "isReady": false,
+      "reportCount": 1
+    }
+  ],
+  "previousMigration": {
+    "_id": "regional_symptom_summary_backfill_v1",
+    "completedAt": "2026-09-09 09:34:28.901000"
+  },
+  "currentMigration": {
+    "_id": "regional_symptom_summary_reconciliation_v2",
+    "completedAt": "2026-09-11 13:34:00.158000"
+  },
+  "mode": "dry-run",
+  "observedAt": "2026-09-11T05:34:02.903260+00:00"
+}

@@ -7,6 +7,12 @@ from controllers.diseaseWatchFeedController import (
     fetch_mobile_self_reports_mine,
     fetch_mobile_user_analytics_summary,
 )
+from controllers.regionalAlertsController import (
+    cancel_regional_alert,
+    create_regional_alert,
+    fetch_regional_alerts,
+    fetch_regional_summaries,
+)
 
 mobile_self_reports_router = APIRouter()
 
@@ -15,6 +21,20 @@ mobile_self_reports_router.add_api_route(
     "/self-reports",
     methods=["POST"],
     endpoint=create_mobile_self_report,
+)
+
+# Saved, admin-reviewed reporting and manual regional mobile alerts.
+mobile_self_reports_router.add_api_route(
+    "/disease-watch-feed/regional-summaries", methods=["GET"], endpoint=fetch_regional_summaries
+)
+mobile_self_reports_router.add_api_route(
+    "/disease-watch-feed/alerts", methods=["GET"], endpoint=fetch_regional_alerts
+)
+mobile_self_reports_router.add_api_route(
+    "/disease-watch-feed/alerts", methods=["POST"], endpoint=create_regional_alert
+)
+mobile_self_reports_router.add_api_route(
+    "/disease-watch-feed/alerts/{alert_id}/cancel", methods=["PATCH"], endpoint=cancel_regional_alert
 )
 
 # GET       /mobile/self-reports/mine

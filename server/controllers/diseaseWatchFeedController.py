@@ -36,75 +36,13 @@ from models.mobileUser import (
     MOBILE_ROLE_ID,
     MOBILE_ROLE_LABEL,
 )
+from controllers.regionalAlertsController import update_regional_summary_for_report
+from controllers.mobileUserController import serialize_mobile_user
 import os
 
-REGION_ORDER = [
-    "NCR",
-    "I",
-    "II",
-    "III",
-    "IVA",
-    "IVB",
-    "V",
-    "CAR",
-    "VI",
-    "VII",
-    "VIII",
-    "IX",
-    "X",
-    "XI",
-    "XII",
-    "XIII",
-    "BARMM",
-]
+from region_normalization import REGIONS, normalize_region, observed_region
 
-REGION_ALIASES = {
-    "NCR": "NCR",
-    "REGION NCR": "NCR",
-    "I": "I",
-    "REGION I": "I",
-    "II": "II",
-    "REGION II": "II",
-    "III": "III",
-    "REGION III": "III",
-    "IVA": "IVA",
-    "IV-A": "IVA",
-    "REGION IVA": "IVA",
-    "REGION IV-A": "IVA",
-    "CALABARZON": "IVA",
-    "IVB": "IVB",
-    "IV-B": "IVB",
-    "REGION IVB": "IVB",
-    "REGION IV-B": "IVB",
-    "MIMAROPA": "IVB",
-    "V": "V",
-    "REGION V": "V",
-    "VI": "VI",
-    "REGION VI": "VI",
-    "VII": "VII",
-    "REGION VII": "VII",
-    "VIII": "VIII",
-    "REGION VIII": "VIII",
-    "IX": "IX",
-    "REGION IX": "IX",
-    "X": "X",
-    "REGION X": "X",
-    "XI": "XI",
-    "REGION XI": "XI",
-    "XII": "XII",
-    "REGION XII": "XII",
-    "XIII": "XIII",
-    "REGION XIII": "XIII",
-    "REGION XIII (CARAGA)": "XIII",
-    "CARAGA": "XIII",
-    "CAR": "CAR",
-    "REGION CAR": "CAR",
-    "CORDILLERA ADMINISTRATIVE REGION": "CAR",
-    "BARMM": "BARMM",
-    "REGION BARMM": "BARMM",
-    "BANGSAMORO AUTONOMOUS REGION IN MUSLIM MINDANAO": "BARMM",
-    "ALL": "ALL",
-}
+REGION_ORDER = list(REGIONS)
 
 DISEASE_CODE_TO_LABEL = {
     "TB": "Tuberculosis",
@@ -669,10 +607,7 @@ def _get_mobile_users(date_from=None, date_to=None):
 
 def _get_mobile_user_region(document: dict) -> str:
     location = document.get("location") or {}
-    region_code = _normalize_region_safely(location.get("regionName"))
-    if region_code:
-        return region_code
-    return _normalize_region_safely(location.get("regionCode")) or "Unknown"
+    return observed_region(location, document.get("_id")) or "Unknown"
 
 
 def _filter_mobile_users(users, regions=None, cutoff=None):
@@ -796,6 +731,14 @@ def _build_self_report_document(
         symptom_labels=payload.symptomLabels,
         legacy_symptoms=payload.symptoms,
     )
+    # Keep the submitted presentation separate from existing canonical fields.
+    # Regional administrative summaries count this exact stored value and never
+    # use condition derivation or symptom equivalence.
+    submitted_symptoms = [
+        _clean_string(value)
+        for value in (payload.symptomLabels or payload.symptoms or payload.symptomIds)
+        if _clean_string(value)
+    ]
     possible_condition_id, possible_condition_label = _normalize_possible_condition_fields(
         possible_condition_id=payload.possibleConditionId,
         possible_condition_label=payload.possibleConditionLabel,
@@ -805,9 +748,7 @@ def _build_self_report_document(
     payload_created_at = _coerce_datetime(payload.createdAt)
     created_at = payload_created_at or get_ph_datetime()
     synced_at = _coerce_datetime(payload.syncedAt)
-    normalized_region_code = _normalize_region_safely(payload.location.regionCode) or _normalize_region_safely(
-        payload.location.regionName
-    )
+    normalized_region_code = observed_region({"regionCode": payload.location.regionCode, "regionName": payload.location.regionName})
     region_code = normalized_region_code or _clean_string(payload.location.regionCode)
     region_name = _clean_string(payload.location.regionName) or region_code
     province_name = _clean_string(payload.location.provinceName)
@@ -840,6 +781,7 @@ def _build_self_report_document(
         },
         "symptomIds": symptom_ids,
         "symptomLabels": symptom_labels,
+        "submittedSymptoms": submitted_symptoms,
         "possibleConditionId": possible_condition_id,
         "possibleConditionLabel": possible_condition_label,
         "notes": _clean_string(payload.notes),
@@ -875,8 +817,7 @@ def _filter_self_reports(reports, regions=None, disease=None, status_filter=None
         filtered_reports = [
             report
             for report in filtered_reports
-            if _normalize_region_safely((report.get("location") or {}).get("regionName"))
-            in region_set
+            if _get_report_region(report) in region_set
         ]
 
     if disease:
@@ -899,10 +840,7 @@ def _filter_self_reports(reports, regions=None, disease=None, status_filter=None
 
 def _get_report_region(report: dict) -> str:
     location = report.get("location") or {}
-    region_code = _normalize_region_safely(location.get("regionName"))
-    if region_code:
-        return region_code
-    return _normalize_region_safely(location.get("regionCode")) or "Unknown"
+    return observed_region(location, report.get("_id")) or "Unknown"
 
 
 def _get_report_location_label(report: dict) -> str:
@@ -1025,11 +963,11 @@ def _normalize_region(value: str | None):
     if value is None:
         return None
 
-    normalized = str(value).strip().upper()
-    normalized = normalized.replace("REGION REGION", "REGION")
-
-    if normalized in REGION_ALIASES:
-        return REGION_ALIASES[normalized]
+    if str(value).strip().upper() == "ALL":
+        return "ALL"
+    normalized = normalize_region(value)
+    if normalized:
+        return normalized
 
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
@@ -1793,20 +1731,20 @@ async def create_mobile_self_report(
     inserted_report = self_reports_collection.insert_one(document)
     created_report = self_reports_collection.find_one({"_id": inserted_report.inserted_id})
 
+    update_regional_summary_for_report(created_report)
+
     analytics_entry_id = None
     analytics_entry = build_self_report_analytics_entry(created_report)
 
     if analytics_entry:
         analytics_entries_collection.insert_one(analytics_entry)
 
-    mobile_user = _upsert_mobile_user_from_report(created_report)
-
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
         content={
             "message": "Self-report submitted successfully",
             "item": _serialize_self_report(created_report),
-            "mobileUser": _serialize_mobile_user(mobile_user),
+            "mobileUser": serialize_mobile_user(authenticated_mobile_user) if authenticated_mobile_user else None,
             "analyticsEntryId": analytics_entry_id,
         },
     )

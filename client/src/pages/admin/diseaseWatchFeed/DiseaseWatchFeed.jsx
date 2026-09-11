@@ -9,8 +9,13 @@ import {
   useGetDiseaseWatchFeedUserAnalyticsQuery,
   useGetMobileSelfReportsExportQuery,
   useGetMobileSelfReportsMapPinsQuery,
+  useGetRegionalAlertsQuery,
+  useGetRegionalSymptomSummariesQuery,
+  useCreateRegionalAlertMutation,
+  useCancelRegionalAlertMutation,
 } from "../../../features/api/diseaseWatchFeedSlice";
 import RecentAlertsTab from "./RecentAlertsTab";
+import SendAlertModal from "./SendAlertModal";
 import RegionalCoverageTab from "./RegionalCoverageTab";
 import UserAnalyticsTab from "./UserAnalyticsTab";
 
@@ -190,7 +195,7 @@ const buildRecentAlerts = (reports, locationLookup) => {
     });
   });
 
-  return alerts.slice(0, 10);
+  return alerts;
 };
 
 const buildRegionalCoverage = (reports, locationLookup) => {
@@ -241,6 +246,10 @@ const buildRegionalCoverage = (reports, locationLookup) => {
 export default function DiseaseWatchFeed() {
   const [activeTab, setActiveTab] = useState("recent-alerts");
   const [selectedRegions, setSelectedRegions] = useState([]);
+  const [isSendAlertOpen, setIsSendAlertOpen] = useState(false);
+  const [cancellingAlertId, setCancellingAlertId] = useState("");
+  // Temporary access policy: show alert controls for every dashboard role.
+  const canSendAlert = true;
 
   const handleRegionChange = (regionName) => {
     setSelectedRegions((currentRegions) =>
@@ -271,8 +280,25 @@ export default function DiseaseWatchFeed() {
     isLoading: isUserAnalyticsLoading,
   } = useGetDiseaseWatchFeedUserAnalyticsQuery();
 
-  const mapPins = mapPinsResponse?.items || [];
-  const selfReports = selfReportsResponse?.items || [];
+  const { data: summariesResponse, error: summariesError, isLoading: isSummariesLoading, isFetching: isSummariesFetching } =
+    useGetRegionalSymptomSummariesQuery(undefined, {
+      skip: !canSendAlert,
+      refetchOnMountOrArgChange: true,
+      // Mobile submissions happen outside this Redux cache. Poll at a bounded
+      // interval while Self-Reports is visible, never from a render effect.
+      pollingInterval: activeTab === "recent-alerts" ? 30000 : 0,
+    });
+  const { data: regionalAlertsResponse, error: regionalAlertsError } =
+    useGetRegionalAlertsQuery(undefined, { skip: !canSendAlert });
+  const [createRegionalAlert, { isLoading: isSchedulingAlert }] =
+    useCreateRegionalAlertMutation();
+  const [cancelRegionalAlert] = useCancelRegionalAlertMutation();
+
+  const mapPins = useMemo(() => mapPinsResponse?.items || [], [mapPinsResponse]);
+  const selfReports = useMemo(
+    () => selfReportsResponse?.items || [],
+    [selfReportsResponse]
+  );
 
   const locationLookup = useMemo(
     () => buildLocationLookup(mapPins),
@@ -309,6 +335,25 @@ export default function DiseaseWatchFeed() {
     isSelfReportsLoading ||
     isSelfReportsFetching;
   const sharedError = mapPinsError || selfReportsError;
+
+  const handleScheduleAlert = async (form) => {
+    await createRegionalAlert({
+      ...form,
+      // datetime-local is entered in Philippine dashboard time. Preserve the
+      // exact wall-clock value for the server's Philippine-time scheduler.
+      scheduledAt: form.scheduledAt,
+    }).unwrap();
+    setIsSendAlertOpen(false);
+  };
+
+  const handleCancelAlert = async (alertId) => {
+    setCancellingAlertId(alertId);
+    try {
+      await cancelRegionalAlert(alertId).unwrap();
+    } finally {
+      setCancellingAlertId("");
+    }
+  };
 
   return (
     <div className="flex flex-col gap-[10px]">
@@ -347,9 +392,18 @@ export default function DiseaseWatchFeed() {
         {activeTab === "recent-alerts" && (
           <RecentAlertsTab
             alerts={alerts}
+            summaries={summariesResponse?.items || []}
+            isSummariesLoading={isSummariesLoading}
+            isSummariesFetching={isSummariesFetching}
+            summariesErrorMessage={summariesError ? getErrorMessage(summariesError, "Failed to load regional summaries.") : ""}
+            sentAlerts={regionalAlertsResponse?.items || []}
+            canSendAlert={canSendAlert}
+            onSendAlert={() => setIsSendAlertOpen(true)}
+            onCancelAlert={handleCancelAlert}
+            cancellingId={cancellingAlertId}
             errorMessage={
-              sharedError
-                ? getErrorMessage(sharedError, "Failed to load recent alerts.")
+              sharedError || regionalAlertsError
+                ? getErrorMessage(sharedError || regionalAlertsError, "Failed to load recent alerts.")
                 : ""
             }
             isLoading={isDashboardLoading}
@@ -387,6 +441,13 @@ export default function DiseaseWatchFeed() {
           />
         )}
       </div>
+      {isSendAlertOpen && (
+        <SendAlertModal
+          onClose={() => setIsSendAlertOpen(false)}
+          onSchedule={handleScheduleAlert}
+          isScheduling={isSchedulingAlert}
+        />
+      )}
     </div>
   );
 }

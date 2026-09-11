@@ -1,156 +1,38 @@
-/* eslint-disable react/prop-types */
+import { useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
+import RegionalSummaryList from "./RegionalSummaryList";
 import { formatDistanceToNow } from "date-fns";
 
-const RECENT_ALERT_ENTITY_STYLES = {
-  disease: {
-    backgroundColor: "#32418C30",
-    color: "#32418C",
-  },
-  symptom: {
-    backgroundColor: "#2572A530",
-    color: "#2572A5",
-  },
-  location: {
-    backgroundColor: "#FBD11730",
-    color: "#FBD117",
-  },
-};
+const REPORTS_PER_PAGE = 5;
+const ENTITY_STYLES = { disease: { backgroundColor: "#32418C30", color: "#32418C" }, symptom: { backgroundColor: "#2572A530", color: "#2572A5" }, location: { backgroundColor: "#FBD11730", color: "#FBD117" } };
+const relativeDate = (value) => { const date = new Date(value); return Number.isNaN(date.getTime()) ? value : formatDistanceToNow(date, { addSuffix: true }); };
+const exactDate = (value) => { const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleString(); };
 
-function RecentAlertEntityHighlight({ label, tone }) {
-  return (
-    <span
-      className="px-[6px] py-[2px] rounded-[6px] text-sm font-medium"
-      style={RECENT_ALERT_ENTITY_STYLES[tone]}
-    >
-      {label}
-    </span>
-  );
+function Highlight({ label, tone }) { return <span className="rounded-[6px] px-[6px] py-[2px] text-sm font-medium" style={ENTITY_STYLES[tone]}>{label}</span>; }
+Highlight.propTypes = { label: PropTypes.string.isRequired, tone: PropTypes.oneOf(["disease", "symptom", "location"]).isRequired };
+
+function SelfReportCard({ alert }) {
+  const summary = Array.isArray(alert.summarySegments) && alert.summarySegments.length
+    ? alert.summarySegments.map((part, index) => part.type === "entity" ? <Highlight key={`${alert.id}-${index}`} label={part.label} tone={part.tone} /> : <span key={`${alert.id}-${index}`}>{part.value}</span>) : alert.summary;
+  return <article className="rounded-[12px] border border-[#E5E5E5] bg-white p-[16px] transition-shadow hover:shadow-md"><div className="mb-[8px] flex flex-wrap items-center gap-[8px]"><h3 className="text-[16px] font-semibold text-gray-800"><Highlight label={alert.disease} tone="disease" /></h3><span className="rounded-[4px] bg-[#FFF3CD] px-[8px] py-[2px] text-xs font-medium text-[#856404]">{alert.type}</span></div><p className="mb-[8px] text-[15px] leading-[1.8] text-gray-800">{summary}</p><div className="flex flex-wrap gap-x-[16px] gap-y-[4px] text-xs text-gray-500"><span>Region: <Highlight label={alert.region} tone="location" /></span><span>Updated: {relativeDate(alert.timestamp)}</span></div></article>;
+}
+SelfReportCard.propTypes = { alert: PropTypes.object.isRequired };
+
+function AlertCards({ alerts, onCancel, cancellingId }) {
+  if (!alerts.length) return <p className="text-sm text-gray-500">No scheduled, sent, or cancelled alerts yet.</p>;
+  return <div className="grid grid-cols-1 gap-[12px]">{alerts.map((alert) => <article key={alert.id} className="rounded-[12px] border border-[#E5E5E5] bg-white p-[16px]"><div className="flex gap-3"><span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FFF3CD] text-lg text-[#856404]">⚠</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-[16px] font-semibold text-gray-800">{alert.title}</h3><span className={`rounded-full px-2 py-1 text-xs font-semibold ${alert.status === "Sent" ? "bg-[#ECFDF3] text-[#027A48]" : alert.status === "Cancelled" ? "bg-[#F2F4F7] text-[#475467]" : "bg-[#EFF8FF] text-[#175CD3]"}`}>{alert.status}</span></div><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-700">{alert.message}</p><div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-500"><span>Region: {alert.region}</span><span>{alert.status === "Sent" ? `Sent ${relativeDate(alert.sentAt)}` : alert.status === "Cancelled" ? `Cancelled ${exactDate(alert.cancelledAt)}` : `Scheduled for ${exactDate(alert.scheduledAt)}`}</span><span className="font-medium text-gray-700">Sent to {Number(alert.recipientCount || 0).toLocaleString()} users</span></div>{alert.deliveryError && <p role="alert" className="mt-2 text-xs text-[#B42318]">Delivery note: {alert.deliveryError}</p>}<div className="mt-3 flex gap-2"><button type="button" disabled aria-label="Share alert (coming soon)" className="rounded-[6px] border border-[#D0D5DD] px-3 py-1.5 text-xs font-medium text-gray-500 disabled:cursor-not-allowed">Share (coming soon)</button>{alert.status === "Scheduled" && <button type="button" onClick={() => onCancel(alert.id)} disabled={cancellingId === alert.id} className="rounded-[6px] border border-[#F04438] px-3 py-1.5 text-xs font-medium text-[#B42318] disabled:opacity-60">{cancellingId === alert.id ? "Cancelling..." : "Cancel alert"}</button>}</div></div></div></article>)}</div>;
+}
+AlertCards.propTypes = { alerts: PropTypes.arrayOf(PropTypes.object).isRequired, onCancel: PropTypes.func.isRequired, cancellingId: PropTypes.string.isRequired };
+
+export default function RecentAlertsTab({ alerts, summaries, sentAlerts, canSendAlert, onSendAlert, onCancelAlert, cancellingId, errorMessage, isLoading, isSummariesLoading, isSummariesFetching, summariesErrorMessage }) {
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(alerts.length / REPORTS_PER_PAGE));
+  useEffect(() => { if (page > pageCount) setPage(pageCount); }, [page, pageCount]);
+  const currentReports = useMemo(() => alerts.slice((page - 1) * REPORTS_PER_PAGE, page * REPORTS_PER_PAGE), [alerts, page]);
+  if (isLoading) return <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[16px] text-sm text-gray-500">Loading self-reports and saved alerts...</div>;
+  if (errorMessage) return <div role="alert" className="rounded-[12px] border border-[#F2CACA] bg-[#FFF6F6] px-[20px] py-[18px] text-sm text-[#B42318]">{errorMessage}</div>;
+  return <div className="flex flex-col gap-[20px]"><section aria-labelledby="self-reports-heading" className="rounded-[12px] border border-[#E5E5E5] bg-[#FCFCFD] p-[16px]"><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h2 id="self-reports-heading" className="text-lg font-semibold text-gray-800">Self-Reports</h2><p className="mt-1 text-sm text-gray-500">Submitted symptoms and saved regional administrative summaries. These are not diagnoses.</p></div>{canSendAlert && <button type="button" onClick={onSendAlert} className="prod-btn-base prod-btn-primary send-alert-button whitespace-nowrap" style={{ backgroundColor: "#27346f", boxShadow: "0px 0px 0px 1px #0064d1, 0px 1px 1px 0px rgba(0, 0, 0, 0.1)" }}>Send Alert</button>}</div><RegionalSummaryList summaries={summaries} isLoading={isSummariesLoading} isFetching={isSummariesFetching} errorMessage={summariesErrorMessage} /><div className="mt-4 grid grid-cols-1 gap-[12px]">{currentReports.length ? currentReports.map((alert) => <SelfReportCard key={alert.id} alert={alert} />) : <p className="rounded-[10px] bg-white p-4 text-sm text-gray-500">No self-reports are available yet.</p>}</div>{alerts.length > REPORTS_PER_PAGE && <nav aria-label="Self-report pages" className="mt-4 flex flex-wrap items-center justify-center gap-2"><button type="button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={page === 1} className="rounded border px-3 py-1 text-sm disabled:opacity-50">Previous</button>{Array.from({ length: pageCount }, (_, index) => <button key={index + 1} type="button" aria-current={page === index + 1 ? "page" : undefined} onClick={() => setPage(index + 1)} className={`h-8 min-w-8 rounded text-sm ${page === index + 1 ? "bg-[#32418C] text-white" : "border text-gray-700"}`}>{index + 1}</button>)}<button type="button" onClick={() => setPage((value) => Math.min(pageCount, value + 1))} disabled={page === pageCount} className="rounded border px-3 py-1 text-sm disabled:opacity-50">Next</button></nav>}</section><section aria-labelledby="sent-alerts-heading" className="rounded-[12px] border border-[#E5E5E5] bg-[#FCFCFD] p-[16px]"><h2 id="sent-alerts-heading" className="text-lg font-semibold text-gray-800">Sent Alerts</h2><p className="mb-4 mt-1 text-sm text-gray-500">Scheduled, sent, and cancelled regional mobile alerts.</p><AlertCards alerts={sentAlerts} onCancel={onCancelAlert} cancellingId={cancellingId} /></section></div>;
 }
 
-RecentAlertEntityHighlight.propTypes = {
-  label: PropTypes.string.isRequired,
-  tone: PropTypes.oneOf(["disease", "symptom", "location"]).isRequired,
-};
-
-const renderSummary = (alert) => {
-  if (
-    !Array.isArray(alert.summarySegments) ||
-    alert.summarySegments.length === 0
-  ) {
-    return alert.summary;
-  }
-
-  return alert.summarySegments.map((segment, index) => {
-    if (segment.type === "entity") {
-      return (
-        <RecentAlertEntityHighlight
-          key={`${alert.id}-segment-${index}`}
-          label={segment.label}
-          tone={segment.tone}
-        />
-      );
-    }
-
-    return <span key={`${alert.id}-segment-${index}`}>{segment.value}</span>;
-  });
-};
-
-const formatAlertTimestamp = (value) => {
-  const parsedDate = new Date(value);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return value;
-  }
-
-  return formatDistanceToNow(parsedDate, { addSuffix: true });
-};
-
-export default function RecentAlertsTab({ alerts, errorMessage, isLoading }) {
-  if (isLoading) {
-    return (
-      <div className="grid grid-cols-1 gap-[12px]">
-        {[0, 1, 2].map((index) => (
-          <div
-            key={`recent-alert-loading-${index}`}
-            className="bg-white rounded-[12px] border border-[#E5E5E5] p-[16px]"
-          >
-            <p className="text-sm font-medium text-gray-700">
-              Loading recent alerts...
-            </p>
-            <p className="mt-[6px] text-sm text-gray-500">
-              Pulling the latest disease watch activity.
-            </p>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (errorMessage) {
-    return (
-      <div className="rounded-[12px] border border-[#F2CACA] bg-[#FFF6F6] px-[20px] py-[18px] text-sm text-[#B42318]">
-        {errorMessage}
-      </div>
-    );
-  }
-
-  if (alerts.length === 0) {
-    return (
-      <div className="rounded-[12px] border border-[#E5E5E5] bg-white px-[20px] py-[18px] text-sm text-gray-500">
-        No recent alerts are available yet.
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-1 gap-[12px]">
-      {alerts.map((alert) => (
-        <div
-          key={alert.id}
-          className="bg-white rounded-[12px] border border-[#E5E5E5] p-[16px] hover:shadow-md transition-shadow"
-        >
-          <div className="flex justify-between items-start gap-[16px]">
-            <div className="flex-1">
-              <div className="flex items-center gap-[8px] mb-[8px]">
-                <h3 className="text-[16px] font-semibold text-gray-800">
-                  <RecentAlertEntityHighlight
-                    label={alert.disease}
-                    tone="disease"
-                  />
-                </h3>
-                <span className="px-[8px] py-[2px] bg-[#FFF3CD] text-[#856404] text-xs rounded-[4px] font-medium">
-                  {alert.type}
-                </span>
-              </div>
-              <p className="text-[15px] text-gray-800 leading-[1.8] mb-[8px]">
-                {renderSummary(alert)}
-              </p>
-              <div className="flex gap-[16px] text-xs text-gray-500">
-                <span>
-                  Region:{" "}
-                  <RecentAlertEntityHighlight
-                    label={alert.region}
-                    tone="location"
-                  />
-                </span>
-                <span>Updated: {formatAlertTimestamp(alert.timestamp)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-RecentAlertsTab.propTypes = {
-  alerts: PropTypes.arrayOf(PropTypes.object).isRequired,
-  errorMessage: PropTypes.string,
-  isLoading: PropTypes.bool,
-};
-
-RecentAlertsTab.defaultProps = {
-  errorMessage: "",
-  isLoading: false,
-};
+RecentAlertsTab.propTypes = { alerts: PropTypes.arrayOf(PropTypes.object).isRequired, summaries: PropTypes.arrayOf(PropTypes.object), sentAlerts: PropTypes.arrayOf(PropTypes.object), canSendAlert: PropTypes.bool, onSendAlert: PropTypes.func, onCancelAlert: PropTypes.func, cancellingId: PropTypes.string, errorMessage: PropTypes.string, isLoading: PropTypes.bool, isSummariesLoading: PropTypes.bool, isSummariesFetching: PropTypes.bool, summariesErrorMessage: PropTypes.string };
+RecentAlertsTab.defaultProps = { summaries: [], sentAlerts: [], canSendAlert: false, onSendAlert: () => {}, onCancelAlert: () => {}, cancellingId: "", errorMessage: "", isLoading: false };

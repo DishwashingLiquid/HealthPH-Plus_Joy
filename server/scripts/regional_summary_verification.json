@@ -1,0 +1,34 @@
+{
+  "sourceUnchanged": true,
+  "sourceFingerprint": {
+    "count": 31,
+    "sha256": "1aa605df95ff503acdf415d7f0280bb96e28b8a220ecdd79140248ef52d84a09"
+  },
+  "readySummaries": [
+    {
+      "region": "NCR",
+      "reportCount": 9
+    },
+    {
+      "region": "III",
+      "reportCount": 11
+    }
+  ],
+  "remainingChanges": {
+    "eventsUpserted": 0,
+    "eventsInserted": 0,
+    "eventsUpdated": 0,
+    "eventsRemoved": 0,
+    "summariesUpdated": 0,
+    "summariesRemoved": 0
+  },
+  "appliedChanges": {
+    "eventsUpserted": 31,
+    "eventsInserted": 28,
+    "eventsUpdated": 3,
+    "eventsRemoved": 0,
+    "summariesUpdated": 8,
+    "summariesRemoved": 0
+  },
+  "migrationComplete": true
+}
