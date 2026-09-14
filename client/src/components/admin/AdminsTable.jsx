@@ -30,6 +30,7 @@ const AdminsTable = ({
     searchQuery,
     setSearchQuery,
     organizationOptions = [],
+    isOrganizationsLoading = false,
 }) => {
     const user = useSelector((state) => state.auth.user);
 
@@ -638,7 +639,7 @@ const AdminsTable = ({
                             <FieldGroup
                                 label="Account Type"
                                 labelFor="update-admin-user-type"
-                                additionalClasses="mb-[16px] md:col-span-2"
+                                additionalClasses="mb-[16px] md:col-span-3"
                                 caption="Account type is fixed for this account."
                             >
                                 <Input
@@ -653,7 +654,7 @@ const AdminsTable = ({
                             <FieldGroup
                                 label="Accessible Regions"
                                 labelFor="update-admin-accessible-regions"
-                                additionalClasses="mb-[16px] md:col-span-2"
+                                additionalClasses="mb-[16px] md:col-span-3"
                                 caption="SUPERADMIN accounts automatically cover all regions."
                             >
                                 <MultiSelect
@@ -671,10 +672,12 @@ const AdminsTable = ({
                             <FieldGroup
                                 label="Organization"
                                 labelFor="update-admin-organization"
-                                additionalClasses="mb-[16px] md:col-span-2"
+                                additionalClasses="mb-[16px] md:col-span-6"
                                 caption={
                                     updateModalErrors.organization ||
-                                    (!hasOrganizationOptions
+                                    (isOrganizationsLoading
+                                        ? ""
+                                        : !hasOrganizationOptions
                                         ? "Add an organization first from the Organizations tab."
                                         : ""
                                     )
@@ -682,6 +685,8 @@ const AdminsTable = ({
                                 state={
                                     updateModalErrors.organization
                                         ? "error"
+                                        : isOrganizationsLoading
+                                        ? ""
                                         : !hasOrganizationOptions
                                         ? "warning"
                                         : ""
@@ -691,7 +696,9 @@ const AdminsTable = ({
                                     options={organizationOptions}
                                     id="update-admin-organization"
                                     placeholder={
-                                        hasOrganizationOptions
+                                        isOrganizationsLoading
+                                            ? "Loading organizations..."
+                                            : hasOrganizationOptions
                                             ? "Select organization"
                                             : "No organizations available"   
                                     }
@@ -703,7 +710,7 @@ const AdminsTable = ({
                                     }}
                                     additionalClasses="mt-[8px] w-full"
                                     state={updateModalErrors.organization ? "error" : ""}
-                                    editable={hasOrganizationOptions}
+                                    editable={!isOrganizationsLoading && hasOrganizationOptions}
                                 />
                             </FieldGroup>
                             <FieldGroup

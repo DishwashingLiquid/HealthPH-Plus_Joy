@@ -1066,6 +1066,7 @@ const UserManagement = () => {
                 setSearchQuery={setSearchQuery}
                 setCurrentData={setCurrentAdminsData}
                 organizationOptions={organizationOptions}
+                isOrganizationsLoading={isOrganizationsLoading}
               />
             ) : currentTableTab == "Users" ? (
               <UsersTable
@@ -1074,6 +1075,7 @@ const UserManagement = () => {
                 setSearchQuery={setSearchQuery}
                 setCurrentData={setCurrentUsersData}
                 organizationOptions={organizationOptions}
+                isOrganizationsLoading={isOrganizationsLoading}
                 roleLabelOptions={roleLabelOptions}
               />
             ) : isOrganizationsRoleTab ? (
@@ -1118,7 +1120,8 @@ const UserManagement = () => {
             currentUser={user}
             organizationOptions={organizationOptions}
             roleLabelOptions={roleLabelOptions}
-            isRoleLabelsLoading={isRoleLabelsLoading && roleLabels.length > 0}
+            isOrganizationsLoading={isOrganizationsLoading}
+            isRoleLabelsLoading={isRoleLabelsLoading}
             isRoleLabelsError={isRoleLabelsError}
             onCreated={handleAccountCreated}
             onClose={() => setAddUserModalActive(false)}
@@ -1151,10 +1154,6 @@ const UserManagement = () => {
             isSuperadmin={isSuperadmin}
             getRegionLabel={getRegionLabel}
             onClose={closeOrganizationDetailsModal}
-            onEdit={() => {
-              setOrganizationDetailsModalActive(false);
-              openEditOrganizationModal(selectedOrganization);
-            }}
           />
         )}
 
@@ -1184,6 +1183,7 @@ const UserAccountModal = ({
   currentUser,
   organizationOptions = [],
   roleLabelOptions = [],
+  isOrganizationsLoading = false,
   isRoleLabelsLoading = false,
   isRoleLabelsError = false,
   onCreated,
@@ -1240,20 +1240,24 @@ const UserAccountModal = ({
     : "grid grid-cols-1 gap-x-[16px] md:grid-cols-2";
 
   const superadminTopFieldClass = isSuperadminMode
-    ? "mb-[16px] md:col-span-2"
+    ? "mb-[16px] md:col-span-3"
     : "mb-[16px]";
+
+  const organizationFieldClass = isSuperadminMode
+    ? "mb-[16px] md:col-span-6"
+    : "mb-[16px] md:col-span-2";
 
   const halfFieldClass = isSuperadminMode
     ? "mb-[16px] md:col-span-3"
     : "mb-[16px]";
 
   const emailFieldClass = isSuperadminMode
-    ? "mb-[16px] md:col-span-6"
+    ? "mb-[16px] md:col-span-3"
     : "mb-[16px]";
 
   const passwordWrapperClass = isSuperadminMode
     ? "md:col-span-3"
-    : "md:col-span-2";
+    : "md:col-span-1";
 
   const disabledAccountTypeHint = "Account type is fixed for this form.";
 
@@ -1651,27 +1655,33 @@ const UserAccountModal = ({
             <FieldGroup
               label="Organization"
               labelFor="organization"
-              additionalClasses={isSuperadminMode ? superadminTopFieldClass : "mb-[16px]"}
+              additionalClasses={organizationFieldClass}
               caption={
                 formErrors.organization ||
-                (!hasOrganizationOptions
+                (isOrganizationsLoading
+                  ? ""
+                  : !hasOrganizationOptions
                   ? "Add an organization first from the Organizations tab."
-                  : "If the organization is not listed, add it in the Organizations tab first."
+                  : ""
                 )
               }
               state={
                 formErrors.organization
                   ? "error"
+                  : isOrganizationsLoading
+                  ? ""
                   : !hasOrganizationOptions
                   ? "warning"
-                  : "" 
+                  : ""
               }
             >
               <CustomSelect
                 options={organizationOptions}
                 id="organization"
                 placeholder={
-                  hasOrganizationOptions
+                  isOrganizationsLoading
+                    ? "Loading organizations..."
+                    : hasOrganizationOptions
                     ? "Select organization"
                     : "No organizations available" 
                 }
@@ -1683,7 +1693,7 @@ const UserAccountModal = ({
                 }}
                 additionalClasses="mt-[8px] w-full"
                 state={formErrors.organization ? "error" : ""}
-                editable={hasOrganizationOptions}
+                editable={!isOrganizationsLoading && hasOrganizationOptions}
               />
             </FieldGroup>
             
@@ -2567,7 +2577,6 @@ const OrganizationDetailsModal = ({
   isSuperadmin,
   getRegionLabel,
   onClose,
-  onEdit,
 }) => {
   const coveredRegions = organization.region_coverage?.length
     ? organization.region_coverage.map(getRegionLabel)
@@ -2641,13 +2650,6 @@ const OrganizationDetailsModal = ({
             onClick={onClose}
           >
             Close
-          </button>
-          <button
-            type="button"
-            className="rounded-[8px] bg-[#32418C] px-[14px] py-[9px] text-sm text-white"
-            onClick={onEdit}
-          >
-            Edit Organization
           </button>
         </div>
       </div>

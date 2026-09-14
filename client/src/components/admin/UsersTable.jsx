@@ -31,6 +31,7 @@ const UsersTable = ({
   searchQuery,
   setSearchQuery,
   organizationOptions = [],
+  isOrganizationsLoading = false,
   roleLabelOptions = [],
 }) => {
   const user = useSelector((state) => state.auth.user);
@@ -824,7 +825,9 @@ const UsersTable = ({
                 additionalClasses="mb-[16px] md:col-span-2" 
                 caption={
                   updateModalErrors.organization ||
-                  (!hasOrganizationOptions
+                  (isOrganizationsLoading
+                    ? ""
+                    : !hasOrganizationOptions
                     ? "Add an organization first from the Organizations tab."
                     : ""
                   )
@@ -832,6 +835,8 @@ const UsersTable = ({
                 state={
                   updateModalErrors.organization
                     ? "error"
+                    : isOrganizationsLoading
+                    ? ""
                     : !hasOrganizationOptions
                     ? "warning"
                     : ""
@@ -841,7 +846,9 @@ const UsersTable = ({
                   options={organizationOptions}
                   id="update-organization"
                   placeholder={
-                    hasOrganizationOptions
+                    isOrganizationsLoading
+                      ? "Loading organizations..."
+                      : hasOrganizationOptions
                       ? "Select organization"
                       : "No organizations available" 
                   }
@@ -853,7 +860,7 @@ const UsersTable = ({
                   }}
                   additionalClasses="mt-[8px] w-full"
                   state={updateModalErrors.organization ? "error" : ""}
-                  editable={hasOrganizationOptions}
+                  editable={!isOrganizationsLoading && hasOrganizationOptions}
                 />
               </FieldGroup>
               <FieldGroup 
