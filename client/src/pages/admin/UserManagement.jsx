@@ -560,7 +560,41 @@ const UserManagement = () => {
 
   const isAccountTableTab = currentTableTab == "Superadmins" || isUsersTab;
 
-  const isOrganizationsTab = isOrganizationsSubtab;
+  const canPrintCurrentView = isAccountTableTab || isOrganizationsSubtab;
+
+  const printTableName = isOrganizationsSubtab
+    ? "Organizations"
+    : currentTableTab;
+
+  const printData = currentTableTab == "Superadmins"
+    ? currentAdminsData
+    : isOrganizationsSubtab
+    ? filteredOrganizations
+    : currentUsersData;
+
+  const printColumns = currentTableTab == "Superadmins"
+    ? ["FULL NAME", "EMAIL", "ACCOUNT TYPE", "STATUS", "DATE CREATED"]
+    : isOrganizationsSubtab
+    ? [
+        "ORGANIZATION",
+        "MAIN REGION",
+        "REGION COVERAGE",
+        "USERS",
+        ...(isSuperadmin ? ["SUPERADMINS"] : []),
+        "ACTIVE",
+        "DISABLED",
+        "STATUS",
+      ]
+    : [
+        "FULL NAME",
+        "EMAIL",
+        "REGIONAL OFFICE",
+        "ROLE",
+        "ORGANIZATION",
+        "STATUS",
+        "DATE CREATED",
+      ];
+
   const isAnalyticsTab = currentTableTab == "Account Analytics";
 
   const searchPlaceholder =
@@ -591,6 +625,13 @@ const UserManagement = () => {
     : isOrganizationsSubtab
     ? "Total organizations"
     : `Total ${currentTableTab.toLowerCase()}`;
+
+  const accountAnalyticsSubtitle =
+    user?.type === "SUPERADMIN"
+      ? "Graphs show all user activity and role distribution. Recent Activity includes superadmins, admins, and users."
+      : user?.type === "Admin"
+      ? "Graphs show all user activity and role distribution. Recent activity is limited to users in your organization."
+      : "Graphs show all user activity and role distribution. Detailed recent activity is hidden for user accounts.";
 
   const organizationRoleSectionTitle = isRolesSubtab ? "Roles" : "Organizations";
   const organizationRoleSectionSubtitle = isRolesSubtab
@@ -892,6 +933,17 @@ const UserManagement = () => {
 
           <div className="mb-[20px] flex flex-col gap-[16px] xl:flex-row xl:items-center xl:justify-between">
             <div className="flex flex-wrap gap-[12px]">
+              {isAnalyticsTab && (
+                <div>
+                  <h2 className="text-[20px] font-semibold text-gray-800">
+                    Account Analytics
+                  </h2>
+                  <p className="mt-[4px] text-sm text-gray-500">
+                    {accountAnalyticsSubtitle}
+                  </p>
+                </div>
+              )}
+
               {!isAnalyticsTab && (
                 <ToolbarSearch
                   id="search"
@@ -919,7 +971,7 @@ const UserManagement = () => {
                 type="button"
                 className="flex items-center gap-[8px] rounded-[10px] border border-[#E5E5E5] bg-[#F8F9FA] px-[16px] py-[10px] text-sm text-gray-800"
                 onClick={handlePrint}
-                disabled={isPrinting || !isAccountTableTab}
+                disabled={isPrinting || !canPrintCurrentView}
               >
                 <Icon
                   iconName="Printer"
@@ -953,7 +1005,7 @@ const UserManagement = () => {
                 </button>
               )}
 
-              {canManageUsers && isOrganizationsTab && (
+              {canManageUsers && isOrganizationsSubtab && (
                 <button
                   type="button"
                   className="flex items-center gap-[8px] rounded-[10px] bg-[#32418C] px-[16px] py-[10px] text-sm text-white"
@@ -989,28 +1041,25 @@ const UserManagement = () => {
                 showPrint={showPrint}
                 ref={printRef}
                 pageName="User Management"
-                tableName={currentTableTab}
-                data={
-                  currentTableTab == "Superadmins"
-                    ? currentAdminsData
-                    : currentUsersData
-                }
-                columns={
-                  currentTableTab == "Superadmins"
-                    ? ["FULL NAME", "EMAIL", "ACCOUNT TYPE", "STATUS", "DATE CREATED"]
-                    : [
-                        "FULL NAME",
-                        "EMAIL",
-                        "REGIONAL OFFICE",
-                        "ROLE",
-                        "ORGANIZATION",
-                        "STATUS",
-                        "DATE CREATED",
-                      ]
-                }
+                tableName={printTableName}
+                data={printData}
+                columns={printColumns}
                 rowsPerPage={25}
                 dateTable={format(new Date(), "MMMM dd, yyyy | hh:mm a")}
                 displayFunc={(value) => {
+                  if (isOrganizationsSubtab) {
+                    return [
+                      value.name || "-",
+                      getRegionLabel(value.main_region),
+                      value.regions?.length ? value.regions.join(", ") : "-",
+                      value.users ?? 0,
+                      ...(isSuperadmin ? [value.superadmins ?? 0] : []),
+                      value.activeAccounts ?? 0,
+                      value.disabledAccounts ?? 0,
+                      value.partnership_status === "INACTIVE" ? "Inactive" : "Active",
+                    ];
+                  }
+
                   let full_name = `${value.first_name} ${value.last_name}`;
 
                   let data = [full_name, value.email];
@@ -2163,6 +2212,11 @@ const RoleLabelFormModal = ({
       hasError = true;
     }
 
+    if (!Array.isArray(formData.accessible_pages) || formData.accessible_pages.length === 0) {
+      nextErrors.accessible_pages = "Choose at least one accessible page.";
+      hasError = true;
+    }
+
     setFormErrors(nextErrors);
     return hasError;
   };
@@ -2416,7 +2470,8 @@ const RoleLabelFormModal = ({
           <button
             type="submit"
             className="rounded-[8px] bg-[#32418C] px-[14px] py-[9px] text-sm text-white disabled:cursor-not-allowed disabled:bg-[#98A2B3]"
-            disabled={isLoading}
+            disabled={isLoading || isEditMode}
+            title={isEditMode ? "Role updates are not enabled yet." : ""}
           >
             {isLoading ? "Saving..." : isEditMode ? "Update" : "Save"}
           </button>
@@ -2869,13 +2924,6 @@ const AccountAnalyticsPanel = ({
         content: "No account activity has been recorded for users in your organization yet.",
         };
  
-  const scopeDescription = 
-    viewerType === "SUPERADMIN"
-      ? "Graphs show all user activity and role distribution. Recent Activity includes superadmins, admins, and users."
-      : viewerType === "Admin"
-      ? "Graphs show all user activity and role distribution. Recent activity is limited to users in your organization."
-      : "Graphs show all user activity and role distribution. Detailed recent activity is hidden for user accounts.";
-
   const formatLoggedAt = (value) => {
     const date = new Date(value);
     return Number.isNaN(date.getTime())
@@ -2901,15 +2949,6 @@ const AccountAnalyticsPanel = ({
 
   return (
     <div className="flex flex-col gap-[16px]">
-      <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
-        <h2 className="text-[18px] font-semibold text-gray-800">
-          Account Analytics
-        </h2>
-        <p className="mt-[4px] text-sm text-gray-500">
-          {scopeDescription}
-        </p>
-      </div>
-
       <div className="grid grid-cols-1 gap-[12px] md:grid-cols-2 xl:grid-cols-4">
         <AnalyticsSummaryCard
           label="Total User Accounts"
