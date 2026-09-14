@@ -249,6 +249,24 @@ def _prepare_automatic_recipients():
     return prepared
 
 
+def _reconcile_recent_source_reports(configuration, current):
+    """Bounded recovery for reports accepted before a projection write failed.
+
+    The normal POST path projects immediately.  The scheduler additionally
+    reads only the active rolling window, so a restart or projection failure
+    does not leave fresh source reports permanently invisible.  Old consumed
+    events remain untouched by SummaryStore's explicit consumption checks.
+    """
+    if self_reports is None:
+        return 0
+    lower_bound = current - timedelta(minutes=configuration["intervalMinutes"])
+    recovered = 0
+    for report in self_reports.find({"source": "mobile_self_report", "createdAt": {"$gte": lower_bound}}):
+        result = _store().update_report(report)
+        recovered += int(result.get("status") == "updated")
+    return recovered
+
+
 def process_due_regional_alerts():
     """Legacy manual scheduled alerts only; automatic records are never Sent here."""
     if not _collections_available(alerts, deliveries, mobile_users): return 0
@@ -276,6 +294,8 @@ def run_automation_tick(force=False):
     regions = set(REGIONS if due else []) | {state.get("_id") for state in due_states}
     successes = 0
     try:
+        if due:
+            _reconcile_recent_source_reports(configuration, current)
         for region in regions:
             if region in REGIONS: evaluate_regional_summary(region); successes += 1
         settings.update_one({"_id": AUTOMATION_SETTINGS_ID}, {"$set": {"lastSuccessfulEvaluation": current, "lastEvaluationError": "", "nextScheduledReconciliation": current + timedelta(minutes=configuration["intervalMinutes"])}}, upsert=True)

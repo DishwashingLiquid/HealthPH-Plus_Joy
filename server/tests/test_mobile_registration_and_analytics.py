@@ -290,6 +290,12 @@ class MobileRegistrationAndAnalyticsTests(unittest.TestCase):
             ["Cough", "Cough", "Fever"],
         )
 
+    def test_self_report_preserves_naive_ph_time_and_normalizes_offset_time(self):
+        naive = disease._coerce_self_report_datetime("2026-09-11T16:00:00")
+        utc = disease._coerce_self_report_datetime("2026-09-11T08:00:00Z")
+        self.assertEqual(naive, datetime(2026, 9, 11, 16, 0))
+        self.assertEqual(utc, datetime(2026, 9, 11, 16, 0))
+
     def test_ingestion_and_summary_share_region_resolution(self):
         from regional_summaries import event_for_report
         for code, name, expected in [("030000000", "Central Luzon", "III"),

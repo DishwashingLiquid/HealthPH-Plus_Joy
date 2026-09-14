@@ -2,7 +2,7 @@ import csv
 import hashlib
 import json
 from collections import Counter
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from io import StringIO
 from pathlib import Path
 from typing import Iterable
@@ -745,9 +745,9 @@ def _build_self_report_document(
         legacy_possible_condition=payload.possibleCondition,
         symptom_ids=symptom_ids,
     )
-    payload_created_at = _coerce_datetime(payload.createdAt)
+    payload_created_at = _coerce_self_report_datetime(payload.createdAt)
     created_at = payload_created_at or get_ph_datetime()
-    synced_at = _coerce_datetime(payload.syncedAt)
+    synced_at = _coerce_self_report_datetime(payload.syncedAt)
     normalized_region_code = observed_region({"regionCode": payload.location.regionCode, "regionName": payload.location.regionName})
     region_code = normalized_region_code or _clean_string(payload.location.regionCode)
     region_name = _clean_string(payload.location.regionName) or region_code
@@ -1056,6 +1056,24 @@ def _coerce_datetime(value):
         parsed = parsed.replace(tzinfo=None)
 
     return parsed
+
+
+def _coerce_self_report_datetime(value):
+    """Store offset-bearing mobile report times as Philippine wall-clock time.
+
+    A timestamp without an offset has historically meant Philippine local time,
+    so it is deliberately left alone rather than treated as UTC.
+    """
+    if value in [None, ""]:
+        return None
+    raw_value = value.isoformat() if isinstance(value, datetime) else str(value)
+    try:
+        parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed
+    return parsed.astimezone(timezone(timedelta(hours=8))).replace(tzinfo=None)
 
 
 def _is_in_range(value, date_from=None, date_to=None):
