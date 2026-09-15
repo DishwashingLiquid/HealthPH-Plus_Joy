@@ -15,7 +15,12 @@ import {
     useProcessDatasetMutation,
 } from "../../features/api/datasetsSlice";
 
-import { useCreateActivityLogMutation } from "../../features/api/activityLogsSlice";
+import { useCreateAccountActivityMutation } from "../../features/api/accountActivitySlice";
+
+import {
+    useFetchAnalyticsEntriesQuery,
+    useProcessAnalyticsEntriesMutation,
+} from "../../features/api/analyticsEntriesSlice";
 
 import {
     ResponsiveContainer,
@@ -349,6 +354,20 @@ const formatBytes = (size = 0) => {
     return `${(kb / 1024).toFixed(2).replace(/\.?0+$/, "")} MB`;
 }
 
+const getRequestErrorMessage = (error, fallback) => {
+    const detail = error?.data?.detail;
+
+    if (typeof detail === "string") {
+        return detail;
+    }
+
+    if (Array.isArray(detail) && detail[0]?.msg) {
+        return detail[0].msg;
+    }
+
+    return error?.error || fallback;
+};
+
 /* SUBTAB 2 = DATA MANAGEMENT */
 const DataManagement = () => {
     const user = useSelector((state) => state.auth.user);
@@ -358,7 +377,7 @@ const DataManagement = () => {
     const [processDataset, { isLoading: isProcessLoading }] = useProcessDatasetMutation();
     const [deleteDataset, { isLoading: isDeleteLoading }] = useDeleteDatasetMutation();
 
-    const [createActivityLog] = useCreateActivityLogMutation();
+    const [createAccountActivity] = useCreateAccountActivityMutation();
 
     const {
         data: datasetsByUser,
@@ -370,6 +389,52 @@ const DataManagement = () => {
     const [datasetSearch, setDatasetSearch] = useState("");
     const [datasetStatusFilter, setDatasetStatusFilter] = useState("all");
     const [selectedDatasetIds, setSelectedDatasetIds] = useState([]);
+
+    const [dataSourceView, setDataSourceView] = useState("social_media");
+
+    const [selectedEntryIds, setSelectedEntryIds] = useState([]);
+
+    const [entrySearch, setEntrySearch] = useState("");
+    const [entryStatusFilter, setEntryStatusFilter] = useState("all");
+
+    const {
+        data: analyticsEntriesData,
+        isFetching: isAnalyticsEntriesFetching,
+        isError: isAnalyticsEntriesError,
+        error: analyticsEntriesError,
+        refetch: refetchAnalyticsEntries,
+    } = useFetchAnalyticsEntriesQuery (
+        {
+            sourceType: dataSourceView,
+            analysisStatus: entryStatusFilter,
+            datasetId: "all",
+            search: entrySearch,
+            limit: 100,
+        },
+        {
+            skip: dataSourceView === "social_media",
+        }
+    );
+
+    const analyticsEntries = analyticsEntriesData?.entries || [];
+    const analyticsEntriesTotal = analyticsEntriesData?.total || 0;
+
+    const [processAnalyticsEntries, { isLoading: isProcessEntriesLoading }] =
+        useProcessAnalyticsEntriesMutation();
+
+    /* PREVIE MODAL STATE */
+    const [entryDetailsModalActive, setEntryDetailsModalActive] = useState(false);
+    const [entryDetailsModalData, setEntryDetailsModalData] = useState(null);
+
+    const openEntryDetailsModal = (entry) => {
+        setEntryDetailsModalData(entry);
+        setEntryDetailsModalActive(true);
+    };
+
+    const closeEntryDetailsModal = () => {
+        setEntryDetailsModalData(null);
+        setEntryDetailsModalActive(false);
+    };
 
     /* UPLOAD MODAL STATE */
     const inputFile = useRef(null);
@@ -497,7 +562,7 @@ const DataManagement = () => {
 
             await uploadFile(payload).unwrap();
 
-            await createActivityLog({
+            await createAccountActivity({
                 user_id: user.id,
                 entry:  `Uploaded dataset: ${uploadPreviewData.filename}`,
                 module: "Model Access and Toolkit",
@@ -569,7 +634,7 @@ const DataManagement = () => {
                     : currentData
             );
 
-            await createActivityLog({
+            await createAccountActivity({
                 user_id: user.id,
                 entry: `started dataset processing: ${filename}`,
                 module: "Model Access and Toolkit",
@@ -593,6 +658,15 @@ const DataManagement = () => {
 
     const getDatasetStatus = (dataset) =>
         String(dataset.dataset_status || dataset.dataset_type || "UNKNOWN").toUpperCase();
+
+    const displayDatasetDate = (value) => {
+        if (!value) return "-";
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "-";
+
+        return format(date, "MMM dd, yyyy hh:mm a");
+    };
 
     const filteredDatasets = datasets.filter((dataset) => {
         const searchValue = datasetSearch.trim().toLowerCase();
@@ -693,6 +767,44 @@ const DataManagement = () => {
         return Array.isArray(value) ? value : [];
     };
 
+    const selectedEntries = analyticsEntries.filter((entry) =>
+        selectedEntryIds.includes(entry.id)
+    );
+
+    const processableEntries = analyticsEntries.filter((entry) =>
+        ["pending", "failed"].includes(String(entry.analysis_status || "").toLowerCase())
+    );
+
+    const selectedProcessableEntries = selectedEntries.filter((entry) =>
+        ["pending", "failed"].includes(String(entry.analysis_status || "").toLowerCase())
+    );
+
+    const toggleEntrySelection = (id) => {
+        setSelectedEntryIds((currentIds) =>
+            currentIds.includes(id)
+                ? currentIds.filter((currentId) => currentId !== id)
+                : [...currentIds, id]
+        );
+    };
+
+    const toggleAllVisibleEntries = () => {
+        const visibleProcessableIds = processableEntries.map((entry) => entry.id);
+
+        const allVisibleSelected =
+            visibleProcessableIds.length > 0 &&
+            visibleProcessableIds.every((id) => selectedEntryIds.includes(id));
+
+        setSelectedEntryIds((currentIds) =>
+            allVisibleSelected
+                ? currentIds.filter((id) => !visibleProcessableIds.includes(id))
+                : [...new Set([...currentIds, ...visibleProcessableIds])]
+        );
+    };
+
+    const clearSelectedEntries = () => {
+        setSelectedEntryIds([]);
+    };
+
     /* ACTION HANDLERS */
     const handleDownloadDataset = async ({ id, filename }) => {
         try {
@@ -746,7 +858,7 @@ const DataManagement = () => {
         try {
             await deleteDataset(deleteModalData.id).unwrap();
 
-            await createActivityLog({
+            await createAccountActivity({
                 user_id: user.id,
                 entry: `Deleted dataset: ${deleteModalData.filename}`,
                 module: "Model Access and Toolkit",
@@ -783,7 +895,7 @@ const DataManagement = () => {
                     });
                 }
 
-                await createActivityLog({
+                await createAccountActivity({
                     user_id: user.id,
                     entry: `Downloaded ${selectedDatasets.length} datasets`,
                     module: "Model Access and Toolkit",
@@ -800,7 +912,7 @@ const DataManagement = () => {
                     await processDataset(dataset.id).unwrap();
                 }
 
-                await createActivityLog({
+                await createAccountActivity({
                     user_id: user.id,
                     entry: `Started processing ${selectedProcessableDatasets.length} datasets`,
                     module: "Model Access and Toolkit",
@@ -812,7 +924,7 @@ const DataManagement = () => {
                     await deleteDataset(dataset.id).unwrap();
                 }
 
-                await createActivityLog({
+                await createAccountActivity({
                     user_id: user.id,
                     entry: `Deleted ${selectedDatasets.length} datasets`,
                     module: "Model Access and Toolkit",
@@ -827,224 +939,313 @@ const DataManagement = () => {
         }
     };
 
+    const handleProcessSelectedEntries = async () => {
+        const entryIds = selectedProcessableEntries.map((entry) => entry.id);
+
+        if (entryIds.length === 0) return;
+
+        try {
+            await processAnalyticsEntries(entryIds).unwrap();
+
+            await createAccountActivity({
+                user_id: user.id,
+                entry: `Started processing ${entryIds.length} analytics entries`,
+                module: "Model Access and Toolkit",
+            }).unwrap();
+
+            setSelectedEntryIds([]);
+        } catch (error) {
+            console.error("Failed to process analytics entries", error);
+        }
+    };
+
+    const dataSourceDetails = {
+        social_media: {
+            title: "Social Media Datasets",
+            description: "Uploaded social media CSV files prepared for analytics and model processing.",
+            totalLabel: "Total datasets",
+        },
+        survey_response: {
+            title: "Survey Responses",
+            description: "Survey response entries prepared for analytics and NLP processing.",
+            totalLabel: "Total entries",
+        },
+        self_report: {
+            title: "Self Reports",
+            description: "Mobile self-report entries prepared for analytics and NLP processing.",
+            totalLabel: "Total entries",
+        },
+    };
+
+    const activeDataSourceDetails = dataSourceDetails[dataSourceView];
+    const activeDataSourceTotal =
+        dataSourceView === "social_media"
+            ? filteredDatasets.length
+            : analyticsEntriesTotal;
+
     return (
         <>
         <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
-            <div className="flex justify-between items-start mb-[20px]">
-                <div>
-                    <h2 className="text-[20px] font-semibold text-gray-800">
-                        Data Upload and Augmentation Tools
-                    </h2>
-                    <p className="text-sm text-gray-500 mt-[4px]">
-                        Datasets available for model training, validation, and evaluation.
-                    </p>
-                </div>
-                <div className="flex flex-wrap justify-end gap-[10px]">
-                    <ToolbarButton
-                        iconName="Download"
-                        variant="primary"
-                        onClick={handleDownloadTemplate}
-                    >
-                        Download Template
-                    </ToolbarButton>
-                    <ToolbarButton 
-                        iconName="Upload"
-                        variant="primary"
-                        onClick={() => inputFile.current.click()}    
-                    >
-                        Upload Dataset
-                    </ToolbarButton>
-                    <CSVReader
-                        parserOptions={{ header: true }}
-                        onFileLoaded={onFileSelect}
-                        ref={inputFile}
-                        cssInputClass="hidden"
+            <div className="flex justify-center">
+                <div className="flex flex-wrap items-center justify-center gap-[8px]">
+                    <DataSourcePill
+                        label="Social Media Datasets"
+                        active={dataSourceView === "social_media"}
+                        onClick={() => setDataSourceView("social_media")}
+                    />
+                    <DataSourcePill
+                        label="Survey Responses"
+                        active={dataSourceView === "survey_response"}
+                        onClick={() => setDataSourceView("survey_response")}
+                    />
+                    <DataSourcePill
+                        label="Self Reports"
+                        active={dataSourceView === "self_report"}
+                        onClick={() => setDataSourceView("self_report")}
                     />
                 </div>
             </div>
 
-            {/* SEARCH*/}
-            <div className="mb-[16px] flex flex-col gap-[10px] xl:flex-row xl:items-center xl:justify-between">
-                <div className="flex flex-col gap-[10px] md:flex-row md:items-center"> 
-                    <ToolbarSearch
-                        placeholder="Search datasets..."
-                        value={datasetSearch}
-                        onChange={(event) => setDatasetSearch(event.target.value)}
-                    />
+            <div className="mb-[20px] flex flex-col gap-[14px]">
+                <div className="flex flex-col gap-[12px] md:flex-row md:items-start md:justify-between">
+                    <div className="flex flex-col gap-[4px]">
+                        <h2 className="text-[20px] font-semibold text-gray-800">
+                            {activeDataSourceDetails.title}
+                        </h2>
+                        <p className="text-sm text-gray-500">
+                            {activeDataSourceDetails.description}
+                        </p>
+                    </div>
 
-                    <p className="text-sm text-gray-500">
-                        Total datasets:{" "}
-                        <span className="font-semibold text-gray-800">
-                            {filteredDatasets.length}
-                        </span>
-                    </p>
+                    {dataSourceView === "social_media" && (
+                        <div className="flex flex-col gap-[10px] sm:flex-row sm:items-center md:justify-end">
+                            <ToolbarButton
+                                iconName="Download"
+                                variant="primary"
+                                onClick={handleDownloadTemplate}
+                            >
+                                Download Template
+                            </ToolbarButton>
+
+                            <ToolbarButton
+                                iconName="Upload"
+                                variant="primary"
+                                onClick={() => inputFile.current.click()}
+                            >
+                                Upload Dataset
+                            </ToolbarButton>
+
+                            <CSVReader
+                                parserOptions={{ header: true }}
+                                onFileLoaded={onFileSelect}
+                                ref={inputFile}
+                                cssInputClass="hidden"
+                            />
+                        </div>
+                    )}
                 </div>
-                <ToolbarSelect
-                    value={datasetStatusFilter}
-                    onChange={(event) => setDatasetStatusFilter(event.target.value)}
-                    className="w-full md:w-[180px]"
-                >
-                    <option value="all">All Status</option>
-                    <option value="UPLOADED">Uploaded</option>
-                    <option value="RAW">Raw</option>
-                    <option value="QUEUED">Queued</option>
-                    <option value="PROCESSING">Processing</option>
-                    <option value="ANNOTATED">Annotated</option>
-                    <option value="FAILED">Failed</option>
-                </ToolbarSelect>
-            </div>
 
-            {hasSelectedDatasets && (
-                <div className="mb-[16px] flex flex-col gap-[10px] rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] px-[14px] py-[12px] md:flex-row md:items-center md:justify-between">
-                    <p className="text-sm text-gray-600">
-                        <span className="font-semibold text-gray-800">
-                            {selectedDatasetIds.length}
-                        </span>{" "}
-                        selected
-                    </p>
-                    <div className="flex flex-wrap gap-[8px]">
-                        <button
-                            type="button"
-                            className="rounded-[8px] border border-[#E5E5E5] bg-white px-[12px] py-[8px] text-sm text-gray-700"
-                            onClick={() => openBulkActionModal("download")}
-                        >
-                            Download
-                        </button>
-                        <button
-                            type="button"
-                            className="rounded-[8px] border border-[#E5E5E5] bg-white px-[12px] py-[8px] text-sm text-[#4F46E5]"
-                            onClick={() => openBulkActionModal("process")}
-                        >
-                            Process
-                        </button>
-                        <button
-                            type="button"
-                            className="rounded-[8px] bg-[#DC2626] px-[12px] py-[8px] text-sm text-white"
-                            onClick={() => openBulkActionModal("delete")}
-                        >
-                            Delete
-                        </button>
+                <div className="flex flex-col gap-[10px] xl:flex-row xl:items-center xl:justify-between">
+                    <div className="flex flex-col gap-[10px] md:flex-row md:items-center">
+                        {dataSourceView === "social_media" ? (
+                            <ToolbarSearch
+                                placeholder="Search datasets..."
+                                value={datasetSearch}
+                                onChange={(event) => setDatasetSearch(event.target.value)}
+                            />
+                        ) : (
+                            <ToolbarSearch
+                                placeholder={`Search ${activeDataSourceDetails.title.toLowerCase()}...`}
+                                value={entrySearch}
+                                onChange={(event) => setEntrySearch(event.target.value)}
+                            />
+                        )}
+
+                        <p className="text-sm text-gray-500">
+                            {activeDataSourceDetails.totalLabel}:{" "}
+                            <span className="font-semibold text-gray-800">
+                                {Number(activeDataSourceTotal || 0).toLocaleString()}
+                            </span>
+                        </p>
+                    </div>
+
+                    <div className="flex flex-col gap-[10px] md:items-end md:justify-end">
+                        {dataSourceView === "social_media" ? (
+                            <ToolbarSelect
+                                value={datasetStatusFilter}
+                                onChange={(event) => setDatasetStatusFilter(event.target.value)}
+                                className="w-full md:w-[180px]"
+                            >
+                                <option value="all">All Status</option>
+                                <option value="UPLOADED">Uploaded</option>
+                                <option value="RAW">Raw</option>
+                                <option value="QUEUED">Queued</option>
+                                <option value="PROCESSING">Processing</option>
+                                <option value="ANNOTATED">Annotated</option>
+                                <option value="FAILED">Failed</option>
+                            </ToolbarSelect>
+                        ) : (
+                            <ToolbarSelect
+                                value={entryStatusFilter}
+                                onChange={(event) => setEntryStatusFilter(event.target.value)}
+                                className="w-full md:w-[180px]"
+                            >
+                                <option value="all">All Status</option>
+                                <option value="pending">Pending</option>
+                                <option value="processing">Processing</option>
+                                <option value="completed">Completed</option>
+                                <option value="failed">Failed</option>
+                            </ToolbarSelect>
+                        )}
                     </div>
                 </div>
-            )}
+            </div>
 
-            {isDatasetsByUserFetching ? (
-                <div className="overflow-y-hidden min-w-full h-[500px]">
-                    <SkeletonBody columns={7} />
-                </div>
-            ) : (
-                <div className="overflow-x-auto">
-                    {filteredDatasets.length > 0 ? (
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
-                                    <th className="w-[44px] py-[12px] px-[10px] font-medium">
-                                        <input
-                                            type="checkbox"
-                                            checked={allVisibleDatasetsSelected}
-                                            onChange={toggleAllVisibleDatasets}
-                                        />
-                                    </th>
-                                    <th className="py-[12px] px-[10px] font-medium">File Name</th>
-                                    <th className="py-[12px] px-[10px] font-medium">Records</th>
-                                    <th className="py-[12px] px-[10px] font-medium">Languages</th>
-                                    <th className="py-[12px] px-[10px] font-medium">Data Uploaded</th>
-                                    <th className="py-[12px] px-[10px] font-medium">Uploaded By</th>
-                                    <th className="py-[12px] px-[10px] font-medium">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredDatasets.map(({
-                                    id,
-                                    user_name,
-                                    filename,
-                                    languages,
-                                    dataset_status,
-                                    created_at,
-                                    original_filename,
-                                    dataset_type,
-                                    num_of_rows,
-                                    processing_error,
-                                    processed_at,
-                                    preview_headers,
-                                    preview_data,
-                                }) => (
-                                    <tr 
-                                        className="cursor-pointer border-b border-[#F0F0F0] hover:bg-[#F8FAFC]" 
-                                        key={id}
-                                        onClick={() =>
-                                            openPreviewModal({
-                                                id,
-                                                original_filename,
-                                                filename,
-                                                languages,
-                                                dataset_type,
-                                                dataset_status,
-                                                num_of_rows,
-                                                processing_error,
-                                                processed_at,
-                                                preview_headers,
-                                                preview_data,
-                                            })
-                                        }
-                                    >
-                                        <td 
-                                            className="py-[14px] px-[10px]"
-                                            onClick={(event) => event.stopPropagation()}
-                                        >
+            {dataSourceView === "social_media" && (
+                <>
+                    {hasSelectedDatasets && (
+                        <div className="mb-[16px] flex flex-col gap-[10px] rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] px-[14px] py-[12px] md:flex-row md:items-center md:justify-between">
+                            <p className="text-sm text-gray-600">
+                                <span className="font-semibold text-gray-800">
+                                    {selectedDatasetIds.length}
+                                </span>{" "}
+                                selected
+                            </p>
+
+                            <div className="flex flex-wrap gap-[8px]">
+                                <button
+                                    type="button"
+                                    className="rounded-[8px] border border-[#E5E5E5] bg-white px-[12px] py-[8px] text-sm text-gray-700"
+                                    onClick={() => openBulkActionModal("download")}
+                                >
+                                    Download
+                                </button>
+                                <button
+                                    type="button"
+                                    className="rounded-[8px] border border-[#E5E5E5] bg-white px-[12px] py-[8px] text-sm text-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                    disabled={selectedProcessableDatasets.length === 0}
+                                    onClick={() => openBulkActionModal("process")}
+                                >
+                                    Process
+                                </button>
+                                <button
+                                    type="button"
+                                    className="rounded-[8px] border border-[#FCA5A5] bg-white px-[12px] py-[8px] text-sm text-[#B42318]"
+                                    onClick={() => openBulkActionModal("delete")}
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {isDatasetsByUserFetching ? (
+                        <div className="min-w-full overflow-y-hidden h-[300px]">
+                            <SkeletonBody columns={6} />
+                        </div>
+                    ) : filteredDatasets.length > 0 ? (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
+                                        <th className="w-[44px] py-[12px] px-[10px] font-medium">
                                             <input
                                                 type="checkbox"
-                                                checked={selectedDatasetIds.includes(id)}
-                                                onChange={() => toggleDatasetSelection(id)}
+                                                checked={allVisibleDatasetsSelected}
+                                                onChange={toggleAllVisibleDatasets}
                                             />
-                                        </td>
-                                        <td className="max-w-[260px] truncate py-[14px] px-[10px] font-medium text-gray-800">
-                                            {original_filename || filename}
-                                        </td>
-                                        <td className="py-[14px] px-[10px] text-gray-600">
-                                            {Number(num_of_rows || 0).toLocaleString()}
-                                        </td>
-                                        <td className="py-[14px] px-[10px]">
-                                            <div className="flex flex-wrap gap-[6px]">
-                                                {getDatasetLanguages({ languages, preview_data }).length > 0 ? (
-                                                    getDatasetLanguages({ languages, preview_data }).map((language) => (
-                                                        <span
-                                                            key={language}
-                                                            className="rounded-full bg-[#EEF2FF] px-[8px] py-[4px] text-xs font-medium text-[#4F46E5]"
-                                                        >
-                                                            {language}
-                                                        </span>
-                                                    ))
-                                                ) : (
-                                                    <span className="text-sm text-gray-400">No language data</span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="py-[14px] px-[10px] text-gray-600">
-                                            {format(new Date(created_at), "MMM dd, yyyy hh:mm a")}
-                                        </td>
-                                        <td className="py-[14px] px-[10px] text-gray-600">
-                                            {user_name}
-                                        </td>
-                                        <td className="py-[14px] px-[10px]">
-                                            <DatasetStatusBadge status={dataset_status} />
-                                        </td>
+                                        </th>
+                                        <th className="py-[12px] px-[10px] font-medium">File Name</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Records</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Languages</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Date Uploaded</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Uploaded by</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Status</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {filteredDatasets.map((dataset) => {
+                                        const languages = getDatasetLanguages(dataset);
+
+                                        return (
+                                            <tr
+                                                key={dataset.id}
+                                                className="cursor-pointer border-b border-[#F0F0F0] transition hover:bg-[#F8FAFC]"
+                                                onClick={() => openPreviewModal(dataset)}
+                                            >
+                                                <td className="py-[14px] px-[10px]">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedDatasetIds.includes(dataset.id)}
+                                                        onChange={() => toggleDatasetSelection(dataset.id)}
+                                                        onClick={(event) => event.stopPropagation()}
+                                                    />
+                                                </td>
+                                                <td className="max-w-[260px] truncate py-[14px] px-[10px] font-medium text-gray-800">
+                                                    {dataset.original_filename || dataset.filename || "-"}
+                                                </td>
+                                                <td className="py-[14px] px-[10px] text-gray-600">
+                                                    {Number(dataset.num_of_rows || 0).toLocaleString()}
+                                                </td>
+                                                <td className="py-[14px] px-[10px]">
+                                                    <div className="flex max-w-[320px] flex-wrap gap-[6px]">
+                                                        {languages.length > 0 ? (
+                                                            languages.map((language) => (
+                                                                <span
+                                                                    key={language}
+                                                                    className="rounded-full border border-[#E5E5E5] bg-white px-[8px] py-[3px] text-xs font-medium text-gray-600"
+                                                                >
+                                                                    {language}
+                                                                </span>
+                                                            ))
+                                                        ) : (
+                                                            <span className="text-gray-400">-</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="py-[14px] px-[10px] text-gray-600">
+                                                    {displayDatasetDate(dataset.created_at)}
+                                                </td>
+                                                <td className="py-[14px] px-[10px] text-gray-600">
+                                                    {dataset.user_name || "-"}
+                                                </td>
+                                                <td className="py-[14px] px-[10px]">
+                                                    <DatasetStatusBadge status={dataset.dataset_status} />
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
                     ) : (
                         <EmptyState
                             iconName="Document"
-                            heading={datasets.length > 0 ? "No Matching Datasets" : "No Datasets Uploaded"}
-                            content={
-                                datasets.length > 0
-                                    ? "Try adjusting your search or status filter."
-                                    : "There are no datasets uploaded. Upload a dataset to prepare it for model processing."
-                            }
+                            heading="No Datasets Yet"
+                            content="Uploaded social media CSV files will appear here."
                         />
                     )}
-                </div>
+                </>
+            )}
+
+            {dataSourceView !== "social_media" && (
+                <AnalyticsEntriesPanel
+                    sourceType={dataSourceView}
+                    entries={analyticsEntries}
+                    total={analyticsEntriesTotal}
+                    isLoading={isAnalyticsEntriesFetching}
+                    isError={isAnalyticsEntriesError}
+                    error={analyticsEntriesError}
+                    selectedEntryIds={selectedEntryIds}
+                    selectedProcessableCount={selectedProcessableEntries.length}
+                    isProcessing={isProcessEntriesLoading}
+                    onToggleEntry={toggleEntrySelection}
+                    onToggleAllVisible={toggleAllVisibleEntries}
+                    onClearSelected={clearSelectedEntries}
+                    onProcessSelected={handleProcessSelectedEntries}
+                    onViewDetails={openEntryDetailsModal}
+                    onRetry={refetchAnalyticsEntries}
+                />
             )}
         </div>
         {bulkActionModalActive && (
@@ -1084,6 +1285,13 @@ const DataManagement = () => {
                 }
             />
         )}
+        {entryDetailsModalActive && entryDetailsModalData && (
+            <AnalyticsEntryDetailsModal
+                entry={entryDetailsModalData}
+                sourceType={dataSourceView}
+                onClose={closeEntryDetailsModal}
+            />
+        )}
         {deleteModalActive && (
             <DeleteDatasetModal
                 filename={deleteModalData.filename}
@@ -1103,6 +1311,405 @@ const DataManagement = () => {
             />
         )}
         </>
+    );
+};
+
+const DataSourcePill = ({ label, active, onClick }) => {
+    return (
+        <button
+            type="button"
+            className={`rounded-full px-[16px] py-[8px] text-sm font-medium transition ${
+                active
+                    ? "bg-gray-900 text-white shadow-sm"
+                    : "bg-[#F5F5F5] text-gray-600 hover:bg-[#EAEAEA] hover:text-gray-900"
+            }`}
+            onClick={onClick}
+        >
+            {label}
+        </button>
+    );
+};
+
+/* CHANGE THIS ONCE CSS AND UTILS ARE UPDATED */
+const MODAL_PRIMARY_BUTTON_CLASSES =
+    "inline-flex items-center justify-center rounded-[8px] !bg-[#32418C] px-[14px] py-[9px] text-sm font-medium !text-white shadow-sm transition hover:!bg-[#27346F] disabled:cursor-not-allowed disabled:!bg-[#98A2B3] disabled:!text-[#F8FAFC]";
+
+const MODAL_DESTRUCTIVE_BUTTON_CLASSES =
+    "inline-flex items-center justify-center rounded-[8px] !bg-[#DC2626] px-[14px] py-[9px] text-sm font-medium !text-white shadow-sm transition hover:!bg-[#B91C1C] disabled:cursor-not-allowed disabled:!bg-[#E87D7D] disabled:!text-[#FBE9E9]";
+
+const AnalyticsEntriesPanel = ({
+    sourceType,
+    entries = [],
+    isLoading = false,
+    isError = false,
+    error,
+    selectedEntryIds = [],
+    selectedProcessableCount = 0,
+    isProcessing = false,
+    onToggleEntry,
+    onToggleAllVisible,
+    onClearSelected,
+    onProcessSelected,
+    onViewDetails,
+    onRetry
+}) => {
+
+    const processableEntries = entries.filter((entry) =>
+        ["pending", "failed"].includes(String(entry.analysis_status || "").toLowerCase())
+    );
+
+    const allVisibleProcessableSelected =
+        processableEntries.length > 0 &&
+        processableEntries.every((entry) => selectedEntryIds.includes(entry.id));
+
+    const selectedCount = selectedEntryIds.length;
+
+    const isSurveySource = sourceType === "survey_response";
+
+    const errorMessage = getRequestErrorMessage(
+        error,
+        isSurveySource
+            ? "Unable to load survey responses. Please try again."
+            : "Unable to load self reports. Please try again."
+    );
+
+    return (
+        <div>
+            {selectedCount > 0 && (
+                <div className="mb-[16px] flex flex-col gap-[10px] rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] px-[14px] py-[12px] md:flex-row md:items-center md:justify-between">
+                    <p className="text-sm text-gray-600">
+                        <span className="font-semibold text-gray-800">
+                            {selectedCount}
+                        </span>{" "}
+                        selected
+                    </p>
+
+                    <div className="flex flex-wrap gap-[8px]">
+                        <button
+                            type="button"
+                            className="rounded-[8px] border border-[#E5E5E5] bg-white px-[12px] py-[8px] text-sm text-gray-700"
+                            onClick={onClearSelected}
+                        >
+                            Clear
+                        </button>
+                        <button
+                            type="button"
+                            className="rounded-[8px] bg-[#2563EB] px-[12px] py-[8px] text-sm text-white disabled:cursor-not-allowed disabled:opacity-60"
+                            disabled={selectedProcessableCount === 0 || isProcessing}
+                            onClick={onProcessSelected}
+                        >
+                            {isProcessing ? "Processing..." : "Process Selected"}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {isLoading ? (
+                <div className="overflow-y-hidden min-w-full h-[300px]">
+                    <SkeletonBody columns={6} />
+                </div>
+            ) : isError ? (
+                <EmptyState
+                    iconName="Error"
+                    heading="Unable to Load Entries"
+                    content={errorMessage}
+                >
+                    <button
+                        type="button"
+                        className="prod-btn-base prod-btn-secondary"
+                        onClick={onRetry}
+                    >
+                        Retry
+                    </button>
+                </EmptyState>
+            ) : entries.length > 0 ? (
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
+                                <th className="w-[44px] py-[12px] px-[10px] font-medium">
+                                    <input
+                                        type="checkbox"
+                                        checked={allVisibleProcessableSelected}
+                                        onChange={onToggleAllVisible}
+                                        disabled={processableEntries.length === 0}
+                                    />
+                                </th>
+                                {isSurveySource ? (
+                                    <>
+                                        <th className="py-[12px] px-[10px] font-medium">Survey ID</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Question ID</th>
+                                        <th className="py-[12px] px-[10px] font-medium">ID</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Language</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Answer</th>
+                                        <th className="py-[12px] px-[10px] font-medium">User ID</th>
+                                        <th className="py-[12px] px-[10px] font-medium">User Location</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Date Answered</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Status</th>
+                                    </>
+                                ) : (
+                                    <>
+                                        <th className="py-[12px] px-[10px] font-medium">ID</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Language</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Text</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Location</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Date Reported</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Status</th>
+                                    </>
+                                )}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {entries.map((entry) => {
+                                const status = String(entry.analysis_status || "").toLowerCase();
+                                const isProcessed = status === "completed";
+                                const isProcessable = ["pending", "failed"].includes(status);
+
+                                return (
+                                    <tr
+                                        key={entry.id}
+                                        className={`cursor-pointer border-b border-[#F0F0F0] transition hover:bg-[#F8FAFC] ${
+                                            isProcessed ? "bg-[#F8FAFC] text-gray-400" : ""
+                                        }`}
+                                        onClick={() => onViewDetails(entry)}
+                                    >
+                                        <td className="py-[14px] px-[10px]">
+                                            <input 
+                                                type="checkbox"
+                                                checked={selectedEntryIds.includes(entry.id)}
+                                                onChange={() => onToggleEntry(entry.id)}
+                                                onClick={(event) => event.stopPropagation()}
+                                                disabled={!isProcessable}
+                                            />
+                                        </td>
+                                        {isSurveySource ? (
+                                            <>
+                                                <td className="max-w-[140px] truncate py-[14px] px-[10px] text-gray-600">
+                                                    {entry.survey_id || "-"}
+                                                </td>
+                                                <td className="max-w-[140px] truncate py-[14px] px-[10px] text-gray-600">
+                                                    {entry.question_id || entry.metadata?.question_id || "-"}
+                                                </td>
+                                                <td className="max-w-[150px] truncate py-[14px] px-[10px] font-medium text-gray-800">
+                                                    {entry.response_id || entry.source_id || entry.id || "-"}
+                                                </td>
+                                                <td className="py-[14px] px-[10px] text-gray-600">
+                                                    {entry.language || "-"}
+                                                </td>
+                                                <td className="max-w-[360px] truncate py-[14px] px-[10px] text-gray-800">
+                                                    {entry.text || "-"}
+                                                </td>
+                                                <td className="max-w-[150px] truncate py-[14px] px-[10px] text-gray-600">
+                                                    {entry.user_id || entry.metadata?.user_id || entry.metadata?.visitor_id || "-"}
+                                                </td>
+                                                <td className="max-w-[260px] truncate py-[14px] px-[10px] text-gray-600">
+                                                    {formatUserLocation(entry.user_location)}
+                                                </td>
+                                                <td className="py-[14px] px-[10px] text-gray-600">
+                                                    {entry.event_time
+                                                        ? format(new Date(entry.event_time), "MMM dd, yyyy hh:mm a")
+                                                        : "-"
+                                                    }
+                                                </td>
+                                                <td className="py-[14px] px-[10px]">
+                                                    <DatasetStatusBadge status={entry.analysis_status || "pending"} />
+                                                </td>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <td className="max-w-[150px] truncate py-[14px] px-[10px] font-medium text-gray-800">
+                                                    {entry.source_id || entry.report_id || entry.id || "-"}
+                                                </td>
+                                                <td className="py-[14px] px-[10px] text-gray-600">
+                                                    {entry.language || "-"}
+                                                </td>
+                                                <td className="max-w-[420px] truncate py-[14px] px-[10px] text-gray-800">
+                                                    {entry.text || "-"}
+                                                </td>
+                                                <td className="py-[14px] px-[10px] text-gray-600">
+                                                    {entry.location?.raw || entry.location?.city || entry.location?.province || entry.location?.region || "-"}
+                                                </td>
+                                                <td className="py-[14px] px-[10px] text-gray-600">
+                                                    {entry.created_at
+                                                        ? format(new Date(entry.created_at), "MMM dd, yyyy hh:mm a")
+                                                        : "-"
+                                                    }
+                                                </td>
+                                                <td className="py-[14px] px-[10px]">
+                                                    <DatasetStatusBadge status={entry.analysis_status || "pending"} />
+                                                </td>
+                                            </>
+                                        )}
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <EmptyState
+                    iconName="Document"
+                    heading="No Analytics Entries Yet"
+                    content={
+                        sourceType === "survey_response"
+                            ? "Survey responses with analyzable text will appear here."
+                            : "Mobile self-report entries with analyzable text will appear here."
+                    }
+                />
+            )}
+        </div>
+    );
+};
+
+const displayEntryDateTime = (value) => {
+    if (!value) return "-";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return "-";
+    }
+
+    return format(date, "MMM dd, yyyy hh:mm a");
+};
+
+const formatUserLocation = (location = {}) => {
+    const parts = [
+        location.barangay,
+        location.city,
+        location.province,
+        location.regionLabel,
+        location.regionCode,
+    ].filter(Boolean);
+
+    return parts.length > 0 ? parts.join(", ") : "-";
+};
+
+const DetailRow = ({ label, value }) => (
+    <div>
+        <p className="text-xs font-medium uppercase text-gray-400">
+            {label}
+        </p>
+        <p className="mt-[4px] break-words text-sm text-gray-800">
+            {value || "-"}
+        </p>
+    </div>
+);
+
+const AnalyticsEntryDetailsModal = ({ entry, sourceType, onClose }) => {
+    const isSurveySource = sourceType === "survey_response";
+
+    const location = isSurveySource
+        ? formatUserLocation(entry.user_location)
+        : entry.location?.raw ||
+            entry.location?.city ||
+            entry.location?.province ||
+            entry.location?.region ||
+            "-";
+
+    const primaryId = isSurveySource
+        ? entry.response_id || entry.source_id || entry.id
+        : entry.source_id || entry.report_id || entry.id;
+
+    const title = isSurveySource
+        ? "Survey Response Details"
+        : "Self Report Details";
+
+    const dateLabel = isSurveySource ? "Date Answered" : "Date Reported";
+    const dateValue = isSurveySource
+        ? entry.event_time || entry.date_answered || entry.created_at
+        : entry.created_at || entry.event_time;
+
+    return (
+        <div className="fixed inset-x-0 bottom-0 top-[49px] z-50 flex items-center justify-center px-[20px] py-[32px]">
+            <button 
+                type="button"
+                className="absolute inset-0 bg-[#34405499] backdrop-blur-sm"
+                onClick={onClose}
+                aria-label="Close Analytics entry details"
+            />
+
+            <div className="relative flex max-h-[calc(100vh-113px)] w-full max-w-[900px] flex-col overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-white shadow-xl">
+                <div className="border-b border-[#E5E5E5] px-[20px] py-[16px]">
+                    <div className="flex items-start justify-between gap-[20px]">
+                        <div>
+                            <h3 className="text-[18px] font-semibold text-gray-800">
+                                {title}
+                            </h3>
+                            <p className="mt-[4px] text-sm text-gray-500">
+                                {primaryId || "-"}
+                            </p>
+                        </div>
+
+                        <DatasetStatusBadge status={entry.analysis_status || "pending"} />
+                    </div>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto p-[20px]">
+                    <div className="grid gap-[16px] md:grid-cols-2">
+                        {isSurveySource && (
+                            <>
+                                <DetailRow label="Survey ID" value={entry.survey_id} />
+                                <DetailRow label="Question ID" value={entry.question_id || entry.metadata?.question_id} />
+                            </>
+                        )}
+
+                        <DetailRow label="ID" value={primaryId} />
+                        <DetailRow label="Language" value={entry.language} />
+                        <DetailRow label={dateLabel} value={displayEntryDateTime(dateValue)} />
+                        <DetailRow label="Location" value={location} />
+
+                        {isSurveySource && (
+                            <DetailRow
+                                label="User ID"
+                                value={entry.user_id || entry.metadata?.user_id || entry.metadata?.visitor_id}
+                            />
+                        )}
+
+                        <DetailRow label="Source Type" value={entry.source_type} />
+                    </div>
+
+                    <div className="mt-[18px]">
+                        <p className="text-xs font-medium uppercase text-gray-400">
+                            {isSurveySource ? "Answer" : "Text"}
+                        </p>
+                        <div className="mt-[6px] rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] p-[12px] text-sm leading-6 text-gray-800">
+                            {entry.text || "-"}
+                        </div>
+                    </div>
+
+                    <div className="mt-[18px] grid gap-[16px] md:grid-cols-2">
+                        <div>
+                            <p className="text-xs font-medium uppercase text-gray-400">
+                                Metadata
+                            </p>
+                            <pre className="mt-[6px] max-h-[220px] overflow-auto rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] p-[12px] text-xs text-gray-700">
+                                {JSON.stringify(entry.metadata || {}, null, 2)}
+                            </pre>
+                        </div>
+
+                        <div>
+                            <p className="text-xs font-medium uppercase text-gray-400">
+                                Analysis
+                            </p>
+                            <pre className="mt-[6px] max-h-[220px] overflow-auto rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] p-[12px] text-xs text-gray-700">
+                                {JSON.stringify(entry.analysis || {}, null, 2)}
+                            </pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex justify-end border-t border-[#E5E5E5] px-[20px] py-[16px]">
+                    <button
+                        type="button"
+                        className="prod-btn-base prod-btn-secondary"
+                        onClick={onClose}
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
     );
 };
 
@@ -1160,19 +1767,19 @@ const BulkDatasetActionModal = ({
             title: "Download Selected Datasets",
             message: `Download ${selectedCount} selected dataset${selectedCount === 1 ? "" : "s"}?`,
             confirmLabel: "Download",
-            confirmClass: "prod-btn-base prod-btn-primary",
+            confirmClass: MODAL_PRIMARY_BUTTON_CLASSES,
         },
         process: {
             title: "Process Selected Datasets",
             message: `Process ${processableCount} of ${selectedCount} selected dataset${selectedCount === 1 ? "" : "s"}? Only uploaded or failed raw datasets can be processed.`,
             confirmLabel: "Process",
-            confirmClass: "prod-btn-base prod-btn-primary",
+            confirmClass: MODAL_PRIMARY_BUTTON_CLASSES,
         },
         delete: {
             title: "Delete Selected Datasets",
             message: `Delete ${selectedCount} selected dataset${selectedCount === 1 ? "" : "s"}? This action cannot be undone.`,
             confirmLabel: "Delete",
-            confirmClass: "prod-btn-base bg-[#DC2626] text-white",
+            confirmClass: MODAL_DESTRUCTIVE_BUTTON_CLASSES,
         },
     };
 
@@ -1374,7 +1981,7 @@ const DatasetPreviewModal = ({
                     {canProcess && (
                         <button
                             type="button"
-                            className="prod-btn-base prod-btn-primary"
+                            className={MODAL_PRIMARY_BUTTON_CLASSES}
                             onClick={onProcess}
                             disabled={isProcessLoading}
                         >
@@ -1383,7 +1990,7 @@ const DatasetPreviewModal = ({
                     )}
                     <button
                         type="button"
-                        className="prod-btn-base bg-[#DC2626] text-white"
+                        className={MODAL_DESTRUCTIVE_BUTTON_CLASSES}
                         onClick={onDelete}
                     >
                         Delete
@@ -1448,7 +2055,7 @@ const DeleteDatasetModal = ({
                     </button>
                     <button
                         type="button"
-                        className="prod-btn-base prod-btn-destructive"
+                        className={MODAL_DESTRUCTIVE_BUTTON_CLASSES}
                         onClick={onConfirm}
                         disabled={isLoading}
                     >
@@ -1550,7 +2157,7 @@ const UploadDatasetModal = ({ data, error, isLoading, onCancel, onConfirm }) => 
                         Cancel
                     </button>
                     <button
-                        className="prod-btn-base prod-btn-primary"
+                        className={MODAL_PRIMARY_BUTTON_CLASSES}
                         onClick={onConfirm}
                         disabled={isLoading}
                     >
@@ -1672,7 +2279,7 @@ const TrainingLogs = () => {
                         <EmptyState
                             iconName={Document}
                             heading="No training Logs"
-                            content="Upload and process a dataset to create pipeline activity logs."
+                            content="Upload and process a dataset to create pipeline activity history."
                         />
                     )}
                 </div>

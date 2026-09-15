@@ -1,5 +1,6 @@
 import { Link, useLocation, useParams } from "react-router-dom";
 import { Fragment, useEffect, useMemo, useState } from "react";
+import "../assets/css/about.css";
 
 import Icon from "../components/Icon";
 import HomeNavbar from "../components/HomeNavbar";
@@ -7,7 +8,7 @@ import HomeFooter from "../components/HomeFooter";
 import { useFetchWebsiteHealthLiteracyContentQuery } from "../features/api/healthLiteracyHubSlice";
 import {
   formatContentDate,
-  getStaticArticleImageSource,
+  getResourceImageSource,
   normalizeStaticArticle,
   normalizeWebsiteContent,
   sortNewestFirst,
@@ -101,7 +102,7 @@ const ArticlePage = () => {
     contentTypeLabel,
     tags = [],
   } = article;
-  const heroImageSource = getStaticArticleImageSource(article);
+  const heroImageSource = getResourceImageSource(article);
   const articleText = articleBody || articlePreview || "";
   const displayDate = formatContentDate(datePublished);
   const detailMeta = [

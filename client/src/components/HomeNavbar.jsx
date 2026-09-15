@@ -1,130 +1,68 @@
-import { Link, NavLink } from "react-router-dom";
-import WebLogo from "../assets/images/website-logo.svg";
+/* eslint-disable react-refresh/only-export-components */
 import { useState } from "react";
-import HamburgerMenu from "./HamburgerMenu";
-import Icon from "./Icon";
-
+import { toast } from "react-toastify";
+import WebLogo from "../assets/images/website-logo.svg";
 import NULogoLgAlt from "../assets/images/nu-logo-lg-alt.png";
+import Snackbar from "./Snackbar";
+import "../assets/css/public-site.css";
 
-const HomeNavbar = ({ background = "transparent" }) => {
-  const [isMenuActive, setIsMenuActive] = useState(false);
+const navigation = [
+  { href: "/#home", label: "Download the app", download: true },
+  { href: "/#articles", label: "Articles" },
+  { href: "/#about", label: "About the Project" },
+  { href: "/#contact", label: "Contact Us" },
+];
 
-  const [menuAnimate, setMenuAnimate] = useState("");
-
-  const handleOpenMenu = () => {
-    setIsMenuActive(!isMenuActive);
-    setMenuAnimate(!isMenuActive ? "show-menu" : "hide-menu");
-  };
-
-  const handleAnimationEnd = (e) => {
-    if (e.target.classList.contains("hide-menu")) {
-      setMenuAnimate("");
-    }
-  };
-
-  const navLinks = [
-    { path: "/", iconName: "Home", label: "Home" },
-    {
-      path: "/about-the-project",
-      iconName: "Information",
-      label: "About The Project",
-    },
-    { path: "/articles", iconName: "Document", label: "Articles" },
-    { path: "/research-team", iconName: "UserThree", label: "Research Team" },
-    { path: "/contact-us", iconName: "Mail", label: "Contact Us" },
-  ];
-
-  return (
-    <nav
-      className={
-        "home-nav h-[96px] mx-[20px] flex justify-between items-center background-" +
-        background
-      }
-    >
-      <div className="flex justify-between items-center w-full max-w-[1326px] mx-auto">
-        {/* LOGO */}
-        <div className="flex">
-          <Link to="/" className="logo-wrapper h-[44px] me-[16px]">
-            <img
-              src={WebLogo}
-              alt=""
-            />
-          </Link>
-        </div>
-
-        <div className={"home-nav-links " + menuAnimate}>
-          {/* NAV LINKS */}
-          <ul>
-            {navLinks.map(({ path, iconName, label }, i) => {
-              return (
-                <li key={i}>
-                  <NavLink to={path}>
-                    <Icon
-                      iconName={iconName}
-                      height="20px"
-                      width="20px"
-                      className="icon"
-                    />
-                    <span>{label}</span>
-                  </NavLink>
-                </li>
-              );
-            })}
-          </ul>
-
-          <div className="flex justify-center items-center">
-            <div className="w-[152px] h-full">
-              <img
-                src={NULogoLgAlt}
-                alt="national-university"
-                className="w-full h-full object-contain"
-              />
-            </div>
-          </div>
-
-          {/* CTA*/}
-          {/* <div className="home-cta flex justify-center items-center"> */}
-          {/* <Link
-              to="/login"
-              className="prod-btn-lg prod-btn-primary me-[16px]"
-            >
-              Sign In
-            </Link> */}
-          {/* <Link
-              to="assets/healthph-pre-alpha.apk"
-              target="_blank"
-              className="prod-btn-lg prod-btn-secondary flex justify-center items-center"
-            >
-              <span>Download HealthPH</span>
-              <Icon
-                iconName="Download"
-                height="24"
-                width="24"
-                fill="#8693A0"
-                className="icon ms-[8px]"
-              />
-            </Link> */}
-
-          {/* <Link to="/register" className="prod-btn-lg prod-btn-secondary">
-            Join HealthPH
-          </Link> */}
-          {/* </div> */}
-        </div>
-
-        <HamburgerMenu
-          isMenuActive={isMenuActive}
-          handleClick={handleOpenMenu}
-          additionalClasses="block min-[1100px]:hidden"
-        />
-      </div>
-      <div
-        className={`nav-backdrop min-[1100px]:!hidden  ${
-          isMenuActive ? "active" : ""
-        } ${menuAnimate} `}
-        onAnimationEnd={handleAnimationEnd}
-        onClick={handleOpenMenu}
-      ></div>
-    </nav>
+const announceComingSoon = () => {
+  toast(
+    <Snackbar
+      size="snackbar-md"
+      color="primary"
+      iconName="Information"
+      message="Coming soon"
+    />
   );
 };
+
+const HomeNavbar = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const closeMenu = () => setIsOpen(false);
+
+  return (
+    <header className="public-header">
+      <nav className="public-nav" aria-label="Public navigation">
+        <a href="/#home" className="public-logo" aria-label="HealthPH+ home" onClick={closeMenu}>
+          <img src={WebLogo} alt="HealthPH+" />
+        </a>
+        <button
+          type="button"
+          className="public-menu-button"
+          aria-label="Toggle navigation menu"
+          aria-expanded={isOpen}
+          onClick={() => setIsOpen((open) => !open)}
+        >
+          <span></span><span></span><span></span>
+        </button>
+        <div className={`public-nav-content ${isOpen ? "is-open" : ""}`}>
+          <ul className="public-nav-links">
+            {navigation.map(({ href, label, download }) => (
+              <li key={label}>
+                {download ? (
+                  <button type="button" className="public-download-button" onClick={() => { announceComingSoon(); closeMenu(); }}>
+                    {label}
+                  </button>
+                ) : (
+                  <a href={href} onClick={closeMenu}>{label}</a>
+                )}
+              </li>
+            ))}
+          </ul>
+          <img className="public-nu-logo" src={NULogoLgAlt} alt="National University" />
+        </div>
+      </nav>
+    </header>
+  );
+};
+
+export { announceComingSoon };
 export default HomeNavbar;

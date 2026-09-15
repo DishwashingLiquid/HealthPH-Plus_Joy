@@ -5,6 +5,8 @@ import { useSelector } from "react-redux";
 import AccessDenied from "../pages/error/AccessDenied";
 
 import { useState } from "react";
+import "../assets/css/navbar.css";
+import "../assets/css/admin.css";
 
 const AdminLayout = () => {
   const location = useLocation();

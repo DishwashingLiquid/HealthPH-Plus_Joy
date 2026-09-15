@@ -1,0 +1,80 @@
+{
+  "regional_summary_events": [
+    {
+      "_id": {
+        "$oid": "6aa0b7a4d677152e57ba45a5"
+      },
+      "region": "NCR",
+      "reportId": {
+        "$oid": "6a97ab1e26f57d6578357549"
+      },
+      "symptoms": [
+        "Fever",
+        "Cough"
+      ],
+      "createdAt": {
+        "$date": "2026-09-02T12:50:38.177Z"
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6aa0b7a4d677152e57ba45a6"
+      },
+      "region": "NCR",
+      "reportId": {
+        "$oid": "6a97ab2e26f57d657835754b"
+      },
+      "symptoms": [
+        "Fever",
+        "Cough"
+      ],
+      "createdAt": {
+        "$date": "2026-09-02T12:50:54.400Z"
+      }
+    },
+    {
+      "_id": {
+        "$oid": "6aa0b7a4d677152e57ba45a7"
+      },
+      "region": "NCR",
+      "reportId": {
+        "$oid": "6a97abe626f57d657835754d"
+      },
+      "symptoms": [
+        "Fever",
+        "Cough"
+      ],
+      "createdAt": {
+        "$date": "2026-09-02T12:53:58.412Z"
+      }
+    }
+  ],
+  "regional_symptom_summaries": [
+    {
+      "_id": {
+        "$oid": "6aa0b7a2ac4b8a8f9b643988"
+      },
+      "region": "NCR",
+      "createdAt": {
+        "$date": "2026-09-09T09:34:28.901Z"
+      },
+      "isReady": false,
+      "reportCount": 3,
+      "revision": 0,
+      "symptomCounts": [
+        {
+          "symptom": "Cough",
+          "count": 3
+        },
+        {
+          "symptom": "Fever",
+          "count": 3
+        }
+      ],
+      "updatedAt": {
+        "$date": "2026-09-09T09:34:28.901Z"
+      }
+    }
+  ],
+  "migration": null
+}

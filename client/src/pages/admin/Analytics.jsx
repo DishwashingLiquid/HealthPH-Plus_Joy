@@ -32,7 +32,7 @@ import EmptyState from "../../components/admin/EmptyState";
 import { useFetchPointsQuery } from "../../features/api/pointsSlice";
 import { useFetchDatasetsQuery } from "../../features/api/datasetsSlice";
 import SkeletonAnalytics from "../../components/admin/SkeletonAnalytics";
-import { useCreateActivityLogMutation } from "../../features/api/activityLogsSlice";
+import { useCreateAccountActivityMutation } from "../../features/api/accountActivitySlice";
 import capitalizeSymptom from "../../hooks/useCapitalizeSymptom";
 import ReactWordCloud from "react-wordcloud";
 import { saveSvgAsPng, svgAsPngUri } from "save-svg-as-png";
@@ -45,7 +45,7 @@ import useDeviceDetect from "../../hooks/useDeviceDetect";
 const Analytics = () => {
   const user = useSelector((state) => state.auth.user);
 
-  const [log_activity] = useCreateActivityLogMutation();
+  const [log_activity] = useCreateAccountActivityMutation();
 
   const [isAnalyticsAvailable, setIsAnalyticsAvailable] = useState(false);
 

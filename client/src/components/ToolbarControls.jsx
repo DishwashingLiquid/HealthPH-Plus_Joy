@@ -1,4 +1,4 @@
-import { icon } from "leaflet";
+/* eslint-disable react/prop-types */
 import Icon from "./Icon";
 
 export const ToolbarSearch = ({
@@ -34,18 +34,23 @@ export const ToolbarButton = ({
     variant = "secondary",
     onClick,
     className = "",
+    disabled = false,
+    type = "button",
+    ...buttonProps
 }) => {
     const isPrimary = variant === "primary";
 
     return (
         <button
-            type="button"
+            type={type}
             onClick={onClick}
-            className={`rounded-[10px] px-[16px] py-[10px] text-sm flex items-center gap-[8px] ${
+            disabled={disabled}
+            className={`rounded-[10px] px-[16px] py-[10px] text-sm font-medium flex items-center gap-[8px] transition shadow-sm disabled:cursor-not-allowed disabled:opacity-60 ${
                 isPrimary
-                    ? "bg-[#32418C] text-white"
-                    : "border border-[#E5E5E5] bg-[#F8F9FA] text-gray-800"
+                    ? "bg-[#32418C] text-white hover:bg-[#27346F]"
+                    : "border border-[#E5E5E5] bg-white text-gray-800 hover:bg-[#F8F9FA]"
             } ${className}`}
+            {...buttonProps}
         >
             {iconName && (
                 <Icon
@@ -53,7 +58,7 @@ export const ToolbarButton = ({
                     height="16px"
                     width="16px"
                     fill="none"
-                    stroke="#FFF"
+                    stroke={isPrimary ? "#FFFFFF" : "#344054"}
                 />
             )}
             <span>{children}</span>
