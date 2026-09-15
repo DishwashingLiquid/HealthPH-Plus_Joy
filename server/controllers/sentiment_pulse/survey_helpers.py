@@ -8,11 +8,13 @@ from fastapi import HTTPException, status
 from pymongo import ReturnDocument
 
 from helpers.miscHelpers import get_ph_datetime
+from controllers.dashboard_regions import USER_REGION_PATHS, dashboard_region
 
 from .constants import (
     EMPTY_SENTIMENT_BREAKDOWN,
     PUBLIC_PLATFORMS,
     application_settings_collection,
+    mobile_users_collection,
     survey_responses_collection,
     surveys_collection,
 )
@@ -128,6 +130,9 @@ def ensure_survey_indexes() -> None:
     )
     survey_responses_collection.create_index(
         [("surveyId", 1), ("createdAt", -1)], name="sentiment_pulse_response_lookup"
+    )
+    mobile_users_collection.create_index(
+        [("id", 1)], name="sentiment_pulse_mobile_user_lookup"
     )
 
 
@@ -346,10 +351,23 @@ def build_survey_update_document(data, current_user: Optional[dict], survey: dic
     }
 
 
-def build_public_response_document(survey_id: str, data, platform: str) -> dict:
-    return {
+def build_public_response_document(
+    survey_id: str,
+    data,
+    platform: str,
+    authenticated_mobile_user: Optional[dict] = None,
+) -> dict:
+    document = {
         "id": str(uuid4()), "surveyId": survey_id, "answers": data.answers,
         "platform": platform, "visitorId": str(data.visitorId or "").strip(),
         "region": data.region or "", "metadata": data.metadata or {},
         "createdAt": get_ph_datetime(),
     }
+    if authenticated_mobile_user:
+        # The verified mobile token, never a client-supplied ID, establishes this link.
+        document["mobileUserId"] = authenticated_mobile_user["id"]
+        document["accountLinkVerified"] = True
+        document["region"] = dashboard_region(
+            authenticated_mobile_user, USER_REGION_PATHS
+        ) or ""
+    return document

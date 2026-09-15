@@ -1,4 +1,8 @@
-import { getRegionLabel, getVisibleRegionalRows } from "./RegionalAnalysis";
+import {
+  getRegionLabel,
+  getVisibleRegionalRows,
+  normalizeRegionalApiData,
+} from "./RegionalAnalysis";
 
 const escapeCsvValue = (value) => {
   const text = String(value ?? "");
@@ -7,11 +11,13 @@ const escapeCsvValue = (value) => {
     : text;
 };
 
-export const exportSentimentPulseCsv = ({
+export const buildSentimentPulseCsv = ({
   activeTab,
   timeRange,
+  customStartDate,
+  customEndDate,
   selectedRegions,
-  regionalData,
+  regionalAnalysis,
   surveys,
 }) => {
   const timestamp = new Date().toLocaleString();
@@ -24,6 +30,9 @@ export const exportSentimentPulseCsv = ({
     `Generated: ${timestamp}`,
     `Active Tab: ${activeTab}`,
     `Time Range: ${timeRange}`,
+    ...(timeRange === "custom"
+      ? [`Start Date: ${customStartDate}`, `End Date: ${customEndDate}`]
+      : []),
     `Selected Regions: ${selectedRegionLabels}`,
     "",
   ];
@@ -37,17 +46,24 @@ export const exportSentimentPulseCsv = ({
     csvContent += "2026-05-02,14,44,17,25\n";
     csvContent += "2026-05-03,16,41,19,24\n";
   } else if (activeTab === "regional-analysis") {
-    csvContent +=
-      "Region,Responses,Previous Responses,Dominant Sentiment,Trend (%)\n";
-    const regionalRows = getVisibleRegionalRows(selectedRegions, regionalData);
+    const totals = regionalAnalysis?.filteredTotals || {};
+    csvContent += `Survey Respondents (filtered),${escapeCsvValue(totals.surveyRespondents)}\n`;
+    csvContent += `Total Submissions (filtered),${escapeCsvValue(totals.totalSubmissions)}\n`;
+    csvContent += `Unlinked Submissions (filtered),${escapeCsvValue(totals.unlinkedSubmissions)}\n`;
+    csvContent += "\nRegion,Survey Respondents,Total Submissions,Health Sentiment Score,Sentiment Status\n";
+    const regionalRows = getVisibleRegionalRows(
+      selectedRegions,
+      normalizeRegionalApiData(regionalAnalysis),
+      regionalAnalysis?.unknownRegion,
+    );
     csvContent += regionalRows
       .map((region) =>
         [
           region.label,
-          region.data.responses,
-          region.data.previousResponses,
-          region.data.dominantSentiment,
-          region.data.trend,
+          region.data.surveyRespondents,
+          region.data.totalSubmissions,
+          "—",
+          "Coming soon",
         ]
           .map(escapeCsvValue)
           .join(",")
@@ -74,6 +90,13 @@ export const exportSentimentPulseCsv = ({
       .join("\n");
     csvContent += surveys.length > 0 ? "\n" : "";
   }
+
+  return csvContent;
+};
+
+export const exportSentimentPulseCsv = (options) => {
+  const csvContent = buildSentimentPulseCsv(options);
+  const { activeTab } = options;
 
   const element = document.createElement("a");
   element.setAttribute(

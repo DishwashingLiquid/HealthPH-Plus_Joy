@@ -32,6 +32,7 @@ export const sentimentPulseApi = baseAPI.injectEndpoints({
       }),
       invalidatesTags: (_result, _error, { surveyId }) => [
         "SentimentPulseSurveys",
+        "SentimentPulseRegionalAnalysis",
         { type: "SentimentPulseSurveys", id: surveyId },
       ],
     }),
@@ -42,6 +43,7 @@ export const sentimentPulseApi = baseAPI.injectEndpoints({
       }),
       invalidatesTags: (_result, _error, surveyId) => [
         "SentimentPulseSurveys",
+        "SentimentPulseRegionalAnalysis",
         { type: "SentimentPulseSurveys", id: surveyId },
       ],
     }),
@@ -51,14 +53,20 @@ export const sentimentPulseApi = baseAPI.injectEndpoints({
         method: "PATCH",
         body: { scheduledAt },
       }),
-      invalidatesTags: ["SentimentPulseSurveys"],
+      invalidatesTags: ["SentimentPulseSurveys", "SentimentPulseRegionalAnalysis"],
     }),
     fetchSentimentPulseRegionalAnalysis: builder.query({
-      query: ({ timeRange = "last-30-days", regions = [] } = {}) => ({
+      query: ({
+        timeRange = "last-30-days",
+        regions = [],
+        startDate,
+        endDate,
+      } = {}) => ({
         url: "/sentiment-pulse/regional-analysis",
         params: {
           timeRange,
           ...(regions.length > 0 ? { regions: regions.join(",") } : {}),
+          ...(timeRange === "custom" ? { startDate, endDate } : {}),
         },
       }),
       providesTags: ["SentimentPulseRegionalAnalysis"],
@@ -76,7 +84,7 @@ export const sentimentPulseApi = baseAPI.injectEndpoints({
         method: "POST",
         body: data,
       }),
-      invalidatesTags: ["SentimentPulseSurveys"],
+      invalidatesTags: ["SentimentPulseSurveys", "SentimentPulseRegionalAnalysis"],
     }),
   }),
 });

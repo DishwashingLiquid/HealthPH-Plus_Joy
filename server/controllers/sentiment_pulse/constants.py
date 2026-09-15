@@ -2,6 +2,7 @@ from controllers.dashboard_regions import REGIONS
 from config.database import (
     application_settings_collection,
     analytics_events_collection,
+    mobile_users_collection,
     survey_responses_collection,
     surveys_collection,
 )

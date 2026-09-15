@@ -16,7 +16,7 @@ Entry points:
 - Backend: `server/routes/sentimentPulseRoutes.py`, `server/controllers/sentimentPulseController.py`, `server/controllers/sentiment_pulse/survey_helpers.py`, and `server/models/sentimentPulseSurvey.py`
 - MongoDB configuration: `server/config/database.py:24-41`
 
-`GET /api/sentiment-pulse/regional-analysis` is not covered as a Mobile Surveys API: it reads `analytics_events`, not survey or survey-response records.
+`GET /api/sentiment-pulse/regional-analysis` is the admin Regional Analysis API. It reads eligible `survey_responses`, joins verified links to `mobile_users`, and returns response aggregates; it does not read analytics-event counts or calculate sentiment.
 
 ## Feature Overview
 
@@ -33,7 +33,7 @@ No mobile application source is present in this repository. Public-survey client
 | Collection | Model/schema | Relevant fields and behavior | Indexes / source |
 | --- | --- | --- | --- |
 | `surveys` | Request models: `SentimentPulseSurveyDraft` and `SentimentPulseSurveySchedule` in `server/models/sentimentPulseSurvey.py:6-15`. No persisted ODM schema exists. | `id`, `title`, `subtitle`, `target`, `questions`, `surveyJson`, publication flags, `scheduledAt`, response/sentiment fields, and audit fields. `status`, `publishedAt`, and `responses` are computed response fields. | Declared in `server/config/database.py:38`; indexes in `server/controllers/sentiment_pulse/survey_helpers.py:17-30`. |
-| `survey_responses` | `SentimentPulseSurveyResponse` in `server/models/sentimentPulseSurvey.py:18-23`. No persisted ODM schema exists. | `id`, `surveyId`, `answers`, `platform`, optional `visitorId`, `region`, `metadata`, and `createdAt`. One record is inserted per accepted submission. | Declared in `server/config/database.py:39`; index in `server/controllers/sentiment_pulse/survey_helpers.py:31-34`. |
+| `survey_responses` | `SentimentPulseSurveyResponse` in `server/models/sentimentPulseSurvey.py`. No persisted ODM schema exists. | `id`, `surveyId`, `answers`, `platform`, optional `visitorId`, `region`, `metadata`, and `createdAt`. Authenticated submissions also store backend-derived `mobileUserId` and `accountLinkVerified: true`. One record is inserted per accepted submission. | Declared in `server/config/database.py`; indexes in `server/controllers/sentiment_pulse/survey_helpers.py`. |
 | `analytics_entries` | Serialization helper: `server/schema/analyticsEntrySchema.py:1-21`. | Response side effect. Qualifying text answers create pending analytics entries with `source_type: "survey_response"`, survey/response/question IDs, platform, and region metadata. | Declared in `server/config/database.py:33`; generated in `server/helpers/analyticsEntryHelpers.py`. |
 
 ### `surveys` fields
@@ -68,7 +68,7 @@ All paths are mounted under `/api` and grouped beneath `/sentiment-pulse` (`serv
 | GET | `/api/sentiment-pulse/surveys/{survey_id}/results` | Dashboard result aggregation. | `Admin` or `SUPERADMIN`. | Path `survey_id` | `{survey, questions, updatedAt}` | `Sentiment Pulse`; per-ID `SentimentPulseSurveys` tag | Current. `:75-110` |
 | PATCH | `/api/sentiment-pulse/surveys/{survey_id}/schedule` | Schedule a draft for publication. | `Admin` or `SUPERADMIN`. | `{scheduledAt: ISO-date-time}` | `{message, survey}` | `Sentiment Pulse`; invalidates `SentimentPulseSurveys` | Current. `:182-217` |
 | GET | `/api/sentiment-pulse/public-surveys?platform=mobile` | Fetch eligible public/mobile surveys. | Public. | Optional `platform`: `mobile` (default) or `website`. | Array of public serialized surveys. | `Sentiment Pulse`; `SentimentPulseSurveys` | Current. `:250-259` |
-| POST | `/api/sentiment-pulse/public-surveys/{survey_id}/responses` | Submit public/mobile response. | Public. | `answers`, `platform`, plus optional `visitorId`, `region`, `metadata`. | `201`, `{message}` | `Sentiment Pulse`; invalidates `SentimentPulseSurveys` | Current. `:269-321` |
+| POST | `/api/sentiment-pulse/public-surveys/{survey_id}/responses` | Submit mobile/website response. | Optional mobile Bearer token; invalid supplied credentials return `401`. | `answers`, `platform`, plus optional legacy `visitorId`, `region`, `metadata`. Never send an account ID. | `201`, `{message}` | `Sentiment Pulse`; invalidates survey and regional-analysis caches | Current. |
 
 ### Public survey retrieval
 
@@ -86,6 +86,8 @@ Public serialization excludes `createdBy`, `updatedBy`, and `responseCount`, but
 ### Public response submission
 
 The response body must contain a non-empty `answers` object and `platform` must be `mobile` or `website` after normalization (`server/controllers/sentimentPulseController.py:269-297`).
+
+Both mobile and website respondents use accounts in `mobile_users`. Sign in with `POST /api/mobile/users/login`, retain its `access_token`, and send `Authorization: Bearer <access_token>` on the response request. The backend verifies the mobile token and account, persists `mobileUserId` from the token subject, and stores the account's normalized region as the response snapshot. Do not add `mobileUserId` to the JSON body; it is not accepted as proof of identity. Authenticated client-supplied region values are ignored. Anonymous legacy submissions remain accepted, but they are reported as unlinked submissions and never count as respondents. `visitorId` has no account-linking semantics.
 
 The server confirms that the survey is already published for the selected platform. Otherwise, it returns `404` with `Published Sentiment Pulse survey not found`. It does not validate required questions, question IDs, choices, rating ranges, duplicate submissions, or the target count.
 

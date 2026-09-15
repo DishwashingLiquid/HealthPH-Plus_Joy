@@ -1,289 +1,188 @@
 /* eslint-disable react-refresh/only-export-components */
 import PropTypes from "prop-types";
 import {
-  regionalSentimentData,
-  formatNumber,
-  formatPercentage,
-  getTrendIndicator,
-  sentimentColors,
-} from "../../../assets/data/sentimentMockData";
-import { DASHBOARD_REGIONS as REGIONS, getDashboardRegionLabel } from "../dashboardRegions";
+  DASHBOARD_REGIONS as REGIONS,
+  getDashboardRegionLabel,
+} from "../dashboardRegions";
 
 export { REGIONS };
 
-const REGIONAL_SCORE_FIELDS = [
-  "healthSentimentScore",
-  "health_sentiment_score",
-  "sentimentScore",
-  "sentiment_score",
-  "score",
-  "percentage",
-];
-
-const toFiniteNumber = (value) => {
-  const parsedValue = Number(value);
-  return Number.isFinite(parsedValue) ? parsedValue : null;
+const EMPTY_METRICS = {
+  surveyRespondents: 0,
+  totalSubmissions: 0,
+  healthSentimentScore: null,
+  sentimentStatus: "Coming soon",
 };
 
-const clampScore = (value) => {
-  if (value === null) {
-    return null;
-  }
-
-  return Math.max(0, Math.min(100, Math.round(value)));
-};
+const formatNumber = (value) => new Intl.NumberFormat("en-PH").format(value || 0);
 
 export const getRegionLabel = getDashboardRegionLabel;
 
+export const normalizeRegionalApiData = (regionalAnalysis) => {
+  if (!regionalAnalysis || !Array.isArray(regionalAnalysis.regions)) {
+    return {};
+  }
+  return regionalAnalysis.regions.reduce((byRegion, row) => {
+    if (row?.region) {
+      byRegion[row.region] = row;
+    }
+    return byRegion;
+  }, {});
+};
+
 export const getVisibleRegionalRows = (
   selectedRegions,
-  regionalData = regionalSentimentData
+  regionalData = {},
+  unknownRegion,
 ) => {
-  const visibleRegions =
-    selectedRegions.length > 0
-      ? REGIONS.filter((region) => selectedRegions.includes(region.value))
-      : REGIONS;
+  const visibleRegions = selectedRegions.length
+    ? REGIONS.filter(({ value }) => selectedRegions.includes(value))
+    : REGIONS;
+  const rows = visibleRegions.map((region) => ({
+    ...region,
+    data: regionalData[region.value] || EMPTY_METRICS,
+  }));
 
-  return visibleRegions
-    .map((region) => ({
-      ...region,
-      data: regionalData[region.value],
-    }))
-    .filter((region) => region.data);
+  if (!selectedRegions.length && unknownRegion) {
+    rows.push({ value: "unknown", label: "Unknown region", data: unknownRegion });
+  }
+  return rows;
 };
 
-export const getRegionalSentimentScore = (regionData = {}) => {
-  const explicitScoreField = REGIONAL_SCORE_FIELDS.find(
-    (field) => toFiniteNumber(regionData?.[field]) !== null
-  );
+const StateMessage = ({ children, error = false }) => (
+  <div
+    role={error ? "alert" : undefined}
+    className={`rounded-[12px] border px-[20px] py-[32px] text-center text-sm ${
+      error
+        ? "border-red-200 bg-red-50 font-medium text-red-700"
+        : "border-dashed border-[#D0D5DD] bg-[#F8FAFC] text-gray-500"
+    }`}
+  >
+    {children}
+  </div>
+);
 
-  if (explicitScoreField) {
-    return clampScore(toFiniteNumber(regionData[explicitScoreField]));
-  }
-
-  const proactive = toFiniteNumber(regionData?.sentimentBreakdown?.proactive) ?? 0;
-  const neutral = toFiniteNumber(regionData?.sentimentBreakdown?.neutral) ?? 0;
-  const concerned = toFiniteNumber(regionData?.sentimentBreakdown?.concerned) ?? 0;
-  const totalGaugeResponses = proactive + neutral + concerned;
-
-  if (totalGaugeResponses <= 0) {
-    return null;
-  }
-
-  return clampScore(((proactive + neutral) / totalGaugeResponses) * 100);
-};
-
-export const getRegionalSentimentGauge = (score) => {
-  const normalizedScore = toFiniteNumber(score);
-
-  if (normalizedScore === null) {
-    return null;
-  }
-
-  if (normalizedScore >= 75) {
-    return "Proactive";
-  }
-
-  if (normalizedScore >= 65) {
-    return "Neutral";
-  }
-
-  return "Concerned";
-};
-
-export const getRegionalSentimentCardData = (regionData = {}) => {
-  const score = getRegionalSentimentScore(regionData);
-
-  return {
-    score,
-    gauge: score === null ? null : getRegionalSentimentGauge(score),
-  };
-};
-
-export const normalizeRegionalApiData = (regionalAnalysis) => {
-  if (
-    !Array.isArray(regionalAnalysis?.regions) ||
-    regionalAnalysis.regions.length === 0
-  ) {
-    return regionalSentimentData;
-  }
-
-  return regionalAnalysis.regions.reduce(
-    (regionalData, region) => {
-      if (!region?.region) {
-        return regionalData;
-      }
-
-      const mockRegionData = regionalSentimentData[region.region] || {};
-
-      return {
-        ...regionalData,
-        [region.region]: {
-          ...mockRegionData,
-          ...region,
-          previousResponses:
-            region.previousResponses ?? mockRegionData.previousResponses ?? 0,
-          trend: region.trend ?? mockRegionData.trend ?? 0,
-        },
-      };
-    },
-    { ...regionalSentimentData }
-  );
-};
-
-const MAP_CARD_STYLES = {
-  Proactive: {
-    cardClass: "border-[#BBF7D0] bg-white",
-    badgeClass: "border border-[#86EFAC] bg-[#DCFCE7] text-[#166534]",
-    valueClass: "text-[#15803D]",
-    labelClass: "text-[#166534]",
-    accentClass: "bg-[#22C55E]",
-  },
-  Neutral: {
-    cardClass: "border-[#FED7AA] bg-white",
-    badgeClass: "border border-[#FDBA74] bg-[#FFEDD5] text-[#C2410C]",
-    valueClass: "text-[#EA580C]",
-    labelClass: "text-[#9A3412]",
-    accentClass: "bg-[#F97316]",
-  },
-  Concerned: {
-    cardClass: "border-[#FECACA] bg-white",
-    badgeClass: "border border-[#FCA5A5] bg-[#FEE2E2] text-[#B91C1C]",
-    valueClass: "text-[#DC2626]",
-    labelClass: "text-[#991B1B]",
-    accentClass: "bg-[#EF4444]",
-  },
+StateMessage.propTypes = {
+  children: PropTypes.node,
+  error: PropTypes.bool,
 };
 
 export default function RegionalAnalysis({
   selectedRegions = [],
-  regionalData = regionalSentimentData,
+  regionalAnalysis,
+  isLoading = false,
+  isError = false,
+  isFetching = false,
 }) {
-  const visibleRegions =
-    selectedRegions.length > 0
-      ? REGIONS.filter((region) => selectedRegions.includes(region.value))
-      : REGIONS;
-
-  const visibleRegionData = visibleRegions
-    .map((region) => ({
-      ...region,
-      data: regionalData[region.value],
-    }))
-    .filter((region) => region.data);
-
-  const maxVisibleResponses = Math.max(
-    1,
-    ...visibleRegionData.map((region) => region.data.responses || 0)
-  );
-  const visibleMapRegionData = visibleRegionData
-    .map((region) => {
-      const cardData = getRegionalSentimentCardData(region.data);
-
-      return {
-        ...region,
-        sentimentScore: cardData.score,
-        sentimentGauge: cardData.gauge,
-      };
-    })
-    .filter(
-      (region) =>
-        Number(region.data?.responses || 0) > 0 &&
-        region.sentimentScore !== null &&
-        region.sentimentGauge
+  if (isLoading) {
+    return <StateMessage>Loading regional survey statistics...</StateMessage>;
+  }
+  if (isError) {
+    return (
+      <StateMessage error>
+        Unable to load regional survey statistics. Existing counts have not been replaced with zeros.
+      </StateMessage>
     );
+  }
+  if (!regionalAnalysis) {
+    return <StateMessage>No regional survey data is available.</StateMessage>;
+  }
+
+  const regionalData = normalizeRegionalApiData(regionalAnalysis);
+  const rows = getVisibleRegionalRows(
+    selectedRegions,
+    regionalData,
+    regionalAnalysis.unknownRegion,
+  );
+  const totals = regionalAnalysis.filteredTotals || EMPTY_METRICS;
+  const allTotals = regionalAnalysis.totals || EMPTY_METRICS;
+  const maxRespondents = Math.max(
+    1,
+    ...rows.map(({ data }) => Number(data.surveyRespondents || 0)),
+  );
+  const hasRegionFilter = selectedRegions.length > 0;
 
   return (
     <div className="flex flex-col gap-[10px]">
+      {isFetching && (
+        <p className="text-right text-xs font-medium text-[#475467]" aria-live="polite">
+          Refreshing regional survey statistics...
+        </p>
+      )}
+
+      <section className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
+        <div className="grid grid-cols-1 gap-[10px] sm:grid-cols-3">
+          <SummaryMetric label="Survey respondents" value={totals.surveyRespondents} />
+          <SummaryMetric label="Total submissions" value={totals.totalSubmissions} />
+          <SummaryMetric label="Unlinked submissions" value={totals.unlinkedSubmissions} />
+        </div>
+        <p className="mt-[12px] text-xs leading-relaxed text-[#667085]">
+          Respondents are distinct verified accounts, assigned to the region on their latest eligible response.
+          Submissions are counted separately by each response&apos;s own resolved region. Unlinked submissions never
+          count as respondents.
+        </p>
+        {hasRegionFilter ? (
+          <p className="mt-[6px] text-xs leading-relaxed text-[#667085]">
+            Region filters are applied after respondent assignment. Unknown-region respondents are excluded from
+            this filtered view; the date range contains {formatNumber(allTotals.unknownRegionRespondents)} such
+            respondents and {formatNumber(allTotals.unknownRegionSubmissions)} unknown-region submissions. Unlinked
+            submissions shown above are those whose response region matches the selected regions.
+          </p>
+        ) : (
+          <p className="mt-[6px] text-xs leading-relaxed text-[#667085]">
+            Unknown region is included below. Account-region fallback is used only when the latest response has no
+            usable region.
+          </p>
+        )}
+      </section>
+
+      {totals.totalSubmissions === 0 && (
+        <StateMessage>No eligible survey responses were found for the selected filters.</StateMessage>
+      )}
+
       <section className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
         <h3 className="mb-[14px] text-[18px] font-semibold text-gray-800">
-          Regional Sentiment Map
+          Regional Survey Summary
         </h3>
-
         <div className="grid grid-cols-1 gap-[10px] md:grid-cols-2 lg:grid-cols-3">
-          {visibleMapRegionData.map((region) => {
-            const cardStyle = MAP_CARD_STYLES[region.sentimentGauge];
-
-            return (
-              <div
-                key={region.value}
-                className={`overflow-hidden rounded-[12px] border p-[16px] ${cardStyle.cardClass}`}
-              >
-                <div className="flex h-full flex-col gap-[18px]">
-                  <div className="flex items-start justify-between gap-[12px]">
-                    <h4
-                      className="max-w-[70%] text-[16px] font-semibold leading-tight text-gray-900"
-                    >
-                      {region.label}
-                    </h4>
-                    <span
-                      className={`rounded-full px-[10px] py-[4px] text-xs font-semibold ${cardStyle.badgeClass}`}
-                    >
-                      {region.sentimentGauge}
-                    </span>
-                  </div>
-
-                  <div>
-                    <p className={`text-[32px] font-semibold leading-none ${cardStyle.valueClass}`}>
-                      {region.sentimentScore}%
-                    </p>
-                    <p className={`mt-[6px] text-sm font-medium ${cardStyle.labelClass}`}>
-                      Health sentiment score
-                    </p>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {rows.map(({ value, label, data }) => (
+            <article
+              key={value}
+              className="rounded-[12px] border border-[#DDE3EA] bg-white p-[16px]"
+            >
+              <h4 className="text-[16px] font-semibold leading-tight text-gray-900">{label}</h4>
+              <dl className="mt-[16px] grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                <MetricTerm label="Survey respondents" value={formatNumber(data.surveyRespondents)} />
+                <MetricTerm label="Total submissions" value={formatNumber(data.totalSubmissions)} />
+                <MetricTerm label="Health sentiment score" value="—" />
+                <MetricTerm label="Sentiment status" value="Coming soon" />
+              </dl>
+            </article>
+          ))}
         </div>
-        {visibleMapRegionData.length === 0 && (
-          <div className="rounded-[12px] border border-dashed border-[#D0D5DD] bg-[#F8FAFC] px-[20px] py-[32px] text-center text-sm text-gray-500">
-            No regional sentiment scores are available for the selected filters.
-          </div>
-        )}
       </section>
 
       <section className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
         <h3 className="mb-[16px] text-[18px] font-semibold text-gray-800">
-          Regional Sentiment Comparison
+          Survey Respondents by Region
         </h3>
-
         <div className="space-y-3">
-          {visibleRegionData.map((region) => {
-            const { data } = region;
-            const responses = data.responses || 0;
-            const trend = getTrendIndicator(data.trend || 0);
-            const sentimentColor =
-              sentimentColors[data.dominantSentiment] || "#9CA3AF";
-            const responsePercentage = (responses / maxVisibleResponses) * 100;
-
+          {rows.map(({ value, label, data }) => {
+            const respondents = Number(data.surveyRespondents || 0);
             return (
               <div
-                key={region.value}
-                className="grid grid-cols-1 items-center gap-[10px] rounded-[12px] border border-[#E5E5E5] bg-white px-[14px] py-[12px] sm:grid-cols-[minmax(120px,1fr)_minmax(160px,2fr)_90px_110px]"
+                key={value}
+                className="grid grid-cols-1 items-center gap-[10px] rounded-[12px] border border-[#E5E5E5] px-[14px] py-[12px] sm:grid-cols-[minmax(150px,1fr)_minmax(160px,2fr)_100px]"
               >
-                <span className="text-[14px] font-semibold tracking-[0.01em] text-[#1F2A44]">
-                  {region.label}
-                </span>
-
-                <div className="relative h-[10px] overflow-hidden rounded-full bg-[#EDF2F7] ring-1 ring-inset ring-[#E2E8F0]">
+                <span className="text-[14px] font-semibold text-[#1F2A44]">{label}</span>
+                <div className="h-[10px] overflow-hidden rounded-full bg-[#EDF2F7] ring-1 ring-inset ring-[#E2E8F0]">
                   <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${responsePercentage}%`,
-                      backgroundColor: sentimentColor,
-                      boxShadow: `0 6px 14px ${sentimentColor}33`,
-                    }}
+                    className="h-full rounded-full bg-[#6677B8]"
+                    style={{ width: `${(respondents / maxRespondents) * 100}%` }}
                   />
                 </div>
-
-                <span
-                  className={`text-sm font-semibold tabular-nums tracking-[-0.01em] ${trend.color}`}
-                >
-                  {trend.arrow} {formatPercentage(data.trend || 0)}%
-                </span>
-
                 <span className="text-sm font-semibold tabular-nums text-[#475467] sm:text-right">
-                  {formatNumber(responses)}
+                  {formatNumber(respondents)}
                 </span>
               </div>
             );
@@ -294,23 +193,33 @@ export default function RegionalAnalysis({
   );
 }
 
+const SummaryMetric = ({ label, value }) => (
+  <div className="rounded-[10px] bg-[#F6F8FB] px-[14px] py-[12px]">
+    <p className="text-xs font-medium text-[#667085]">{label}</p>
+    <p className="mt-1 text-2xl font-semibold tabular-nums text-[#253052]">{formatNumber(value)}</p>
+  </div>
+);
+
+SummaryMetric.propTypes = { label: PropTypes.string, value: PropTypes.number };
+
+const MetricTerm = ({ label, value }) => (
+  <div>
+    <dt className="text-xs text-[#667085]">{label}</dt>
+    <dd className="mt-1 font-semibold tabular-nums text-[#344054]">{value}</dd>
+  </div>
+);
+
+MetricTerm.propTypes = { label: PropTypes.string, value: PropTypes.string };
+
 RegionalAnalysis.propTypes = {
   selectedRegions: PropTypes.arrayOf(PropTypes.string),
-  regionalData: PropTypes.objectOf(
-    PropTypes.shape({
-      responses: PropTypes.number,
-      previousResponses: PropTypes.number,
-      dominantSentiment: PropTypes.string,
-      trend: PropTypes.number,
-      sentimentScore: PropTypes.number,
-      score: PropTypes.number,
-      healthSentimentScore: PropTypes.number,
-      sentimentBreakdown: PropTypes.shape({
-        concerned: PropTypes.number,
-        proactive: PropTypes.number,
-        neutral: PropTypes.number,
-        misinformed: PropTypes.number,
-      }),
-    })
-  ),
+  regionalAnalysis: PropTypes.shape({
+    regions: PropTypes.arrayOf(PropTypes.object),
+    unknownRegion: PropTypes.object,
+    totals: PropTypes.object,
+    filteredTotals: PropTypes.object,
+  }),
+  isLoading: PropTypes.bool,
+  isError: PropTypes.bool,
+  isFetching: PropTypes.bool,
 };

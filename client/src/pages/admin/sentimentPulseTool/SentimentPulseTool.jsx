@@ -21,10 +21,7 @@ import MobileSurveys, {
   getDefaultScheduleDateTime,
   validateDraft,
 } from "./MobileSurveys";
-import RegionalAnalysis, {
-  normalizeRegionalApiData,
-  REGIONS,
-} from "./RegionalAnalysis";
+import RegionalAnalysis, { REGIONS } from "./RegionalAnalysis";
 import SentimentPulseFilters from "./SentimentPulseFilters";
 import SentimentTrends from "./SentimentTrends";
 import StaticContainers from "./StaticContainers";
@@ -69,12 +66,25 @@ const createSurveySubmissionSnapshot = (draft, editingSurvey) => {
 const SURVEY_REFRESH_OPTIONS = {
   pollingInterval: 60000,
   refetchOnMountOrArgChange: true,
+  refetchOnFocus: true,
+};
+
+const getPhilippineDateInput = (dayOffset = 0) => {
+  const philippinesNow = new Date(Date.now() + 8 * 60 * 60 * 1000);
+  philippinesNow.setUTCDate(philippinesNow.getUTCDate() + dayOffset);
+  return philippinesNow.toISOString().slice(0, 10);
 };
 
 export default function SentimentPulseTool() {
   const [activeTab, setActiveTab] = useState("sentiment-trends");
   const [selectedRegions, setSelectedRegions] = useState([]);
   const [timeRange, setTimeRange] = useState("last-30-days");
+  const [customStartDate, setCustomStartDate] = useState(() =>
+    getPhilippineDateInput(-29)
+  );
+  const [customEndDate, setCustomEndDate] = useState(() =>
+    getPhilippineDateInput()
+  );
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -87,11 +97,18 @@ export default function SentimentPulseTool() {
   const [scheduleItems, setScheduleItems] = useState([]);
   const [scheduleError, setScheduleError] = useState("");
   const isConfirmingSurveyRef = useRef(false);
-  const { data: regionalAnalysisData } =
-    useFetchSentimentPulseRegionalAnalysisQuery({
+  const {
+    data: regionalAnalysisData,
+    isLoading: isRegionalAnalysisLoading,
+    isError: isRegionalAnalysisError,
+    isFetching: isRegionalAnalysisFetching,
+    refetch: refetchRegionalAnalysis,
+  } = useFetchSentimentPulseRegionalAnalysisQuery({
       timeRange,
       regions: selectedRegions,
-    });
+      startDate: customStartDate,
+      endDate: customEndDate,
+    }, SURVEY_REFRESH_OPTIONS);
   const {
     data: surveysData = [],
     isLoading: isSurveysLoading,
@@ -111,6 +128,7 @@ export default function SentimentPulseTool() {
     const refresh = () => {
       refetchSummary();
       refetchSurveys();
+      refetchRegionalAnalysis();
     };
     const boundary = Date.parse(summary?.nextReportingPeriod);
     let timer;
@@ -130,7 +148,12 @@ export default function SentimentPulseTool() {
       window.clearTimeout(timer);
       window.removeEventListener("focus", refresh);
     };
-  }, [summary?.nextReportingPeriod, refetchSummary, refetchSurveys]);
+  }, [
+    summary?.nextReportingPeriod,
+    refetchRegionalAnalysis,
+    refetchSummary,
+    refetchSurveys,
+  ]);
   const [createSentimentPulseSurvey, { isLoading: isCreatingSurvey }] =
     useCreateSentimentPulseSurveyMutation();
   const [updateSentimentPulseSurvey, { isLoading: isUpdatingSurvey }] =
@@ -139,10 +162,6 @@ export default function SentimentPulseTool() {
     useDeleteSentimentPulseSurveyMutation();
   const [scheduleSentimentPulseSurvey, { isLoading: isSchedulingSurvey }] =
     useScheduleSentimentPulseSurveyMutation();
-  const regionalData = useMemo(
-    () => normalizeRegionalApiData(regionalAnalysisData),
-    [regionalAnalysisData]
-  );
   const surveys = useMemo(
     () => (Array.isArray(surveysData) ? surveysData : surveysData?.surveys ?? []),
     [surveysData]
@@ -592,13 +611,19 @@ export default function SentimentPulseTool() {
                 exportSentimentPulseCsv({
                   activeTab,
                   timeRange,
+                  customStartDate,
+                  customEndDate,
                   selectedRegions,
-                  regionalData,
+                  regionalAnalysis: regionalAnalysisData,
                   surveys,
                 })
               }
               variant="primary"
               className="sm:w-auto"
+              disabled={
+                activeTab === "regional-analysis" &&
+                (isRegionalAnalysisLoading || isRegionalAnalysisError)
+              }
             >
               Export as CSV
             </ToolbarButton>
@@ -660,13 +685,19 @@ export default function SentimentPulseTool() {
             selectedRegions={selectedRegions}
             onRegionChange={handleRegionChange}
             onSelectAllRegions={handleSelectAllRegions}
+            customStartDate={customStartDate}
+            customEndDate={customEndDate}
+            onCustomStartDateChange={setCustomStartDate}
+            onCustomEndDateChange={setCustomEndDate}
+            maxDate={getPhilippineDateInput()}
           />
-          <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
-            <RegionalAnalysis
-              selectedRegions={selectedRegions}
-              regionalData={regionalData}
-            />
-          </div>
+          <RegionalAnalysis
+            selectedRegions={selectedRegions}
+            regionalAnalysis={regionalAnalysisData}
+            isLoading={isRegionalAnalysisLoading}
+            isError={isRegionalAnalysisError}
+            isFetching={isRegionalAnalysisFetching}
+          />
         </>
       )}
 

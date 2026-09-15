@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 # Match the existing isolated survey tests, without requiring application startup
 # or the full ML/backend dependency set for calculation tests.
 database = types.ModuleType("config.database")
-for name in ("application_settings", "analytics_events", "survey_responses", "surveys"):
+for name in ("application_settings", "analytics_events", "mobile_users", "survey_responses", "surveys"):
     setattr(database, f"{name}_collection", types.SimpleNamespace(name=name))
 fastapi = types.ModuleType("fastapi")
 fastapi.HTTPException = Exception

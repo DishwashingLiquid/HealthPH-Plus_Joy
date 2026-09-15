@@ -80,6 +80,7 @@ fake_database.surveys_collection = Collection()
 fake_database.survey_responses_collection = Collection()
 fake_database.application_settings_collection = Collection()
 fake_database.analytics_events_collection = Collection()
+fake_database.mobile_users_collection = Collection()
 sys.modules["config.database"] = fake_database
 
 fake_fastapi = types.ModuleType("fastapi")
@@ -112,6 +113,7 @@ class SentimentPulseApplicationIdTests(unittest.TestCase):
             fake_database.surveys_collection,
             fake_database.survey_responses_collection,
             fake_database.application_settings_collection,
+            fake_database.mobile_users_collection,
         ):
             with collection.lock:
                 collection.documents.clear()
@@ -185,6 +187,32 @@ class SentimentPulseApplicationIdTests(unittest.TestCase):
     def test_question_suffix_expands_past_ninety_nine(self):
         document = helpers.build_survey_document(Data([{"id": f"browser-{i}"} for i in range(100)]), None)
         self.assertEqual(document["questions"][-1]["id"], "Q-SUR00001-100")
+
+    def test_authenticated_response_persists_verified_account_and_canonical_region(self):
+        data = types.SimpleNamespace(
+            answers={"question": "answer"},
+            visitorId="not-an-account-id",
+            region="III",
+            metadata={},
+        )
+        account = {
+            "id": "mu_verified",
+            "regionCode": "130000000",
+            "regionLabel": "National Capital Region",
+        }
+        authenticated = helpers.build_public_response_document(
+            "SUR-00001", data, "website", account
+        )
+        anonymous = helpers.build_public_response_document(
+            "SUR-00001", data, "mobile"
+        )
+
+        self.assertEqual(authenticated["mobileUserId"], "mu_verified")
+        self.assertTrue(authenticated["accountLinkVerified"])
+        self.assertEqual(authenticated["region"], "NCR")
+        self.assertNotIn("mobileUserId", anonymous)
+        self.assertNotIn("accountLinkVerified", anonymous)
+        self.assertEqual(anonymous["region"], "III")
 
     def test_concurrent_survey_reservations_are_unique_and_preserve_historic_counter(self):
         fake_database.application_settings_collection.documents.append(

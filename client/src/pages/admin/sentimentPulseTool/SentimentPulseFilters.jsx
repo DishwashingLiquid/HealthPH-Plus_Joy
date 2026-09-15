@@ -8,6 +8,11 @@ export default function SentimentPulseFilters({
   selectedRegions,
   onRegionChange,
   onSelectAllRegions,
+  customStartDate,
+  customEndDate,
+  onCustomStartDateChange,
+  onCustomEndDateChange,
+  maxDate,
 }) {
   const [showRegionDropdown, setShowRegionDropdown] = useState(false);
   const regionDropdownRef = useRef(null);
@@ -99,6 +104,35 @@ export default function SentimentPulseFilters({
           </div>
         </div>
       </div>
+
+      {timeRange === "custom" && onCustomStartDateChange && (
+        <div className="mt-[12px] grid grid-cols-1 gap-[12px] sm:grid-cols-2">
+          <label className="text-sm font-medium text-gray-700">
+            Start date
+            <input
+              type="date"
+              value={customStartDate}
+              max={maxDate}
+              onChange={(event) => onCustomStartDateChange(event.target.value)}
+              className="mt-[6px] min-h-[40px] w-full rounded-[10px] border border-[#E5E5E5] bg-white px-[14px] py-[8px] text-sm text-gray-800 outline-none focus:border-[#32418C] focus:ring-2 focus:ring-[#D9E3F2]"
+            />
+          </label>
+          <label className="text-sm font-medium text-gray-700">
+            End date
+            <input
+              type="date"
+              value={customEndDate}
+              min={customStartDate}
+              max={maxDate}
+              onChange={(event) => onCustomEndDateChange(event.target.value)}
+              className="mt-[6px] min-h-[40px] w-full rounded-[10px] border border-[#E5E5E5] bg-white px-[14px] py-[8px] text-sm text-gray-800 outline-none focus:border-[#32418C] focus:ring-2 focus:ring-[#D9E3F2]"
+            />
+          </label>
+          <p className="text-xs text-[#667085] sm:col-span-2">
+            Dates are interpreted as complete Philippine calendar days; today ends at the current server time.
+          </p>
+        </div>
+      )}
 
       {selectedRegions.length > 0 && (
         <div className="mt-[16px] border-t border-[#E5E5E5] pt-[14px]">

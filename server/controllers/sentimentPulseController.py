@@ -1,11 +1,10 @@
-from collections import Counter
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse
 from typing_extensions import Annotated
 
-from config.database import analytics_entries_collection
+from config.database import analytics_entries_collection, mobile_users_collection
 
 from helpers.analyticsEntryHelpers import (
     build_survey_response_analytics_entries,
@@ -13,8 +12,9 @@ from helpers.analyticsEntryHelpers import (
 )
 
 from helpers.miscHelpers import get_ph_datetime
-from middleware.requireAuth import require_auth
+from middleware.requireMobileAuth import optional_mobile_auth
 from middleware.requireRole import require_role
+from models.mobileUser import MOBILE_REGISTRATION_SOURCE, MOBILE_ROLE_ID
 from models.sentimentPulseSurvey import (
     SentimentPulseSurveyDraft,
     SentimentPulseSurveyResponse,
@@ -22,18 +22,10 @@ from models.sentimentPulseSurvey import (
 )
 
 from controllers.sentiment_pulse.constants import (
-    PUBLIC_SOURCES,
-    analytics_events_collection,
     survey_responses_collection,
     surveys_collection,
 )
-from controllers.sentiment_pulse.regional_analysis import (
-    build_sentiment_breakdown,
-    get_event_region,
-    get_event_sentiment,
-    get_range_start_date,
-    parse_regions,
-)
+from controllers.sentiment_pulse.regional_analysis import fetch_regional_statistics
 from controllers.sentiment_pulse.results_aggregation import build_question_results
 from controllers.sentiment_pulse.dashboard_summary import fetch_dashboard_summary
 from controllers.sentiment_pulse.survey_helpers import (
@@ -290,6 +282,7 @@ route     POST api/sentiment-pulse/public-surveys/{survey_id}/responses
 async def create_public_survey_response(
     survey_id: str,
     data: SentimentPulseSurveyResponse,
+    mobile_claims: Annotated[Optional[dict], Depends(optional_mobile_auth)],
 ):
     platform = validate_platform(data.platform)
     survey = get_survey_or_404(survey_id)
@@ -317,7 +310,27 @@ async def create_public_survey_response(
             detail="Survey response answers are required",
         )
 
-    response = build_public_response_document(survey_id, data, platform)
+    authenticated_mobile_user = None
+    if mobile_claims:
+        authenticated_mobile_user = mobile_users_collection.find_one(
+            {
+                "id": mobile_claims["sub"],
+                "source": MOBILE_REGISTRATION_SOURCE,
+                "roleId": MOBILE_ROLE_ID,
+            }
+        )
+        if not authenticated_mobile_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Mobile user not found",
+            )
+
+    response = build_public_response_document(
+        survey_id,
+        data,
+        platform,
+        authenticated_mobile_user=authenticated_mobile_user,
+    )
 
     inserted_response = survey_responses_collection.insert_one(response)
 
@@ -345,74 +358,28 @@ async def create_public_survey_response(
 
 
 """
-@desc     Fetch regional Sentiment Pulse data from mobile and website events
+@desc     Fetch regional survey-response statistics from mobile and website
 route     GET api/sentiment-pulse/regional-analysis
 @access   Private
 """
 
 
 async def fetch_regional_analysis(
-    _user_id: Annotated[str, Depends(require_auth)],
+    _current_user: Annotated[
+        dict, Depends(require_role(["Admin", "SUPERADMIN"]))
+    ],
     timeRange: str = "last-30-days",
     regions: Optional[str] = None,
+    startDate: Optional[str] = None,
+    endDate: Optional[str] = None,
 ):
-    selected_regions = parse_regions(regions)
-    start_date = get_range_start_date(timeRange)
-    match = {
-        "$or": [
-            {"client_platform": {"$in": PUBLIC_SOURCES}},
-            {"metadata.clientPlatform": {"$in": PUBLIC_SOURCES}},
-            {"metadata.client_platform": {"$in": PUBLIC_SOURCES}},
-        ],
-    }
-
-    if start_date:
-        match["created_at"] = {"$gte": start_date}
-
-    events = analytics_events_collection.find(match)
-    regional_counts = {region: Counter() for region in selected_regions}
-
-    for event in events:
-        region = get_event_region(event)
-
-        if region not in selected_regions:
-            continue
-
-        sentiment = get_event_sentiment(event)
-
-        if not sentiment:
-            continue
-
-        regional_counts[region].update([sentiment])
-
-    regional_data = []
-
-    for region in selected_regions:
-        sentiment_counts = regional_counts[region]
-        total_responses = sum(sentiment_counts.values())
-
-        if total_responses == 0:
-            continue
-
-        dominant_sentiment = sentiment_counts.most_common(1)[0][0]
-
-        regional_data.append(
-            {
-                "region": region,
-                "dominantSentiment": dominant_sentiment,
-                "sentimentBreakdown": build_sentiment_breakdown(
-                    sentiment_counts,
-                    total_responses,
-                ),
-                "responses": total_responses,
-            }
-        )
-
+    ensure_survey_indexes()
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content={
-            "regions": regional_data,
-            "sources": PUBLIC_SOURCES,
-            "updatedAt": get_ph_datetime().isoformat(),
-        },
+        content=fetch_regional_statistics(
+            time_range=timeRange,
+            regions=regions,
+            start_date=startDate,
+            end_date=endDate,
+        ),
     )

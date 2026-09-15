@@ -29,6 +29,8 @@ Primary sources:
 
 Flutter should retrieve public, eligible surveys with `GET /api/sentiment-pulse/public-surveys?platform=mobile`, render the returned questions, and submit one non-empty `answers` map to the public response endpoint. No Flutter client source is present in this repository; the public query/mutation hooks exist but have no web caller.
 
+For a submission to count as a Regional Analysis respondent, the mobile or website client must authenticate through the shared mobile-account API and send the returned mobile access token as `Authorization: Bearer <access_token>` on the response POST. The backend derives `mobileUserId` from the token and snapshots the account's normalized region. Clients must not send an account ID, and `visitorId` is not an account identity.
+
 New surveys are always created with both `publishToMobile: true` and `publishToWebsite: true`. The current admin UI has no mobile-only switch. Existing surveys/questions retain their legacy IDs. New surveys receive `id: "SUR-00001"` and their questions receive IDs such as `Q-SUR00001-01`; these actual IDs are the canonical API-path, SurveyJS-name, and answer-key values. Clients must support both formats and must not treat either as an authorization credential.
 
 ## API Endpoints
@@ -230,7 +232,8 @@ The item shape is the serialized survey shape above, except `createdBy`, `update
 - Authentication: public; no token is required.
 - Path parameter: `survey_id` from the public survey object.
 - Headers: JSON body; do not depend on browser cookies.
-- Required body fields: `answers` and `platform`. `visitorId`, `region`, and `metadata` are optional.
+- Authentication: optional mobile Bearer token. A valid token links the response to `mobile_users`; an invalid or expired supplied token returns `401` and is never treated as an anonymous response.
+- Required body fields: `answers` and `platform`. `visitorId`, `region`, and `metadata` remain optional for legacy compatibility.
 
 ```json
 {
@@ -250,7 +253,7 @@ The item shape is the serialized survey shape above, except `createdBy`, `update
 { "message": "Sentiment Pulse survey response recorded" }
 ```
 
-- Success: `201`. The server stores the response, increments the survey's response count, and creates pending analytics entries for qualifying text answers (non-numeric text at least three characters).
+- Success: `201`. The server stores the response, increments the survey's response count, and creates pending analytics entries for qualifying text answers (non-numeric text at least three characters). With valid mobile authentication it also stores the token-derived `mobileUserId`, `accountLinkVerified: true`, and the backend-normalized account region snapshot. Client-supplied `region` is ignored for authenticated responses.
 - Errors: `404` if the survey does not exist or is no longer published for `mobile` (`Published Sentiment Pulse survey not found`); `400` if `answers` is empty; `400` if platform is invalid; `422` for missing/wrong Pydantic fields.
 - Important: the server does **not** validate required questions, question IDs, option membership, rating bounds, duplicates, or the target response count. Flutter should validate its rendered survey before submission.
 
@@ -269,7 +272,7 @@ The item shape is the serialized survey shape above, except `createdBy`, `update
 | `SentimentPulseSurveyResponse` | `answers` | `dict[str, Any]` | Yes | Must be non-empty after model validation. |
 |  | `platform` | `str` | Yes | `mobile` or `website`. |
 |  | `visitorId` | `str \| null` | No | Persisted as a trimmed string. |
-|  | `region` | `str \| null` | No | Persisted as supplied or an empty string. |
+|  | `region` | `str \| null` | No | Used only for anonymous legacy compatibility. Authenticated responses snapshot the normalized account region instead. |
 |  | `metadata` | `dict[str, Any] \| null` | No | Persisted as supplied or `{}`. |
 
 ### Web-authored question shape — inferred from the UI, not enforced by the server
@@ -333,11 +336,12 @@ Native JavaScript `Date`/`toLocaleString` handle the admin schedule/display valu
 1. Configure the deployed API base URL so the public calls resolve to `/api/sentiment-pulse/...`; do not hard-code the web development URL.
 2. On the respondent screen, fetch `public-surveys?platform=mobile`. Treat `[]` as the normal empty state.
 3. Render either `questions` directly (recommended for the three confirmed types) or translate `surveyJson`. Use each question's `id` as the `answers` key.
-4. Enforce `required`, valid multiple-choice selections, and rating bounds locally. Send `platform: "mobile"` with every response. `region`, `visitorId`, and `metadata` are optional; only send values the app is permitted to collect.
-5. After a `201`, show a completion state. After a `404` from submission, refresh the public list: an admin may have updated/deleted/unpublished the survey after it was cached.
-6. Use explicit loading, empty, retry, and server-detail error states. The web UI uses simple loading/error/empty messages and does not implement automatic retries.
-7. The public API is stateless and has no subscription. Refresh on screen entry/app resume and choose a cache lifetime appropriate for a survey that can be removed or reset by admins.
-8. Do not stop accepting responses merely because `responses >= target`; the backend does not cap responses.
+4. Sign in through `POST /api/mobile/users/login` and send its `access_token` as a Bearer token on the response POST. Do not send `mobileUserId`; the server derives it. The website client must use the same mobile-account token and send `platform: "website"`.
+5. Enforce `required`, valid multiple-choice selections, and rating bounds locally. Send `platform: "mobile"` with every Flutter response. `region`, `visitorId`, and `metadata` are optional legacy fields and do not establish identity.
+6. After a `201`, show a completion state. After a `401`, require sign-in/refresh the mobile token; do not retry anonymously. After a `404`, refresh the public list because the cached survey is no longer eligible.
+7. Use explicit loading, empty, retry, and server-detail error states. The web UI uses simple loading/error/empty messages and does not implement automatic retries.
+8. The public API has no subscription. Refresh on screen entry/app resume and choose a cache lifetime appropriate for a survey that can be removed by admins.
+9. Do not stop accepting responses merely because `responses >= target`; the backend does not cap responses.
 
 ## Gaps, Risks, and Questions
 
@@ -345,7 +349,7 @@ Native JavaScript `Date`/`toLocaleString` handle the admin schedule/display valu
 
 - **Date/time:** server timestamps and schedule values use Philippines time but are serialized without a timezone offset. The web schedule input is browser-local. Confirm the intended Flutter display and input timezone before release.
 - **Weak public validation:** backend accepts any non-empty `answers` map and has no duplicate-submission, rate-limit, response-cap, or answer-schema enforcement.
-- **Update invalidates a live survey:** an admin update clears schedule/results/responses, so a cached mobile survey can become unavailable. Handle submission `404` and refresh.
+- **Cached survey eligibility:** deletion or publication changes can make a cached survey unavailable. Handle submission `404` and refresh.
 - **Sentiment fields:** response submission creates pending analytics records and increments the response count, but the inspected controller does not recalculate `sentimentBreakdown` or `dominantSentiment`.
 - **No pagination:** public retrieval returns every eligible survey in one array.
 

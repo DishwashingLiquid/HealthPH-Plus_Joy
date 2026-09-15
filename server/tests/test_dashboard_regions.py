@@ -37,7 +37,13 @@ def load_health_analytics():
 
 def load_sentiment_summary():
     database = types.ModuleType("config.database")
-    for name in ("analytics_events", "application_settings", "surveys", "survey_responses"):
+    for name in (
+        "analytics_events",
+        "application_settings",
+        "mobile_users",
+        "surveys",
+        "survey_responses",
+    ):
         setattr(database, f"{name}_collection", types.SimpleNamespace(name=name))
     with patch.dict(sys.modules, {"config.database": database}):
         for name in list(sys.modules):

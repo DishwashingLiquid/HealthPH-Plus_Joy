@@ -425,7 +425,7 @@ const Help = () => {
       description: [
         {
           sectionDesc:
-            "Sentiment Pulse Tool helps admins monitor public sentiment, compare regional sentiment, and manage mobile survey activity.",
+            "Sentiment Pulse Tool helps admins monitor public sentiment, compare regional survey participation, and manage survey activity.",
         },
       ],
       subSections: [
@@ -448,7 +448,7 @@ const Help = () => {
           description: [
             {
               sectionDesc:
-                "Regional Analysis compares sentiment data by region so admins can identify geographic differences in public response.",
+                "Regional Analysis compares distinct survey respondents and submissions by region. Sentiment scoring is marked as coming soon.",
               sectionImage: (
                 <HelpImage image="admin-Sentiment-Pulse-Tool-Regional-Analysis" />
               ),
