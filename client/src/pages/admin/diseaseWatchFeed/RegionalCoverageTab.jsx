@@ -1,6 +1,6 @@
-/* eslint-disable react/prop-types */
 import { useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
+import { getDashboardRegionLabel } from "../dashboardRegions";
 import {
   Bar,
   BarChart,
@@ -40,6 +40,7 @@ export default function RegionalCoverageTab({
   onRegionChange,
   regionUserData,
   selectedRegions,
+  unknownRegionReports = 0,
 }) {
   const [showRegionDropdown, setShowRegionDropdown] = useState(false);
   const regionDropdownRef = useRef(null);
@@ -89,12 +90,16 @@ export default function RegionalCoverageTab({
     return (
       <div className="rounded-[12px] border border-[#E5E5E5] bg-white px-[20px] py-[18px] text-sm text-gray-500">
         No regional coverage data is available yet.
+        {unknownRegionReports > 0 && ` ${unknownRegionReports} reports have an unknown region.`}
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-[10px]">
+      {unknownRegionReports > 0 && (
+        <p className="text-sm text-gray-500">{unknownRegionReports} reports have an unknown region and are excluded from regional coverage.</p>
+      )}
       <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-[14px] mb-[18px]">
           <div>
@@ -124,6 +129,7 @@ export default function RegionalCoverageTab({
               />
               <XAxis
                 dataKey="region"
+                tickFormatter={getDashboardRegionLabel}
                 angle={-40}
                 textAnchor="end"
                 height={88}
@@ -139,6 +145,7 @@ export default function RegionalCoverageTab({
                 width={52}
               />
               <Tooltip
+                labelFormatter={getDashboardRegionLabel}
                 contentStyle={{
                   backgroundColor: "#fff",
                   border: "1px solid #D9E3F2",
@@ -219,7 +226,7 @@ export default function RegionalCoverageTab({
                         onChange={() => onRegionChange(region)}
                         className="h-[16px] w-[16px] accent-[#32418C]"
                       />
-                      <span>{region}</span>
+                      <span>{getDashboardRegionLabel(region)}</span>
                     </label>
                   ))}
                 </div>
@@ -251,7 +258,7 @@ export default function RegionalCoverageTab({
                 <div className="flex items-start justify-between gap-[12px]">
                   <div>
                     <h4 className="text-[16px] font-semibold text-gray-800">
-                      {region.region}
+                      {getDashboardRegionLabel(region.region)}
                     </h4>
                     <p className="mt-[4px] text-xs uppercase tracking-[0.08em] text-[#6B7A90]">
                       Regional coverage
@@ -334,6 +341,7 @@ export default function RegionalCoverageTab({
 }
 
 RegionalCoverageTab.propTypes = {
+  unknownRegionReports: PropTypes.number,
   availableRegions: PropTypes.arrayOf(PropTypes.string),
   errorMessage: PropTypes.string,
   isLoading: PropTypes.bool,

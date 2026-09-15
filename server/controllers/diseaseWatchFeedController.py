@@ -41,6 +41,9 @@ from controllers.mobileUserController import serialize_mobile_user
 import os
 
 from region_normalization import REGIONS, normalize_region, observed_region
+from controllers.dashboard_regions import (
+    LOCATION_REGION_PATHS, USER_REGION_PATHS, dashboard_region, dashboard_region_match,
+)
 
 REGION_ORDER = list(REGIONS)
 
@@ -606,8 +609,7 @@ def _get_mobile_users(date_from=None, date_to=None):
 
 
 def _get_mobile_user_region(document: dict) -> str:
-    location = document.get("location") or {}
-    return observed_region(location, document.get("_id")) or "Unknown"
+    return dashboard_region(document, USER_REGION_PATHS) or "Unknown"
 
 
 def _filter_mobile_users(users, regions=None, cutoff=None):
@@ -674,6 +676,7 @@ def _serialize_self_report_export_item(document: dict, reports=None) -> dict:
     reporter = document.get("reporter") or {}
     return {
         "id": _build_public_report_id(document),
+        "region": dashboard_region(document, LOCATION_REGION_PATHS),
         "mobileReporterId": _build_mobile_reporter_public_id(
             document,
             reports=reports,
@@ -839,8 +842,7 @@ def _filter_self_reports(reports, regions=None, disease=None, status_filter=None
 
 
 def _get_report_region(report: dict) -> str:
-    location = report.get("location") or {}
-    return observed_region(location, report.get("_id")) or "Unknown"
+    return dashboard_region(report, LOCATION_REGION_PATHS) or "Unknown"
 
 
 def _get_report_location_label(report: dict) -> str:
@@ -1549,7 +1551,7 @@ async def fetch_mobile_user_analytics_summary(
     }
     registration_scope = dict(registration_base_filter)
     if normalized_regions:
-        registration_scope["regionCode"] = {"$in": normalized_regions}
+        registration_scope.update(dashboard_region_match(normalized_regions, USER_REGION_PATHS))
 
     current_registration_query = dict(registration_scope)
     current_registration_query["createdAt"] = {"$lte": current_to}
@@ -1570,7 +1572,7 @@ async def fetch_mobile_user_analytics_summary(
 
     report_scope = {"source": SELF_REPORT_SOURCE}
     if normalized_regions:
-        report_scope["location.regionCode"] = {"$in": normalized_regions}
+        report_scope.update(dashboard_region_match(normalized_regions, LOCATION_REGION_PATHS))
 
     current_reports_query = dict(report_scope)
     current_reports_query["createdAt"] = {"$gte": current_from, "$lte": current_to}

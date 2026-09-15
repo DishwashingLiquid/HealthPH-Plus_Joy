@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useCreateSentimentPulseSurveyMutation,
   useDeleteSentimentPulseSurveyMutation,
   useFetchSentimentPulseRegionalAnalysisQuery,
   useFetchSentimentPulseSurveysQuery,
+  useFetchSentimentPulseSummaryQuery,
   useScheduleSentimentPulseSurveyMutation,
   useUpdateSentimentPulseSurveyMutation,
 } from "../../../features/api/sentimentPulseSlice";
@@ -65,6 +66,11 @@ const createSurveySubmissionSnapshot = (draft, editingSurvey) => {
   return freezeSnapshot(snapshot);
 };
 
+const SURVEY_REFRESH_OPTIONS = {
+  pollingInterval: 60000,
+  refetchOnMountOrArgChange: true,
+};
+
 export default function SentimentPulseTool() {
   const [activeTab, setActiveTab] = useState("sentiment-trends");
   const [selectedRegions, setSelectedRegions] = useState([]);
@@ -90,7 +96,41 @@ export default function SentimentPulseTool() {
     data: surveysData = [],
     isLoading: isSurveysLoading,
     isError: isSurveysError,
-  } = useFetchSentimentPulseSurveysQuery();
+    refetch: refetchSurveys,
+  } = useFetchSentimentPulseSurveysQuery(undefined, SURVEY_REFRESH_OPTIONS);
+  const {
+    data: summary,
+    isLoading: isSummaryLoading,
+    isError: isSummaryError,
+    refetch: refetchSummary,
+  } = useFetchSentimentPulseSummaryQuery(undefined, SURVEY_REFRESH_OPTIONS);
+
+  useEffect(() => {
+    // Polling also catches publication/deletion when the response cutoff stays
+    // the same. Focus refresh catches up after a background tab was throttled.
+    const refresh = () => {
+      refetchSummary();
+      refetchSurveys();
+    };
+    const boundary = Date.parse(summary?.nextReportingPeriod);
+    let timer;
+    const scheduleBoundary = () => {
+      if (!Number.isFinite(boundary)) return;
+      const remaining = boundary - Date.now();
+      if (remaining <= 0) {
+        refresh();
+      } else {
+        // Browser timers cannot hold an entire 31-day month in one timeout.
+        timer = window.setTimeout(scheduleBoundary, Math.min(remaining, 2147483647));
+      }
+    };
+    scheduleBoundary();
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [summary?.nextReportingPeriod, refetchSummary, refetchSurveys]);
   const [createSentimentPulseSurvey, { isLoading: isCreatingSurvey }] =
     useCreateSentimentPulseSurveyMutation();
   const [updateSentimentPulseSurvey, { isLoading: isUpdatingSurvey }] =
@@ -574,7 +614,11 @@ export default function SentimentPulseTool() {
         </div>
       </div>
 
-      <StaticContainers />
+      <StaticContainers
+        summary={summary}
+        isLoading={isSummaryLoading}
+        isError={isSummaryError}
+      />
 
       <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[12px]">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-[8px] bg-[#F5F5F5] rounded-[10px] p-[6px]">

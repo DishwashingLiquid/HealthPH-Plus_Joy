@@ -332,6 +332,11 @@ const AnalyticsTab = () => {
         )}
 
         <OverviewAnalyticsPage overviewAnalytics={overviewAnalytics} />
+        {overviewAnalytics.unknownRegionInteractions > 0 && (
+          <p className="text-sm text-gray-500">
+            {overviewAnalytics.unknownRegionInteractions.toLocaleString()} interactions have an unknown region. They are included in all-region totals.
+          </p>
+        )}
       </div>
     </>
   );

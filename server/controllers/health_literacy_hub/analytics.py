@@ -6,12 +6,14 @@ from fastapi import HTTPException, Request, status
 from jose import JWTError, jwt
 
 from helpers.miscHelpers import get_ph_datetime
+from controllers.dashboard_regions import (
+    USER_REGION_PATHS, dashboard_region, dashboard_region_match, mongo_region_expression, normalize_region,
+)
 from .constants import (
     ALGORITHM,
     ALLOWED_ANALYTICS_EVENTS,
     ALLOWED_FEEDBACK_PLATFORMS,
     ANALYTICS_CONTENT_LABELS,
-    ANALYTICS_REGIONS,
     ANALYTICS_TIME_RANGE_DAYS,
     CONTENT_INTERACTION_EVENTS,
     PUBLIC_ANALYTICS_EVENTS,
@@ -61,15 +63,10 @@ def get_optional_bearer_user_id(request: Request) -> Optional[str]:
         )
 
 
-def get_analytics_seed(value) -> int:
-    return sum(ord(char) for char in str(value or ""))
-
-
-def get_analytics_region(content_type: str, item: dict, index: int = 0) -> str:
-    seed = get_analytics_seed(
-        f"{content_type}-{item.get('id', '')}-{item.get('title', '')}"
-    )
-    return ANALYTICS_REGIONS[(seed + index) % len(ANALYTICS_REGIONS)]
+def get_analytics_region(content_type: str, item: dict, index: int = 0) -> Optional[str]:
+    # Content without an explicit region has unknown geographic scope. Its
+    # title, list position and identifier cannot establish a region.
+    return dashboard_region(item)
 
 
 def get_range_start_date(time_range: str):
@@ -137,7 +134,7 @@ def build_content_interaction_match(
         match["content_type"] = {"$in": content_type_values}
 
     if region != "all":
-        match["region"] = region
+        match.update(dashboard_region_match([region]))
 
     if previous_period:
         previous_bounds = get_previous_range_bounds(time_range)
@@ -166,11 +163,10 @@ def content_matches_upload_filters(
     if selected_content_type != "all" and content_type != selected_content_type:
         return False
 
-    if (
-        selected_region != "all"
-        and get_analytics_region(content_type, item, index) != selected_region
-    ):
-        return False
+    if selected_region != "all":
+        code = normalize_region(selected_region)
+        if code is None or get_analytics_region(content_type, item, index) != code:
+            return False
 
     start_date = get_range_start_date(time_range)
     if not start_date:
@@ -215,7 +211,7 @@ def count_active_registered_users(region: str) -> int:
     }
 
     if region != "all":
-        match["region"] = region
+        match.update(dashboard_region_match([region], USER_REGION_PATHS))
 
     return user_collection.count_documents(match)
 
@@ -229,8 +225,8 @@ def get_content_snapshots(content_type: str, region: str) -> list[dict]:
 
         for index, item in enumerate(read_content(content_key)):
             item_region = get_analytics_region(label, item, index)
-            if region != "all" and item_region != region:
-                continue
+            # A reader's region belongs to the interaction. Do not exclude a
+            # content item before its region-filtered interactions are counted.
 
             snapshots.append(
                 {
@@ -409,6 +405,10 @@ def build_health_literacy_analytics_overview(
         "totalContentInteractions": analytics_events_collection.count_documents(
             content_interaction_match
         ),
+        "unknownRegionInteractions": analytics_events_collection.count_documents({
+            **content_interaction_match,
+            "$and": [{"$expr": {"$eq": [mongo_region_expression(), None]}}],
+        }),
         "contentPieces": count_content_pieces(
             time_range=time_range,
             content_type=content_type,

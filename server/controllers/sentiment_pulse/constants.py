@@ -1,29 +1,10 @@
+from controllers.dashboard_regions import REGIONS
 from config.database import (
     application_settings_collection,
     analytics_events_collection,
     survey_responses_collection,
     surveys_collection,
 )
-
-REGIONS = [
-    "NCR",
-    "I",
-    "II",
-    "III",
-    "IVA",
-    "IVB",
-    "V",
-    "CAR",
-    "VI",
-    "VII",
-    "VIII",
-    "IX",
-    "X",
-    "XI",
-    "XII",
-    "XIII",
-    "BARMM",
-]
 
 SENTIMENTS = {
     "concerned": "Concerned",

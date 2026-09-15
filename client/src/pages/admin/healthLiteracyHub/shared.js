@@ -31,8 +31,6 @@ export {
 } from "./shared/sharedFormatting";
 export {
   buildAnalyticsReport,
-  getAnalyticsRegionValue,
-  getAnalyticsSeed,
   getHealthLiteracyVisitorId,
 } from "./shared/sharedAnalytics";
 export { showToast } from "./shared/sharedToast";

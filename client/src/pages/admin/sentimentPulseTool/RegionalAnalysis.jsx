@@ -1,13 +1,13 @@
 /* eslint-disable react-refresh/only-export-components */
 import PropTypes from "prop-types";
 import {
-  REGIONS,
   regionalSentimentData,
   formatNumber,
   formatPercentage,
   getTrendIndicator,
   sentimentColors,
 } from "../../../assets/data/sentimentMockData";
+import { DASHBOARD_REGIONS as REGIONS, getDashboardRegionLabel } from "../dashboardRegions";
 
 export { REGIONS };
 
@@ -33,8 +33,7 @@ const clampScore = (value) => {
   return Math.max(0, Math.min(100, Math.round(value)));
 };
 
-export const getRegionLabel = (regionValue) =>
-  REGIONS.find((region) => region.value === regionValue)?.label || regionValue;
+export const getRegionLabel = getDashboardRegionLabel;
 
 export const getVisibleRegionalRows = (
   selectedRegions,

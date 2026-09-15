@@ -32,7 +32,6 @@ import {
   INITIAL_FORM_DATA,
   TAB_CONTENT_TYPES,
   UPLOAD_RULES,
-  getAnalyticsRegionValue,
   getContentFormValidationError,
   getContentLabel,
   getContentMediaSource,
@@ -128,7 +127,7 @@ const ContentTab = ({ contentTypeLabel }) => {
       contentId: item.id ? String(item.id) : undefined,
       contentTitle: item.title,
       contentType: contentTypeLabel,
-      region: item.region ?? getAnalyticsRegionValue(contentTypeLabel, item),
+      region: user?.region || null,
       visitorId: getHealthLiteracyVisitorId(user?.id),
     }).catch(() => {});
 

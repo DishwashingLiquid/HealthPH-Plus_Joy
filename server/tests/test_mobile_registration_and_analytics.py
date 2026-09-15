@@ -199,6 +199,21 @@ class MobileRegistrationAndAnalyticsTests(unittest.TestCase):
             asyncio.run(disease.require_desktop_admin(token))
         self.assertEqual(unauthorized.exception.status_code, 401)
 
+    def test_dashboard_export_region_does_not_replace_mobile_location_fields(self):
+        document = {
+            "_id": ObjectId(), "createdAt": datetime(2026, 9, 14),
+            "location": {"regionCode": "130000000", "regionName": "Metro Manila"},
+            "reporter": {"mobileUserId": "mu_one"},
+        }
+        exported = disease._serialize_self_report_export_item(document, reports=[document])
+        self.assertEqual(exported["region"], "NCR")
+        self.assertEqual(document["location"]["regionCode"], "130000000")
+        mobile_item = disease._serialize_self_report(document)
+        self.assertEqual(mobile_item["location"]["regionCode"], "130000000")
+        self.assertNotIn("region", mobile_item)
+        document["location"]["regionName"] = "Central Luzon"
+        self.assertIsNone(disease._serialize_self_report_export_item(document, reports=[document])["region"])
+
     def test_analytics_counts_registrations_not_viewers_or_reports(self):
         current_start = datetime(2026, 2, 1)
         current_end = datetime(2026, 3, 1)

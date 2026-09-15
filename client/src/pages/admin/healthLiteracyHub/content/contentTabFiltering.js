@@ -1,5 +1,4 @@
 import {
-  getAnalyticsRegionValue,
   normalizeApiContent,
 } from "../shared";
 
@@ -38,7 +37,6 @@ export const getFilteredContentItems = ({
   const apiContent = normalizeApiContent(fetchedContent).map((item) => ({
     ...item,
     contentType: contentTypeLabel,
-    region: getAnalyticsRegionValue(contentTypeLabel, item),
   }));
 
   return filterContentItems(apiContent, searchQuery);

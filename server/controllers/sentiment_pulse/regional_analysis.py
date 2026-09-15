@@ -4,6 +4,7 @@ from typing import Optional
 
 from .constants import REGIONS, SENTIMENTS, TIME_RANGE_DAYS
 from helpers.miscHelpers import get_ph_datetime
+from controllers.dashboard_regions import dashboard_region, normalize_region
 
 
 def get_range_start_date(time_range: str):
@@ -21,7 +22,7 @@ def parse_regions(regions: Optional[str]) -> list[str]:
         return REGIONS
 
     selected_regions = [
-        region.strip() for region in regions.split(",") if region.strip() in REGIONS
+        code for region in regions.split(",") if (code := normalize_region(region))
     ]
 
     return selected_regions or REGIONS
@@ -51,13 +52,7 @@ def get_event_sentiment(event: dict) -> Optional[str]:
 
 
 def get_event_region(event: dict) -> Optional[str]:
-    metadata = event.get("metadata") or {}
-    region = event.get("region") or metadata.get("region")
-
-    if region in REGIONS:
-        return region
-
-    return None
+    return dashboard_region(event)
 
 
 def build_sentiment_breakdown(

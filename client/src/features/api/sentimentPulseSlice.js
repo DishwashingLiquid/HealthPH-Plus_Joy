@@ -2,6 +2,10 @@ import { baseAPI } from "./_baseAPI";
 
 export const sentimentPulseApi = baseAPI.injectEndpoints({
   endpoints: (builder) => ({
+    fetchSentimentPulseSummary: builder.query({
+      query: () => "/sentiment-pulse/summary",
+      providesTags: ["SentimentPulseSurveys"],
+    }),
     fetchSentimentPulseSurveys: builder.query({
       query: () => "/sentiment-pulse/surveys",
       providesTags: ["SentimentPulseSurveys"],
@@ -84,6 +88,7 @@ export const {
   useFetchPublicSentimentPulseSurveysQuery,
   useFetchSentimentPulseRegionalAnalysisQuery,
   useFetchSentimentPulseSurveysQuery,
+  useFetchSentimentPulseSummaryQuery,
   useScheduleSentimentPulseSurveyMutation,
   useSubmitPublicSentimentPulseSurveyResponseMutation,
   useUpdateSentimentPulseSurveyMutation,

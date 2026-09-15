@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from controllers.dashboard_regions import REGIONS as ANALYTICS_REGIONS
 
 from config.database import (
     analytics_events_collection,
@@ -69,26 +70,6 @@ ANALYTICS_TIME_RANGE_DAYS = {
 }
 
 ANALYTICS_CONTENT_LABELS = CONTENT_TYPE_LABELS
-
-ANALYTICS_REGIONS = [
-    "NCR",
-    "I",
-    "II",
-    "III",
-    "IVA",
-    "IVB",
-    "V",
-    "VI",
-    "VII",
-    "VIII",
-    "IX",
-    "X",
-    "XI",
-    "XII",
-    "XIII",
-    "CAR",
-    "BARMM",
-]
 
 ALLOWED_ANALYTICS_EVENTS = {
     "content_opened",

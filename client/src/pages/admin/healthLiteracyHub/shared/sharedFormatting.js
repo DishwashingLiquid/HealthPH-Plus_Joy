@@ -1,4 +1,4 @@
-import { ANALYTICS_REGIONS } from "./sharedConfig";
+import { getDashboardRegionLabel } from "../../dashboardRegions";
 
 export const formatNumber = (value) => {
   return new Intl.NumberFormat("en-US").format(value ?? 0);
@@ -50,7 +50,7 @@ export const getFilterLabel = (options, value) => {
 
 export const getRegionLabel = (value) => {
   if (value === "all") return "All regions";
-  return ANALYTICS_REGIONS.find((region) => region.value === value)?.label ?? value;
+  return getDashboardRegionLabel(value);
 };
 
 export const downloadCsv = ({ filename, title, filters, columns, rows }) => {

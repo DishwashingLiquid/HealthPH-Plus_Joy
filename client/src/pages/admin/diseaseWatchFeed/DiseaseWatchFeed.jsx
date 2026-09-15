@@ -19,31 +19,13 @@ import RecentAlertsTab from "./RecentAlertsTab";
 import SendAlertModal from "./SendAlertModal";
 import RegionalCoverageTab from "./RegionalCoverageTab";
 import UserAnalyticsTab from "./UserAnalyticsTab";
+import { DASHBOARD_REGION_CODES, getDashboardRegionLabel } from "../dashboardRegions";
+import { buildRegionalCoverage } from "./regionalCoverage";
 
 const TABS = [
   { id: "recent-alerts", label: "Recent Alerts" },
   { id: "regional-coverage", label: "Regional Coverage" },
   { id: "user-analytics", label: "User Analytics" },
-];
-
-const REGION_ORDER = [
-  "NCR",
-  "I",
-  "II",
-  "III",
-  "IVA",
-  "IVB",
-  "V",
-  "CAR",
-  "VI",
-  "VII",
-  "VIII",
-  "IX",
-  "X",
-  "XI",
-  "XII",
-  "XIII",
-  "BARMM",
 ];
 
 const STATIC_SUMMARY_CARDS = [
@@ -92,21 +74,6 @@ const EMPTY_USER_ANALYTICS = {
     trend: "up",
   },
 };
-
-const sortRegions = (regions) =>
-  [...regions].sort((left, right) => {
-    const leftIndex = REGION_ORDER.indexOf(left);
-    const rightIndex = REGION_ORDER.indexOf(right);
-    const normalizedLeftIndex = leftIndex === -1 ? REGION_ORDER.length : leftIndex;
-    const normalizedRightIndex =
-      rightIndex === -1 ? REGION_ORDER.length : rightIndex;
-
-    if (normalizedLeftIndex !== normalizedRightIndex) {
-      return normalizedLeftIndex - normalizedRightIndex;
-    }
-
-    return left.localeCompare(right);
-  });
 
 const getErrorMessage = (error, fallback) => {
   const detail = error?.data?.detail;
@@ -171,7 +138,7 @@ const buildRecentAlerts = (reports, locationLookup) => {
     dedupeKeys.add(dedupeKey);
 
     const symptomLabels = report.symptomLabels || mapPin.tags || [];
-    const locationLabel = mapPin.name || "Unknown region";
+    const locationLabel = getDashboardRegionLabel(report.region);
     const diseaseLabel =
       mapPin.disease || report.possibleConditionLabel || "Respiratory symptoms reported";
 
@@ -197,51 +164,6 @@ const buildRecentAlerts = (reports, locationLookup) => {
   });
 
   return alerts;
-};
-
-const buildRegionalCoverage = (reports, locationLookup) => {
-  const regionMap = new Map();
-
-  reports.forEach((report) => {
-    const mapPin = locationLookup.get(report.id);
-    const region = mapPin?.name;
-    if (!region) {
-      return;
-    }
-
-    if (!regionMap.has(region)) {
-      regionMap.set(region, {
-        region,
-        reporterIds: new Set(),
-        reportCount: 0,
-      });
-    }
-
-    const regionEntry = regionMap.get(region);
-    regionEntry.reportCount += 1;
-    regionEntry.reporterIds.add(report.mobileReporterId || report.id);
-  });
-
-  const totalDistinctReporters = [...regionMap.values()].reduce(
-    (count, regionEntry) => count + regionEntry.reporterIds.size,
-    0
-  );
-
-  return sortRegions([...regionMap.keys()]).map((region) => {
-    const regionEntry = regionMap.get(region);
-    const mobileReporterCount = regionEntry?.reporterIds.size || 0;
-    const reportCount = regionEntry?.reportCount || 0;
-
-    return {
-      region,
-      users: mobileReporterCount,
-      percentage: totalDistinctReporters
-        ? Math.round((mobileReporterCount / totalDistinctReporters) * 100)
-        : 0,
-      alertCount: reportCount,
-      reportCount,
-    };
-  });
 };
 
 export default function DiseaseWatchFeed() {
@@ -312,8 +234,8 @@ export default function DiseaseWatchFeed() {
     [locationLookup, selfReports]
   );
   const regionUserData = useMemo(
-    () => buildRegionalCoverage(selfReports, locationLookup),
-    [locationLookup, selfReports]
+    () => buildRegionalCoverage(selfReports),
+    [selfReports]
   );
   const userAnalytics = userAnalyticsResponse || EMPTY_USER_ANALYTICS;
   const availableRegions = useMemo(
@@ -408,6 +330,7 @@ export default function DiseaseWatchFeed() {
         )}
         {activeTab === "regional-coverage" && (
           <RegionalCoverageTab
+            unknownRegionReports={selfReports.filter((report) => !DASHBOARD_REGION_CODES.includes(report.region)).length}
             availableRegions={availableRegions}
             errorMessage={
               sharedError

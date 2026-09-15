@@ -35,6 +35,7 @@ from controllers.sentiment_pulse.regional_analysis import (
     parse_regions,
 )
 from controllers.sentiment_pulse.results_aggregation import build_question_results
+from controllers.sentiment_pulse.dashboard_summary import fetch_dashboard_summary
 from controllers.sentiment_pulse.survey_helpers import (
     build_survey_update_document,
     build_public_response_document,
@@ -67,6 +68,15 @@ async def fetch_surveys(
     surveys = surveys_collection.find({}).sort([("createdAt", -1)])
 
     return [serialize_survey(survey) for survey in surveys]
+
+
+async def fetch_summary(
+    _current_user: Annotated[
+        dict, Depends(require_role(["Admin", "SUPERADMIN"]))
+    ],
+):
+    ensure_survey_indexes()
+    return fetch_dashboard_summary()
 
 
 """

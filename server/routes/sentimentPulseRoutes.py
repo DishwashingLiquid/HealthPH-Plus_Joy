@@ -8,12 +8,16 @@ from controllers.sentimentPulseController import (
     fetch_regional_analysis,
     fetch_survey_results,
     fetch_surveys,
+    fetch_summary,
     schedule_survey,
     update_survey,
 )
 
 
 router = APIRouter()
+
+# GET       /sentiment-pulse/summary (same admin access as the survey list)
+router.add_api_route("/summary", methods=["GET"], endpoint=fetch_summary)
 
 # GET       /sentiment-pulse/surveys
 router.add_api_route(

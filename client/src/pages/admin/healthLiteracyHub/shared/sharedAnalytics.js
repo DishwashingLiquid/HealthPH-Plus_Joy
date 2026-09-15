@@ -1,6 +1,5 @@
 import {
   ANALYTICS_CONTENT_FILTERS,
-  ANALYTICS_REGIONS,
   ANALYTICS_TIME_RANGES,
   DEFAULT_ANALYTICS_OVERVIEW,
   HEALTH_LITERACY_VISITOR_ID_KEY,
@@ -11,17 +10,6 @@ import {
   getFilterLabel,
   getRegionLabel,
 } from "./sharedFormatting";
-
-export const getAnalyticsSeed = (value) => {
-  return String(value ?? "")
-    .split("")
-    .reduce((total, char) => total + char.charCodeAt(0), 0);
-};
-
-export const getAnalyticsRegionValue = (contentType, item, index = 0) => {
-  const seed = getAnalyticsSeed(`${contentType}-${item.id}-${item.title}`);
-  return ANALYTICS_REGIONS[(seed + index) % ANALYTICS_REGIONS.length]?.value ?? "all";
-};
 
 export const getHealthLiteracyVisitorId = (userId) => {
   if (userId) return String(userId);

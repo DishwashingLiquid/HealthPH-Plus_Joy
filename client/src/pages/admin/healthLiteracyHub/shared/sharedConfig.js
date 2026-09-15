@@ -1,4 +1,4 @@
-import RegionsData from "../../../../assets/data/regions.json";
+import { DASHBOARD_REGIONS } from "../../dashboardRegions";
 
 export const TAB_CONTENT_TYPES = {
   Articles: "articles",
@@ -94,7 +94,7 @@ export const ANALYTICS_CONTENT_FILTERS = [
   { value: "Infographics", label: "Infographics" },
 ];
 
-export const ANALYTICS_REGIONS = RegionsData.regions;
+export const ANALYTICS_REGIONS = DASHBOARD_REGIONS;
 
 export const HEALTH_LITERACY_VISITOR_ID_KEY = "healthLiteracyVisitorId";
 
