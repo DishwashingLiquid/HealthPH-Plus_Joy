@@ -31,6 +31,7 @@ const UsersTable = ({
   searchQuery,
   setSearchQuery,
   organizationOptions = [],
+  isOrganizationsLoading = false,
   roleLabelOptions = [],
 }) => {
   const user = useSelector((state) => state.auth.user);
@@ -736,10 +737,8 @@ const UsersTable = ({
       {updateModalActive && (
         <ModalWithBody
           onLoading={isModalLoading}
-          onLoadingLabel={"Updating"}
-          onConfirm={() => {
-            handleUpdateUser();
-          }}
+          onLoadingLabel="Updating"
+          onConfirm={handleUpdateUser}
           onConfirmLabel="Update"
           onConfirmDisabled={!hasOrganizationOptions}
           onCancel={() => {
@@ -747,121 +746,13 @@ const UsersTable = ({
             setUpdateModalErrors(emptyUpdateModalErrors);
             setUpdateModalActive(false);
           }}
-          heading={`Update ${updateModalData.name}'s account`}
-          content="This user will receive full access to HealthPH+ such as the Analytics, Trends Map, and other modules."
+          heading="Update Account"
+          content="This user can access HealthPH+ modules based on their role label and organization permissions."
           color="primary"
+          additionalClasses="account-form-modal"
         >
           <div className="p-[20px]">
-            <div className="grid grid-cols-1 gap-x-[16px] p-[20px] md:grid-cols-2">
-              <FieldGroup 
-                label="First Name" 
-                labelFor="update-first-name" 
-                additionalClasses="mb-[16px]" 
-                caption={updateModalErrors.first_name} 
-                state={updateModalErrors.first_name ? "error" : ""}
-              >
-                <Input 
-                  size="input-md" 
-                  id="update-first-name" 
-                  type="text" 
-                  additionalClasses="mt-[8px] w-full" 
-                  value={updateModalData.first_name} 
-                  onChange={(e) => setUpdateModalData({ ...updateModalData, first_name: e.target.value })} 
-                  state={updateModalErrors.first_name ? "error" : ""} 
-                />
-              </FieldGroup>
-
-              <FieldGroup 
-                label="Last Name" 
-                labelFor="update-last-name" 
-                additionalClasses="mb-[16px]" 
-                caption={updateModalErrors.last_name} 
-                state={updateModalErrors.last_name ? "error" : ""}
-              >
-                <Input 
-                  size="input-md" 
-                  id="update-last-name" 
-                  type="text" 
-                  additionalClasses="mt-[8px] w-full" 
-                  value={updateModalData.last_name} 
-                  onChange={(e) => setUpdateModalData({ ...updateModalData, last_name: e.target.value })} 
-                  state={updateModalErrors.last_name ? "error" : ""}
-                />
-              </FieldGroup>
-
-              <FieldGroup
-                label="Email" 
-                labelFor="update-email" 
-                additionalClasses="mb-[16px]" 
-                caption={updateModalErrors.email} 
-                state={updateModalErrors.email ? "error" : ""}
-              >
-                <Input 
-                  size="input-md" 
-                  id="update-email" 
-                  type="email" 
-                  additionalClasses="mt-[8px] w-full" 
-                  value={updateModalData.email} 
-                  onChange={(e) => setUpdateModalData({ ...updateModalData, email: e.target.value })} 
-                  state={updateModalErrors.email ? "error" : ""}
-                />
-              </FieldGroup>
-
-              <FieldGroup 
-                label="Regional Office"
-                labelFor="update-region" 
-                additionalClasses="mb-[16px]" 
-                caption={updateModalErrors.region} 
-                state={updateModalErrors.region ? "error" : ""}
-              >
-                <CustomSelect 
-                  options={Regions.regions} 
-                  id="update-region" 
-                  placeholder="Select region" 
-                  size="input-select-md" 
-                  value={updateModalData.region} 
-                  handleChange={(value) => setUpdateModalData({ ...updateModalData, region: value })} additionalClasses="mt-[8px] w-full" state={updateModalErrors.region ? "error" : ""} menuMaxHeight="max-h-[250px]"
-                />
-              </FieldGroup>
-
-              <FieldGroup 
-                label="Organization" 
-                labelFor="update-organization" 
-                additionalClasses="mb-[16px]" 
-                caption={
-                  updateModalErrors.organization ||
-                  (!hasOrganizationOptions
-                    ? "Add an organization first from the Organizations tab."
-                    : ""
-                  )
-                }
-                state={
-                  updateModalErrors.organization
-                    ? "error"
-                    : !hasOrganizationOptions
-                    ? "warning"
-                    : ""
-                }
-              >
-                <CustomSelect
-                  options={organizationOptions}
-                  id="update-organization"
-                  placeholder={
-                    hasOrganizationOptions
-                      ? "Select organization"
-                      : "No organizations available" 
-                  }
-                  size="input-select-md"
-                  value={updateModalData.organization}
-                  handleChange={(value) => {
-                    setUpdateModalData({ ...updateModalData, organization: value });
-                    setUpdateModalErrors({ ...updateModalErrors, organization: ""});
-                  }}
-                  additionalClasses="mt-[8px] w-full"
-                  state={updateModalErrors.organization ? "error" : ""}
-                  editable={hasOrganizationOptions}
-                />
-              </FieldGroup>
+            <div className="grid grid-cols-1 gap-x-[16px] md:grid-cols-2">
               <FieldGroup
                 label="Account Type"
                 labelFor="update-user-type"
@@ -894,7 +785,22 @@ const UsersTable = ({
                   state={updateModalErrors.role_label ? "error" : ""}
                 />
               </FieldGroup>
-
+              <FieldGroup 
+                label="Regional Office"
+                labelFor="update-region" 
+                additionalClasses="mb-[16px]" 
+                caption={updateModalErrors.region} 
+                state={updateModalErrors.region ? "error" : ""}
+              >
+                <CustomSelect 
+                  options={Regions.regions} 
+                  id="update-region" 
+                  placeholder="Select region" 
+                  size="input-select-md" 
+                  value={updateModalData.region} 
+                  handleChange={(value) => setUpdateModalData({ ...updateModalData, region: value })} additionalClasses="mt-[8px] w-full" state={updateModalErrors.region ? "error" : ""} menuMaxHeight="max-h-[250px]"
+                />
+              </FieldGroup>
               <FieldGroup 
                 label="Accessible Regions" 
                 labelFor="accessible-regions" 
@@ -911,6 +817,104 @@ const UsersTable = ({
                   additionalClassname="w-full mt-[8px]" 
                   editable={true} 
                   state={updateModalErrors.accessible_regions ? "error" : ""}
+                />
+              </FieldGroup>
+              <FieldGroup 
+                label="Organization" 
+                labelFor="update-organization" 
+                additionalClasses="mb-[16px] md:col-span-2" 
+                caption={
+                  updateModalErrors.organization ||
+                  (isOrganizationsLoading
+                    ? ""
+                    : !hasOrganizationOptions
+                    ? "Add an organization first from the Organizations tab."
+                    : ""
+                  )
+                }
+                state={
+                  updateModalErrors.organization
+                    ? "error"
+                    : isOrganizationsLoading
+                    ? ""
+                    : !hasOrganizationOptions
+                    ? "warning"
+                    : ""
+                }
+              >
+                <CustomSelect
+                  options={organizationOptions}
+                  id="update-organization"
+                  placeholder={
+                    isOrganizationsLoading
+                      ? "Loading organizations..."
+                      : hasOrganizationOptions
+                      ? "Select organization"
+                      : "No organizations available" 
+                  }
+                  size="input-select-md"
+                  value={updateModalData.organization}
+                  handleChange={(value) => {
+                    setUpdateModalData({ ...updateModalData, organization: value });
+                    setUpdateModalErrors({ ...updateModalErrors, organization: ""});
+                  }}
+                  additionalClasses="mt-[8px] w-full"
+                  state={updateModalErrors.organization ? "error" : ""}
+                  editable={!isOrganizationsLoading && hasOrganizationOptions}
+                />
+              </FieldGroup>
+              <FieldGroup 
+                label="First Name" 
+                labelFor="update-first-name" 
+                additionalClasses="mb-[16px]" 
+                caption={updateModalErrors.first_name} 
+                state={updateModalErrors.first_name ? "error" : ""}
+              >
+                <Input 
+                  size="input-md" 
+                  id="update-first-name" 
+                  type="text" 
+                  additionalClasses="mt-[8px] w-full" 
+                  value={updateModalData.first_name} 
+                  onChange={(e) => setUpdateModalData({ ...updateModalData, first_name: e.target.value })} 
+                  state={updateModalErrors.first_name ? "error" : ""} 
+                />
+              </FieldGroup>
+              <FieldGroup 
+                label="Last Name" 
+                labelFor="update-last-name" 
+                additionalClasses="mb-[16px]" 
+                caption={updateModalErrors.last_name} 
+                state={updateModalErrors.last_name ? "error" : ""}
+              >
+                <Input 
+                  size="input-md" 
+                  id="update-last-name" 
+                  type="text" 
+                  additionalClasses="mt-[8px] w-full" 
+                  value={updateModalData.last_name} 
+                  onChange={(e) => setUpdateModalData({ ...updateModalData, last_name: e.target.value })} 
+                  state={updateModalErrors.last_name ? "error" : ""}
+                />
+              </FieldGroup>
+              <FieldGroup
+                label="Email" 
+                labelFor="update-email" 
+                additionalClasses="mb-[16px]" 
+                caption={updateModalErrors.email} 
+                state={updateModalErrors.email ? "error" : ""}
+              >
+                <Input 
+                  size="input-md" 
+                  id="update-email" 
+                  type="email" 
+                  additionalClasses="mt-[8px] w-full" 
+                  value={updateModalData.email} 
+                  onChange={(e) => {
+                    setUpdateModalData({ ...updateModalData, email: e.target.value });
+                    setUpdateModalErrors({ ...updateModalErrors, email: ""});
+                  }} 
+                  state={updateModalErrors.email ? "error" : ""}
                 />
               </FieldGroup>
               <FieldGroup

@@ -4,6 +4,18 @@ from config.database import role_label_collection
 from helpers.miscHelpers import get_ph_datetime
 
 
+HEALTHPH_PLUS_PAGES = [
+    "AI Surveillance",
+    "NLP Insights",
+    "Misinformation Tracker",
+    "User Management",
+    "Model Access and Toolkit",
+    "Disease Watch Feed",
+    "Health Literacy Hub",
+    "Sentiment Pulse Tool",
+]
+
+
 DEFAULT_ROLE_LABELS = [
     {"name": "Admin", "description": "Administrative platform access"},
     {"name": "Analyst", "description": "Access to analytics and analysis tools"},
@@ -30,6 +42,16 @@ def ensure_default_role_labels():
         )
 
         if existing_role_label:
+            if not isinstance(existing_role_label.get("accessible_pages"), list):
+                role_label_collection.update_one(
+                    {"_id": existing_role_label["_id"]},
+                    {
+                        "$set": {
+                            "accessible_pages": HEALTHPH_PLUS_PAGES.copy(),
+                            "updated_at": get_ph_datetime(),
+                        }
+                    },
+                )
             continue
 
         role_label_collection.insert_one(
@@ -38,6 +60,7 @@ def ensure_default_role_labels():
                 "description": role_label["description"],
                 "is_active": True,
                 "is_system": True,
+                "accessible_pages": HEALTHPH_PLUS_PAGES.copy(),
                 "created_at": get_ph_datetime(),
                 "updated_at": get_ph_datetime(),
             }

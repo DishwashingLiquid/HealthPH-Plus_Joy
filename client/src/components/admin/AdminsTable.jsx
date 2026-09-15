@@ -30,6 +30,7 @@ const AdminsTable = ({
     searchQuery,
     setSearchQuery,
     organizationOptions = [],
+    isOrganizationsLoading = false,
 }) => {
     const user = useSelector((state) => state.auth.user);
 
@@ -629,15 +630,93 @@ const AdminsTable = ({
                         setUpdateModalErrors(emptyUpdateModalErrors);
                         setUpdateModalActive(false);
                     }}
-                    heading={`Update ${updateModalData.name}'s superadmin account`}
+                    heading="Update Account"
                     color="primary"
+                    additionalClasses="account-form-modal"
                 >
                     <div className="p-[20px]">
-                        <div className="grid grid-cols-1 gap-x-[16px] p-[20px] md:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-x-[16px] md:grid-cols-6">
+                            <FieldGroup
+                                label="Account Type"
+                                labelFor="update-admin-user-type"
+                                additionalClasses="mb-[16px] md:col-span-3"
+                                caption="Account type is fixed for this account."
+                            >
+                                <Input
+                                    size="input-md"
+                                    id="update-admin-user-type"
+                                    type="text"
+                                    additionalClasses="mt-[8px] w-full"
+                                    value={updateModalData.user_type}
+                                    disabled
+                                />
+                            </FieldGroup>
+                            <FieldGroup
+                                label="Accessible Regions"
+                                labelFor="update-admin-accessible-regions"
+                                additionalClasses="mb-[16px] md:col-span-3"
+                                caption="SUPERADMIN accounts automatically cover all regions."
+                            >
+                                <MultiSelect
+                                    options={Regions.regions}
+                                    defaultValue={updateModalData.accessible_regions}
+                                    placeHolder="Select region/s"
+                                    onChange={() => {}}
+                                    selectAllLabel="All Regions"
+                                    selectAll={false}
+                                    additionalClassname="mt-[8px] w-full"
+                                    editable={false}
+                                    selectable={false}
+                                />
+                            </FieldGroup>
+                            <FieldGroup
+                                label="Organization"
+                                labelFor="update-admin-organization"
+                                additionalClasses="mb-[16px] md:col-span-6"
+                                caption={
+                                    updateModalErrors.organization ||
+                                    (isOrganizationsLoading
+                                        ? ""
+                                        : !hasOrganizationOptions
+                                        ? "Add an organization first from the Organizations tab."
+                                        : ""
+                                    )
+                                }
+                                state={
+                                    updateModalErrors.organization
+                                        ? "error"
+                                        : isOrganizationsLoading
+                                        ? ""
+                                        : !hasOrganizationOptions
+                                        ? "warning"
+                                        : ""
+                                }
+                            >
+                                <CustomSelect
+                                    options={organizationOptions}
+                                    id="update-admin-organization"
+                                    placeholder={
+                                        isOrganizationsLoading
+                                            ? "Loading organizations..."
+                                            : hasOrganizationOptions
+                                            ? "Select organization"
+                                            : "No organizations available"   
+                                    }
+                                    size="input-select-md"
+                                    value={updateModalData.organization}
+                                    handleChange={(value) => {
+                                        setUpdateModalData({ ...updateModalData, organization: value });
+                                        setUpdateModalErrors({ ...updateModalErrors, organization: ""});
+                                    }}
+                                    additionalClasses="mt-[8px] w-full"
+                                    state={updateModalErrors.organization ? "error" : ""}
+                                    editable={!isOrganizationsLoading && hasOrganizationOptions}
+                                />
+                            </FieldGroup>
                             <FieldGroup
                                 label="First Name"
                                 labelFor="update-admin-first-name"
-                                additionalClasses="mb-[16px]"
+                                additionalClasses="mb-[16px] md:col-span-3"
                                 caption={updateModalErrors.first_name}
                                 state={updateModalErrors.first_name ? "error" : ""}
                             >
@@ -654,7 +733,7 @@ const AdminsTable = ({
                             <FieldGroup
                                 label="Last Name"
                                 labelFor="update-admin-last-name"
-                                additionalClasses="mb-[16px]"
+                                additionalClasses="mb-[16px] md:col-span-3"
                                 caption={updateModalErrors.last_name}
                                 state={updateModalErrors.last_name ? "error" : ""}
                             >
@@ -671,7 +750,7 @@ const AdminsTable = ({
                             <FieldGroup
                                 label="Email"
                                 labelFor="update-admin-email"
-                                additionalClasses="mb-[16px]"
+                                additionalClasses="mb-[16px] md:col-span-3"
                                 caption={updateModalErrors.email}
                                 state={updateModalErrors.email ? "error" : ""}
                             >
@@ -686,78 +765,9 @@ const AdminsTable = ({
                                 />
                             </FieldGroup>
                             <FieldGroup
-                                label="Organization"
-                                labelFor="update-admin-organization"
-                                additionalClasses="mb-[16px]"
-                                caption={
-                                    updateModalErrors.organization ||
-                                    (!hasOrganizationOptions
-                                        ? "Add an organization first from the Organizations tab."
-                                        : ""
-                                    )
-                                }
-                                state={
-                                    updateModalErrors.organization
-                                        ? "error"
-                                        : !hasOrganizationOptions
-                                        ? "warning"
-                                        : ""
-                                }
-                            >
-                                <CustomSelect
-                                    options={organizationOptions}
-                                    id="update-admin-organization"
-                                    placeholder={
-                                        hasOrganizationOptions
-                                            ? "Select organization"
-                                            : "No organizations available"   
-                                    }
-                                    size="input-select-md"
-                                    value={updateModalData.organization}
-                                    handleChange={(value) => {
-                                        setUpdateModalData({ ...updateModalData, organization: value });
-                                        setUpdateModalErrors({ ...updateModalErrors, organization: ""});
-                                    }}
-                                    additionalClasses="mt-[8px] w-full"
-                                    state={updateModalErrors.organization ? "error" : ""}
-                                    editable={hasOrganizationOptions}
-                                />
-                            </FieldGroup>
-                            <FieldGroup
-                                label="Account Type"
-                                labelFor="update-admin-user-type"
-                                additionalClasses="mb-[16px]"
-                            >
-                                <Input
-                                    size="input-md"
-                                    id="update-admin-user-type"
-                                    type="text"
-                                    additionalClasses="mt-[8px] w-full"
-                                    value={updateModalData.user_type}
-                                    disabled
-                                />
-                            </FieldGroup>
-                            <FieldGroup
-                                label="Accessible Regions"
-                                labelFor="update-admin-accessible-regions"
-                                additionalClasses="mb-[16px]"
-                            >
-                                <MultiSelect
-                                    options={Regions.regions}
-                                    defaultValue={updateModalData.accessible_regions}
-                                    placeHolder="Select region/s"
-                                    onChange={() => {}}
-                                    selectAllLabel="All Regions"
-                                    selectAll={false}
-                                    additionalClassname="mt-[8px] w-full"
-                                    editable={false}
-                                    selectable={false}
-                                />
-                            </FieldGroup>
-                            <FieldGroup
                                 label="Date Created"
                                 labelFor="update-admin-created-at"
-                                additionalClasses="mb-[16px]"
+                                additionalClasses="mb-[16px] md:col-span-3"
                             >
                                 <Input
                                     size="input-md"

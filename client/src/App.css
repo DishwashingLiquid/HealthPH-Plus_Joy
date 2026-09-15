@@ -60,6 +60,18 @@
     box-shadow: 0px 25px 50px -12px rgba(0, 0, 0, 0.25);
   }
 
+  .modal.account-form-modal {
+    @apply inset-x-0 bottom-0 top-[49px] h-auto px-[20px] py-[32px] pt-0;
+  }
+
+  .modal.account-form-modal .modal-container {
+    @apply flex max-h-[calc(100vh-113px)] w-full max-w-[900px] flex-col overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-white;
+  }
+
+  .modal.account-form-modal .modal-body {
+    @apply min-h-0 flex-1 overflow-y-auto;
+  }
+
   .modal .modal-container .modal-body {
     @apply p-[20px] border-b-2 border-gray-50;
   }
