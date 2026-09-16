@@ -4,23 +4,43 @@ Date: September 15, 2026. Scope: Disease Watch Feed, Health Literacy Hub, Sentim
 
 ## Conclusion
 
-**Disease Watch Feed has four internal collections that are candidates for consolidation into one dashboard-owned collection.** This would remove three collection namespaces while initially preserving all 70 records. It requires changes to queries, indexes, scripts, and the alert scheduler; changing collection aliases alone would break isolation between record types.
+**Disease Watch Feed's four approved internal collections now have a completed local consolidation implementation.** `disease_watch_internal` stores separate typed documents and initially preserves all records. Kind-scoped storage, partial unique indexes, scheduler and reconciliation changes, migration preflight/copy validation, startup cutover protection, repair/inspection updates, and isolated regressions are implemented. The live migration remains unapplied.
 
-**No production merge or deletion is yet established as safe across the whole system.** The user identified the mobile application and a senior developer's work on AI Surveillance, NLP Insights, Misinformation Tracker, User Management, and Model Access Toolkit as additional consumers. Their deployed or independently maintained code has not been inspected. Local implementations of those dashboards were checked for shared dependencies. The recommendations below describe what this working tree supports and the conditions needed before applying them.
+The user confirmed exclusive internal ownership for `regional_symptom_summaries`, `regional_summary_events`, `regional_alert_batch_states`, and `regional_alert_cooldowns`. That resolves eligibility for this local implementation. Protected, unfamiliar, shared, and externally owned collections remain unchanged. No production copy, source retirement, or record deletion was performed.
 
-The user also requested assessment of record reduction. The best current candidates are 15 expired cooldown records and 26 unconsumed summary events whose source reports are absent. These are conditional cleanup candidates, not a deletion list. Eleven consumed summary events must retain their protection against processing the same report again.
+The user also requested assessment of record reduction. The best current candidates remain 15 expired cooldown records and 26 unconsumed summary events whose source reports are absent. These are conditional cleanup candidates, not a deletion list. Seventeen consumed summary events now retain protection against processing the same report again; 11 of those also lack source reports.
 
 Health Literacy content already shares one collection. Its analytics events supply mobile-visible counts and cannot simply be discarded. Sentiment Pulse already embeds survey questions and creation metadata, and its survey sequence lives in shared settings. Neither dashboard has an obvious additional low-risk collection merge under the requested backend-only, same-dashboard rule.
 
 ## Evidence and limits
 
-- Inspected the current working tree, including existing uncommitted Sentiment Pulse changes. Existing application files were not modified.
+- Inspected the current working tree and preserved unrelated uncommitted changes. The Disease Watch application and operational scripts were updated only for the approved consolidation.
 - Traced React dashboards and API slices through FastAPI routes, controllers, helpers, serializers, startup jobs, reconciliation scripts, and existing regression tests.
 - Inspected mobile integration documentation. No Flutter application source exists in this repository. A mobile API response is treated as mobile-facing even when the actual widget cannot be inspected.
-- Ran a read-only inventory of collection names, document counts, indexes, storage metadata, and aggregate lifecycle checks. No API startup, scheduler, application migration helper, collection creation, index creation, or database mutation was invoked.
-- The configured database contained 21 collections. The audit inspected 16 relevant or potentially related names; 15 existed and `health_literacy_feedback` did not.
+- The original audit used read-only collection metadata and aggregate lifecycle checks. The final implementation checks also invoked only read-only migration preflight and inventory commands; `--apply` was never used.
+- The configured database originally contained 21 collections. A final recheck found 22 because an empty `disease_watch_internal` collection with the six implementation indexes now exists. No destination documents exist. Two local Python process pairs were already active, and the exact new startup index definitions indicate a running/reloading application likely loaded the edited controller. Do not treat the destination as migrated.
 - Measurements began at 10:37:24 Philippine time; lifecycle checks ran at 10:37:37. They are sequential observations, not a consistent transaction snapshot. Recheck before any migration or cleanup, especially because other services may write concurrently.
-- Saved evidence: [DASHBOARD_MONGODB_INVENTORY.json](DASHBOARD_MONGODB_INVENTORY.json). Reusable read-only tool: [inspect_dashboard_collections.py](server/scripts/inspect_dashboard_collections.py).
+- The optional historical `DASHBOARD_MONGODB_INVENTORY.json` is not present in the current working tree. The dated observations below remain historical evidence. Reusable read-only tool: [inspect_dashboard_collections.py](server/scripts/inspect_dashboard_collections.py).
+
+## Current read-only preflight
+
+At 15:25 Philippine time on September 15, the approved sources contained 92
+records: 17 summaries, 43 events, 2 batch states, and 30 cooldowns. The
+migration preflight found no cross-collection `_id` collisions, logical-key
+conflicts, malformed source records, destination document conflicts, or
+snapshot references to missing events. It proposed all 92 inserts.
+
+The lifecycle recheck found 17 consumed and 26 unconsumed events. Thirty-seven
+events lacked source reports: 11 consumed and all 26 unconsumed events. Eleven
+events were older than the maximum rolling window. Fifteen of 30 cooldowns
+were expired, no batch was Processing, and all 17 summaries were zero-count.
+These observations are sequential and can change while existing services run.
+
+The destination has zero documents and is explicitly reported as
+`incomplete-destination` with `cutoverReady: false`. Its indexes can remain in
+place for a later apply run; do not drop them during this task. The application
+startup guard now refuses cutover whenever any destination kind contains fewer
+records than its corresponding retained source.
 
 ## Collection classification
 
@@ -30,16 +50,16 @@ Health Literacy content already shares one collection. Its analytics events supp
 
 | Collection | Observed records | Purpose and dependencies | Assessment |
 | --- | ---: | --- | --- |
-| `self_reports` | 0 | Canonical mobile submissions; POST response, personal report history, map/export, reporter analytics, summary projection, NLP entry creation. | Keep as a source collection. Empty does not mean unused. |
-| `mobile_users` | 5 | Mobile registration/login and authenticated account identity; report ownership, regional analytics, survey joins, recipient targeting. | Keep shared identity storage. |
+| `self_reports` | 6 | Canonical mobile submissions; POST response, personal report history, map/export, reporter analytics, summary projection, NLP entry creation. | Keep as a source collection. |
+| `mobile_users` | 1 | Mobile registration/login and authenticated account identity; report ownership, regional analytics, survey joins, recipient targeting. | Keep shared identity storage. |
 | `regional_symptom_summaries` | 17 | Derived regional totals shown on the admin dashboard; revision-controlled updates and automation input. All 17 had zero report counts at observation. | Consolidation candidate: `kind: regional_summary`. |
-| `regional_summary_events` | 37 | Per-report projection, rolling-window calculation, and durable consumed-batch markers. | Consolidation candidate: `kind: summary_event`; preserve event identity and consumption state. |
-| `regional_alert_batch_states` | 1 | Processing claims, restart recovery, cooldown wake-ups, admin automation status. No batch was `Processing` at observation. | Consolidation candidate: `kind: alert_batch_state`. |
-| `regional_alert_cooldowns` | 15 | Per-region/symptom suppression reservations. All 15 had expired at observation. | Consolidation candidate: `kind: alert_cooldown`; conditional record cleanup. |
-| `regional_alerts` | 1 | Saved alert message, trigger snapshot, admin history, recipient-preparation lifecycle. | Retain for now. No implemented mobile inbox reader here, but external services may consume it. |
-| `mobile_notification_deliveries` | 0 | One assignment per alert/mobile user; preparation retries and recipient counts. | Retain for now. Integration boundary and external consumption need checking. |
+| `regional_summary_events` | 43 | Per-report projection, rolling-window calculation, and durable consumed-batch markers. | Approved as `kind: summary_event`; preserve event identity and consumption state. |
+| `regional_alert_batch_states` | 2 | Processing claims, restart recovery, cooldown wake-ups, admin automation status. No batch was `Processing` at observation. | Approved as `kind: alert_batch_state`. |
+| `regional_alert_cooldowns` | 30 | Per-region/symptom suppression reservations. Fifteen were expired at observation. | Approved as `kind: alert_cooldown`; conditional record cleanup remains separate. |
+| `regional_alerts` | 2 | Saved alert message, trigger snapshot, admin history, recipient-preparation lifecycle. | Protected mobile-facing history; retain unchanged. |
+| `mobile_notification_deliveries` | 1 | One assignment per alert/mobile user; preparation retries and recipient counts. | Protected mobile integration boundary; retain unchanged. |
 | `application_settings` | 4 total, shared | Alert settings, repair markers, and Sentiment Pulse ID allocation. | Keep shared collection; do not move unrelated dashboard settings into Disease Watch storage. |
-| `analytics_entries` | 0, shared | NLP processing entries from report notes, survey answers, and imported datasets. | Already shared by source type; do not absorb it into one dashboard. |
+| `analytics_entries` | 6, shared | NLP processing entries from report notes, survey answers, and imported datasets. | Already shared by source type; do not absorb it into one dashboard. |
 
 Key evidence:
 
@@ -70,11 +90,11 @@ Key evidence:
 
 | Collection/dependency | Observed records | Purpose and dependencies | Assessment |
 | --- | ---: | --- | --- |
-| `surveys` | 0 | Survey definitions, embedded questions, publication/scheduling settings, creator metadata, question sequence and response count. Public/mobile survey list consumes these records. | Already combines creation features; keep. Draft status does not make the collection backend-only because drafts can be published. |
+| `surveys` | 1 | Survey definitions, embedded questions, publication/scheduling settings, creator metadata, question sequence and response count. Public/mobile survey list consumes these records. | Already combines creation features; keep. Draft status does not make the collection backend-only because drafts can be published. |
 | `survey_responses` | 0 | Submitted answers and respondent metadata; admin results, summary joins, regional/date analysis, and NLP entry generation. Submission endpoint returns an acknowledgment rather than the response document. | Backend-held source records, but no suitable separate dashboard-owned internal collection to combine with under the requested rule. Keep full answers for existing features. |
-| `application_settings` | 4 total, shared | Atomically reserves survey IDs. The observed next survey sequence is 7 although the survey collection is empty. | Preserve sequence state; do not reset to 1 or derive solely from current surveys. |
-| `analytics_entries` | 0, shared | Per-answer NLP entries, shared with self-reports and dataset imports. | Preserve shared processing contract. |
-| `mobile_users` | 5, shared | Authenticated response association and regional identity joins. | Keep shared identity storage. |
+| `application_settings` | 4 total, shared | Atomically reserves survey IDs. The observed next survey sequence is 8. | Preserve sequence state; do not reset or derive solely from current surveys. |
+| `analytics_entries` | 6, shared | Per-answer NLP entries, shared with self-reports and dataset imports. | Preserve shared processing contract. |
+| `mobile_users` | 1, shared | Authenticated response association and regional identity joins. | Keep shared identity storage. |
 | `analytics_events` | 0 | Imported by Sentiment Pulse constants, but no active Sentiment Pulse reader/writer found. | Unused import is not evidence that the collection can be removed; Health Literacy uses it. |
 | `id_counters` | 9 | Live sequence documents; no source-code references found in this repository. | Ownership unresolved. Other services may actively allocate IDs here. Do not classify as obsolete based on this repository alone. |
 
@@ -103,7 +123,7 @@ The six live collections outside the detailed inventory were `activity_logs`, `d
 
 ### Disease Watch internal storage
 
-After mapping external consumers, combine only these four collections into a proposed `disease_watch_internal` collection:
+The local implementation combines only these four collections into `disease_watch_internal`:
 
 | Current collection | Required discriminator |
 | --- | --- |
@@ -112,27 +132,26 @@ After mapping external consumers, combine only these four collections into a pro
 | `regional_alert_batch_states` | `kind: alert_batch_state` |
 | `regional_alert_cooldowns` | `kind: alert_cooldown` |
 
-Keep each event, state, summary and cooldown as its own document. This is four collections becoming one, not 70 records becoming one giant record. Growing event/recipient arrays would introduce document-size and update costs; MongoDB documents this in [Avoid Unbounded Arrays](https://www.mongodb.com/docs/manual/data-modeling/design-antipatterns/unbounded-arrays/).
+Keep each event, state, summary and cooldown as its own document. This is four collections becoming one, not 92 records becoming one giant record. Growing event/recipient arrays would introduce document-size and update costs; MongoDB documents this in [Avoid Unbounded Arrays](https://www.mongodb.com/docs/manual/data-modeling/design-antipatterns/unbounded-arrays/).
 
-Implementation requirements:
+Implemented storage guarantees:
 
-1. Scope every read, update, upsert, deletion, count and aggregation by `kind`. Existing calls such as `find({})`, `find({region: ...})`, and repair scans would otherwise mix unrelated documents. Insert and replacement paths must also retain the discriminator.
-2. Preserve `_id` values where possible and check cross-collection collisions before copying. Batch-state `_id` currently doubles as the region code. Event IDs appear in snapshots and consumed-batch processing; any changed ID requires a complete reference mapping.
-3. Preserve independent uniqueness rules with type-specific partial indexes: one regional summary per region, one event per `(region, reportId)`, and one cooldown per `(region, symptomKey)`. Preserve one batch state per region. A global unique `region` index would reject legitimate event/cooldown documents. MongoDB supports uniqueness restricted by a partial filter; queries must include the filter to use the index: [Partial Indexes](https://www.mongodb.com/docs/manual/core/index-partial/).
-4. Keep separate query indexes for active events and due batch states. A smaller collection count does not eliminate the queries or their index requirements.
-5. Preserve revision checks, atomic processing claims, `consumedBatchId`, cooldown deadlines, and retry behavior. Do not reset these when enabling automation or restarting workers.
-6. Update `server/config/database.py`, `regional_summaries.py`, `regionalAlertsController.py`, both inventory/repair scripts, and affected regression fixtures. `reconcile_regional_summaries.py` and `inspect_summary_regions.py` directly address the current physical collections.
-7. Coordinate source writers, schedulers, repair jobs, and the external services during cutover. Validate the copied data before switching readers; retain recoverable source data until the migration is accepted.
+1. `KindScopedCollection` adds the discriminator to every supported read, update, upsert, deletion, count, distinct, and aggregation operation. Inserts and replacements retain the discriminator and reject a conflicting kind.
+2. The migration preserves `_id` values and blocks cross-collection collisions before copying. Batch-state `_id` remains the region code, with `region` added for its partial unique index. Event IDs remain unchanged in summaries, processing snapshots, and alert snapshots.
+3. Type-specific partial indexes enforce one regional summary per region, one event per `(region, reportId)`, one batch state per region, and one cooldown per `(region, symptomKey)`. Separate indexes support active events and due batch states.
+4. Revision checks, consumed markers, cooldown deadlines, restart recovery, and alert-generation behavior remain in place. The batch claim now initializes state separately and uses a non-upserting compare-and-set, avoiding a duplicate `_id` race when another worker is Processing.
+5. Database configuration, the alert controller, repair and inspection scripts, documentation, and regression coverage use the consolidated logical views. Protected alert history, deliveries, source reports, and application settings retain their existing collection contracts.
+6. [Migration instructions](DISEASE_WATCH_MONGODB_MIGRATION.md) coordinate writers, scheduler instances, and repair jobs. The tool validates the full copy before cutover, and startup rejects an empty or partial destination while retained sources contain more records.
 
-Potential result: three fewer collections after source retirement. The four source collections currently hold **19,289 logical data bytes** and **479,232 bytes of allocated collection plus index storage**. Those allocated bytes are not a savings estimate: the destination still needs documents and indexes, and temporary migration copies increase storage. Across all 15 existing inspected collections, logical document data totals only **33,990 bytes**. The present benefit is chiefly simpler organization, not a substantial data-volume reduction.
+Potential result: three fewer collections after source retirement. The four source collections currently hold **26,176 logical data bytes** and **483,328 bytes of allocated collection plus index storage**. Those allocated bytes are not a savings estimate: the destination still needs documents and indexes, and temporary migration copies increase storage. Across the currently inspected existing collections, logical document data totals about **58,686 bytes**. The present benefit is chiefly simpler organization, not a substantial data-volume reduction.
 
 ## Record and field reduction assessment
 
 | Candidate | Observed evidence | Safe reduction conditions |
 | --- | --- | --- |
-| Expired cooldown records | 15/15 expired; no processing batch observed. | Best bounded cleanup candidate after external-use review. Recheck expiry at deletion, coordinate with processing/retry writers, and preserve any required operational history. Removing an expired reservation must not delete a concurrently renewed cooldown. |
-| Unconsumed orphan summary events | 26 unconsumed; all 37 total events had no matching `self_reports` record. | Investigate source disappearance and concurrent/external writers first. If source removal is confirmed intentional and events are not reserved/referenced by an in-flight batch, remove obsolete unconsumed projections and reconcile summaries. The existing repair planner can remove unconsumed events missing from eligible sources, but has broader effects and must be dry-run/reviewed separately. |
-| Consumed summary-event payloads | 11 consumed; 11 total events older than the maximum 24-hour reporting window. The checks do not establish that these two sets are identical. | Preserve a minimal permanent consumption marker containing identity, region, source report ID and consumed-batch metadata. Bulky symptom payloads could later be removed after verifying references, repair behavior, and historical requirements. This reduces bytes, not necessarily document count. |
+| Expired cooldown records | 15/30 expired; no processing batch observed. | Best bounded cleanup candidate after external-use review. Recheck expiry at deletion, coordinate with processing/retry writers, and preserve any required operational history. Removing an expired reservation must not delete a concurrently renewed cooldown. |
+| Unconsumed orphan summary events | All 26 unconsumed events lacked matching `self_reports` records; 6 newer events retained their sources. | Investigate the 37 historical source removals and concurrent/external writers first. If source removal is confirmed intentional and events are not reserved/referenced by an in-flight batch, remove obsolete unconsumed projections and reconcile summaries. The existing repair planner can remove unconsumed events missing from eligible sources, but has broader effects and must be dry-run/reviewed separately. |
+| Consumed summary-event payloads | 17 consumed; 11 lacked source reports, and 11 total events were older than the maximum 24-hour reporting window. The checks do not establish that these two sets are identical. | Preserve a minimal permanent consumption marker containing identity, region, source report ID and consumed-batch metadata. Bulky symptom payloads could later be removed after verifying references, repair behavior, and historical requirements. This reduces bytes, not necessarily document count. |
 | Zero regional summaries | 17 summaries, all zero. | Leave them. The set is small and bounded; refresh/automation may recreate them, and removing rows changes admin state representation. |
 | Completed repair audit payload | One settings document is 4,571 bytes and includes `validation`. | Optional field-level reduction: retain its completion marker/version and archive detailed validation if no external reader needs it. Very small current benefit. Avoid appending unbounded audit history to a settings singleton. |
 | Old `id_counters` | Nine sequence records, 562 logical bytes. | Only consolidate after identifying the owning services, sequence namespaces and high-water marks. Preserve atomic allocation and never recycle previously issued values. These are not proven Sentiment Pulse-only records. |
@@ -151,21 +170,21 @@ If external ownership and lifecycle checks pass, the currently observed **15 exp
 
 - External services: identify their collection access, indexes, change streams and jobs; confirm how mobile UI data is obtained and whether deployed code matches this repository.
 - Copy validation: compare per-kind counts, content/identity checks, reference integrity, unique keys, consumption markers, and sequence high-water marks; reject conflicts rather than silently dropping duplicates.
-- Exercise regional eligibility boundaries, duplicate report submission, consumed-event replay, reconciliation, cooldown expiry, concurrent claims and restart recovery. Existing `test_regional_summaries.py`, `test_regional_alert_eligibility.py`, and `test_regional_alert_collection_guards.py` cover related behavior and need migration-specific extensions.
+- Exercise regional eligibility boundaries, duplicate report submission, consumed-event replay, reconciliation, cooldown expiry, concurrent claims and restart recovery. Existing regional tests plus `test_disease_watch_storage.py` and `test_disease_watch_alert_processing.py` now cover these paths and the migration-specific failures.
 - Preserve current mobile/public API payloads and authorization for personal reports, content counters and surveys. Check admin summaries, alert statuses, survey results, and regional analysis.
 - Run retention against a fresh dry-run inventory and an agreed retention policy. Keep merge validation separate from cleanup validation so record loss is attributable and reviewable.
 
-## Open dependency question
+## Remaining ownership limits outside the approved scope
 
-The user identified the mobile app and the senior developer's five dashboard areas. The remaining information needed is **their actual MongoDB collection read/write map or the corresponding current source/repository locations**, particularly for `id_counters`, the four proposed Disease Watch internal collections, `regional_alerts`, and `mobile_notification_deliveries`. Also establish whether another component intentionally clears `self_reports` while retaining projections. No message was sent to the senior developer.
+The approved four Disease Watch collections no longer require an ownership confirmation. Ownership remains unresolved for `id_counters` and for unfamiliar external implementations. `regional_alerts`, `mobile_notification_deliveries`, and `self_reports` are protected regardless of that uncertainty. Their actual external read/write maps are needed only before proposing any future contract change or cleanup in those collections. No message was sent to the senior developer.
 
-This dependency information is required before implementation; it does not invalidate the local code and read-only inventory findings above.
+The unexplained historical absence of source reports remains relevant to any later orphan-event cleanup, but it does not block the approved record-preserving merge.
 
-## Validation performed for this audit
+## Validation performed
 
-- Read-only MongoDB inventory and retention diagnostics completed successfully.
-- Inventory script Python syntax and saved JSON were validated locally.
-- No application behavior changed, so dashboard build or regression execution was not needed for this assessment. The migration validation listed above remains future work.
+- The September 15 read-only MongoDB inventory and retention diagnostics remain historical evidence; no new live write was made.
+- Isolated tests cover document-kind isolation, partial unique constraints, ID and reference preservation, migration retry, collisions, malformed records, protected-target rejection, duplicate report processing, replay prevention, cooldown expiry/renewal, concurrent claims, restart recovery, reconciliation, and unchanged admin/mobile-facing serialization.
+- Python syntax and the focused Disease Watch, regional-summary, regional-alert, mobile-alert, Health Literacy, and Sentiment Pulse regression suites are run locally as part of implementation validation.
 
 ## Reproduce the read-only inventory
 

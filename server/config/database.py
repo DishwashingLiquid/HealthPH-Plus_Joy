@@ -4,6 +4,14 @@ from dotenv import dotenv_values
 import os
 import certifi
 
+from disease_watch_storage import (
+    ALERT_BATCH_STATE,
+    ALERT_COOLDOWN,
+    REGIONAL_SUMMARY,
+    SUMMARY_EVENT,
+    scoped_collections,
+)
+
 # Get configuration values from .env file
 config = dotenv_values()
 
@@ -42,13 +50,16 @@ survey_responses_collection = db["survey_responses"]
 application_settings_collection = db["application_settings"]
 self_reports_collection = db["self_reports"]
 mobile_users_collection = db["mobile_users"]
-# Disease Watch Feed's derived/admin-only data is kept apart from the source
-# reports so dashboard reads never need to aggregate raw submissions.
-regional_symptom_summaries_collection = db["regional_symptom_summaries"]
-regional_summary_events_collection = db["regional_summary_events"]
+# Disease Watch Feed's derived/admin-only records share one physical
+# collection. Kind-scoped views keep every operation isolated while source
+# reports and mobile-facing alert history retain their existing contracts.
+disease_watch_internal_collection = db["disease_watch_internal"]
+_disease_watch_views = scoped_collections(disease_watch_internal_collection)
+regional_symptom_summaries_collection = _disease_watch_views[REGIONAL_SUMMARY]
+regional_summary_events_collection = _disease_watch_views[SUMMARY_EVENT]
 regional_alerts_collection = db["regional_alerts"]
 mobile_notification_deliveries_collection = db["mobile_notification_deliveries"]
 # Bounded per-region operational state and per-(region, symptom) cooldowns.
 # Alert history itself remains in regional_alerts; this is not an event log.
-regional_alert_batch_states_collection = db["regional_alert_batch_states"]
-regional_alert_cooldowns_collection = db["regional_alert_cooldowns"]
+regional_alert_batch_states_collection = _disease_watch_views[ALERT_BATCH_STATE]
+regional_alert_cooldowns_collection = _disease_watch_views[ALERT_COOLDOWN]

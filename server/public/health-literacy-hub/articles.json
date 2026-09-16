@@ -4,26 +4,28 @@
     "archivedAt": "",
     "archivedBy": {},
     "assignedReviewer": "",
-    "author": null,
-    "claim": null,
+    "author": "Janzzen Cuentas",
+    "claim": "Facts about tuberculosis",
     "claimStatus": "Needs Expert Review",
     "createdAt": "2026-08-12T10:34:55.687506",
     "createdBy": {
       "id": "6a72d1adb16c674ce125be9b",
       "name": "Janzzen Cuentas"
     },
-    "description": "test articl",
-    "diseases": [],
+    "description": "What is Tuberculosis?\r\n\r\nTuberculosis (TB) is an infectious disease caused by bacteria called Mycobacterium tuberculosis. It usually affects the lungs and can spread through the air when a person with infectious TB coughs, sneezes, speaks, or sings.\r\n\r\nKnow the Symptoms\r\n\r\nCommon symptoms of active TB include a persistent cough, chest pain, fever, night sweats, fatigue, loss of appetite, and unexplained weight loss. If you have persistent symptoms, especially a cough lasting two weeks or longer, consider seeking medical evaluation.\r\n\r\nTB Can Be Treated\r\n\r\nTuberculosis is preventable and curable. Treatment involves taking prescribed anti-TB medicines for several months. Completing the full course of treatment is important even when you begin to feel better.\r\n\r\nProtect Yourself and Others\r\n\r\nEarly detection and proper treatment help reduce the spread of TB. Good indoor ventilation and appropriate precautions around infectious individuals can also reduce transmission.\r\n\r\nIf you think you may have TB or have been in close contact with someone diagnosed with infectious TB, consult a healthcare professional or visit your nearest health facility.\r\n\r\nHealthPH+ Reminder: This information is for educational purposes and does not replace professional medical advice, diagnosis, or treatment.",
+    "diseases": [
+      "tuberculosis"
+    ],
     "duration": "",
     "explanation": null,
     "externalUrl": null,
     "imageUrl": null,
     "isArchived": false,
-    "isFactCheck": false,
+    "isFactCheck": true,
     "isPinned": false,
     "isPublished": true,
     "language": "en",
-    "lastReviewedAt": "2026-08-26T09:30:24.595524",
+    "lastReviewedAt": "2026-09-16T13:19:25.116482",
     "lastReviewedBy": {
       "id": "6a72d1adb16c674ce125be9b",
       "name": "Janzzen Cuentas"
@@ -34,15 +36,19 @@
     "pinnedBy": {},
     "publishToMobile": true,
     "publishToWebsite": true,
-    "publishedDate": null,
+    "publishedDate": "2026-09-16T13:20:00",
     "reviewRequestedAt": "",
-    "source": null,
-    "tags": [],
-    "title": "test article",
-    "topics": [],
+    "source": "Researchers",
+    "tags": [
+      "tuberculosis"
+    ],
+    "title": "Tuberculosis: Know the Signs, Protect Your Health",
+    "topics": [
+      "respiratory health"
+    ],
     "verdict": "Needs Context",
     "verifiedBy": "Project Researcher",
-    "updatedAt": "2026-08-26T09:30:24.595524",
+    "updatedAt": "2026-09-16T13:19:25.116482",
     "updatedBy": {
       "id": "6a72d1adb16c674ce125be9b",
       "name": "Janzzen Cuentas"

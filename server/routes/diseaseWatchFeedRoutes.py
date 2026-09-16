@@ -14,6 +14,11 @@ from controllers.regionalAlertsController import (
     fetch_regional_summaries,
     save_regional_alert_settings,
 )
+from controllers.mobileAlertsController import (
+    fetch_mobile_alert,
+    fetch_mobile_alerts,
+    mark_mobile_alert_read,
+)
 
 mobile_self_reports_router = APIRouter()
 
@@ -42,6 +47,12 @@ mobile_self_reports_router.add_api_route(
 mobile_self_reports_router.add_api_route(
     "/disease-watch-feed/alerts/{alert_id}/cancel", methods=["PATCH"], endpoint=cancel_regional_alert
 )
+
+# Authenticated mobile inbox. These routes intentionally use a separate
+# controller and mobile JWT policy from the dashboard's alert-history routes.
+mobile_self_reports_router.add_api_route("/alerts", methods=["GET"], endpoint=fetch_mobile_alerts)
+mobile_self_reports_router.add_api_route("/alerts/{alert_id}", methods=["GET"], endpoint=fetch_mobile_alert)
+mobile_self_reports_router.add_api_route("/alerts/{alert_id}/read", methods=["PATCH"], endpoint=mark_mobile_alert_read)
 
 # GET       /mobile/self-reports/mine
 mobile_self_reports_router.add_api_route(

@@ -16,6 +16,10 @@ from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 import config.database as database
+from disease_watch_storage import (
+    assert_disease_watch_cutover_ready,
+    ensure_disease_watch_internal_indexes,
+)
 from helpers.miscHelpers import get_ph_datetime
 from middleware.requireAuth import require_auth
 from region_normalization import REGIONS, REGION_NAMES, normalize_region
@@ -32,6 +36,7 @@ self_reports = getattr(database, "self_reports_collection", None)
 settings = getattr(database, "application_settings_collection", None)
 batch_states = getattr(database, "regional_alert_batch_states_collection", None)
 cooldowns = getattr(database, "regional_alert_cooldowns_collection", None)
+disease_watch_internal = getattr(database, "disease_watch_internal_collection", None)
 
 
 def _collections_available(*collections): return all(collection is not None for collection in collections)
@@ -63,16 +68,16 @@ async def require_regional_alert_user(user_id: Annotated[str, Depends(require_au
 
 def ensure_regional_alert_indexes():
     """Called at startup only; ordinary scheduler ticks do not build indexes."""
+    if disease_watch_internal is not None:
+        configured_db = getattr(database, "db", None)
+        if configured_db is not None:
+            assert_disease_watch_cutover_ready(configured_db)
+        ensure_disease_watch_internal_indexes(disease_watch_internal)
     if _collections_available(summaries, summary_events, alerts, deliveries):
-        summaries.create_index("region", unique=True, name="unique_regional_symptom_summary")
-        summary_events.create_index([("region", 1), ("reportId", 1)], unique=True, name="unique_regional_summary_report")
-        summary_events.create_index([("region", 1), ("consumedBatchId", 1), ("occurredAt", 1)], name="regional_active_summary_events")
         alerts.create_index([("batchId", 1)], unique=True, sparse=True, name="unique_automatic_alert_batch")
         alerts.create_index([("status", 1), ("scheduledAt", 1)], name="regional_alert_due")
         deliveries.create_index([("alertId", 1), ("mobileUserId", 1)], unique=True, name="unique_regional_alert_delivery")
-    if _collections_available(batch_states, cooldowns):
-        cooldowns.create_index([("region", 1), ("symptomKey", 1)], unique=True, name="regional_symptom_cooldown")
-        batch_states.create_index([("status", 1), ("nextEligibleAt", 1)], name="regional_alert_state_due")
+        deliveries.create_index([("mobileUserId", 1), ("status", 1), ("alertId", 1)], name="mobile_alert_inbox_lookup")
 
 
 def _store(): return SummaryStore(self_reports, summary_events, summaries, settings)
@@ -170,11 +175,19 @@ def _claim_and_finish(region, summary, configuration, at):
     keys = list((summary.get("symptomKeyCounts") or {}).keys())
     eligible, suppressed, next_deadline = _cooldown_status(region, keys, at)
     if not eligible:
-        batch_states.update_one({"_id": region}, {"$set": {"status": "CoolingDown", "nextEligibleAt": next_deadline, "updatedAt": at, "lastSnapshot": snapshot}}, upsert=True)
+        batch_states.update_one({"_id": region}, {"$set": {"region": region, "status": "CoolingDown", "nextEligibleAt": next_deadline, "updatedAt": at, "lastSnapshot": snapshot}}, upsert=True)
         return "cooling_down"
     batch_id = str(uuid4())
-    claimed = batch_states.find_one_and_update({"_id": region, "status": {"$ne": "Processing"}}, {"$set": {"status": "Processing", "batchId": batch_id, "snapshot": snapshot,
-        "includedSymptomKeys": eligible, "suppressedSymptomKeys": suppressed, "claimedAt": at, "updatedAt": at}}, upsert=True, return_document=ReturnDocument.AFTER)
+    # Create the state independently, then use a non-upserting CAS claim.
+    # An upsert with a status predicate can race an existing Processing state
+    # and attempt a duplicate _id insert instead of reporting a lost claim.
+    batch_states.update_one(
+        {"_id": region},
+        {"$setOnInsert": {"region": region, "status": "Active", "createdAt": at}},
+        upsert=True,
+    )
+    claimed = batch_states.find_one_and_update({"_id": region, "status": {"$ne": "Processing"}}, {"$set": {"region": region, "status": "Processing", "batchId": batch_id, "snapshot": snapshot,
+        "includedSymptomKeys": eligible, "suppressedSymptomKeys": suppressed, "claimedAt": at, "updatedAt": at}}, return_document=ReturnDocument.AFTER)
     if not claimed or claimed.get("batchId") != batch_id: return "claimed_elsewhere"
     _finish_processing(region, claimed, at)
     return "generated"
@@ -240,7 +253,8 @@ def _prepare_automatic_recipients():
             if not recipient.get("id"):
                 failures.append("missing_mobile_user_id"); continue
             try:
-                deliveries.update_one({"alertId": claimed["_id"], "mobileUserId": recipient.get("id")}, {"$setOnInsert": {"alertId": claimed["_id"], "mobileUserId": recipient.get("id"), "region": claimed["region"], "title": claimed["title"], "message": claimed["message"], "status": "Prepared", "createdAt": now()}}, upsert=True)
+                prepared_at = now()
+                deliveries.update_one({"alertId": claimed["_id"], "mobileUserId": recipient.get("id")}, {"$setOnInsert": {"alertId": claimed["_id"], "mobileUserId": recipient.get("id"), "region": claimed["region"], "title": claimed["title"], "message": claimed["message"], "status": "Prepared", "publishedAt": prepared_at, "createdAt": prepared_at}}, upsert=True)
             except Exception as error: failures.append(type(error).__name__)
         count = deliveries.count_documents({"alertId": claimed["_id"]})
         completion = {"status": "Preparation failed" if failures else "Prepared", "recipientCount": count, "updatedAt": now(), "preparedAt": now()}
