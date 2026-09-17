@@ -34,7 +34,7 @@ The existing survey feature retrieves published surveys through HTTP and display
 - Reporting windows and reconciliation intervals are 15, 30, 60, 480, 720, or 1440 minutes; the default is 1440 minutes.
 - Evaluation also occurs immediately after a summary save. Mobile retrieval has its own cadence.
 - A completed alert consumes the evaluated batch; raw self-reports and historical alerts remain stored.
-- A 24-hour cooldown per region and symptom filters the symptoms included in an alert. The trigger is a regional report total, not a per-symptom total.
+- A per-region, per-symptom cooldown matching the selected reporting and reconciliation interval filters the symptoms included in an alert. The trigger is a regional report total, not a per-symptom total.
 - Alert and recipient preparation can precede mobile API availability. The backend now exposes completed assignments; do not advertise a working mobile inbox until the Flutter integration is implemented and verified.
 
 ## Authentication and recipient visibility

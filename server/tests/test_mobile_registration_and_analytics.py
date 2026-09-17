@@ -85,6 +85,14 @@ class FakeCollection:
         self.documents.append(document)
         return types.SimpleNamespace(inserted_id=document["_id"])
 
+    def update_one(self, query, update, *args, **kwargs):
+        document = self.find_one(query)
+        if not document:
+            return types.SimpleNamespace(matched_count=0, modified_count=0)
+        for key, value in update.get("$set", {}).items():
+            document[key] = value
+        return types.SimpleNamespace(matched_count=1, modified_count=1)
+
 
 fake_database = types.ModuleType("config.database")
 fake_database.mobile_users_collection = FakeCollection()
@@ -192,6 +200,51 @@ class MobileRegistrationAndAnalyticsTests(unittest.TestCase):
             )
         self.assertEqual(invalid.exception.status_code, 401)
         self.assertEqual(invalid.exception.detail, "Invalid email or password")
+
+    def test_login_accepts_legacy_pbkdf2_passwords_without_rewriting_them(self):
+        legacy_hash = mobile._hash_pbkdf2_secret("AsecurePassword1")
+        fake_database.mobile_users_collection.documents.append({
+            "_id": ObjectId(), "id": "mu_legacy", "email": "legacy@example.com",
+            "passwordHash": legacy_hash, "source": "mobile_registration", "roleId": "user",
+        })
+        response = asyncio.run(mobile.login_mobile_user(
+            MobileLoginRequest(email="legacy@example.com", password="AsecurePassword1")
+        ))
+        body = json.loads(response.body)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(body["token_type"], "bearer")
+        self.assertTrue(body["access_token"])
+        self.assertEqual(
+            fake_database.mobile_users_collection.documents[0]["passwordHash"], legacy_hash
+        )
+
+    def test_pin_routes_store_a_hash_verify_the_owner_and_reject_other_users(self):
+        asyncio.run(mobile.register_mobile_user(MobileRegistrationRequest(**registration_payload())))
+        user = fake_database.mobile_users_collection.documents[0]
+        update = asyncio.run(mobile.update_mobile_user_pin(
+            user["id"], mobile.MobileUserPinUpdate(pin="123456"), {"sub": user["id"]}
+        ))
+
+        self.assertEqual(update.status_code, 200)
+        self.assertIn(":", user["pins"])
+        self.assertNotIn("123456", user["pins"])
+        verified = asyncio.run(mobile.verify_mobile_user_pin(
+            user["id"], mobile.MobileUserPinVerify(pin="123456"), {"sub": user["id"]}
+        ))
+        self.assertEqual(json.loads(verified.body), {"verified": True})
+
+        with self.assertRaises(HTTPException) as wrong_pin:
+            asyncio.run(mobile.verify_mobile_user_pin(
+                user["id"], mobile.MobileUserPinVerify(pin="654321"), {"sub": user["id"]}
+            ))
+        self.assertEqual(wrong_pin.exception.status_code, 401)
+
+        with self.assertRaises(HTTPException) as other_user:
+            asyncio.run(mobile.update_mobile_user_pin(
+                user["id"], mobile.MobileUserPinUpdate(pin="123456"), {"sub": "mu_other"}
+            ))
+        self.assertEqual(other_user.exception.status_code, 403)
 
     def test_mobile_token_cannot_authorize_admin_analytics(self):
         token = mobile.create_mobile_access_token("mu_not_a_desktop_id")

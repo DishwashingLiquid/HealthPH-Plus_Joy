@@ -47,8 +47,8 @@ class MobileAlertInboxTests(unittest.TestCase):
             "id": "mu_other", "source": "mobile_registration", "roleId": "user",
         })
 
-        self.new_alert_id = self._insert_prepared_alert(datetime(2026, 9, 16, 9, 30))
-        self.old_alert_id = self._insert_prepared_alert(datetime(2026, 9, 16, 8, 30))
+        self.new_alert_id = self._insert_published_alert(datetime(2026, 9, 16, 9, 30))
+        self.old_alert_id = self._insert_published_alert(datetime(2026, 9, 16, 8, 30))
         self.db.mobile_notification_deliveries.insert_many([
             {"alertId": self.new_alert_id, "mobileUserId": "mu_reader", "status": "Prepared", "publishedAt": datetime(2026, 9, 16, 9, 31)},
             {"alertId": self.old_alert_id, "mobileUserId": "mu_reader", "status": "Prepared", "publishedAt": datetime(2026, 9, 16, 8, 31)},
@@ -56,10 +56,10 @@ class MobileAlertInboxTests(unittest.TestCase):
             {"alertId": ObjectId(), "mobileUserId": "mu_reader", "status": "Queued"},
         ])
 
-    def _insert_prepared_alert(self, created_at):
+    def _insert_published_alert(self, created_at):
         return self.db.regional_alerts.insert_one({
             "source": "automated_regional_summary",
-            "status": "Prepared",
+            "status": "Published",
             "region": "NCR",
             "title": "Regional self-report alert: NCR",
             "message": "Six reports were recorded.",

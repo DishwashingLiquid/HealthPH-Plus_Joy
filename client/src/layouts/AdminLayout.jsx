@@ -4,7 +4,7 @@ import Sidebar from "../components/admin/Sidebar";
 import { useSelector } from "react-redux";
 import AccessDenied from "../pages/error/AccessDenied";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "../assets/css/navbar.css";
 import "../assets/css/admin.css";
 
@@ -13,6 +13,14 @@ const AdminLayout = () => {
   const user = useSelector((state) => state.auth.user);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.classList.add("admin-active");
+
+    return () => {
+      document.documentElement.classList.remove("admin-active");
+    };
+  }, []);
 
   return (
     <>

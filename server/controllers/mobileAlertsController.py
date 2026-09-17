@@ -1,4 +1,4 @@
-"""Authenticated mobile inbox for prepared automated regional alerts."""
+"""Authenticated mobile inbox for published automated regional alerts."""
 import base64
 import json
 from datetime import datetime, timezone
@@ -15,7 +15,11 @@ from regional_summaries import PH_TZ, now
 
 
 AUTOMATED_SOURCE = "automated_regional_summary"
+PUBLISHED_ALERT_STATUS = "Published"
 PREPARED_DELIVERY_STATUS = "Prepared"
+# Keep already-published records visible while deployments transition from the
+# former aggregate status name. Recipient records intentionally remain Prepared.
+VISIBLE_ALERT_STATUSES = (PUBLISHED_ALERT_STATUS, PREPARED_DELIVERY_STATUS)
 
 alerts = getattr(database, "regional_alerts_collection", None)
 deliveries = getattr(database, "mobile_notification_deliveries_collection", None)
@@ -119,7 +123,7 @@ def _visible_assignments(mobile_user_id: str):
         alert = alerts.find_one({
             "_id": alert_id,
             "source": AUTOMATED_SOURCE,
-            "status": PREPARED_DELIVERY_STATUS,
+            "status": {"$in": VISIBLE_ALERT_STATUSES},
         })
         if alert:
             result.append((alert, delivery))
@@ -151,7 +155,7 @@ def _find_assignment(mobile_user_id: str, alert_id: str):
     alert = alerts.find_one({
         "_id": ObjectId(alert_id),
         "source": AUTOMATED_SOURCE,
-        "status": PREPARED_DELIVERY_STATUS,
+        "status": {"$in": VISIBLE_ALERT_STATUSES},
     })
     delivery = deliveries.find_one({
         "alertId": ObjectId(alert_id),

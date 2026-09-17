@@ -110,6 +110,32 @@ class MobileLoginRequest(BaseModel):
         return value
 
 
+def validate_mobile_pin(value: str) -> str:
+    """Validate an app PIN without ever treating it as an account password."""
+    normalized = str(value or "").strip()
+    if not re.fullmatch(r"\d{4,12}", normalized):
+        raise ValueError("PIN must contain between 4 and 12 digits")
+    return normalized
+
+
+class MobileUserPinUpdate(BaseModel):
+    pin: str
+
+    @field_validator("pin")
+    @classmethod
+    def pin_value(cls, value):
+        return validate_mobile_pin(value)
+
+
+class MobileUserPinVerify(BaseModel):
+    pin: str
+
+    @field_validator("pin")
+    @classmethod
+    def pin_value(cls, value):
+        return validate_mobile_pin(value)
+
+
 class MobileUserDocument(BaseModel):
     id: str
     fullName: str

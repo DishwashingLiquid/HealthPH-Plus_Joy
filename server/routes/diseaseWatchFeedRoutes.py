@@ -12,6 +12,7 @@ from controllers.regionalAlertsController import (
     fetch_regional_alert_settings,
     fetch_regional_alerts,
     fetch_regional_summaries,
+    run_regional_alert_evaluation,
     save_regional_alert_settings,
 )
 from controllers.mobileAlertsController import (
@@ -43,6 +44,9 @@ mobile_self_reports_router.add_api_route(
 )
 mobile_self_reports_router.add_api_route(
     "/disease-watch-feed/alert-settings", methods=["PUT"], endpoint=save_regional_alert_settings
+)
+mobile_self_reports_router.add_api_route(
+    "/disease-watch-feed/alert-settings/run-evaluation", methods=["POST"], endpoint=run_regional_alert_evaluation
 )
 mobile_self_reports_router.add_api_route(
     "/disease-watch-feed/alerts/{alert_id}/cancel", methods=["PATCH"], endpoint=cancel_regional_alert
