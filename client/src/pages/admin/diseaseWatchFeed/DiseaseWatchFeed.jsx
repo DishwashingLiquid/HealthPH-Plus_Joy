@@ -13,14 +13,16 @@ import {
   useGetRegionalAlertSettingsQuery,
   useGetRegionalSymptomSummariesQuery,
   useSaveRegionalAlertSettingsMutation,
+  useRunRegionalAlertEvaluationMutation,
   useCancelRegionalAlertMutation,
 } from "../../../features/api/diseaseWatchFeedSlice";
 import RecentAlertsTab from "./RecentAlertsTab";
 import SendAlertModal from "./SendAlertModal";
 import RegionalCoverageTab from "./RegionalCoverageTab";
 import UserAnalyticsTab from "./UserAnalyticsTab";
-import { DASHBOARD_REGION_CODES, getDashboardRegionLabel } from "../dashboardRegions";
+import { DASHBOARD_REGION_CODES } from "../dashboardRegions";
 import { buildRegionalCoverage } from "./regionalCoverage";
+import { buildRecentAlerts } from "./recentAlerts";
 
 const TABS = [
   { id: "recent-alerts", label: "Recent Alerts" },
@@ -119,58 +121,12 @@ const renderTopMetricCards = () => (
 const buildLocationLookup = (mapPins) =>
   new Map(mapPins.map((pin) => [pin.id, pin]));
 
-const buildRecentAlerts = (reports, locationLookup) => {
-  const dedupeKeys = new Set();
-  const alerts = [];
-
-  reports.forEach((report) => {
-    const mapPin = locationLookup.get(report.id);
-    if (!mapPin) {
-      return;
-    }
-
-    const canonicalSymptoms = [...(report.symptomIds || [])].sort();
-    const dedupeKey = `${report.id}:${canonicalSymptoms.join("|")}`;
-    if (dedupeKeys.has(dedupeKey)) {
-      return;
-    }
-
-    dedupeKeys.add(dedupeKey);
-
-    const symptomLabels = report.symptomLabels || mapPin.tags || [];
-    const locationLabel = getDashboardRegionLabel(report.region);
-    const diseaseLabel =
-      mapPin.disease || report.possibleConditionLabel || "Respiratory symptoms reported";
-
-    alerts.push({
-      id: report.id,
-      disease: diseaseLabel,
-      region: locationLabel,
-      type: "Symptom Report",
-      timestamp: report.createdAt,
-      summary: `Self-reported ${symptomLabels.slice(0, 3).join(", ") || "respiratory symptoms"} in ${locationLabel}.`,
-      summarySegments: [
-        { type: "text", value: "Self-reported " },
-        {
-          type: "entity",
-          label: symptomLabels.slice(0, 3).join(", ") || "respiratory symptoms",
-          tone: "symptom",
-        },
-        { type: "text", value: " in " },
-        { type: "entity", label: locationLabel, tone: "location" },
-        { type: "text", value: "." },
-      ],
-    });
-  });
-
-  return alerts;
-};
-
 export default function DiseaseWatchFeed() {
   const [activeTab, setActiveTab] = useState("recent-alerts");
   const [selectedRegions, setSelectedRegions] = useState([]);
   const [isSendAlertOpen, setIsSendAlertOpen] = useState(false);
   const [cancellingAlertId, setCancellingAlertId] = useState("");
+  const [evaluationFeedback, setEvaluationFeedback] = useState(null);
   // Temporary access policy: show alert controls for every dashboard role.
   const canSendAlert = true;
 
@@ -194,7 +150,13 @@ export default function DiseaseWatchFeed() {
     error: selfReportsError,
     isFetching: isSelfReportsFetching,
     isLoading: isSelfReportsLoading,
-  } = useGetMobileSelfReportsExportQuery({ format: "json" });
+  } = useGetMobileSelfReportsExportQuery(
+    { format: "json" },
+    {
+      pollingInterval: activeTab === "recent-alerts" ? 30000 : 0,
+      refetchOnMountOrArgChange: true,
+    }
+  );
 
   const {
     data: userAnalyticsResponse,
@@ -203,7 +165,7 @@ export default function DiseaseWatchFeed() {
     isLoading: isUserAnalyticsLoading,
   } = useGetDiseaseWatchFeedUserAnalyticsQuery();
 
-  const { data: summariesResponse, error: summariesError, isLoading: isSummariesLoading, isFetching: isSummariesFetching } =
+  const { data: summariesResponse, error: summariesError, isLoading: isSummariesLoading, isFetching: isSummariesFetching, refetch: refetchRegionalSummaries } =
     useGetRegionalSymptomSummariesQuery(undefined, {
       skip: !canSendAlert,
       refetchOnMountOrArgChange: true,
@@ -211,11 +173,12 @@ export default function DiseaseWatchFeed() {
       // interval while Self-Reports is visible, never from a render effect.
       pollingInterval: activeTab === "recent-alerts" ? 30000 : 0,
     });
-  const { data: regionalAlertsResponse, error: regionalAlertsError } =
+  const { data: regionalAlertsResponse, error: regionalAlertsError, refetch: refetchRegionalAlerts } =
     useGetRegionalAlertsQuery(undefined, { skip: !canSendAlert, pollingInterval: activeTab === "recent-alerts" ? 30000 : 0 });
-  const { data: alertSettingsResponse, isLoading: isSettingsLoading } =
-    useGetRegionalAlertSettingsQuery(undefined, { skip: !canSendAlert, pollingInterval: isSendAlertOpen ? 30000 : 0 });
+  const { data: alertSettingsResponse, isLoading: isSettingsLoading, refetch: refetchAlertSettings } =
+    useGetRegionalAlertSettingsQuery(undefined, { skip: !canSendAlert, pollingInterval: activeTab === "recent-alerts" || isSendAlertOpen ? 30000 : 0 });
   const [saveRegionalAlertSettings, { isLoading: isSavingSettings }] = useSaveRegionalAlertSettingsMutation();
+  const [runRegionalAlertEvaluation, { isLoading: isEvaluationRunning }] = useRunRegionalAlertEvaluationMutation();
   const [cancelRegionalAlert] = useCancelRegionalAlertMutation();
 
   const mapPins = useMemo(() => mapPinsResponse?.items || [], [mapPinsResponse]);
@@ -253,16 +216,43 @@ export default function DiseaseWatchFeed() {
     );
   }, [availableRegions]);
 
-  const isDashboardLoading =
+  const isRecentAlertsLoading = isSelfReportsLoading || isSelfReportsFetching;
+  const isRegionalCoverageLoading =
     isMapPinsLoading ||
     isMapPinsFetching ||
     isSelfReportsLoading ||
     isSelfReportsFetching;
-  const sharedError = mapPinsError || selfReportsError;
+  const regionalCoverageError = mapPinsError || selfReportsError;
 
   const handleSaveAlertSettings = async (form) => {
     await saveRegionalAlertSettings(form).unwrap();
     setIsSendAlertOpen(false);
+  };
+
+  const refreshRegionalAlertData = async () => {
+    await Promise.allSettled([
+      refetchAlertSettings(),
+      refetchRegionalSummaries(),
+      refetchRegionalAlerts(),
+    ]);
+  };
+
+  const handleRunEvaluation = async (intervalMinutes) => {
+    setEvaluationFeedback(null);
+    try {
+      const result = await runRegionalAlertEvaluation({ intervalMinutes }).unwrap();
+      setEvaluationFeedback({
+        type: "success",
+        message: result.message || "Evaluation completed. Settings and alert history have been refreshed.",
+      });
+    } catch (requestError) {
+      setEvaluationFeedback({
+        type: "error",
+        message: getErrorMessage(requestError, "The evaluation could not be completed. Please try again."),
+      });
+    } finally {
+      await refreshRegionalAlertData();
+    }
   };
 
   const handleCancelAlert = async (alertId) => {
@@ -320,12 +310,16 @@ export default function DiseaseWatchFeed() {
             onSendAlert={() => setIsSendAlertOpen(true)}
             onCancelAlert={handleCancelAlert}
             cancellingId={cancellingAlertId}
+            alertSettings={alertSettingsResponse?.item}
+            onRunEvaluation={handleRunEvaluation}
+            isEvaluationRunning={isEvaluationRunning}
+            evaluationFeedback={evaluationFeedback}
             errorMessage={
-              sharedError || regionalAlertsError
-                ? getErrorMessage(sharedError || regionalAlertsError, "Failed to load recent alerts.")
+              selfReportsError || regionalAlertsError
+                ? getErrorMessage(selfReportsError || regionalAlertsError, "Failed to load recent alerts.")
                 : ""
             }
-            isLoading={isDashboardLoading}
+            isLoading={isRecentAlertsLoading}
           />
         )}
         {activeTab === "regional-coverage" && (
@@ -333,14 +327,14 @@ export default function DiseaseWatchFeed() {
             unknownRegionReports={selfReports.filter((report) => !DASHBOARD_REGION_CODES.includes(report.region)).length}
             availableRegions={availableRegions}
             errorMessage={
-              sharedError
+              regionalCoverageError
                 ? getErrorMessage(
-                    sharedError,
+                    regionalCoverageError,
                     "Failed to load regional coverage."
                   )
                 : ""
             }
-            isLoading={isDashboardLoading}
+            isLoading={isRegionalCoverageLoading}
             onRegionChange={handleRegionChange}
             regionUserData={regionUserData}
             selectedRegions={selectedRegions}

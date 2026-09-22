@@ -186,6 +186,18 @@ Example:
 - Recent Alerts are built in the frontend and limited to the first **10** items.
 - Alert Open Rate is shown as unavailable because the dashboard has no alert-open tracking source.
 
+## Mobile automated-alert inbox
+
+Authenticated registered mobile users can retrieve their own completed automated alert assignments. These routes require a mobile access token, never a dashboard token:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/mobile/alerts?cursor=...&limit=20` | Paginated inbox plus total unread count |
+| `GET` | `/api/mobile/alerts/{alertId}` | One assigned alert |
+| `PATCH` | `/api/mobile/alerts/{alertId}/read` | Idempotently acknowledge opening an alert |
+
+The inbox excludes legacy manual alerts and failed/incomplete recipient preparation. `publishedAt` and `readAt` use explicit UTC offsets; `readAt` belongs to the recipient assignment, so one user's read does not affect another user's unread count. The app must treat `nextCursor` as opaque.
+
 ## Scope note
 
 The dashboard does not call the related `POST /api/mobile/self-reports` or `GET /api/mobile/self-reports/mine` endpoints, so they are intentionally excluded from this guide.

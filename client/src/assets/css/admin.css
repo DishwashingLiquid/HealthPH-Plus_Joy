@@ -4,6 +4,13 @@
 @tailwind components;
 @tailwind utilities;
 
+html.admin-active,
+html.admin-active body,
+html.admin-active body #root {
+  height: 100%;
+  overflow: hidden;
+}
+
 @layer components {
   .divider.divider-vertical {
     @apply h-full w-[1px];

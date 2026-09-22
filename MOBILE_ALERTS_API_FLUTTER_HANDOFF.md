@@ -1,6 +1,26 @@
-# Proposed mobile alert API and Flutter integration
+# Mobile Alerts API and Flutter Handoff
 
-Status: design handoff only. These endpoints, response schemas, and Flutter changes are not implemented by creating this document and are excluded from the separate dashboard/backend implementation prompt. Verify the resulting backend storage contract before a later integration task. No Flutter source has been inspected in this repository.
+Status: backend inbox endpoints are implemented in this repository. The Flutter client changes remain a handoff because Flutter source is not present here. Verify the deployed backend storage contract before connecting a separate mobile repository.
+
+## Start here
+
+The mobile application should call the implemented alert inbox endpoints after mobile login, using the same `access_token` returned by `POST /api/mobile/users/login`:
+
+```http
+Authorization: Bearer <mobile-access-token>
+```
+
+The first integration check is `GET /api/mobile/alerts`. For a valid registered user with no prepared alert assignments, the server returns exactly:
+
+```json
+{
+  "items": [],
+  "nextCursor": null,
+  "unreadCount": 0
+}
+```
+
+This is an in-app inbox integration. It does not send an operating-system push notification.
 
 ## Scope and dependency constraint
 
@@ -14,8 +34,8 @@ The existing survey feature retrieves published surveys through HTTP and display
 - Reporting windows and reconciliation intervals are 15, 30, 60, 480, 720, or 1440 minutes; the default is 1440 minutes.
 - Evaluation also occurs immediately after a summary save. Mobile retrieval has its own cadence.
 - A completed alert consumes the evaluated batch; raw self-reports and historical alerts remain stored.
-- A 24-hour cooldown per region and symptom filters the symptoms included in an alert. The trigger is a regional report total, not a per-symptom total.
-- Alert and recipient preparation can precede mobile API availability. Do not advertise a working mobile inbox until the endpoints and Flutter integration are implemented and verified.
+- A per-region, per-symptom cooldown matching the selected reporting and reconciliation interval filters the symptoms included in an alert. The trigger is a regional report total, not a per-symptom total.
+- Alert and recipient preparation can precede mobile API availability. The backend now exposes completed assignments; do not advertise a working mobile inbox until the Flutter integration is implemented and verified.
 
 ## Authentication and recipient visibility
 
@@ -25,9 +45,9 @@ Derive user identity from the verified token. The existing backend targets regis
 
 Return only alerts with a completed recipient assignment to the authenticated user. Do not trust a supplied user ID or region to grant access. Suggested history policy: existing assigned alerts remain in that user's history after a region change; future alerts follow the account's updated region. Newly registered users receive future assignments rather than an implicit historical backfill.
 
-## Proposed endpoints
+## Implemented endpoints
 
-These are new contracts, not verified live routes.
+These routes are implemented on the backend. They require a running deployment and a valid mobile token; the Flutter client remains to be implemented separately.
 
 | Method and path | Purpose | Success |
 | --- | --- | --- |
@@ -55,7 +75,7 @@ Errors should follow FastAPI conventions using `detail`: `401` for missing/inval
 
 ## Response examples
 
-List envelope:
+List envelope — expected empty-inbox response:
 
 ```json
 {

@@ -18,6 +18,13 @@ from dotenv import load_dotenv
 from pymongo import MongoClient
 from pymongo.read_concern import ReadConcern
 from pymongo.write_concern import WriteConcern
+from disease_watch_storage import (
+    REGIONAL_SUMMARY,
+    SUMMARY_EVENT,
+    assert_disease_watch_cutover_ready,
+    ensure_disease_watch_internal_indexes,
+    scoped_collections,
+)
 from regional_summaries import MIGRATION_ID, SummaryStore
 
 
@@ -36,21 +43,24 @@ def main():
     try:
         with MongoClient(os.environ["MONGO_URI"], serverSelectionTimeoutMS=10000, connectTimeoutMS=10000) as client:
             db = client[os.environ["DB_NAME"]]
-            store = SummaryStore(db.self_reports, db.regional_summary_events, db.regional_symptom_summaries, db.application_settings)
+            assert_disease_watch_cutover_ready(db)
+            views = scoped_collections(db.disease_watch_internal)
+            summaries = views[REGIONAL_SUMMARY]
+            events = views[SUMMARY_EVENT]
+            store = SummaryStore(db.self_reports, events, summaries, db.application_settings)
             # Snapshot reads give the audit a consistent source/derived view.
             # Starting a read-only transaction does not create indexes or records.
             with client.start_session() as session:
                 if args.apply:
-                    # Dedicated summary indexes only; never alert/delivery indexes.
-                    # Existing duplicate keys fail safely here for operator review.
-                    db.regional_symptom_summaries.create_index("region", unique=True, name="unique_regional_symptom_summary")
-                    db.regional_summary_events.create_index([("region", 1), ("reportId", 1)], unique=True, name="unique_regional_summary_report")
+                    # Internal indexes only; protected alert/delivery indexes are
+                    # outside this explicit repair operation.
+                    ensure_disease_watch_internal_indexes(db.disease_watch_internal)
                     audit = session.with_transaction(store.reconcile, read_concern=ReadConcern("snapshot"), write_concern=WriteConcern("majority"))
                     committed = True
                 else:
                     with session.start_transaction(read_concern=ReadConcern("snapshot")):
                         audit = store.plan(session)[0]
-                        audit["savedSummaries"] = list(db.regional_symptom_summaries.find({}, {"_id": 0, "region": 1, "reportCount": 1, "isReady": 1}, session=session))
+                        audit["savedSummaries"] = list(summaries.find({}, {"_id": 0, "region": 1, "reportCount": 1, "isReady": 1}, session=session))
                         audit["previousMigration"] = db.application_settings.find_one({"_id": "regional_symptom_summary_backfill_v1"}, session=session)
                         audit["currentMigration"] = db.application_settings.find_one({"_id": MIGRATION_ID}, {"_id": 1, "completedAt": 1}, session=session)
                         audit["automationSettings"] = db.application_settings.find_one({"_id": "regional_alert_automation"}, {"_id": 0, "enabled": 1, "threshold": 1, "intervalMinutes": 1}, session=session)
