@@ -6,6 +6,7 @@ import "../assets/css/about.css";
 import Icon from "../components/Icon";
 import HomeNavbar from "../components/HomeNavbar";
 import HomeFooter from "../components/HomeFooter";
+import PublicFullscreenModal from "../components/PublicFullscreenModal";
 import ArticleItem, {
   ArticleItemSkeleton,
 } from "../components/about-us/ArticleItem";
@@ -171,13 +172,12 @@ const Articles = ({ embedded = false }) => {
   );
 
   const previewModal = previewContent && (
-        <div className="image-modal health-literacy-preview-modal">
-          <div
-            className="image-modal-backdrop"
-            onClick={() => setPreviewContent(null)}
-          ></div>
-          <div className="image-modal-container">
-            <div className="image-wrapper">
+    <PublicFullscreenModal
+      ariaLabel={`Preview: ${previewContent.articleTitle}`}
+      onClose={() => setPreviewContent(null)}
+      panelClassName="public-media-modal"
+    >
+            <div className="public-media-modal__media">
               {previewMediaSource && isPreviewVideo ? (
                 <video src={previewMediaSource} controls autoPlay />
               ) : previewMediaSource ? (
@@ -197,7 +197,7 @@ const Articles = ({ embedded = false }) => {
                 </div>
               )}
             </div>
-            <div className="image-caption">
+            <div className="public-media-modal__caption">
               <p>{previewContent.articleTitle}</p>
               {previewContent.resourceType === "infographic" &&
                 previewMediaSource && (
@@ -216,16 +216,7 @@ const Articles = ({ embedded = false }) => {
                   </a>
                 )}
             </div>
-            <div className="close-icon" onClick={() => setPreviewContent(null)}>
-              <Icon
-                iconName="Close"
-                height="24px"
-                width="24px"
-                className="icon"
-              />
-            </div>
-          </div>
-        </div>
+    </PublicFullscreenModal>
   );
 
   if (embedded) {
