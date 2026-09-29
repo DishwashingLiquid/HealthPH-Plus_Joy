@@ -39,8 +39,14 @@ def fake_assets(tmp_path, monkeypatch):
     (tmp_path / "models/lid.176.ftz").write_bytes(b"test")
     keywords = tmp_path / "keywords"
     keywords.mkdir()
-    (keywords / "hiligaynon_keywords.csv").write_text('\ufeff"ubo"\n"bug-at ang dughan"\n')
-    (keywords / "ilocano_keywords.csv").write_text('"uyek"\n')
+    (keywords / "hiligaynon_keywords.csv").write_text(
+    '\ufeff"ubo"\n"bug-at ang dughan"\n',
+    encoding="utf-8",
+    )
+    (keywords / "ilocano_keywords.csv").write_text(
+        '"uyek"\n',
+        encoding="utf-8",
+    )
     model = Mock()
     model.predict.side_effect = lambda texts, k: ([["__label__fr"] for _ in texts], [[0.8] for _ in texts])
     loader = Mock(return_value=model)
@@ -61,6 +67,22 @@ def test_overrides_boundaries_and_original_text(fake_assets):
     assert results[4]["prediction_source"] == "fasttext"
     assert results[-1]["cleaned_text"] == "hello"
 
+def test_tagalog_is_normalized_to_filipino(fake_assets):
+    _, model, _ = fake_assets
+
+    model.predict.side_effect = lambda texts, k: (
+        [["__label__tl"] for _ in texts],
+        [[0.95] for _ in texts],
+    )
+
+    detector = LanguageDetector()
+    result = detector.predict("Kumusta ka ngayong araw?")
+
+    assert result["language"] == "fil"
+    assert result["fasttext_language"] == "tl"
+    assert result["fasttext_confidence"] == pytest.approx(0.95)
+    assert result["prediction_source"] == "fasttext"
+    assert result["is_supported"] is True
 
 def test_load_once_chunking_and_single_batch_parity(fake_assets):
     _, model, loader = fake_assets
@@ -108,7 +130,7 @@ def test_corrupt_model_does_not_fall_back(fake_assets):
 
 def test_missing_and_empty_keywords(fake_assets):
     path = fake_assets[0] / "keywords/hiligaynon_keywords.csv"
-    path.write_text('\n" "\n')
+    path.write_text('\n" "\n', encoding="utf-8")
     with pytest.raises(ValueError, match="empty"):
         LanguageDetector()
     path.unlink()
@@ -125,7 +147,12 @@ def test_real_predictions_match_notebook(real_detector):
     results = real_detector.predict_many(SAMPLES)
     for i, result in enumerate(results):
         expected_model = labels[i][0].replace("__label__", "")
-        assert result["language"] == ("hil" if hil[i] else "ilo" if ilo[i] else expected_model)
+        expected_language = module.normalize_language_code(expected_model)
+        assert result["language"] == (
+            "hil" if hil[i]
+            else "ilo" if ilo[i]
+            else expected_language
+        )
         assert result["fasttext_language"] == expected_model
         assert result["fasttext_confidence"] == pytest.approx(min(1.0, max(0.0, float(scores[i][0]))))
         assert result["cleaned_text"] == cleaned[i]

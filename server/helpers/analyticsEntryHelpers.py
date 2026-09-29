@@ -3,6 +3,7 @@ import pandas as pd
 from helpers.miscHelpers import get_ph_datetime
 
 DEFAULT_ANALYSIS_TASKS = [
+    "language_detection",
     "sentiment",
     "disease_classification",
     "misinformation",
@@ -124,7 +125,7 @@ def build_social_media_analytics_entries(
                 "uploaded_by": str(uploaded_by),
 
                 "text": text,
-                "language": _clean_text_value(row.get("language")),
+                "language": "",
                 "source_platform": _clean_text_value(row.get("source")),
 
                 "location": {
@@ -142,6 +143,12 @@ def build_social_media_analytics_entries(
                 "analysis_tasks": DEFAULT_ANALYSIS_TASKS,
 
                 "analysis": {
+                    "language_detection": {
+                        "status": "pending",
+                        "detection_source": "",
+                        "confidence": None,
+                        "completed_at": None,
+                    },
                     "sentiment": None,
                     "sentiment_score": None,
                     "disease_labels": [],

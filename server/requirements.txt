@@ -6,6 +6,7 @@ pymongo[srv]
 python-dotenv
 python-jose[cryptography]
 python-multipart
+httpx
 passlib[bcrypt]
 geopandas
 pyproj

@@ -13,9 +13,13 @@ from typing import Literal, TypedDict
 from .cleaning import normalize_text
 
 ASSET_ROOT = Path(__file__).resolve().parent.parent
-SUPPORTED_LANGUAGES = frozenset({"en", "tl", "ceb", "fil", "ilo", "hil"})
+SUPPORTED_LANGUAGES = frozenset({"en", "fil", "ceb", "ilo", "hil"})
 MAX_BATCH_SIZE = 32
 MAX_TEXT_CHARACTERS = 10_000
+
+def normalize_language_code(language: str) -> str:
+    """Return the canonical language code used throughout HealthPH+."""
+    return "fil" if language == "tl" else language
 
 
 class Prediction(TypedDict):
@@ -103,7 +107,7 @@ class LanguageDetector:
                 confidence = float(score[0])
                 if not math.isfinite(confidence):
                     raise RuntimeError("FastText returned a non-finite confidence")
-                language = fasttext_language
+                language = normalize_language_code(fasttext_language)
                 source = "fasttext"
                 for override, pattern in self._patterns:
                     if pattern.search(original):

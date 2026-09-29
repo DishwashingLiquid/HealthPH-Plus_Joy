@@ -58,7 +58,7 @@ Every prediction contains:
 | --- | --- |
 | `language` | Final language code after keyword overrides |
 | `cleaned_text` | Text passed to FastText |
-| `is_supported` | Whether the final code is one of `en`, `tl`, `ceb`, `fil`, `ilo`, `hil` |
+| `is_supported` | Whether the final code is one of `en`, `fil`, `ceb`, `ilo`, `hil` |
 | `prediction_source` | `fasttext` or `keyword_override` |
 | `fasttext_language` | Original top FastText language code |
 | `fasttext_confidence` | Score for **fasttext_language**, even when overridden; clamped to [0, 1] for numerical rounding |
@@ -71,9 +71,7 @@ whitespace. Hiligaynon wins if both keyword lists match. These inherited rules
 include broad words such as `ubo`; they are heuristics, and an override has no
 separate confidence score. There is no minimum model confidence threshold.
 
-Unsupported languages are returned with `is_supported: false`; callers decide
-whether to filter them. `fil` and `tl` are not remapped. The compact model may
-produce different predictions from `.bin`.
+Unsupported languages are returned with `is_supported: false`; callers decide whether to filter them. FastText `tl` predictions are normalized to `fil` in `language`, while `fasttext_language` retains the original model label. The compact model may produce different predictions from `.bin`.
 
 HTTP requests accept at most 10,000 characters per text and 1–32 texts per batch.
 Blank, non-string, or text with no ASCII letters after cleaning is invalid

@@ -334,7 +334,6 @@ const ModelComparison = () => {
 
 const RAW_DATASET_REQUIRED_HEADERS = [
     "id",
-    "language",
     "text",
     "location",
     "date_posted",
@@ -584,7 +583,6 @@ const DataManagement = () => {
         const sampleRows = [
             {
                 id: "0001",
-                language: "english",
                 text: "Sample post text about lung-related diseases.",
                 location: "Manila",
                 date_posted: "2026-01-15",
