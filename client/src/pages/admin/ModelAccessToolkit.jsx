@@ -870,16 +870,24 @@ const DataManagement = () => {
     };
 
     const handleDeleteDataset = async () => {
+        const deletedFilename = deleteModalData.filename;
+
         try {
             await deleteDataset(deleteModalData.id).unwrap();
 
-            await createAccountActivity({
-                user_id: user.id,
-                entry: `Deleted dataset: ${deleteModalData.filename}`,
-                module: "Model Access and Toolkit",
-            }).unwrap();
+            setDeleteModalActive(false);
+            setDeleteModalData({ id: "", filename: "" });
+            setDeleteError("");
 
-            closeDeleteModal();
+            try {
+                await createAccountActivity({
+                    user_id: user.id,
+                    entry: `Deleted dataset: ${deletedFilename}`,
+                    module: "Model Access and Toolkit",
+                }).unwrap();
+            } catch (activityError) {
+                console.error("Failed to record deletion activity", activityError);
+            }
         } catch (error) {
             setDeleteError("Failed to delete dataset. Please try again.");
             console.error("Failed to delete dataset", error);
@@ -901,6 +909,8 @@ const DataManagement = () => {
     };
 
     const handleConfirmBulkAction = async () => {
+        let activityEntry = "";
+
         try {
             if (bulkActionType === "download") {
                 for (const dataset of selectedDatasets) {
@@ -910,16 +920,12 @@ const DataManagement = () => {
                     });
                 }
 
-                await createAccountActivity({
-                    user_id: user.id,
-                    entry: `Downloaded ${selectedDatasets.length} datasets`,
-                    module: "Model Access and Toolkit",
-                }).unwrap();
-            }
-
-            if (bulkActionType === "process") {
+                activityEntry = `Downloaded ${selectedDatasets.length} datasets`;
+            } else if (bulkActionType === "process") {
                 if (selectedProcessableDatasets.length === 0) {
-                    setBulkActionError("No selected datasets are ready for processing.");
+                    setBulkActionError(
+                        "No selected datasets are ready for processing."
+                    );
                     return;
                 }
 
@@ -927,27 +933,33 @@ const DataManagement = () => {
                     await processDataset(dataset.id).unwrap();
                 }
 
-                await createAccountActivity({
-                    user_id: user.id,
-                    entry: `Started processing ${selectedProcessableDatasets.length} datasets`,
-                    module: "Model Access and Toolkit",
-                }).unwrap();
-            }
-
-            if (bulkActionType === "delete") {
+                activityEntry =
+                    `Started processing ${selectedProcessableDatasets.length} datasets`;
+            } else if (bulkActionType === "delete") {
                 for (const dataset of selectedDatasets) {
                     await deleteDataset(dataset.id).unwrap();
                 }
 
-                await createAccountActivity({
-                    user_id: user.id,
-                    entry: `Deleted ${selectedDatasets.length} datasets`,
-                    module: "Model Access and Toolkit",
-                }).unwrap();
+                activityEntry = `Deleted ${selectedDatasets.length} datasets`;
             }
 
             setSelectedDatasetIds([]);
             closeBulkActionModal();
+
+            if (activityEntry) {
+                try {
+                    await createAccountActivity({
+                        user_id: user.id,
+                        entry: activityEntry,
+                        module: "Model Access and Toolkit",
+                    }).unwrap();
+                } catch (activityError) {
+                    console.error(
+                        "Failed to record bulk dataset activity",
+                        activityError
+                    );
+                }
+            }
         } catch (error) {
             setBulkActionError("Bulk action failed. Please try again.");
             console.error("Bulk action failed", error);

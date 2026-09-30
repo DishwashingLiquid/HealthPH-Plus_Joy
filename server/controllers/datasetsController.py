@@ -14,7 +14,12 @@ from bson import ObjectId
 from fastapi import BackgroundTasks, Depends, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse, JSONResponse
 
-from config.database import user_collection, dataset_collection, analytics_entries_collection
+from config.database import (
+    user_collection,
+    dataset_collection,
+    analytics_entries_collection,
+    point_collection,
+)
 from models.user import AdminResult
 from middleware.requireAdmin import require_admin
 from middleware.requireRole import require_role
@@ -702,14 +707,22 @@ async def delete_dataset(
                 detail="Not authorized to delete this dataset.",
             )
 
-    deleted_dataset = dataset_collection.find_one_and_delete({"_id": ObjectId(id)})
+    deleted_dataset = dataset_collection.find_one_and_delete(
+        {"_id": ObjectId(id)}
+    )
 
-    # If deletion failed
     if not deleted_dataset:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Failed to delete dataset.",
         )
+
+    analytics_entries_collection.delete_many(
+        {
+            "dataset_id": id,
+            "source_type": "social_media",
+        }
+    )
 
     # Check if deleted dataset is RAW or ANNOTATED dataset
     if deleted_dataset["dataset_type"] == "RAW":
@@ -740,14 +753,47 @@ route     DELETE api/datasets/all-datasets
 
 
 async def delete_all_datasets(
-        current_user: Annotated[dict, Depends(require_role(["SUPERADMIN"]))]
-):
-    deleted = dataset_collection.delete_many({})
+    current_user: Annotated[
+        dict,
+        Depends(require_role(["SUPERADMIN"])),
+    ]
+):  
+    datasets_to_delete = list(
+        dataset_collection.find(
+            {},
+            {
+                "_id": 1,
+                "filename": 1,
+            },
+        )
+    )
 
-    if not deleted:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error deleting datasets...",
+    dataset_ids = [
+        str(dataset["_id"])
+        for dataset in datasets_to_delete
+    ]
+
+    dataset_filenames = [
+        dataset["filename"]
+        for dataset in datasets_to_delete
+        if dataset.get("filename")
+    ]
+
+    dataset_collection.delete_many({})
+
+    if dataset_ids:
+        analytics_entries_collection.delete_many(
+            {
+                "dataset_id": {"$in": dataset_ids},
+                "source_type": "social_media",
+            }
+        )
+
+    if dataset_filenames:
+        point_collection.delete_many(
+            {
+                "dataset_source": {"$in": dataset_filenames},
+            }
         )
 
     if os.path.exists(datasets_folder):
