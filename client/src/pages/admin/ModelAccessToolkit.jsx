@@ -380,8 +380,11 @@ const DataManagement = () => {
 
     const {
         data: datasetsByUser,
-        isFetching: isDatasetsByUserFetching,
-    } = useFetchDatasetsByUserQuery(user.id);
+        isLoading: isDatasetsByUserLoading,
+    } = useFetchDatasetsByUserQuery(user.id, {
+        pollingInterval: 3000,
+        skipPollingIfUnfocused: true,
+    });
 
     const datasets = datasetsByUser || [];
 
@@ -1079,7 +1082,7 @@ const DataManagement = () => {
                                 <option value="RAW">Raw</option>
                                 <option value="QUEUED">Queued</option>
                                 <option value="PROCESSING">Processing</option>
-                                <option value="ANNOTATED">Annotated</option>
+                                <option value="PROCESSED">Processed</option>
                                 <option value="FAILED">Failed</option>
                             </ToolbarSelect>
                         ) : (
@@ -1137,7 +1140,7 @@ const DataManagement = () => {
                         </div>
                     )}
 
-                    {isDatasetsByUserFetching ? (
+                    {isDatasetsByUserLoading ? (
                         <div className="min-w-full overflow-y-hidden h-[300px]">
                             <SkeletonBody columns={6} />
                         </div>
@@ -1730,7 +1733,7 @@ const DatasetStatusBadge = ({ status }) => {
             backgroundColor: "#FEF3C7",
             color: "#D97706",
         },
-        ANNOTATED: {
+        PROCESSED: {
             backgroundColor: "#D1FAE5",
             color: "#059669",
         },
@@ -1864,7 +1867,7 @@ const DatasetPreviewModal = ({
             text: "Dataset processing is currently in progress.",
             className: "border-[#FDE68A] bg-[#FFFBEB] text-[#B45309]",
         },
-        ANNOTATED: {
+        PROCESSED: {
             text: "Dataset has been processed and is ready for dashboard use.",
             className: "border-[#A7F3D0] bg-[#ECFDF5] text-[#047857]",
         },
@@ -2183,7 +2186,7 @@ const TrainingLogs = () => {
     const getTrainingStatus = (status) => {
         const normalizedStatus = String(status || "").toUpperCase();
 
-        if (normalizedStatus === "ANNOTATED") return "Completed";
+        if (normalizedStatus === "PROCESSED") return "Completed";
         if (normalizedStatus === "PROCESSING") return "Running";
         if (normalizedStatus === "FAILED") return "Failed";
         if (normalizedStatus === "QUEUED") return "Queued";

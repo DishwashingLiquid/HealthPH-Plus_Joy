@@ -7,6 +7,8 @@ DEFAULT_LANGUAGE_SERVICE_URL = "http://127.0.0.1:8001"
 DEFAULT_LANGUAGE_TIMEOUT_SECONDS = 30.0
 LANGUAGE_BATCH_SIZE = 32
 
+SUPPORTED_LANGUAGE_CODES = {"en", "fil", "ceb", "ilo", "hil"}
+
 class LanguageDetectionServiceError(RuntimeError):
     """Raised when language detection cannot return a valid result."""
 
@@ -45,10 +47,21 @@ def _validate_prediction(prediction):
     language = prediction.get("language")
     source = prediction.get("prediction_source")
     confidence = prediction.get("fasttext_confidence")
+    is_supported = prediction.get("is_supported")
 
     if not isinstance(language, str) or not language.strip():
         raise LanguageDetectionServiceError(
             "Language service returned a prediction without a language."
+        )
+
+    if not isinstance(is_supported, bool):
+        raise LanguageDetectionServiceError(
+            "Language service returned an invalid supported-language flag."
+        )
+
+    if is_supported and language not in SUPPORTED_LANGUAGE_CODES:
+        raise LanguageDetectionServiceError(
+            "Language service marked an unsupported language as supported."
         )
 
     if source not in {"fasttext", "keyword_override"}:
@@ -68,6 +81,7 @@ def _validate_prediction(prediction):
 
     return {
         "language": language,
+        "is_supported": is_supported,
         "detection_source": source,
         # keyword overrides do not provide confidence for the final language.
         "confidence": confidence if source == "fasttext" else None,

@@ -166,14 +166,21 @@ def run_dataset_processing_job(dataset_id: str):
         updates = []
 
         for entry, prediction in zip(entries, predictions, strict=True):
-            language = prediction["language"]
-            language_counts[language] += 1
+            is_supported = prediction["is_supported"]
+            language = prediction["language"] if is_supported else ""
 
-            location = entry.get("location") or {}
-            raw_location = str(location.get("raw") or "").strip()
+            detection_status = (
+                "completed" if is_supported else "unsupported"
+            )
 
-            if raw_location:
-                location_language_counts[raw_location][language] += 1
+            if is_supported:
+                language_counts[language] += 1
+
+                location = entry.get("location") or {}
+                raw_location = str(location.get("raw") or "").strip()
+
+                if raw_location:
+                    location_language_counts[raw_location][language] += 1
 
             updates.append(
                 pymongo.UpdateOne(
@@ -182,9 +189,13 @@ def run_dataset_processing_job(dataset_id: str):
                         "$set": {
                             "language": language,
                             "analysis.language_detection": {
-                                "status": "completed",
+                                "status": detection_status,
                                 "detection_source": prediction["detection_source"],
-                                "confidence": prediction["confidence"],
+                                "confidence": (
+                                    prediction["confidence"]
+                                    if is_supported
+                                    else None
+                                ),
                                 "completed_at": completed_at,
                             },
                             "updated_at": completed_at,
