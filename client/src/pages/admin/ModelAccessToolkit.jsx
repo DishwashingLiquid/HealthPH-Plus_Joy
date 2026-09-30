@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { format } from "date-fns";
 
@@ -378,15 +378,27 @@ const DataManagement = () => {
 
     const [createAccountActivity] = useCreateAccountActivityMutation();
 
+    const [datasetPollingInterval, setDatasetPollingInterval] = useState(0);
+
     const {
         data: datasetsByUser,
         isLoading: isDatasetsByUserLoading,
     } = useFetchDatasetsByUserQuery(user.id, {
-        pollingInterval: 3000,
+        pollingInterval: datasetPollingInterval,
         skipPollingIfUnfocused: true,
     });
 
     const datasets = datasetsByUser || [];
+
+    const hasActiveDataset = datasets.some((dataset) =>
+        ["QUEUED", "PROCESSING"].includes(
+            String(dataset.dataset_status || "").toUpperCase()
+        )
+    );
+
+    useEffect(() => {
+        setDatasetPollingInterval(hasActiveDataset ? 3000 : 0);
+    }, [hasActiveDataset]);
 
     const [datasetSearch, setDatasetSearch] = useState("");
     const [datasetStatusFilter, setDatasetStatusFilter] = useState("all");
@@ -560,17 +572,24 @@ const DataManagement = () => {
 
         try {
             const payload = new FormData();
+            const uploadedFilename = uploadPreviewData.filename;
+
             payload.append("file", selectedFile);
 
             await uploadFile(payload).unwrap();
 
-            await createAccountActivity({
-                user_id: user.id,
-                entry:  `Uploaded dataset: ${uploadPreviewData.filename}`,
-                module: "Model Access and Toolkit",
-            }).unwrap();
-
+            //Close and clear the modal as soon as the upload succeeds.
             resetUploadState();
+
+            try {
+                await createAccountActivity({
+                    user_id: user.id,
+                    entry: `Uploaded dataset: ${uploadedFilename}`,
+                    module: "Model Access and Toolkit",
+                }).unwrap();
+            } catch (activityError) {
+                console.error("Failed to record upload activity", activityError);
+            }
         } catch (error) {
             const message =
                 error?.data?.detail ||
@@ -624,22 +643,17 @@ const DataManagement = () => {
         try {
             await processDataset(id).unwrap();
 
-            setPreviewModalData((currentData) =>
-                currentData.id === id
-                    ? {
-                        ...currentData,
-                        dataset_status: "QUEUED",
-                        processing_error: "",
-                        processed_at: "",
-                    }
-                    : currentData
-            );
+            setPreviewModalActive(false);
 
-            await createAccountActivity({
-                user_id: user.id,
-                entry: `started dataset processing: ${filename}`,
-                module: "Model Access and Toolkit",
-            }).unwrap();
+            try {
+                await createAccountActivity({
+                    user_id: user.id,
+                    entry: `Started dataset processing: ${filename}`,
+                    module: "Model Access and Toolkit",
+                }).unwrap();
+            } catch (activityError) {
+                console.error("Failed to record processing activity", activityError);
+            }
         } catch (error) {
             console.error("Failed to process dataset", error);
         }
