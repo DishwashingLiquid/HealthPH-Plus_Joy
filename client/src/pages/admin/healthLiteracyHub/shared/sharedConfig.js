@@ -9,21 +9,21 @@ export const TAB_CONTENT_TYPES = {
 export const UPLOAD_RULES = {
   Articles: {
     label: "Article Asset Upload",
-    accept: "image/*,video/*,application/pdf",
-    helperText: "JPG, PNG, WEBP, MP4, MOV, WEBM, PDF",
-    allowedTypes: ["image/", "video/", "application/pdf"],
+    accept: "image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm,application/pdf",
+    helperText: "JPG, PNG, GIF, WEBP, PDF: up to 25 MiB. MP4, MOV, WEBM: up to 250 MiB.",
+    allowedTypes: ["image/jpeg", "image/png", "image/gif", "image/webp", "video/mp4", "video/quicktime", "video/webm", "application/pdf"],
   },
   Infographics: {
     label: "Image Upload",
-    accept: "image/*",
-    helperText: "JPG, PNG, GIF, WEBP",
-    allowedTypes: ["image/"],
+    accept: "image/jpeg,image/png,image/gif,image/webp",
+    helperText: "JPG, PNG, GIF, WEBP: up to 25 MiB.",
+    allowedTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
   },
   Videos: {
     label: "Video Upload",
-    accept: "video/*",
-    helperText: "MP4, MOV, WEBM",
-    allowedTypes: ["video/"],
+    accept: "video/mp4,video/quicktime,video/webm",
+    helperText: "MP4, MOV, WEBM: up to 250 MiB.",
+    allowedTypes: ["video/mp4", "video/quicktime", "video/webm"],
   },
 };
 
@@ -43,6 +43,9 @@ export const INITIAL_FORM_DATA = {
   media: null,
   mediaPreview: null,
   existingMedia: null,
+  thumbnail: null,
+  existingThumbnail: null,
+  removeThumbnail: false,
   duration: "",
   removeMedia: false,
   publishToMobile: false,

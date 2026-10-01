@@ -21,6 +21,7 @@ export {
 export {
   downloadCsv,
   escapeCsvValue,
+  formatFileSize,
   formatNumber,
   formatPercent,
   formatVideoDuration,
@@ -62,7 +63,7 @@ export const getTagOptionsWithSelectedTags = () =>
   HEALTH_LITERACY_LANGUAGE_OPTIONS;
 
 export const getContentMediaSource = (media) => {
-  const mediaSource = media?.url || media?.dataUrl || "";
+  const mediaSource = media?.previewUrl || media?.url || "";
 
   if (!mediaSource || mediaSource.startsWith("data:")) return mediaSource;
 
@@ -149,9 +150,16 @@ export const normalizeApiContent = (content) => {
 export const isAllowedMediaType = (file, activeTab) => {
   if (!file) return true;
 
-  return (UPLOAD_RULES[activeTab]?.allowedTypes ?? []).some((allowedType) =>
-    file.type.startsWith(allowedType)
-  );
+  return (UPLOAD_RULES[activeTab]?.allowedTypes ?? []).includes(file.type);
+};
+
+export const getMediaSizeError = (file) => {
+  if (!file) return null;
+  const limitMiB = file.type.startsWith("video/") ? 250 : 25;
+  if (!file.size) return "Please select a non-empty media file";
+  return file.size > limitMiB * 1024 * 1024
+    ? `The selected file exceeds the ${limitMiB} MiB limit`
+    : null;
 };
 
 export const getContentFormValidationError = (formData, contentTypeLabel) => {
@@ -177,6 +185,8 @@ export const getContentFormValidationError = (formData, contentTypeLabel) => {
   if (formData.isFactCheck && !formData.claim.trim()) {
     return "Please enter the fact-check claim";
   }
+
+  if (getMediaSizeError(formData.media)) return getMediaSizeError(formData.media);
 
   return null;
 };

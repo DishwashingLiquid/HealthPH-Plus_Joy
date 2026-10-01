@@ -1,16 +1,16 @@
 from datetime import datetime
-from pathlib import Path
 from typing import Optional
 from uuid import uuid4
 
-from fastapi import Depends, File, Form, HTTPException, Query, Request, UploadFile, status
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import Depends, File, Form, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi.responses import JSONResponse
 from typing_extensions import Annotated
 
 from middleware.requireRole import require_role
 from models.healthLiteracyHubAnalytics import HealthLiteracyAnalyticsEvent
 from helpers.miscHelpers import get_ph_datetime
-from config.database import analytics_events_collection
+from config.database import analytics_events_collection, content_collection, user_collection
+from health_literacy_media import external_url, media_response, preview_authorized, public_api_base_url
 from controllers.health_literacy_hub.analytics import (
     build_analytics_event_document,
     build_health_literacy_analytics_overview,
@@ -22,9 +22,12 @@ from controllers.health_literacy_hub.content_bridge import (
     encode_media,
     fetch_published_mobile_content,
     fetch_published_website_content,
-    get_media_folder,
-    read_content,
-    write_content,
+    get_media_store,
+    content_match,
+    find_content,
+    insert_content,
+    replace_content,
+    delete_content,
 )
 from controllers.health_literacy_hub.serialization import (
     build_fact_check_metadata,
@@ -37,23 +40,9 @@ from controllers.health_literacy_hub.serialization import (
     serialize_mobile_content,
     serialize_mobile_contract_content,
     serialize_website_content,
+    serialize_content_document,
     validate_content_language,
 )
-
-
-def _find_content_index(content: list, content_id: str) -> int:
-    content_index = next(
-        (index for index, item in enumerate(content) if str(item.get("id")) == content_id),
-        None,
-    )
-
-    if content_index is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Health Literacy Hub content not found",
-        )
-
-    return content_index
 
 
 def _serialize_mobile_contract_items(
@@ -112,11 +101,15 @@ route     GET api/health-literacy-hub/{content_type}
 """
 
 
-async def fetch_health_literacy_content(
+def fetch_health_literacy_content(
     content_type: str,
     current_user: Annotated[dict, Depends(require_role(["Admin", "SUPERADMIN"]))],
+    response: Response,
 ):
-    return read_content(content_type)
+    response.headers["Cache-Control"] = "private, no-store"
+    return [serialize_content_document(item, str(current_user["_id"])) for item in
+            content_collection.find(content_match(content_type)).sort(
+                [("isPinned", -1), ("pinnedAt", -1), ("createdAt", -1)])]
 
 
 """
@@ -126,7 +119,7 @@ route     GET api/health-literacy-hub/mobile
 """
 
 
-async def fetch_mobile_health_literacy_content():
+def fetch_mobile_health_literacy_content():
     return [
         serialize_mobile_content(item) for item in fetch_published_mobile_content()
     ]
@@ -139,14 +132,14 @@ route     GET api/health-literacy-hub/mobile/{content_type}
 """
 
 
-async def fetch_mobile_health_literacy_content_by_type(content_type: str):
+def fetch_mobile_health_literacy_content_by_type(content_type: str):
     return [
         serialize_mobile_content(item)
         for item in fetch_published_mobile_content(content_type)
     ]
 
 
-async def fetch_mobile_health_literacy_contract(
+def fetch_mobile_health_literacy_contract(
     contentType: str | None = Query(default=None),
     tags: str | None = Query(default=None),
     topics: str | None = Query(default=None),
@@ -171,7 +164,7 @@ route     GET api/health-literacy-hub/website
 """
 
 
-async def fetch_website_health_literacy_content():
+def fetch_website_health_literacy_content():
     return [
         serialize_website_content(item)
         for item in fetch_published_website_content()
@@ -185,7 +178,7 @@ route     GET api/health-literacy-hub/website/{content_type}
 """
 
 
-async def fetch_website_health_literacy_content_by_type(content_type: str):
+def fetch_website_health_literacy_content_by_type(content_type: str):
     return [
         serialize_website_content(item)
         for item in fetch_published_website_content(content_type)
@@ -194,29 +187,18 @@ async def fetch_website_health_literacy_content_by_type(content_type: str):
 
 """
 @desc     Fetch Health Literacy Hub uploaded media
-route     GET api/health-literacy-hub/media/{content_type}/{filename}
-@access   Public
+route     GET/HEAD api/health-literacy-hub/media/{file_id}
+@access   Published content or authorized admin preview
 """
 
 
-async def fetch_health_literacy_media(content_type: str, filename: str):
-    media_filename = Path(filename).name
+def fetch_health_literacy_media(file_id: str, request: Request, preview: str | None = None):
+    authorized = preview_authorized(preview, file_id, user_collection)
+    return media_response(get_media_store(), file_id, request, admin=authorized)
 
-    if media_filename != filename:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid media filename",
-        )
 
-    media_path = get_media_folder(content_type) / media_filename
-
-    if not media_path.exists() or not media_path.is_file():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Health Literacy Hub media not found",
-        )
-
-    return FileResponse(path=media_path)
+def fetch_legacy_health_literacy_media(content_type: str, filename: str):
+    raise HTTPException(410, "Legacy filesystem media retired; refresh content from the API after migration")
 
 
 """
@@ -267,7 +249,7 @@ route     POST api/health-literacy-hub/{content_type}
 """
 
 
-async def create_health_literacy_content(
+def create_health_literacy_content(
     content_type: str,
     current_user: Annotated[
         dict, Depends(require_role(["Admin", "SUPERADMIN"]))
@@ -294,6 +276,7 @@ async def create_health_literacy_content(
     verdict: Annotated[Optional[str], Form()] = "",
     explanation: Annotated[Optional[str], Form()] = "",
     file: Annotated[Optional[UploadFile], File()] = None,
+    thumbnail: Annotated[Optional[UploadFile], File()] = None,
 ):
     if content_type not in CONTENT_FILES:
         raise HTTPException(
@@ -313,8 +296,9 @@ async def create_health_literacy_content(
             detail="Please enter a description",
         )
 
-    content = read_content(content_type)
-    media = await encode_media(content_type, file)
+    public_api_base_url()  # Fail configuration before uploading/writing.
+    if thumbnail is not None and content_type != "videos":
+        raise HTTPException(400, "A separate thumbnail is supported for videos only")
     created_at = get_ph_datetime()
     created_by = get_user_snapshot(current_user)
     fact_check_metadata = build_fact_check_metadata(
@@ -338,14 +322,15 @@ async def create_health_literacy_content(
         "topics": normalized_topics,
         "diseases": normalized_diseases,
         "language": validate_content_language(normalized_language),
-        "media": media,
+        "media": None,
+        "thumbnail": None,
         "duration": normalize_video_duration(content_type, duration),
         "source": _parse_optional_string(source),
         "author": _parse_optional_string(author),
         "publishedDate": normalized_published_date,
-        "externalUrl": _parse_optional_string(externalUrl),
-        "imageUrl": _parse_optional_string(imageUrl),
-        "mediaUrl": _parse_optional_string(mediaUrl),
+        "externalUrl": external_url(externalUrl),
+        "imageUrl": external_url(imageUrl),
+        "mediaUrl": external_url(mediaUrl),
         "publishToMobile": publishToMobile,
         "publishToWebsite": publishToWebsite,
         "isPublished": bool(publishToMobile or publishToWebsite),
@@ -365,14 +350,25 @@ async def create_health_literacy_content(
         **fact_check_metadata,
     }
 
-    content.insert(0, new_content)
-    write_content(content_type, content)
+    media = None
+    uploaded_thumbnail = None
+    try:
+        media = encode_media(content_type, file)
+        uploaded_thumbnail = encode_media("infographics", thumbnail)
+        new_content["media"] = media
+        new_content["thumbnail"] = uploaded_thumbnail
+        new_content = insert_content(content_type, new_content)
+    except Exception:
+        delete_media_file(content_type, media)
+        delete_media_file(content_type, uploaded_thumbnail)
+        raise
 
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
+        headers={"Cache-Control": "private, no-store"},
         content={
             "message": "Health Literacy Hub content created successfully",
-            "content": new_content,
+            "content": serialize_content_document(new_content, str(current_user["_id"])),
         },
     )
 
@@ -384,7 +380,7 @@ route     PUT api/health-literacy-hub/{content_type}/{content_id}
 """
 
 
-async def update_health_literacy_content(
+def update_health_literacy_content(
     content_type: str,
     content_id: str,
     current_user: Annotated[
@@ -412,7 +408,9 @@ async def update_health_literacy_content(
     verdict: Annotated[Optional[str], Form()] = "",
     explanation: Annotated[Optional[str], Form()] = "",
     removeMedia: Annotated[bool, Form()] = False,
+    removeThumbnail: Annotated[bool, Form()] = False,
     file: Annotated[Optional[UploadFile], File()] = None,
+    thumbnail: Annotated[Optional[UploadFile], File()] = None,
 ):
     if content_type not in CONTENT_FILES:
         raise HTTPException(
@@ -432,16 +430,17 @@ async def update_health_literacy_content(
             detail="Please enter a description",
         )
 
-    content = read_content(content_type)
-    content_index = _find_content_index(content, content_id)
-
-    current_content = content[content_index]
+    public_api_base_url()
+    if thumbnail is not None and content_type != "videos":
+        raise HTTPException(400, "A separate thumbnail is supported for videos only")
+    current_content = find_content(content_type, content_id)
     updated_media = current_content.get("media")
+    updated_thumbnail = current_content.get("thumbnail")
 
-    if file is not None:
-        updated_media = await encode_media(content_type, file)
-    elif removeMedia:
+    if removeMedia:
         updated_media = None
+    if removeThumbnail:
+        updated_thumbnail = None
 
     updated_at = get_ph_datetime()
     fact_check_metadata = build_fact_check_metadata(
@@ -465,6 +464,7 @@ async def update_health_literacy_content(
         "diseases": normalized_diseases,
         "language": validate_content_language(normalized_language),
         "media": updated_media,
+        "thumbnail": updated_thumbnail,
         "duration": normalize_video_duration(
             content_type,
             duration,
@@ -473,9 +473,9 @@ async def update_health_literacy_content(
         "source": _parse_optional_string(source),
         "author": _parse_optional_string(author),
         "publishedDate": normalized_published_date,
-        "externalUrl": _parse_optional_string(externalUrl),
-        "imageUrl": _parse_optional_string(imageUrl),
-        "mediaUrl": _parse_optional_string(mediaUrl),
+        "externalUrl": external_url(externalUrl),
+        "imageUrl": external_url(imageUrl),
+        "mediaUrl": external_url(mediaUrl),
         "publishToMobile": publishToMobile,
         "publishToWebsite": publishToWebsite,
         "isPublished": bool(publishToMobile or publishToWebsite),
@@ -485,14 +485,31 @@ async def update_health_literacy_content(
         **fact_check_metadata,
     }
 
-    content[content_index] = updated_content
-    write_content(content_type, content)
+    new_media = None
+    new_thumbnail = None
+    try:
+        if file is not None:
+            new_media = encode_media(content_type, file)
+            updated_content["media"] = new_media
+        if thumbnail is not None:
+            new_thumbnail = encode_media("infographics", thumbnail)
+            updated_content["thumbnail"] = new_thumbnail
+        replace_content(current_content, updated_content)
+    except Exception:
+        delete_media_file(content_type, new_media)
+        delete_media_file(content_type, new_thumbnail)
+        raise
+    if file is not None or removeMedia:
+        delete_media_file(content_type, current_content.get("media"))
+    if thumbnail is not None or removeThumbnail:
+        delete_media_file(content_type, current_content.get("thumbnail"))
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
+        headers={"Cache-Control": "private, no-store"},
         content={
             "message": "Health Literacy Hub content updated successfully",
-            "content": updated_content,
+            "content": serialize_content_document(updated_content, str(current_user["_id"])),
         },
     )
 
@@ -504,7 +521,7 @@ route     DELETE api/health-literacy-hub/{content_type}/{content_id}
 """
 
 
-async def delete_health_literacy_content(
+def delete_health_literacy_content(
     content_type: str,
     content_id: str,
     current_user: Annotated[
@@ -517,17 +534,17 @@ async def delete_health_literacy_content(
             detail="Health Literacy Hub content type not found",
         )
 
-    content = read_content(content_type)
-    content_index = _find_content_index(content, content_id)
-    deleted_content = content.pop(content_index)
-
+    deleted_content = find_content(content_type, content_id)
+    response_content = serialize_content_document(deleted_content, str(current_user["_id"]))
+    delete_content(deleted_content)
     delete_media_file(content_type, deleted_content.get("media"))
-    write_content(content_type, content)
+    delete_media_file(content_type, deleted_content.get("thumbnail"))
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
+        headers={"Cache-Control": "private, no-store"},
         content={
             "message": "Health Literacy Hub content deleted successfully",
-            "content": deleted_content,
+            "content": response_content,
         },
     )

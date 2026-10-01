@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 from controllers.dashboard_regions import REGIONS as ANALYTICS_REGIONS
 
 from config.database import (
@@ -56,12 +55,6 @@ CONTENT_TYPE_ALIASES = {
 }
 CONTENT_TYPE_ALIASES["fact_check"] = "fact_check"
 CONTENT_TYPE_ALIASES["fact-check"] = "fact_check"
-
-health_literacy_folder = (
-    Path(__file__).resolve().parent.parent.parent / "public" / "health-literacy-hub"
-)
-health_literacy_media_folder = health_literacy_folder / "media"
-_migrated_content_types = set()
 
 ANALYTICS_TIME_RANGE_DAYS = {
     "last-7-days": 7,

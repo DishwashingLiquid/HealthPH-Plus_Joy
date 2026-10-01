@@ -1,6 +1,6 @@
 /* eslint-disable react/prop-types */
 import Icon from "../../../../components/Icon";
-import { formatNumber, getContentMediaSource } from "../shared";
+import { formatFileSize, formatNumber, getContentMediaSource } from "../shared";
 
 const ContentMediaPreviewBody = ({
   item,
@@ -21,6 +21,7 @@ const ContentMediaPreviewBody = ({
   const mediaSource = getContentMediaSource(media);
   const isVideo = mediaType.startsWith("video/");
   const isInfographic = contentType === "Infographics";
+  const fileSize = formatFileSize(media?.size);
   const publishTargets = [
     publishToMobile ? "Mobile" : null,
     publishToWebsite ? "Website" : null,
@@ -87,6 +88,9 @@ const ContentMediaPreviewBody = ({
           <p className="text-[12px] font-medium text-gray-500">
             Publish Status: {publishStatus}
           </p>
+          <p className="text-[12px] font-medium text-gray-500">
+            File Size: {fileSize}
+          </p>
         </div>
       </div>
     );
@@ -146,6 +150,9 @@ const ContentMediaPreviewBody = ({
             <div className="flex flex-col items-start gap-[10px]">
               <p className="text-left text-[12px] font-medium text-gray-500">
                 Publish: {publishStatus}
+              </p>
+              <p className="text-left text-[12px] font-medium text-gray-500">
+                File Size: {fileSize}
               </p>
               {tags.length > 0 && (
                 <div className="flex flex-wrap items-center justify-start gap-[6px]">

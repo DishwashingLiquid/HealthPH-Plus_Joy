@@ -38,6 +38,8 @@ export const ContentFormBody = ({
   mode,
   onFormChange,
   onMediaChange,
+  onThumbnailChange,
+  onRemoveThumbnail,
   onMediaDrop,
   onRemoveMedia,
   onDelete,
@@ -259,6 +261,11 @@ export const ContentFormBody = ({
         <label className="mb-[8px] block text-[14px] font-medium text-gray-800">
           {uploadRule.label}
         </label>
+        {formData.existingMedia?.migrationRequired && (
+          <p role="status" className="mb-3 text-sm text-amber-800">
+            This legacy attachment needs migration before it can be previewed. You can also upload a replacement.
+          </p>
+        )}
         <label
           htmlFor={uploadInputId}
           className="block cursor-pointer rounded-[8px] border-2 border-dashed border-[#E5E5E5] p-[20px] text-center transition-colors hover:bg-[#F9F9F9]"
@@ -335,6 +342,29 @@ export const ContentFormBody = ({
           </button>
         )}
       </div>
+      {contentTypeLabel === "Videos" && (
+        <div>
+          <label htmlFor={`health-literacy-thumbnail-${mode}`} className="mb-[8px] block text-[14px] font-medium text-gray-800">
+            Video thumbnail / poster
+          </label>
+          <input
+            id={`health-literacy-thumbnail-${mode}`}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            onChange={onThumbnailChange}
+            className="block w-full text-[13px]"
+          />
+          <p className={helperTextClassName}>
+            {formData.thumbnail?.name || formData.existingThumbnail?.filename || "Upload a separate image for the mobile video card (up to 25 MiB)."}
+          </p>
+          {(formData.thumbnail || formData.existingThumbnail) && (
+            <button type="button" className="mt-[8px] text-[12px] font-medium text-red-500"
+              onClick={onRemoveThumbnail}>
+              Remove thumbnail
+            </button>
+          )}
+        </div>
+      )}
       <div className="border-t border-[#E5E5E5] pt-[16px]">
         <p className="mb-[8px] text-[14px] font-medium text-gray-800">
           Publish Options

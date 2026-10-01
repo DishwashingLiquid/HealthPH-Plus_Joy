@@ -1,5 +1,7 @@
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
+from pymongo import ReadPreference
+from pymongo.write_concern import WriteConcern
 from dotenv import dotenv_values
 import os
 import certifi
@@ -42,7 +44,10 @@ analytics_entries_collection = db["analytics_entries"]
 point_collection = db['points']
 health_literacy_feedback_collection = db["health_literacy_feedback"]
 analytics_events_collection = db["analytics_events"]
-content_collection = db["content"]
+content_collection = db["content"].with_options(
+    read_preference=ReadPreference.PRIMARY,
+    write_concern=WriteConcern(w="majority"),
+)
 surveys_collection = db["surveys"]
 survey_responses_collection = db["survey_responses"]
 # Singleton application settings documents. This is deliberately a settings

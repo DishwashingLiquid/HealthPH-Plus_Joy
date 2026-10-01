@@ -1,14 +1,5 @@
 import { formatVideoDuration } from "../shared";
 
-export const readFileAsDataUrl = (file) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onloadend = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-
 export const getVideoFileDuration = (file) =>
   new Promise((resolve) => {
     const video = document.createElement("video");

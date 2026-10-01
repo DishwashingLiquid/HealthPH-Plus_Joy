@@ -6,3 +6,6 @@ __pycache__/
 .vscode
 .venv/
 *.zip
+.hub-build-check/
+hub-*.json
+hub-*.jsonl
