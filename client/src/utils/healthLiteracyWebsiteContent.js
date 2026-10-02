@@ -16,7 +16,7 @@ export const getDashboardContentSlug = (item) => {
 };
 
 export const getContentMediaSource = (media) => {
-  const mediaSource = media?.url || media?.dataUrl || "";
+  const mediaSource = media?.url || "";
 
   if (!mediaSource || mediaSource.startsWith("data:")) return mediaSource;
 

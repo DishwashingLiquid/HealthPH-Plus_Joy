@@ -19,7 +19,6 @@ import ContentMediaPreviewBody from "./ContentMediaPreviewBody";
 import {
   downloadMediaFile,
   getVideoFileDuration,
-  readFileAsDataUrl,
 } from "./contentTabFileMedia";
 import { getFilteredContentItems } from "./contentTabFiltering";
 import {
@@ -37,6 +36,7 @@ import {
   getContentMediaSource,
   getHealthLiteracyVisitorId,
   isAllowedMediaType,
+  getMediaSizeError,
   showToast,
 } from "../shared";
 
@@ -52,9 +52,11 @@ const ContentTab = ({ contentTypeLabel }) => {
 
   const contentType = TAB_CONTENT_TYPES[contentTypeLabel];
 
-  const { data: fetchedContent = [], isFetching: isFetchingContent } =
+  const { data: fetchedContent = [], isFetching: isFetchingContent, error: fetchError, refetch } =
     useFetchHealthLiteracyContentQuery(contentType, {
       skip: !contentType,
+      pollingInterval: 5 * 60 * 1000,
+      refetchOnMountOrArgChange: true,
     });
 
   const [createHealthLiteracyContent, { isLoading: isCreatingContent }] =
@@ -67,6 +69,33 @@ const ContentTab = ({ contentTypeLabel }) => {
     useCreateHealthLiteracyAnalyticsEventMutation();
 
   const uploadRule = UPLOAD_RULES[contentTypeLabel] ?? UPLOAD_RULES.Articles;
+
+  useEffect(() => {
+    const refreshPreviews = () => refetch();
+    window.addEventListener("focus", refreshPreviews);
+    return () => window.removeEventListener("focus", refreshPreviews);
+  }, [refetch]);
+
+  useEffect(() => () => {
+    if (formData.mediaPreview?.startsWith("blob:")) {
+      URL.revokeObjectURL(formData.mediaPreview);
+    }
+  }, [formData.mediaPreview]);
+
+  // Refresh expiring draft previews without replacing unsaved form fields.
+  useEffect(() => {
+    setFormData((previous) => {
+      const fresh = fetchedContent.find((item) => item.id === editingContent?.id);
+      if (!fresh || previous.media || previous.removeMedia) return previous;
+      return { ...previous, existingMedia: fresh.media,
+        mediaPreview: getContentMediaSource(fresh.media) || null };
+    });
+    setSelectedMediaContent((previous) => {
+      if (!previous) return previous;
+      const fresh = fetchedContent.find((item) => item.id === previous.item?.id);
+      return fresh ? { ...previous, media: fresh.media, item: { ...previous.item, media: fresh.media } } : previous;
+    });
+  }, [fetchedContent, editingContent?.id]);
 
   useEffect(() => {
     const topic = searchQuery.trim();
@@ -315,10 +344,16 @@ const ContentTab = ({ contentTypeLabel }) => {
       return;
     }
 
+    const sizeError = getMediaSizeError(file);
+    if (sizeError) {
+      showToast({ iconName: "Error", color: "destructive", message: sizeError });
+      return;
+    }
+
     try {
-      const mediaPreview = await readFileAsDataUrl(file);
       const duration =
         contentTypeLabel === "Videos" ? await getVideoFileDuration(file) : "";
+      const mediaPreview = URL.createObjectURL(file);
 
       setFormData((prev) => ({
         ...prev,
@@ -341,6 +376,27 @@ const ContentTab = ({ contentTypeLabel }) => {
     const file = event.target.files?.[0];
     await setMediaFile(file);
     event.target.value = "";
+  };
+
+  const handleThumbnailChange = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/gif", "image/webp"].includes(file.type)) {
+      showToast({ iconName: "Error", color: "destructive", message: "Choose a JPG, PNG, GIF, or WEBP thumbnail" });
+      return;
+    }
+    const sizeError = getMediaSizeError(file);
+    if (sizeError) {
+      showToast({ iconName: "Error", color: "destructive", message: sizeError });
+      return;
+    }
+    setFormData((previous) => ({ ...previous, thumbnail: file, removeThumbnail: false }));
+  };
+
+  const handleRemoveThumbnail = () => {
+    setFormData((previous) => ({ ...previous, thumbnail: null, existingThumbnail: null,
+      removeThumbnail: Boolean(isEditModalOpen) }));
   };
 
   const handleMediaDrop = async (event) => {
@@ -398,6 +454,7 @@ const ContentTab = ({ contentTypeLabel }) => {
         </div>
 
         <div className="mt-[20px]">
+          {fetchError && <p role="alert" className="mb-3 text-red-700">Unable to load shared content. Please refresh and try again.</p>}
           <ContentGrid
             content={filteredContent}
             contentType={contentTypeLabel}
@@ -431,6 +488,8 @@ const ContentTab = ({ contentTypeLabel }) => {
             mode="create"
             onFormChange={handleFormChange}
             onMediaChange={handleMediaChange}
+            onThumbnailChange={handleThumbnailChange}
+            onRemoveThumbnail={handleRemoveThumbnail}
             onMediaDrop={handleMediaDrop}
             onRemoveMedia={handleRemoveMedia}
           />
@@ -455,6 +514,8 @@ const ContentTab = ({ contentTypeLabel }) => {
             mode="edit"
             onFormChange={handleFormChange}
             onMediaChange={handleMediaChange}
+            onThumbnailChange={handleThumbnailChange}
+            onRemoveThumbnail={handleRemoveThumbnail}
             onMediaDrop={handleMediaDrop}
             onRemoveMedia={handleRemoveMedia}
             onDelete={() => setIsDeleteModalOpen(true)}

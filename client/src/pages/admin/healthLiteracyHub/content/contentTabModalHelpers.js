@@ -19,11 +19,15 @@ export const createEditFormData = ({ item }) => {
       ? String(item.publishedDate).slice(0, 16)
       : "",
     externalUrl: item.externalUrl ?? "",
-    imageUrl: item.imageUrl ?? "",
-    mediaUrl: item.mediaUrl ?? "",
+    imageUrl: item.imageUrl === item.thumbnail?.url || item.imageUrl === item.media?.url
+      ? "" : item.imageUrl ?? "",
+    mediaUrl: item.mediaUrl === item.media?.url ? "" : item.mediaUrl ?? "",
     media: null,
     mediaPreview: getContentMediaSource(item.media) || null,
     existingMedia: item.media ?? null,
+    thumbnail: null,
+    existingThumbnail: item.thumbnail ?? null,
+    removeThumbnail: false,
     duration: item.duration ?? "",
     removeMedia: false,
     publishToMobile: Boolean(item.publishToMobile),
@@ -56,7 +60,7 @@ export const getShareUrl = (item) => {
     item.externalUrl ||
     item.publicUrl ||
     item.shareUrl ||
-    getContentMediaSource(item.media)
+    (item.publishToWebsite || item.publishToMobile ? item.media?.url : "")
   );
 };
 
@@ -91,10 +95,14 @@ export const buildContentFormPayload = ({
 
   if (includeRemoveMedia) {
     payload.append("removeMedia", String(formData.removeMedia));
+    payload.append("removeThumbnail", String(formData.removeThumbnail));
   }
 
   if (formData.media) {
     payload.append("file", formData.media);
+  }
+  if (formData.thumbnail) {
+    payload.append("thumbnail", formData.thumbnail);
   }
 
   return payload;

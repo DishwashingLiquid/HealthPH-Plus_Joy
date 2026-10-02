@@ -24,6 +24,23 @@ export const formatVideoDuration = (durationInSeconds) => {
     : `${minutes}:${paddedSeconds}`;
 };
 
+export const formatFileSize = (bytes) => {
+  const size = Number(bytes);
+
+  if (!Number.isFinite(size) || size < 0) return "--";
+  if (size === 0) return "0 B";
+
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const unitIndex = Math.min(
+    Math.floor(Math.log(size) / Math.log(1024)),
+    units.length - 1
+  );
+  const formattedSize = size / 1024 ** unitIndex;
+  const maximumFractionDigits = unitIndex === 0 ? 0 : 1;
+
+  return `${formattedSize.toFixed(maximumFractionDigits)} ${units[unitIndex]}`;
+};
+
 export const getAnalyticsCellText = (value) => {
   if (value && typeof value === "object") {
     return value.csvValue ?? value.label ?? value.title ?? "";

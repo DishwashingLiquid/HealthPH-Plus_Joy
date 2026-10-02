@@ -1,5 +1,7 @@
 # Health Literacy Hub API Endpoints
 
+> GridFS update: uploaded media now uses `GET/HEAD /api/health-literacy-hub/media/{fileId}` with publication checks and byte-range support. The legacy filename endpoint below returns 410. See [shared media configuration and migration](HEALTH_LITERACY_GRIDFS_HANDOFF.md) for the current media contract, admin previews, and Render/mobile instructions. Repository JSON is no longer synchronized at runtime.
+
 All paths include the `/api` prefix. Schemas below are inferred from the route handlers, models, serializers, and client form code.
 
 ## 1. GET /api/health-literacy-hub/analytics/overview
@@ -74,6 +76,8 @@ Response schema:
 - `id`, `contentType`, `title`, `description`: basic content details.
 - `tags`, `topics`, `diseases`, `language`: content filters.
 - `media`: object - uploaded media details and URL.
+- `imageUrl`: uploaded infographic/article image or separate video poster URL when available.
+- `mediaUrl` and `media.url`: full attachment URL; `media.contentType` classifies the file.
 - `viewCount` or `downloadCount`: number - public interaction count.
 
 Found in: `server/routes/healthLiteracyHubRoutes.py`, `server/controllers/healthLiteracyHubController.py`.
@@ -95,6 +99,7 @@ Response schema:
 - `items`: array - content items.
 - `items[].id`, `contentType`, `title`, `description`: basic content details.
 - `items[].imageUrl`, `mediaUrl`, `externalUrl`: content links.
+- `items[].media.url`, `media.contentType`: full attachment URL and MIME type.
 - `items[].tags`, `topics`, `diseases`, `language`: filters.
 - `items[].viewCount`, `shareCount`: number - public interaction counts.
 
@@ -149,20 +154,22 @@ Response schema:
 
 Found in: `server/routes/healthLiteracyHubRoutes.py`, `server/controllers/healthLiteracyHubController.py`.
 
-## 9. GET /api/health-literacy-hub/media/{content_type}/{filename}
+## 9. GET/HEAD /api/health-literacy-hub/media/{fileId}
 
-Purpose: Download or display an uploaded media file.
+Purpose: Stream uploaded GridFS media, including byte ranges for video seeking.
 
-Auth: Not required.
+Auth: Public only when referenced by published, non-archived content. Draft previews require the temporary scoped `previewUrl` returned to authorized admins.
 
 Request schema:
 
-- `content_type`: string - content media folder.
-- `filename`: string - stored media file name.
+- `fileId`: string - GridFS ObjectId from the content API.
+- `Range`: optional single byte range header.
 
 Response schema:
 
-- File response - image, video, or PDF depending on the file.
+- 200 full stream, 206 range, 304 ETag match, 416 invalid range, or 404 missing/inaccessible file.
+- Correct MIME type, length, cache headers, `Accept-Ranges`, and `Content-Range` on 206/416.
+- The legacy `/media/{content_type}/{filename}` endpoint returns 410.
 
 Found in: `server/routes/healthLiteracyHubRoutes.py`, `server/controllers/healthLiteracyHubController.py`.
 

@@ -2,6 +2,7 @@ import json
 from typing import Optional
 
 from fastapi import HTTPException, status
+from health_literacy_media import external_url, serialize_media
 
 from .constants import (
     ANALYTICS_CONTENT_LABELS,
@@ -46,13 +47,29 @@ FACT_CHECK_STATUS_TO_VERDICT = {
 }
 
 
-def serialize_content_document(document: dict) -> dict:
+def serialize_content_document(document: dict, admin_id=None) -> dict:
     serialized_document = dict(document)
+    serialized_document["media"] = serialize_media(document.get("media"), admin_id)
+    serialized_document["thumbnail"] = serialize_media(document.get("thumbnail"), admin_id)
+    for key in ("imageUrl", "mediaUrl", "externalUrl"):
+        try:
+            serialized_document[key] = external_url(document.get(key))
+        except HTTPException:
+            serialized_document[key] = None
     content_type = normalize_storage_content_type(
         serialized_document.get("contentType"),
         allow_fact_check=True,
     )
     content_id = str(serialized_document.get("id", ""))
+    attachment = serialized_document["media"] or {}
+    poster = serialized_document["thumbnail"] or {}
+    attachment_url = attachment.get("url")
+    if attachment_url:
+        serialized_document["mediaUrl"] = attachment_url
+        if str(attachment.get("contentType") or "").startswith("image/"):
+            serialized_document["imageUrl"] = attachment_url
+    if poster.get("url"):
+        serialized_document["imageUrl"] = poster["url"]
 
     if content_type == "infographic":
         serialized_document["downloadCount"] = get_public_download_count(
@@ -240,24 +257,17 @@ def serialize_mobile_contract_content(document: dict) -> dict:
         allow_fact_check=True,
     ) or str(document.get("contentType") or "").strip()
     content_id = str(document.get("id") or "")
-    media = document.get("media") if isinstance(document.get("media"), dict) else {}
+    media = serialized_document.get("media") or {}
     mobile_content_type = get_mobile_content_type(document)
-    image_url = str(document.get("imageUrl") or "").strip() or None
-    media_url = str(document.get("mediaUrl") or "").strip() or None
+    image_url = serialized_document.get("imageUrl")
+    media_url = serialized_document.get("mediaUrl")
     media_type = str(media.get("contentType") or "").strip().lower()
     media_source = str(media.get("url") or "").strip() or None
 
-    if not image_url and media_source:
-        if content_type == "infographic":
+    if media_source:
+        media_url = media_source
+        if media_type.startswith("image/") and not serialized_document.get("thumbnail"):
             image_url = media_source
-        elif content_type == "article" and media_type.startswith("image/"):
-            image_url = media_source
-
-    if not media_url and media_source:
-        if content_type == "video":
-            media_url = media_source
-        elif content_type == "article" and not media_type.startswith("image/"):
-            media_url = media_source
 
     return {
         "id": content_id,
@@ -267,9 +277,10 @@ def serialize_mobile_contract_content(document: dict) -> dict:
         "source": str(document.get("source") or "").strip() or None,
         "author": str(document.get("author") or "").strip() or None,
         "publishedDate": document.get("publishedDate"),
-        "externalUrl": str(document.get("externalUrl") or "").strip() or None,
+        "externalUrl": serialized_document.get("externalUrl"),
         "imageUrl": image_url,
         "mediaUrl": media_url,
+        "media": serialized_document.get("media"),
         "claim": str(document.get("claim") or "").strip() or None,
         "verdict": normalize_mobile_verdict(document)
         if mobile_content_type == "fact_check"
