@@ -220,9 +220,20 @@ def build_survey_response_analytics_entries(response_document):
                 "collected_at": str(created_at),
 
                 "analysis_status": "pending",
-                "analysis_tasks": ["sentiment", "misinformation", "ner"],
+                "analysis_tasks": [
+                    "language_detection",
+                    "sentiment",
+                    "misinformation",
+                    "ner",
+                ],
 
                 "analysis": {
+                    "language_detection": {
+                        "status": "pending",
+                        "detection_source": "",
+                        "confidence": None,
+                        "completed_at": None,
+                    },
                     "sentiment": None,
                     "sentiment_score": None,
                     "disease_labels": [],
@@ -297,9 +308,20 @@ def build_self_report_analytics_entry(report_document):
         "collected_at": str(report_document.get("syncedAt") or created_at),
 
         "analysis_status": "pending",
-        "analysis_tasks": ["sentiment", "disease_classification", "ner"],
+        "analysis_tasks": [
+            "language_detection",
+            "sentiment",
+            "disease_classification",
+            "ner",
+        ],
 
         "analysis": {
+            "language_detection": {
+                "status": "pending",
+                "detection_source": "",
+                "confidence": None,
+                "completed_at": None,
+            },
             "sentiment": None,
             "sentiment_score": None,
             "disease_labels": [],

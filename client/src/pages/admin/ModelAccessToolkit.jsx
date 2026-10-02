@@ -408,16 +408,18 @@ const DataManagement = () => {
 
     const [selectedEntryIds, setSelectedEntryIds] = useState([]);
 
+    const [analyticsPollingInterval, setAnalyticsPollingInterval] = useState(0);
+
     const [entrySearch, setEntrySearch] = useState("");
     const [entryStatusFilter, setEntryStatusFilter] = useState("all");
 
     const {
         data: analyticsEntriesData,
-        isFetching: isAnalyticsEntriesFetching,
+        isLoading: isAnalyticsEntriesLoading,
         isError: isAnalyticsEntriesError,
         error: analyticsEntriesError,
         refetch: refetchAnalyticsEntries,
-    } = useFetchAnalyticsEntriesQuery (
+    } = useFetchAnalyticsEntriesQuery(
         {
             sourceType: dataSourceView,
             analysisStatus: entryStatusFilter,
@@ -427,11 +429,27 @@ const DataManagement = () => {
         },
         {
             skip: dataSourceView === "social_media",
+            pollingInterval: analyticsPollingInterval,
+            skipPollingIfUnfocused: true,
         }
     );
 
     const analyticsEntries = analyticsEntriesData?.entries || [];
     const analyticsEntriesTotal = analyticsEntriesData?.total || 0;
+
+    const hasActiveAnalyticsEntries = analyticsEntries.some((entry) =>
+        ["queued", "processing"].includes(
+            String(entry.analysis_status || "").toLowerCase()
+        )
+    );
+
+    useEffect(() => {
+        setAnalyticsPollingInterval(
+            dataSourceView !== "social_media" && hasActiveAnalyticsEntries
+                ? 3000
+                : 0
+        );
+    }, [dataSourceView, hasActiveAnalyticsEntries]);
 
     const [processAnalyticsEntries, { isLoading: isProcessEntriesLoading }] =
         useProcessAnalyticsEntriesMutation();
@@ -974,15 +992,51 @@ const DataManagement = () => {
         try {
             await processAnalyticsEntries(entryIds).unwrap();
 
-            await createAccountActivity({
-                user_id: user.id,
-                entry: `Started processing ${entryIds.length} analytics entries`,
-                module: "Model Access and Toolkit",
-            }).unwrap();
-
             setSelectedEntryIds([]);
+
+            try {
+                await createAccountActivity({
+                    user_id: user.id,
+                    entry: `Queued ${entryIds.length} analytics entries for language processing`,
+                    module: "Model Access and Toolkit",
+                }).unwrap();
+            } catch (activityError) {
+                console.error(
+                    "Failed to record analytics processing activity",
+                    activityError
+                );
+            }
         } catch (error) {
             console.error("Failed to process analytics entries", error);
+        }
+    };
+
+    const handleProcessEntry = async (entry) => {
+        const entryStatus = String(
+            entry.analysis_status || ""
+        ).toLowerCase();
+
+        if (!["pending", "failed"].includes(entryStatus)) return;
+
+        try {
+            await processAnalyticsEntries([entry.id]).unwrap();
+
+            closeEntryDetailsModal();
+
+            try {
+                await createAccountActivity({
+                    user_id: user.id,
+                    entry: "Queued 1 analytics entry for language processing",
+                    module: "Model Access and Toolkit",
+                }).unwrap();
+            } catch (activityError) {
+                console.error(
+                    "Failed to record analytics processing activity",
+                    activityError
+                );
+            }
+        } catch (error) {
+            console.error("Failed to process analytics entry", error);
         }
     };
 
@@ -1260,7 +1314,7 @@ const DataManagement = () => {
                     sourceType={dataSourceView}
                     entries={analyticsEntries}
                     total={analyticsEntriesTotal}
-                    isLoading={isAnalyticsEntriesFetching}
+                    isLoading={isAnalyticsEntriesLoading}
                     isError={isAnalyticsEntriesError}
                     error={analyticsEntriesError}
                     selectedEntryIds={selectedEntryIds}
@@ -1316,7 +1370,9 @@ const DataManagement = () => {
             <AnalyticsEntryDetailsModal
                 entry={entryDetailsModalData}
                 sourceType={dataSourceView}
+                isProcessing={isProcessEntriesLoading}
                 onClose={closeEntryDetailsModal}
+                onProcess={() => handleProcessEntry(entryDetailsModalData)}
             />
         )}
         {deleteModalActive && (
@@ -1623,8 +1679,18 @@ const DetailRow = ({ label, value }) => (
     </div>
 );
 
-const AnalyticsEntryDetailsModal = ({ entry, sourceType, onClose }) => {
+const AnalyticsEntryDetailsModal = ({
+    entry,
+    sourceType,
+    isProcessing,
+    onClose,
+    onProcess,
+}) => {
     const isSurveySource = sourceType === "survey_response";
+
+    const status = String(entry.analysis_status || "").toLowerCase();
+
+    const canProcess = ["pending", "failed"].includes(status);
 
     const location = isSurveySource
         ? formatUserLocation(entry.user_location)
@@ -1704,36 +1770,28 @@ const AnalyticsEntryDetailsModal = ({ entry, sourceType, onClose }) => {
                             {entry.text || "-"}
                         </div>
                     </div>
-
-                    <div className="mt-[18px] grid gap-[16px] md:grid-cols-2">
-                        <div>
-                            <p className="text-xs font-medium uppercase text-gray-400">
-                                Metadata
-                            </p>
-                            <pre className="mt-[6px] max-h-[220px] overflow-auto rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] p-[12px] text-xs text-gray-700">
-                                {JSON.stringify(entry.metadata || {}, null, 2)}
-                            </pre>
-                        </div>
-
-                        <div>
-                            <p className="text-xs font-medium uppercase text-gray-400">
-                                Analysis
-                            </p>
-                            <pre className="mt-[6px] max-h-[220px] overflow-auto rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] p-[12px] text-xs text-gray-700">
-                                {JSON.stringify(entry.analysis || {}, null, 2)}
-                            </pre>
-                        </div>
-                    </div>
                 </div>
 
-                <div className="flex justify-end border-t border-[#E5E5E5] px-[20px] py-[16px]">
+                <div className="flex justify-end gap-[10px] border-t border-[#E5E5E5] px-[20px] py-[16px]">
                     <button
                         type="button"
                         className="prod-btn-base prod-btn-secondary"
                         onClick={onClose}
+                        disabled={isProcessing}
                     >
                         Close
                     </button>
+
+                    {canProcess && (
+                        <button
+                            type="button"
+                            className={MODAL_PRIMARY_BUTTON_CLASSES}
+                            onClick={onProcess}
+                            disabled={isProcessing}
+                        >
+                            {isProcessing ? "Processing..." : "Process"}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -1755,11 +1813,19 @@ const DatasetStatusBadge = ({ status }) => {
             backgroundColor: "#E0E7FF",
             color: "#4F46E5",
         },
+        PENDING: {
+            backgroundColor: "#F3F4F6",
+            color: "#6B7280",
+        },
         PROCESSING: {
             backgroundColor: "#FEF3C7",
             color: "#D97706",
         },
         PROCESSED: {
+            backgroundColor: "#D1FAE5",
+            color: "#059669",
+        },
+        COMPLETED: {
             backgroundColor: "#D1FAE5",
             color: "#059669",
         },

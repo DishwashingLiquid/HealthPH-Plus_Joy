@@ -1,16 +1,16 @@
 from typing_extensions import Annotated
 from bson import ObjectId
-from fastapi import Depends, Query, Body, HTTPException, status
+from fastapi import BackgroundTasks, Body, Depends, HTTPException, Query, status
+from fastapi.responses import JSONResponse
+from pymongo import UpdateOne
 
 from config.database import analytics_entries_collection
 from middleware.requireAuth import require_auth
 from middleware.requireRole import require_role
 from schema.analyticsEntrySchema import list_analytics_entries
+from helpers.languageDetectionHelpers import detect_languages
 from helpers.miscHelpers import get_ph_datetime
 
-ANALYTICS_PROCESSOR_UNAVAILABLE_MESSAGE = (
-    "Analytics processor is not connected yet. Entry is saved and can be retried once NLP/model integration is available."
-)
 
 """
 @desc = "Fetch analytics entries"
@@ -28,11 +28,7 @@ async def fetch_analytics_entries(
 ):
     query = {}
 
-    if source_type == "survey_response":
-        # Earlier survey analytics were stored as `survey`. Keep them visible
-        # beside new entries without rewriting historic analytics documents.
-        query["source_type"] = {"$in": ["survey_response", "survey"]}
-    elif source_type != "all":
+    if source_type != "all":
         query["source_type"] = source_type
 
     if analysis_status != "all":
@@ -57,37 +53,177 @@ async def fetch_analytics_entries(
         "entries": list_analytics_entries(entries),
     }
 
-async def process_analytics_entries(
-    current_user: Annotated[dict, Depends(require_role(["Admin", "SUPERADMIN"]))],
-    entry_ids: list[str] = Body(...),
-):
-    valid_entry_ids = [
-        ObjectId(entry_id)
-        for entry_id in entry_ids
-        if ObjectId.is_valid(entry_id)
-    ]
+PROCESSABLE_SOURCE_TYPES = ["survey_response", "self_report"]
 
-    if not valid_entry_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Select at least one valid analytics entry.",
-        )
+def run_analytics_entry_processing_job(entry_ids: list[str]):
+    object_ids = [ObjectId(entry_id) for entry_id in entry_ids]
 
     analytics_entries_collection.update_many(
         {
-            "_id": {"$in": valid_entry_ids},
-            "analysis_status": {"$in": ["pending", "failed"]},
+            "_id": {"$in": object_ids},
+            "analysis_status": "queued",
         },
         {
             "$set": {
-                "analysis_status": "failed",
-                "analysis_error": ANALYTICS_PROCESSOR_UNAVAILABLE_MESSAGE,
+                "analysis_status": "processing",
+                "analysis_error": "",
+                "analysis_started_at": get_ph_datetime(),
                 "updated_at": get_ph_datetime(),
             }
         },
     )
 
-    return {
-        "message": "Selected analytics entries queued for processing placeholder.",
-        "processed_count": len(valid_entry_ids),
-    }
+    try:
+        entries = list(
+            analytics_entries_collection.find(
+                {
+                    "_id": {"$in": object_ids},
+                    "source_type": {"$in": PROCESSABLE_SOURCE_TYPES},
+                    "analysis_status": "processing",
+                }
+            ).sort("_id", 1)
+        )
+
+        if not entries:
+            raise RuntimeError("No analytics entries are available for processing.")
+
+        predictions = detect_languages([
+            entry["text"]
+            for entry in entries
+        ])
+
+        completed_at = get_ph_datetime()
+        updates = []
+
+        for entry, prediction in zip(entries, predictions, strict=True):
+            is_supported = prediction["is_supported"]
+
+            updates.append(
+                UpdateOne(
+                    {"_id": entry["_id"]},
+                    {
+                        "$set": {
+                            "language": (
+                                prediction["language"]
+                                if is_supported
+                                else ""
+                            ),
+                            "analysis.language_detection": {
+                                "status": (
+                                    "completed"
+                                    if is_supported
+                                    else "unsupported"
+                                ),
+                                "detection_source": (
+                                    prediction["detection_source"]
+                                ),
+                                "confidence": (
+                                    prediction["confidence"]
+                                    if is_supported
+                                    else None
+                                ),
+                                "completed_at": completed_at,
+                            },
+                            "analysis_status": "completed",
+                            "analysis_error": "",
+                            "analyzed_at": completed_at,
+                            "updated_at": completed_at,
+                        }
+                    },
+                )
+            )
+
+        update_result = analytics_entries_collection.bulk_write(updates)
+
+        if update_result.matched_count != len(entries):
+            raise RuntimeError(
+                "Not all selected analytics entries were updated."
+            )
+
+    except Exception as error:
+        analytics_entries_collection.update_many(
+            {
+                "_id": {"$in": object_ids},
+                "analysis_status": {
+                    "$in": ["queued", "processing"],
+                },
+            },
+            {
+                "$set": {
+                    "analysis_status": "failed",
+                    "analysis_error": str(error),
+                    "updated_at": get_ph_datetime(),
+                }
+            },
+        )
+
+async def process_analytics_entries(
+    background_tasks: BackgroundTasks,
+    current_user: Annotated[
+        dict,
+        Depends(require_role(["Admin", "SUPERADMIN"])),
+    ],
+    entry_ids: list[str] = Body(...),
+):
+    if not entry_ids or any(
+        not ObjectId.is_valid(entry_id)
+        for entry_id in entry_ids
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Every selected analytics entry must have a valid ID.",
+        )
+
+    object_ids = list({
+        ObjectId(entry_id)
+        for entry_id in entry_ids
+    })
+
+    eligible_entries = list(
+        analytics_entries_collection.find(
+            {
+                "_id": {"$in": object_ids},
+                "source_type": {"$in": PROCESSABLE_SOURCE_TYPES},
+                "analysis_status": {"$in": ["pending", "failed"]},
+            },
+            {"_id": 1},
+        )
+    )
+
+    if not eligible_entries:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No selected entries are ready for processing.",
+        )
+
+    eligible_ids = [
+        entry["_id"]
+        for entry in eligible_entries
+    ]
+
+    queued_at = get_ph_datetime()
+
+    analytics_entries_collection.update_many(
+        {"_id": {"$in": eligible_ids}},
+        {
+            "$set": {
+                "analysis_status": "queued",
+                "analysis_error": "",
+                "queued_at": queued_at,
+                "updated_at": queued_at,
+            }
+        },
+    )
+
+    background_tasks.add_task(
+        run_analytics_entry_processing_job,
+        [str(entry_id) for entry_id in eligible_ids],
+    )
+
+    return JSONResponse(
+        status_code=status.HTTP_202_ACCEPTED,
+        content={
+            "message": "Analytics entries queued for language processing.",
+            "queued_count": len(eligible_ids),
+        },
+    )
