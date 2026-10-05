@@ -16,7 +16,7 @@ def individual_analytics_entry(entry) -> dict:
         "user_location": entry.get("user_location", {}),
         "event_time": str(entry.get("event_time", "")),
         "collected_at": str(entry.get("collected_at", "")),
-        "analysis_status": entry.get("analysis_status", "pending"),
+        "analysis_status": entry.get("analysis_status", "SUBMITTED"),
         "analysis_tasks": entry.get("analysis_tasks", []),
         "analysis": entry.get("analysis", {}),
         "metadata": entry.get("metadata", {}),

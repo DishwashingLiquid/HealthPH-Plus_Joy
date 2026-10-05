@@ -61,11 +61,11 @@ def run_analytics_entry_processing_job(entry_ids: list[str]):
     analytics_entries_collection.update_many(
         {
             "_id": {"$in": object_ids},
-            "analysis_status": "queued",
+            "analysis_status": "QUEUED",
         },
         {
             "$set": {
-                "analysis_status": "processing",
+                "analysis_status": "PROCESSING",
                 "analysis_error": "",
                 "analysis_started_at": get_ph_datetime(),
                 "updated_at": get_ph_datetime(),
@@ -79,7 +79,7 @@ def run_analytics_entry_processing_job(entry_ids: list[str]):
                 {
                     "_id": {"$in": object_ids},
                     "source_type": {"$in": PROCESSABLE_SOURCE_TYPES},
-                    "analysis_status": "processing",
+                    "analysis_status": "PROCESSING",
                 }
             ).sort("_id", 1)
         )
@@ -124,7 +124,7 @@ def run_analytics_entry_processing_job(entry_ids: list[str]):
                                 ),
                                 "completed_at": completed_at,
                             },
-                            "analysis_status": "completed",
+                            "analysis_status": "PROCESSED",
                             "analysis_error": "",
                             "analyzed_at": completed_at,
                             "updated_at": completed_at,
@@ -145,12 +145,12 @@ def run_analytics_entry_processing_job(entry_ids: list[str]):
             {
                 "_id": {"$in": object_ids},
                 "analysis_status": {
-                    "$in": ["queued", "processing"],
+                    "$in": ["QUEUED", "PROCESSING"],
                 },
             },
             {
                 "$set": {
-                    "analysis_status": "failed",
+                    "analysis_status": "FAILED",
                     "analysis_error": str(error),
                     "updated_at": get_ph_datetime(),
                 }
@@ -184,7 +184,7 @@ async def process_analytics_entries(
             {
                 "_id": {"$in": object_ids},
                 "source_type": {"$in": PROCESSABLE_SOURCE_TYPES},
-                "analysis_status": {"$in": ["pending", "failed"]},
+                "analysis_status": {"$in": ["SUBMITTED", "FAILED"]},
             },
             {"_id": 1},
         )
@@ -207,7 +207,7 @@ async def process_analytics_entries(
         {"_id": {"$in": eligible_ids}},
         {
             "$set": {
-                "analysis_status": "queued",
+                "analysis_status": "QUEUED",
                 "analysis_error": "",
                 "queued_at": queued_at,
                 "updated_at": queued_at,

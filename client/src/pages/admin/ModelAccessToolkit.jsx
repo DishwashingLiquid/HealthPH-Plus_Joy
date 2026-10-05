@@ -341,6 +341,9 @@ const RAW_DATASET_REQUIRED_HEADERS = [
     "date_collected",
 ];
 
+const ACTIVE_ANALYTICS_STATUSES = ["QUEUED", "PROCESSING"];
+const PROCESSABLE_ANALYTICS_STATUSES = ["SUBMITTED", "FAILED"];
+
 const normalizeCsvHeader = (header) =>
     String(header || "").trim().toLowerCase().replace(/\s+/g, "_");    
 
@@ -438,9 +441,7 @@ const DataManagement = () => {
     const analyticsEntriesTotal = analyticsEntriesData?.total || 0;
 
     const hasActiveAnalyticsEntries = analyticsEntries.some((entry) =>
-        ["queued", "processing"].includes(
-            String(entry.analysis_status || "").toLowerCase()
-        )
+        ACTIVE_ANALYTICS_STATUSES.includes(entry.analysis_status)
     );
 
     useEffect(() => {
@@ -805,12 +806,12 @@ const DataManagement = () => {
     );
 
     const processableEntries = analyticsEntries.filter((entry) =>
-        ["pending", "failed"].includes(String(entry.analysis_status || "").toLowerCase())
+        PROCESSABLE_ANALYTICS_STATUSES.includes(entry.analysis_status)
     );
 
     const selectedProcessableEntries = selectedEntries.filter((entry) =>
-        ["pending", "failed"].includes(String(entry.analysis_status || "").toLowerCase())
-    );
+        PROCESSABLE_ANALYTICS_STATUSES.includes(entry.analysis_status)
+    )
 
     const toggleEntrySelection = (id) => {
         setSelectedEntryIds((currentIds) =>
@@ -1012,11 +1013,11 @@ const DataManagement = () => {
     };
 
     const handleProcessEntry = async (entry) => {
-        const entryStatus = String(
-            entry.analysis_status || ""
-        ).toLowerCase();
-
-        if (!["pending", "failed"].includes(entryStatus)) return;
+        if (
+            !PROCESSABLE_ANALYTICS_STATUSES.includes(entry.analysis_status)
+        ) {
+            return;
+        }
 
         try {
             await processAnalyticsEntries([entry.id]).unwrap();
@@ -1159,7 +1160,6 @@ const DataManagement = () => {
                             >
                                 <option value="all">All Status</option>
                                 <option value="UPLOADED">Uploaded</option>
-                                <option value="RAW">Raw</option>
                                 <option value="QUEUED">Queued</option>
                                 <option value="PROCESSING">Processing</option>
                                 <option value="PROCESSED">Processed</option>
@@ -1172,10 +1172,11 @@ const DataManagement = () => {
                                 className="w-full md:w-[180px]"
                             >
                                 <option value="all">All Status</option>
-                                <option value="pending">Pending</option>
-                                <option value="processing">Processing</option>
-                                <option value="completed">Completed</option>
-                                <option value="failed">Failed</option>
+                                <option value="SUBMITTED">Submitted</option>
+                                <option value="QUEUED">Queued</option>
+                                <option value="PROCESSING">Processing</option>
+                                <option value="PROCESSED">Processed</option>
+                                <option value="FAILED">Failed</option>
                             </ToolbarSelect>
                         )}
                     </div>
@@ -1438,7 +1439,7 @@ const AnalyticsEntriesPanel = ({
 }) => {
 
     const processableEntries = entries.filter((entry) =>
-        ["pending", "failed"].includes(String(entry.analysis_status || "").toLowerCase())
+        PROCESSABLE_ANALYTICS_STATUSES.includes(entry.analysis_status)
     );
 
     const allVisibleProcessableSelected =
@@ -1544,9 +1545,10 @@ const AnalyticsEntriesPanel = ({
                         </thead>
                         <tbody>
                             {entries.map((entry) => {
-                                const status = String(entry.analysis_status || "").toLowerCase();
-                                const isProcessed = status === "completed";
-                                const isProcessable = ["pending", "failed"].includes(status);
+                                const status = entry.analysis_status || "SUBMITTED";
+                                const isProcessed = status === "PROCESSED";
+                                const isProcessable =
+                                    PROCESSABLE_ANALYTICS_STATUSES.includes(status);
 
                                 return (
                                     <tr
@@ -1595,7 +1597,7 @@ const AnalyticsEntriesPanel = ({
                                                     }
                                                 </td>
                                                 <td className="py-[14px] px-[10px]">
-                                                    <DatasetStatusBadge status={entry.analysis_status || "pending"} />
+                                                    <DatasetStatusBadge status={entry.analysis_status || "SUBMITTED"} />
                                                 </td>
                                             </>
                                         ) : (
@@ -1619,7 +1621,7 @@ const AnalyticsEntriesPanel = ({
                                                     }
                                                 </td>
                                                 <td className="py-[14px] px-[10px]">
-                                                    <DatasetStatusBadge status={entry.analysis_status || "pending"} />
+                                                    <DatasetStatusBadge status={entry.analysis_status || "SUBMITTED"} />
                                                 </td>
                                             </>
                                         )}
@@ -1688,9 +1690,10 @@ const AnalyticsEntryDetailsModal = ({
 }) => {
     const isSurveySource = sourceType === "survey_response";
 
-    const status = String(entry.analysis_status || "").toLowerCase();
+    const status = entry.analysis_status || "SUBMITTED";
 
-    const canProcess = ["pending", "failed"].includes(status);
+    const canProcess =
+        PROCESSABLE_ANALYTICS_STATUSES.includes(status);
 
     const location = isSurveySource
         ? formatUserLocation(entry.user_location)
@@ -1734,7 +1737,7 @@ const AnalyticsEntryDetailsModal = ({
                             </p>
                         </div>
 
-                        <DatasetStatusBadge status={entry.analysis_status || "pending"} />
+                        <DatasetStatusBadge status={status} />
                     </div>
                 </div>
 
@@ -1799,23 +1802,20 @@ const AnalyticsEntryDetailsModal = ({
 };
 
 const DatasetStatusBadge = ({ status }) => {
-    const label = status || "Unknown";
+    const label = status || "UNKNOWN";
+
     const statusColor = {
         UPLOADED: {
             backgroundColor: "#DBEAFE",
             color: "#2563EB",
         },
-        RAW: {
-            backgroundColor: "#F3F4F6",
-            color: "#6B7280",
+        SUBMITTED: {
+            backgroundColor: "#DBEAFE",
+            color: "#2563EB",
         },
         QUEUED: {
             backgroundColor: "#E0E7FF",
             color: "#4F46E5",
-        },
-        PENDING: {
-            backgroundColor: "#F3F4F6",
-            color: "#6B7280",
         },
         PROCESSING: {
             backgroundColor: "#FEF3C7",
@@ -1825,20 +1825,20 @@ const DatasetStatusBadge = ({ status }) => {
             backgroundColor: "#D1FAE5",
             color: "#059669",
         },
-        COMPLETED: {
-            backgroundColor: "#D1FAE5",
-            color: "#059669",
-        },
         FAILED: {
             backgroundColor: "#FEE2E2",
             color: "#DC2626",
+        },
+        UNKNOWN: {
+            backgroundColor: "#F3F4F6",
+            color: "#6B7280",
         },
     };
 
     return (
         <span
-            className="px-[8px] py-[4px] rounded-full text-xs font-medium"
-            style={statusColor[label.toUpperCase()] ?? statusColor.RAW}
+            className="rounded-full px-[8px] py-[4px] text-xs font-medium"
+            style={statusColor[label] ?? statusColor.UNKNOWN}
         >
             {label}
         </span>

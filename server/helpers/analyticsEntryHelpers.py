@@ -219,7 +219,7 @@ def build_survey_response_analytics_entries(response_document):
                 "event_time": str(created_at),
                 "collected_at": str(created_at),
 
-                "analysis_status": "pending",
+                "analysis_status": "SUBMITTED",
                 "analysis_tasks": [
                     "language_detection",
                     "sentiment",
@@ -307,7 +307,7 @@ def build_self_report_analytics_entry(report_document):
         "event_time": str(created_at),
         "collected_at": str(report_document.get("syncedAt") or created_at),
 
-        "analysis_status": "pending",
+        "analysis_status": "SUBMITTED",
         "analysis_tasks": [
             "language_detection",
             "sentiment",
