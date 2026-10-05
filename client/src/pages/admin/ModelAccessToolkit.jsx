@@ -459,15 +459,26 @@ const DataManagement = () => {
     const [entryDetailsModalActive, setEntryDetailsModalActive] = useState(false);
     const [entryDetailsModalData, setEntryDetailsModalData] = useState(null);
 
+    const [entryProcessRequestError, setEntryProcessRequestError] = useState("");
+
+    const [selectedEntriesProcessError, setSelectedEntriesProcessError] = useState("");
+
     const openEntryDetailsModal = (entry) => {
+        setEntryProcessRequestError("");
         setEntryDetailsModalData(entry);
         setEntryDetailsModalActive(true);
     };
 
     const closeEntryDetailsModal = () => {
+        setEntryProcessRequestError("");
         setEntryDetailsModalData(null);
         setEntryDetailsModalActive(false);
     };
+
+    useEffect(() => {
+        setSelectedEntryIds([]);
+        setSelectedEntriesProcessError("");
+    }, [dataSourceView]);
 
     /* UPLOAD MODAL STATE */
     const inputFile = useRef(null);
@@ -811,9 +822,10 @@ const DataManagement = () => {
 
     const selectedProcessableEntries = selectedEntries.filter((entry) =>
         PROCESSABLE_ANALYTICS_STATUSES.includes(entry.analysis_status)
-    )
+    );
 
     const toggleEntrySelection = (id) => {
+        setSelectedEntriesProcessError("");
         setSelectedEntryIds((currentIds) =>
             currentIds.includes(id)
                 ? currentIds.filter((currentId) => currentId !== id)
@@ -828,6 +840,7 @@ const DataManagement = () => {
             visibleProcessableIds.length > 0 &&
             visibleProcessableIds.every((id) => selectedEntryIds.includes(id));
 
+        setSelectedEntriesProcessError("");
         setSelectedEntryIds((currentIds) =>
             allVisibleSelected
                 ? currentIds.filter((id) => !visibleProcessableIds.includes(id))
@@ -836,6 +849,7 @@ const DataManagement = () => {
     };
 
     const clearSelectedEntries = () => {
+        setSelectedEntriesProcessError("");
         setSelectedEntryIds([]);
     };
 
@@ -990,6 +1004,8 @@ const DataManagement = () => {
 
         if (entryIds.length === 0) return;
 
+        setSelectedEntriesProcessError("");
+
         try {
             await processAnalyticsEntries(entryIds).unwrap();
 
@@ -1008,7 +1024,14 @@ const DataManagement = () => {
                 );
             }
         } catch (error) {
-            console.error("Failed to process analytics entries", error);
+            setSelectedEntriesProcessError(
+                getRequestErrorMessage(
+                    error,
+                    "Unable to queue the selected entries. Please try again."
+                )
+            );
+
+            console.error("Failed to process selected analytics entries", error);
         }
     };
 
@@ -1018,6 +1041,8 @@ const DataManagement = () => {
         ) {
             return;
         }
+
+        setEntryProcessRequestError("");
 
         try {
             await processAnalyticsEntries([entry.id]).unwrap();
@@ -1037,6 +1062,13 @@ const DataManagement = () => {
                 );
             }
         } catch (error) {
+            setEntryProcessRequestError(
+                getRequestErrorMessage(
+                    error,
+                    "Unable to queue this entry for processing. Please try again."
+                )
+            );
+
             console.error("Failed to process analytics entry", error);
         }
     };
@@ -1318,6 +1350,7 @@ const DataManagement = () => {
                     isLoading={isAnalyticsEntriesLoading}
                     isError={isAnalyticsEntriesError}
                     error={analyticsEntriesError}
+                    actionError={selectedEntriesProcessError}
                     selectedEntryIds={selectedEntryIds}
                     selectedProcessableCount={selectedProcessableEntries.length}
                     isProcessing={isProcessEntriesLoading}
@@ -1372,6 +1405,7 @@ const DataManagement = () => {
                 entry={entryDetailsModalData}
                 sourceType={dataSourceView}
                 isProcessing={isProcessEntriesLoading}
+                requestError={entryProcessRequestError}
                 onClose={closeEntryDetailsModal}
                 onProcess={() => handleProcessEntry(entryDetailsModalData)}
             />
@@ -1427,6 +1461,7 @@ const AnalyticsEntriesPanel = ({
     isLoading = false,
     isError = false,
     error,
+    actionError,
     selectedEntryIds = [],
     selectedProcessableCount = 0,
     isProcessing = false,
@@ -1459,6 +1494,14 @@ const AnalyticsEntriesPanel = ({
 
     return (
         <div>
+            {actionError && (
+                <div
+                    className="mb-[16px] rounded-[8px] border border-[#FCA5A5] bg-[#FEF2F2] px-[12px] py-[10px] text-sm text-[#B42318]"
+                    role="alert"
+                >
+                    {actionError}
+                </div>
+            )}
             {selectedCount > 0 && (
                 <div className="mb-[16px] flex flex-col gap-[10px] rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] px-[14px] py-[12px] md:flex-row md:items-center md:justify-between">
                     <p className="text-sm text-gray-600">
@@ -1685,6 +1728,7 @@ const AnalyticsEntryDetailsModal = ({
     entry,
     sourceType,
     isProcessing,
+    requestError,
     onClose,
     onProcess,
 }) => {
@@ -1694,6 +1738,13 @@ const AnalyticsEntryDetailsModal = ({
 
     const canProcess =
         PROCESSABLE_ANALYTICS_STATUSES.includes(status);
+
+    const processLabel =
+        status === "FAILED" ? "Retry Processing" : "Process";
+
+    const displayedError =
+        requestError ||
+        (status === "FAILED" ? entry.analysis_error : "");
 
     const location = isSurveySource
         ? formatUserLocation(entry.user_location)
@@ -1742,6 +1793,15 @@ const AnalyticsEntryDetailsModal = ({
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto p-[20px]">
+                    {displayedError && (
+                        <div
+                            className="mb-[16px] rounded-[8px] border border-[#FCA5A5] bg-[#FEF2F2] px-[12px] py-[10px] text-sm text-[#B42318]"
+                            role="alert"
+                        >
+                            {displayedError}
+                        </div>
+                    )}
+
                     <div className="grid gap-[16px] md:grid-cols-2">
                         {isSurveySource && (
                             <>
@@ -1792,7 +1852,7 @@ const AnalyticsEntryDetailsModal = ({
                             onClick={onProcess}
                             disabled={isProcessing}
                         >
-                            {isProcessing ? "Processing..." : "Process"}
+                            {isProcessing ? "Processing..." : processLabel}
                         </button>
                     )}
                 </div>
