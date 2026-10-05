@@ -6,12 +6,14 @@ import { useSelector } from "react-redux";
 import ScrollToTop from "../../components/ScrollToTop";
 import Highlighter from "react-highlight-words";
 import useDeviceDetect from "../../hooks/useDeviceDetect";
+import "../../assets/css/help.css";
 
 import HelpImage from "../../components/admin/HelpImage";
 
 const Help = () => {
   const user = useSelector((state) => state.auth.user);
-  const isAdminUser = ["ADMIN", "SUPERADMIN"].includes(user.user_type);
+  const isAdminUser =
+    user.user_type === "SUPERADMIN" || user.role_label === "Admin";
 
   const { isPWA } = useDeviceDetect();
 
@@ -92,7 +94,6 @@ const Help = () => {
         { id: "sentiment-pulse-tool-mobile-surveys", label: "Mobile Surveys" },
       ],
     },
-    { id: "activity-logs", label: "Activity Logs", hasSubItems: false },
     { id: "settings", label: "Settings", hasSubItems: false },
   ], []);
 
@@ -424,7 +425,7 @@ const Help = () => {
       description: [
         {
           sectionDesc:
-            "Sentiment Pulse Tool helps admins monitor public sentiment, compare regional sentiment, and manage mobile survey activity.",
+            "Sentiment Pulse Tool helps admins monitor public sentiment, compare regional survey participation, and manage survey activity.",
         },
       ],
       subSections: [
@@ -447,7 +448,7 @@ const Help = () => {
           description: [
             {
               sectionDesc:
-                "Regional Analysis compares sentiment data by region so admins can identify geographic differences in public response.",
+                "Regional Analysis compares distinct survey respondents and submissions by region. Sentiment scoring is marked as coming soon.",
               sectionImage: (
                 <HelpImage image="admin-Sentiment-Pulse-Tool-Regional-Analysis" />
               ),
@@ -466,17 +467,6 @@ const Help = () => {
               ),
             },
           ],
-        },
-      ],
-    },
-    {
-      sectionName: "Activity Logs",
-      sectionId: "activity-logs",
-      description: [
-        {
-          sectionDesc:
-            "This module provides every admin to monitor the user activities of all types of users.",
-          sectionImage: <HelpImage image="admin-activity-logs" />,
         },
       ],
     },
@@ -580,7 +570,7 @@ const Help = () => {
       const sections = [];
 
       TOC.map(({ id, hasSubItems, subItems }) => {
-        if (["user-management", "activity-logs"].includes(id) && isPWA) {
+        if (["user-management"].includes(id) && isPWA) {
           return;
         }
         sections.push({
@@ -690,7 +680,7 @@ const Help = () => {
               <ul>
                 {TOC.map(({ id, label, hasSubItems, subItems }, i) => {
                   if (
-                    ["user-management", "activity-logs"].includes(id) &&
+                    ["user-management"].includes(id) &&
                     isPWA
                   ) {
                     return null;
@@ -767,7 +757,7 @@ const Help = () => {
             {getContent().map(
               ({ sectionName, sectionId, description, subSections }, i) => {
                 if (
-                  ["user-management", "activity-logs"].includes(sectionId) &&
+                  ["user-management"].includes(sectionId) &&
                   isPWA
                 ) {
                   return null;

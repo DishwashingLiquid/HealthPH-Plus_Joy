@@ -15,7 +15,10 @@ def require_role(allowed_roles: List[str]):
                 detail="User not found",
             )
         
-        if user.get("user_type") not in allowed_roles:
+        user_type = user.get("user_type")
+        role_label = user.get("role_label")
+
+        if user_type not in allowed_roles and role_label not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized",

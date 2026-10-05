@@ -14,14 +14,25 @@ from bson import ObjectId
 from fastapi import BackgroundTasks, Depends, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse, JSONResponse
 
-from config.database import user_collection, dataset_collection
+from config.database import (
+    user_collection,
+    dataset_collection,
+    analytics_entries_collection,
+    point_collection,
+)
 from models.user import AdminResult
 from middleware.requireAdmin import require_admin
 from middleware.requireRole import require_role
 from schema.datasetSchema import individual_dataset, list_datasets
 from helpers.datasetsHelpers import annotation
 from helpers.miscHelpers import get_ph_datetime
+from helpers.analyticsEntryHelpers import (
+    build_social_media_analytics_entries,
+    get_valid_analytics_entries,
+)
+from helpers.languageDetectionHelpers import detect_languages
 from controllers.pointControllers import delete_point, create_points
+from collections import Counter, defaultdict
 
 # Folder to store datasets
 datasets_folder = Path("public/datasets")
@@ -30,7 +41,6 @@ annotated_datasets_folder = Path("public/annotated_datasets")
 
 RAW_DATASET_REQUIRED_HEADERS = [
     "id",
-    "language",
     "text",
     "location",
     "date_posted",
@@ -48,8 +58,7 @@ def is_template_dataset(raw_dataset_df):
     first_row = raw_dataset_df.iloc[0].fillna("").astype(str).str.strip()
 
     return (
-        first_row.get("language", "").lower() == "english"
-        and first_row.get("text", "") == "Sample post text about lung-related diseases."
+        first_row.get("text", "") == "Sample post text about lung-related diseases."
         and first_row.get("location", "").lower() == "manila"
         and first_row.get("date_posted", "") == "2026-01-15"
         and first_row.get("source", "") == "Facebook"
@@ -122,24 +131,111 @@ def annotate_dataset(
     create_points(result_filename)
     pass
 
-
 def run_dataset_processing_job(dataset_id: str):
+    object_id = ObjectId(dataset_id)
+
     dataset_collection.update_one(
-        {"_id": ObjectId(dataset_id)},
+        {"_id": object_id},
         {
             "$set": {
                 "dataset_status": "PROCESSING",
                 "processing_error": "",
+                "processing_started_at": get_ph_datetime(),
                 "processed_at": None,
             }
         },
     )
 
     try:
-        raise NotImplementedError("Annotation processer not connected yet.")
+        entries = list(
+            analytics_entries_collection.find(
+                {
+                    "dataset_id": dataset_id,
+                    "source_type": "social_media",
+                }
+            ).sort("_id", pymongo.ASCENDING)
+        )
+
+        if not entries:
+            raise RuntimeError(
+                "Dataset has no social-media analytics entries to process."
+            )
+
+        predictions = detect_languages([
+            entry["text"] for entry in entries
+        ])
+
+        completed_at = get_ph_datetime()
+        language_counts = Counter()
+        location_language_counts = defaultdict(Counter)
+        updates = []
+
+        for entry, prediction in zip(entries, predictions, strict=True):
+            is_supported = prediction["is_supported"]
+            language = prediction["language"] if is_supported else ""
+
+            detection_status = (
+                "completed" if is_supported else "unsupported"
+            )
+
+            if is_supported:
+                language_counts[language] += 1
+
+                location = entry.get("location") or {}
+                raw_location = str(location.get("raw") or "").strip()
+
+                if raw_location:
+                    location_language_counts[raw_location][language] += 1
+
+            updates.append(
+                pymongo.UpdateOne(
+                    {"_id": entry["_id"]},
+                    {
+                        "$set": {
+                            "language": language,
+                            "analysis.language_detection": {
+                                "status": detection_status,
+                                "detection_source": prediction["detection_source"],
+                                "confidence": (
+                                    prediction["confidence"]
+                                    if is_supported
+                                    else None
+                                ),
+                                "completed_at": completed_at,
+                            },
+                            "updated_at": completed_at,
+                        }
+                    },
+                )
+            )
+
+        update_result = analytics_entries_collection.bulk_write(updates)
+
+        if update_result.matched_count != len(entries):
+            raise RuntimeError(
+                "Not all analytics entries were updated."
+            )
+
+        dataset_collection.update_one(
+            {"_id": object_id},
+            {
+                "$set": {
+                    "dataset_status": "PROCESSED",
+                    "languages": sorted(language_counts),
+                    "language_counts": dict(language_counts),
+                    "location_language_counts": {
+                        location: dict(counts)
+                        for location, counts in location_language_counts.items()
+                    },
+                    "processing_error": "",
+                    "processed_at": completed_at,
+                }
+            },
+        )
+
     except Exception as error:
         dataset_collection.update_one(
-            {"_id": ObjectId(dataset_id)},
+            {"_id": object_id},
             {
                 "$set": {
                     "dataset_status": "FAILED",
@@ -148,7 +244,6 @@ def run_dataset_processing_job(dataset_id: str):
                 }
             },
         )
-
 
 """
 @desc     Upload a single dataset
@@ -160,7 +255,7 @@ route     POST api/datasets/upload
 async def upload_dataset(
     background_tasks: BackgroundTasks,
     file: UploadFile,
-    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
+    current_user: Annotated[dict, Depends(require_role(["Admin", "SUPERADMIN"]))],
 ):
     # Check if user is an admin or superadmin
     """if not is_admin.result:
@@ -241,6 +336,19 @@ async def upload_dataset(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Missing required columns: {', '.join(missing_headers)}",
         )
+
+    unexpected_headers = [
+        header
+        for header in raw_dataset_df.columns
+        if header not in RAW_DATASET_REQUIRED_HEADERS
+    ]
+
+    if unexpected_headers:
+        os.remove(full_path)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unexpected columns: {', '.join(unexpected_headers)}",
+        )
     
     # remove blank comma rows
     raw_dataset_df = raw_dataset_df.replace(r"^\s*$", pd.NA, regex=True)
@@ -270,18 +378,10 @@ async def upload_dataset(
     # count rows
     num_of_rows = len(raw_dataset_df)
 
-    # capture languages
-    languages = (
-        raw_dataset_df["language"]
-        .astype(str)
-        .str.strip()
-        .replace("", pd.NA)
-        .dropna()
-        .unique()
-        .tolist()
-    )
-
-    languages = sorted(languages)
+    # language metadata is populated when the dataset is processed.
+    languages = []
+    language_counts = {}
+    location_language_counts = {}
 
     # preview atleast 5% of total rows
     preview_row_count = 0
@@ -306,7 +406,10 @@ async def upload_dataset(
             "original_filename": original_filename,
             "file_size": file_size,
             "num_of_rows": num_of_rows,
+            "analytics_entry_count": 0,
             "languages": languages,
+            "language_counts": language_counts,
+            "location_language_counts": location_language_counts,
             "preview_row_count": preview_row_count,
             "preview_headers": str(preview_headers),
             "preview_data": json.dumps(preview_data),
@@ -314,6 +417,8 @@ async def upload_dataset(
             "dataset_status": "UPLOADED",
             "description": "",
             "processing_error": "",
+            "queued_at": None,
+            "processing_started_at": None,
             "processed_at": None,
             "created_at": get_ph_datetime(),
         }
@@ -326,6 +431,26 @@ async def upload_dataset(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to upload dataset",
         )
+
+    analytics_entries = get_valid_analytics_entries(
+        build_social_media_analytics_entries(
+            raw_dataset_df=raw_dataset_df,
+            dataset_id=new_dataset.inserted_id,
+            uploaded_by=user_data["_id"],
+        )
+    )
+
+    if analytics_entries:
+        analytics_entries_collection.insert_many(analytics_entries)
+
+    dataset_collection.update_one(
+        {"_id": new_dataset.inserted_id},
+        {
+            "$set": {
+                "analytics_entry_count": len(analytics_entries),
+            }
+        },
+    )
 
     #TEMP: disable automatic annotation during upload
     #HealthPH+ will process annotation as a separate dataset action/job
@@ -347,7 +472,7 @@ async def upload_dataset(
 async def process_dataset(
     background_tasks: BackgroundTasks,
     id: str,
-    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
+    current_user: Annotated[dict, Depends(require_role(["Admin", "SUPERADMIN"]))],
 ):
     if not ObjectId.is_valid(id):
         raise HTTPException(
@@ -387,6 +512,8 @@ async def process_dataset(
         {
             "$set": {
                 "dataset_status": "QUEUED",
+                "queued_at": get_ph_datetime(),
+                "processing_started_at": None,
                 "processing_error": "",
                 "processed_at": None,
             }
@@ -410,7 +537,7 @@ route     GET api/datasets/download/{filename}
 
 async def download_dataset(
     id: str,
-    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))],
+    current_user: Annotated[dict, Depends(require_role(["Admin", "SUPERADMIN"]))],
 
 ):
     # Check if there is id
@@ -517,7 +644,7 @@ async def fetch_datasets_by_user(user_id: str):
                 {"$sort": {"created_at": pymongo.DESCENDING}},
             ]
         )
-    elif user_data["user_type"] == "ADMIN":
+    elif user_data.get("role_label") == "Admin":
         data = dataset_collection.aggregate(
             [
                 {"$match": {"user_id": user_id}},
@@ -550,7 +677,7 @@ route     DELETE api/datasets/{id}
 async def delete_dataset(
     background_tasks: BackgroundTasks, 
     id: str,
-    current_user: Annotated[dict, Depends(require_role(["ADMIN", "SUPERADMIN"]))]
+    current_user: Annotated[dict, Depends(require_role(["Admin", "SUPERADMIN"]))]
 ):
     # Check if there is id
     if not id:
@@ -580,14 +707,22 @@ async def delete_dataset(
                 detail="Not authorized to delete this dataset.",
             )
 
-    deleted_dataset = dataset_collection.find_one_and_delete({"_id": ObjectId(id)})
+    deleted_dataset = dataset_collection.find_one_and_delete(
+        {"_id": ObjectId(id)}
+    )
 
-    # If deletion failed
     if not deleted_dataset:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Failed to delete dataset.",
         )
+
+    analytics_entries_collection.delete_many(
+        {
+            "dataset_id": id,
+            "source_type": "social_media",
+        }
+    )
 
     # Check if deleted dataset is RAW or ANNOTATED dataset
     if deleted_dataset["dataset_type"] == "RAW":
@@ -618,14 +753,47 @@ route     DELETE api/datasets/all-datasets
 
 
 async def delete_all_datasets(
-        current_user: Annotated[dict, Depends(require_role(["SUPERADMIN"]))]
-):
-    deleted = dataset_collection.delete_many({})
+    current_user: Annotated[
+        dict,
+        Depends(require_role(["SUPERADMIN"])),
+    ]
+):  
+    datasets_to_delete = list(
+        dataset_collection.find(
+            {},
+            {
+                "_id": 1,
+                "filename": 1,
+            },
+        )
+    )
 
-    if not deleted:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error deleting datasets...",
+    dataset_ids = [
+        str(dataset["_id"])
+        for dataset in datasets_to_delete
+    ]
+
+    dataset_filenames = [
+        dataset["filename"]
+        for dataset in datasets_to_delete
+        if dataset.get("filename")
+    ]
+
+    dataset_collection.delete_many({})
+
+    if dataset_ids:
+        analytics_entries_collection.delete_many(
+            {
+                "dataset_id": {"$in": dataset_ids},
+                "source_type": "social_media",
+            }
+        )
+
+    if dataset_filenames:
+        point_collection.delete_many(
+            {
+                "dataset_source": {"$in": dataset_filenames},
+            }
         )
 
     if os.path.exists(datasets_folder):

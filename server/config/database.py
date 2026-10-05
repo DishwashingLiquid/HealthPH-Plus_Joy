@@ -1,8 +1,18 @@
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
+from pymongo import ReadPreference
+from pymongo.write_concern import WriteConcern
 from dotenv import dotenv_values
 import os
 import certifi
+
+from disease_watch_storage import (
+    ALERT_BATCH_STATE,
+    ALERT_COOLDOWN,
+    REGIONAL_SUMMARY,
+    SUMMARY_EVENT,
+    scoped_collections,
+)
 
 # Get configuration values from .env file
 config = dotenv_values()
@@ -26,11 +36,35 @@ db = client[os.getenv("DB_NAME")]
 
 # Tables / Collections
 user_collection = db['users']
+organization_collection = db["organizations"]
+role_label_collection = db["role_labels"]
 activity_logs_collection = db['activity_logs']
 dataset_collection = db["datasets"]
+analytics_entries_collection = db["analytics_entries"]
 point_collection = db['points']
-health_literacy_analytics_events_collection = db["health_literacy_analytics_events"]
 health_literacy_feedback_collection = db["health_literacy_feedback"]
-health_literacy_content_collection = db["health_literacy_content"]
-sentiment_pulse_surveys_collection = db["sentiment_pulse_surveys"]
-sentiment_pulse_survey_responses_collection = db["sentiment_pulse_survey_responses"]
+analytics_events_collection = db["analytics_events"]
+content_collection = db["content"].with_options(
+    read_preference=ReadPreference.PRIMARY,
+    write_concern=WriteConcern(w="majority"),
+)
+surveys_collection = db["surveys"]
+survey_responses_collection = db["survey_responses"]
+# Singleton application settings documents. This is deliberately a settings
+# collection, not a general-purpose sequence/counters collection.
+application_settings_collection = db["application_settings"]
+self_reports_collection = db["self_reports"]
+mobile_users_collection = db["mobile_users"]
+# Disease Watch Feed's derived/admin-only records share one physical
+# collection. Kind-scoped views keep every operation isolated while source
+# reports and mobile-facing alert history retain their existing contracts.
+disease_watch_internal_collection = db["disease_watch_internal"]
+_disease_watch_views = scoped_collections(disease_watch_internal_collection)
+regional_symptom_summaries_collection = _disease_watch_views[REGIONAL_SUMMARY]
+regional_summary_events_collection = _disease_watch_views[SUMMARY_EVENT]
+regional_alerts_collection = db["regional_alerts"]
+mobile_notification_deliveries_collection = db["mobile_notification_deliveries"]
+# Bounded per-region operational state and per-(region, symptom) cooldowns.
+# Alert history itself remains in regional_alerts; this is not an event log.
+regional_alert_batch_states_collection = _disease_watch_views[ALERT_BATCH_STATE]
+regional_alert_cooldowns_collection = _disease_watch_views[ALERT_COOLDOWN]

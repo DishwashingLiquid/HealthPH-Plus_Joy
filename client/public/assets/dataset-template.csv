@@ -1,1 +1,2 @@
-id,language,text,location,date_posted,source,date_collected
+id,text,location,date_posted,source,date_collected
+0001,Sample post text about lung-related diseases.,Manila,2026-01-15,Facebook,2026-01-16

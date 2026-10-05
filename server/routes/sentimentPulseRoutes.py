@@ -3,15 +3,21 @@ from fastapi import APIRouter
 from controllers.sentimentPulseController import (
     create_public_survey_response,
     create_survey,
+    delete_survey,
     fetch_public_surveys,
     fetch_regional_analysis,
     fetch_survey_results,
     fetch_surveys,
+    fetch_summary,
     schedule_survey,
+    update_survey,
 )
 
 
 router = APIRouter()
+
+# GET       /sentiment-pulse/summary (same admin access as the survey list)
+router.add_api_route("/summary", methods=["GET"], endpoint=fetch_summary)
 
 # GET       /sentiment-pulse/surveys
 router.add_api_route(
@@ -25,6 +31,20 @@ router.add_api_route(
     "/surveys",
     methods=["POST"],
     endpoint=create_survey,
+)
+
+# PATCH     /sentiment-pulse/surveys/{survey_id}
+router.add_api_route(
+    "/surveys/{survey_id}",
+    methods=["PATCH"],
+    endpoint=update_survey,
+)
+
+# DELETE    /sentiment-pulse/surveys/{survey_id}
+router.add_api_route(
+    "/surveys/{survey_id}",
+    methods=["DELETE"],
+    endpoint=delete_survey,
 )
 
 # GET       /sentiment-pulse/surveys/{survey_id}/results

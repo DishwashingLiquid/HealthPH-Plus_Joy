@@ -140,7 +140,7 @@ def mail_contact_us(receiver, data: dict):
     message = mail_setup(receiver, subject)
     
     plain_text = f"""\
-    Hello, HealthPH!
+    Hello, HealthPH+!
     
     This is {name}.
     
@@ -159,7 +159,7 @@ def mail_contact_us(receiver, data: dict):
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>HealthPH</title>
+        <title>HealthPH+</title>
     </head>
     <head>
         {get_styles()}
@@ -167,7 +167,7 @@ def mail_contact_us(receiver, data: dict):
     <body class="body">
         <div class="main">
           <p class="p">
-            Hello, HealthPH!
+            Hello, HealthPH+!
           </p>
           <div class="spacer"></div>
           <div class="spacer"></div>
@@ -210,17 +210,17 @@ def mail_verification_code(receiver, data: dict):
     otp_code, otp_expiry = data.values()
 
     plain_text = f"""\
-    This email contains a temporary 6-digit verification code for two-factor authentication which will expire in 10 minutes. Use the code below to verify in HealthPH.
+    This email contains a temporary 6-digit verification code for two-factor authentication which will expire in 10 minutes. Use the code below to verify in HealthPH+.
     
     {otp_code}
     
-    If you need further assistance, please visit or email the HealthPH at:
+    If you need further assistance, please visit or email the HealthPH+ at:
     
-    Room 512, HealthPH Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
+    Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
     healthph@national-u.edu.ph
     
     Regards,
-    HealthPH
+    HealthPH+
     """
 
     html = f"""\
@@ -230,7 +230,7 @@ def mail_verification_code(receiver, data: dict):
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>HealthPH</title>
+        <title>HealthPH+</title>
     </head>
     <head>
         {get_styles()}
@@ -241,7 +241,7 @@ def mail_verification_code(receiver, data: dict):
         </div>
         <div class="main">
           <p class="p">
-            This email contains a temporary 6-digit verification code for two-factor authentication which will expire in 10 minutes. Use the code below to verify in HealthPH.
+            This email contains a temporary 6-digit verification code for two-factor authentication which will expire in 10 minutes. Use the code below to verify in HealthPH+.
           </p>
           <div class="spacer"></div>
           <div class="spacer"></div>
@@ -255,13 +255,13 @@ def mail_verification_code(receiver, data: dict):
           <div class="spacer"></div>
           <div class="spacer"></div>
           <p class="p">
-            If you need further assistance, please visit or email the HealthPH Office at:
+            If you need further assistance, please visit or email the HealthPH+ Office at:
           </p>
           <div class="spacer"></div>
           <div class="spacer"></div>
           <div class="spacer"></div>
           <div class="indent">
-            <p class="p">Room 512, HealthPH Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
+            <p class="p">Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
             <div class="spacer"></div>
             <p class="p">healthph@national-u.edu.ph</p>
           </div>
@@ -270,7 +270,7 @@ def mail_verification_code(receiver, data: dict):
           <div class="spacer"></div>
           <p class="p">Regards</p>
           <div class="spacer"></div>
-          <p class="p">HealthPH</p>
+          <p class="p">HealthPH+</p>
         </div>
     </body>
     </html>
@@ -297,20 +297,20 @@ def mail_forgot_password(receiver, data: dict):
     first_name, reset_pwd_link = data.values()
 
     plain_text = f"""\
-    This email contains that you requested a RESET PASSWORD LINK to access your account and continue using HealthPH. Please securely open this link:
+    This email contains that you requested a RESET PASSWORD LINK to access your account and continue using HealthPH+. Please securely open this link:
     
     Reset Password Link: {reset_pwd_link}
     
     May we remind you that you only have 10 minutes to reset your password by using the link above.
     If you did not reset your password within that duration, you will be required to send your email again at Sign In > Forgot Password.
     
-    If you need further assistance, please visit or email the HealthPH Office at:
+    If you need further assistance, please visit or email the HealthPH+ Office at:
     
-    Room 512, HealthPH Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
+    Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
     healthph@national-u.edu.ph
     
     Regards,
-    HealthPH
+    HealthPH+
     """
 
     encoded = base64.b64encode(
@@ -324,7 +324,7 @@ def mail_forgot_password(receiver, data: dict):
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>HealthPH</title>
+        <title>HealthPH+</title>
     </head>
     <head>
         {get_styles()}
@@ -337,7 +337,7 @@ def mail_forgot_password(receiver, data: dict):
           <p class="p">
             This email contains that you requested a{" "}
             <span class="semibold">RESET PASSWORD LINK</span> to access your
-            account and continue using HealthPH. Please securely open this link:
+            account and continue using HealthPH+. Please securely open this link:
           </p>
           <div class="spacer"></div>
           <p class="p">
@@ -356,13 +356,13 @@ def mail_forgot_password(receiver, data: dict):
           <div class="spacer"></div>
           <div class="spacer"></div>
           <p class="p">
-            If you need further assistance, please visit or email the HealthPH Office at:
+            If you need further assistance, please visit or email the HealthPH+ Office at:
           </p>
           <div class="spacer"></div>
           <div class="spacer"></div>
           <div class="spacer"></div>
           <div class="indent">
-            <p class="p">Room 512, HealthPH Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
+            <p class="p">Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
             <div class="spacer"></div>
             <p class="p">healthph@national-u.edu.ph</p>
           </div>
@@ -371,7 +371,7 @@ def mail_forgot_password(receiver, data: dict):
           <div class="spacer"></div>
           <p class="p">Regards</p>
           <div class="spacer"></div>
-          <p class="p">HealthPH</p>
+          <p class="p">HealthPH+</p>
         </div>
     </body>
     </html>
@@ -395,16 +395,22 @@ def mail_forgot_password(receiver, data: dict):
 def mail_add_user(receiver, data: dict):
     message = mail_setup(receiver, "User Account Created")
 
-    last_name, first_name, region, organization, accessible_regions, email, password = data.values()
+    first_name = data.get("first_name", "")
+    last_name = data.get("last_name", "")
+    region = data.get("region", "")
+    organization = data.get("organization", "")
+    accessible_regions = data.get("accessible_regions", "")
+    email = data.get("email", "")
+    password = data.get("password", "")
 
     plain_text = f"""\
-    This email contains your credentials to access HealthPH. 
+    This email contains your credentials to access HealthPH+. 
     While working with us, you will be using these credentials to Protect Filipinos, One Disease At A Time.
     Please securely keep this information:
     
     User Type: USER
-    HealthPH Email: {email}
-    HealthPH Password: {password}
+    HealthPH+ Email: {email}
+    HealthPH+ Password: {password}
     
     Last Name: {last_name}
     First Name: {first_name}
@@ -413,28 +419,18 @@ def mail_add_user(receiver, data: dict):
     Organization: {organization}
     
     You will be using the same password to all these systems. The system created this during the account activation process. 
-    To allow you to change your password, sign in to HealthPH and go to the Settings > Edit Password. 
+    To allow you to change your password, sign in to HealthPH+ and go to the Settings > Edit Password. 
     If you have forgotten your password, navigate to Sign In > Forgot Password.
     
-    As a USER at HealthPH, you have access to several modules such as:
-    
-    1. Analytics
-    a. The user is able to visualize summary of data about perceived symptoms.
-    2. Trends Map
-    a. The user is able to monitor perceived symptoms using a map preview or in list view.
-    3. Help
-    a. The user is able to read manuals or instructions in utilizing HealthPH.
-    4. Settings
-    a. The user is able to edit their full name, department, organization, email address, and password.
-    b. The user is able to delete their account when not in use.
+    As a USER at HealthPH+, you can access the HealthPH+ modules available to your role label, including AI Surveillance, NLP Insights, Misinformation Tracker, User Management, Model Access and Toolkit, Disease Watch Feed, Health Literacy Hub, Sentiment Pulse Tool, and Settings.
     
     If you need further assistance, please visit or email the DOH Systems Office at:
     
-    Room 512, HealthPH Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
+    Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
     healthph@national-u.edu.ph
     
     Regards,
-    HealthPH
+    HealthPH+
     """
 
     html = f"""\
@@ -444,7 +440,7 @@ def mail_add_user(receiver, data: dict):
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>HealthPH</title>
+        <title>HealthPH+</title>
     </head>
     <head>
         {get_styles()}
@@ -455,7 +451,7 @@ def mail_add_user(receiver, data: dict):
         </div>
         <div class="main">
             <p class="p">
-                This email contains your credentials to access HealthPH. While working with us, you will be 
+                This email contains your credentials to access HealthPH+. While working with us, you will be 
                 using these credentials to Protect Filipinos, One Disease At A Time. Please securely keep 
                 this information:
             </p>
@@ -466,12 +462,12 @@ def mail_add_user(receiver, data: dict):
             </p>
             <div class="spacer"></div>
             <p class="p">
-                <span class="bold">HealthPH Email</span>:{" "}
+                <span class="bold">HealthPH+ Email</span>:{" "}
                 <span class="link">{email}</span>
             </p>
             <div class="spacer"></div>
             <p class="p">
-                <span class="bold">HealthPH Password</span>:{" "}
+                <span class="bold">HealthPH+ Password</span>:{" "}
                 <span class="link">{password}</span>
             </p>
             <div class="spacer"></div>
@@ -503,40 +499,26 @@ def mail_add_user(receiver, data: dict):
             <div class="spacer"></div>
             <p class="p">
                 You will be using the same password to all these systems. The system created this during the account activation process. 
-                To allow you to change your password, sign in to HealthPH and go to the{" "}
+                To allow you to change your password, sign in to HealthPH+ and go to the{" "}
                 <span class="semibold">Settings &gt; Edit Password</span>. 
                 If you have forgotten your password, navigate to 
                 <span class="semibold">Sign In &gt; Forgot Password</span>
             </p>
             <div class="spacer"></div>
             <p class="p">
-                As a <span class="green semibold">USER</span> at HealthPH, you have access to several modules such as:
+                As a <span class="green semibold">USER</span> at HealthPH+, you can access the HealthPH+ modules available to your role label, including AI Surveillance, NLP Insights, Misinformation Tracker, User Management, Model Access and Toolkit, Disease Watch Feed, Health Literacy Hub, Sentiment Pulse Tool, and Settings.
             </p>
-            <div class="p">
-                 <ul class="list">
-                    <li><span class="semibold">1. Analytics</span></li>
-                    <li class="list-indent">a. The user is able to visualize summary of data about perceived symptoms</li>
-                    <li><span class="semibold">2. Trends Map</span></li>
-                    <li class="list-indent">a. The user is able to monitor perceived symptoms using a map preview or in list
-                        view.</li>
-                    <li><span class="semibold">3. Help</span></li>
-                    <li class="list-indent">a. The user is able to read manuals or instructions in utilizing HealthPH.</li>
-                    <li><span class="semibold">4. Settings</span></li>
-                    <li class="list-indent">a. The user is able to edit their full name, department, organization, email address, and password.</li>
-                    <li class="list-indent">b. The user is able to delete their account when not in use.</li>
-                </ul>
-            </div>
             <div class="spacer"></div>
             <div class="spacer"></div>
             <div class="spacer"></div>
             <p class="p">
-                If you need further assistance, please visit or email the HealthPH Office at:
+                If you need further assistance, please visit or email the HealthPH+ Office at:
             </p>
             <div class="spacer"></div>
             <div class="spacer"></div>
             <div class="spacer"></div>
             <div class="indent">
-                <p class="p">Room 512, HealthPH Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
+                <p class="p">Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
                 <div class="spacer"></div>
                 <p class="p">healthph@national-u.edu.ph</p>
             </div>
@@ -545,7 +527,7 @@ def mail_add_user(receiver, data: dict):
             <div class="spacer"></div>
             <p class="p">Regards</p>
             <div class="spacer"></div>
-            <p class="p">HealthPH</p>
+            <p class="p">HealthPH+</p>
         </div>
     </body>
     </html>
@@ -567,46 +549,33 @@ def mail_add_user(receiver, data: dict):
 
 
 def mail_add_admin(receiver, data: dict):
-    message = mail_setup(receiver, "Admin Account Created")
+    message = mail_setup(receiver, "Admin Role Account Created")
 
     email, password = data.values()
 
     plain_text = f"""\
-    This email contains your credentials to access HealthPH. 
+    This email contains your credentials to access HealthPH+. 
     While working with us, you will be using these credentials to Protect Filipinos, One Disease At A Time.
     Please securely keep this information:
     
-    User Type: ADMIN
-    HealthPH Email: {email}
-    HealthPH Password: {password}
+    User Type: USER
+    Role: Admin
+    HealthPH+ Email: {email}
+    HealthPH+ Password: {password}
     
     You will be using the same password to all these systems. The system created this during the account activation process. 
-    To allow you to change your password, sign in to HealthPH and go to the Settings > Edit Password. 
+    To allow you to change your password, sign in to HealthPH+ and go to the Settings > Edit Password. 
     If you have forgotten your password, navigate to Sign In > Forgot Password.
     
-    As an ADMIN at HealthPH, you have access to several modules such as:
+    As a USER with the Admin role at HealthPH+, you can access HealthPH+ modules and manage USER accounts within your organization. Detailed access limits may apply based on organization and role.
     
-    1. Analytics
-    a. The admin is able to visualize summary of data about perceived symptoms.
-    2. Trends Map
-    a. The admin is able to monitor perceived symptoms using a map or in list view.
-    3. Users
-    a. The admin is able to verify users based on their personal information to receive access to HealthPH.
-    4. Help
-    a. The admin is able to read manuals or instruction in utilizing HealthPH.
-    5. Activity Logs
-    a. The admin is able to monitor users' activities in using HealthPH. 
-    6. Settings
-    a. The admin is able to edit their full name, department, organization, email address, and password.
-    b. The admin is able to delete their account when not in use. 
+    If you need further assistance, please visit or email the HealthPH+ Office at:
     
-    If you need further assistance, please visit or email the HealthPH Office at:
-    
-    Room 512, HealthPH Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
+    Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
     healthph@national-u.edu.ph
     
     Regards,
-    HealthPH
+    HealthPH+
     """
 
     html = f"""\
@@ -616,7 +585,7 @@ def mail_add_admin(receiver, data: dict):
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>HealthPH</title>
+        <title>HealthPH+</title>
     </head>
     <head>
         {get_styles()}
@@ -627,66 +596,53 @@ def mail_add_admin(receiver, data: dict):
         </div>
         <div class="main">
             <p class="p">
-                This email contains your credentials to access HealthPH. While working with us, you will be 
+                This email contains your credentials to access HealthPH+. While working with us, you will be 
                 using these credentials to Protect Filipinos, One Disease At A Time. Please securely keep 
                 this information:
             </p>
             <div class="spacer"></div>
             <p class="p">
                 <span class="bold">User Type</span>:{" "}
-                <span class="green">ADMIN</span>
+                <span class="green">USER</span>
             </p>
             <div class="spacer"></div>
             <p class="p">
-                <span class="bold">HealthPH Email</span>:{" "}
+                <span class="bold">Role</span>:{" "}
+                <span class="green">Admin</span>
+            </p>
+            <div class="spacer"></div>
+            <p class="p">
+                <span class="bold">HealthPH+ Email</span>:{" "}
                 <span class="link">{email}</span>
             </p>
             <div class="spacer"></div>
             <p class="p">
-                <span class="bold">HealthPH Password</span>:{" "}
+                <span class="bold">HealthPH+ Password</span>:{" "}
                 <span class="link">{password}</span>
             </p>
             <div class="spacer"></div>
             <p class="p">
                 You will be using the same password to all these systems. The system created this during the account activation process. 
-                To allow you to change your password, sign in to HealthPH and go to the{" "}
+                To allow you to change your password, sign in to HealthPH+ and go to the{" "}
                 <span class="semibold">Settings &gt; Edit Password</span>. 
                 If you have forgotten your password, navigate to 
                 <span class="semibold">Sign In &gt; Forgot Password</span>
             </p>
             <div class="spacer"></div>
             <p class="p">
-                As an <span class="green semibold">ADMIN</span> at HealthPH, you have access to several modules such as:
+                As a <span class="green semibold">USER with the Admin role</span> at HealthPH+, you can access HealthPH+ modules and manage USER accounts within your organization. Detailed access limits may apply based on organization and role.
             </p>
-            <div class="p">
-                <ul class="list">
-                    <li><span class="semibold">1. Analytics</span></li>
-                    <li class="list-indent">a. The admin is able to visualize summary of data about perceived symptoms</li>
-                    <li><span class="semibold">2. Trends Map</span></li>
-                    <li class="list-indent">a. The admin is able to monitor perceived symptoms using a map preview or in list
-                        view.</li>
-                    <li><span class="semibold">3. Users</span></li>
-                    <li class="list-indent">a. The admin is able to verify users based on their personal information to receive access to HealthPH.</li>
-                    <li><span class="semibold">4. Help</span></li>
-                    <li class="list-indent">a. The admin is able to read manuals or instructions in utilizing HealthPH.</li>
-                    <li><span class="semibold">5. Activity Logs</span></li>
-                    <li class="list-indent">a. The admin is able to monitor users' activities in using HealthPH.</li>
-                    <li><span class="semibold">6. Settings</span></li>
-                    <li class="list-indent">a. The admin is able to edit their full name, department, organization, email address, and password.</li>
-                    <li class="list-indent">b. The admin is able to delete their account when not in use.</li>
-                </ul>
-            </div>
             <div class="spacer"></div>
             <div class="spacer"></div>
             <div class="spacer"></div>
             <p class="p">
-                If you need further assistance, please visit or email the HealthPH Office at:
+                If you need further assistance, please visit or email the HealthPH+ Office at:
             </p>
             <div class="spacer"></div>
             <div class="spacer"></div>
             <div class="spacer"></div>
             <div class="indent">
-                <p class="p">Room 512, HealthPH Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
+                <p class="p">Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
                 <div class="spacer"></div>
                 <p class="p">healthph@national-u.edu.ph</p>
             </div>
@@ -695,7 +651,7 @@ def mail_add_admin(receiver, data: dict):
             <div class="spacer"></div>
             <p class="p">Regards</p>
             <div class="spacer"></div>
-            <p class="p">HealthPH</p>
+            <p class="p">HealthPH+</p>
         </div>
     </body>
     </html>
@@ -717,48 +673,32 @@ def mail_add_admin(receiver, data: dict):
 
 
 def mail_add_superadmin(receiver, data: dict):
-    message = mail_setup(receiver, "Superadmin Account Created")
+    message = mail_setup(receiver, "SUPERADMIN Account Created")
 
     email, password = data.values()
 
     plain_text = f"""\
-    This email contains your credentials to access HealthPH. 
+    This email contains your credentials to access HealthPH+. 
     While working with us, you will be using these credentials to Protect Filipinos, One Disease At A Time.
     Please securely keep this information:
     
     User Type: SUPERADMIN
-    HealthPH Email: {email}
-    HealthPH Password: {password}
+    HealthPH+ Email: {email}
+    HealthPH+ Password: {password}
     
     You will be using the same password to all these systems. The system created this during the account activation process. 
-    To allow you to change your password, sign in to HealthPH and go to the Settings > Edit Password. 
+    To allow you to change your password, sign in to HealthPH+ and go to the Settings > Edit Password. 
     If you have forgotten your password, navigate to Sign In > Forgot Password.
     
-    As a SUPERADMIN at HealthPH, you have full access to every modules such as:
+    As a SUPERADMIN at HealthPH+, you have full access to HealthPH+ modules, including account management for SUPERADMIN and USER accounts, organizations, account analytics, and system data tools.
     
-    1. Analytics
-    a. The superadmin is able to visualize summary of data about perceived symptoms.
-    2. Trends Map
-    a. The superadmin is able to monitor perceived symptoms using a map or in list view.
-    3. Admins 
-    a. The superadmin is able to add, verify, and delete an admin.
-    3. Users
-    a. The superadmin is able to verify users based on their personal information to receive access to HealthPH.
-    4. Help
-    a. The superadmin is able to read manuals or instruction in utilizing HealthPH.
-    5. Activity Logs
-    a. The superadmin is able to monitor users' activities in using HealthPH. 
-    6. Settings
-    a. The superadmin is able to edit their full name, department, organization, email address, and password.
-    b. The superadmin is able to delete their account when not in use. 
+    If you need further assistance, please visit or email the HealthPH+ Office at:
     
-    If you need further assistance, please visit or email the HealthPH Office at:
-    
-    Room 512, HealthPH Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
+    Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
     healthph@national-u.edu.ph
     
     Regards,
-    HealthPH
+    HealthPH+
     """
 
     html = f"""\
@@ -768,7 +708,7 @@ def mail_add_superadmin(receiver, data: dict):
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>HealthPH</title>
+        <title>HealthPH+</title>
     </head>
     <head>
         {get_styles()}
@@ -779,7 +719,7 @@ def mail_add_superadmin(receiver, data: dict):
         </div>
         <div class="main">
             <p class="p">
-                This email contains your credentials to access HealthPH. While working with us, you will be 
+                This email contains your credentials to access HealthPH+. While working with us, you will be 
                 using these credentials to Protect Filipinos, One Disease At A Time. Please securely keep 
                 this information:
             </p>
@@ -790,57 +730,37 @@ def mail_add_superadmin(receiver, data: dict):
             </p>
             <div class="spacer"></div>
             <p class="p">
-                <span class="bold">HealthPH Email</span>:{" "}
+                <span class="bold">HealthPH+ Email</span>:{" "}
                 <span class="link">{email}</span>
             </p>
             <div class="spacer"></div>
             <p class="p">
-                <span class="bold">HealthPH Password</span>:{" "}
+                <span class="bold">HealthPH+ Password</span>:{" "}
                 <span class="link">{password }</span>
             </p>
             <div class="spacer"></div>
             <p class="p">
                 You will be using the same password to all these systems. The system created this during the account activation process. 
-                To allow you to change your password, sign in to HealthPH and go to the{" "}
+                To allow you to change your password, sign in to HealthPH+ and go to the{" "}
                 <span class="semibold">Settings &gt; Edit Password</span>. 
                 If you have forgotten your password, navigate to 
                 <span class="semibold">Sign In &gt; Forgot Password</span>
             </p>
             <div class="spacer"></div>
             <p class="p">
-                As a <span class="green semibold">SUPERADMIN</span> at HealthPH, you have access to several modules such as:
+                As a <span class="green semibold">SUPERADMIN</span> at HealthPH+, you have full access to HealthPH+ modules, including account management for SUPERADMIN and USER accounts, organizations, account analytics, and system data tools.
             </p>
-            <div class="p">
-                <ul class="list">
-                    <li><span class="semibold">1. Analytics</span></li>
-                    <li class="list-indent">a. The superadmin is able to visualize summary of data about perceived symptoms</li>
-                    <li><span class="semibold">2. Trends Map</span></li>
-                    <li class="list-indent">a. The superadmin is able to monitor perceived symptoms using a map preview or in list
-                        view.</li>
-                    <li><span class="semibold">3. Admins</span></li>
-                    <li class="list-indent">a. The superadmin is able to add, verify, and delete an admin.</li>
-                    <li><span class="semibold">3. Users</span></li>
-                    <li class="list-indent">a. The superadmin is able to verify users based on their personal information to receive access to HealthPH.</li>
-                    <li><span class="semibold">4. Help</span></li>
-                    <li class="list-indent">a. The superadmin is able to read manuals or instructions in utilizing HealthPH.</li>
-                    <li><span class="semibold">5. Activity Logs</span></li>
-                    <li class="list-indent">a. The superadmin is able to monitor users' activities in using HealthPH.</li>
-                    <li><span class="semibold">6. Settings</span></li>
-                    <li class="list-indent">a. The superadmin is able to edit their full name, department, organization, email address, and password.</li>
-                    <li class="list-indent">b. The superadmin is able to delete their account when not in use.</li>
-                </ul>
-            </div>
             <div class="spacer"></div>
             <div class="spacer"></div>
             <div class="spacer"></div>
             <p class="p">
-                If you need further assistance, please visit or email the HealthPH Office at:
+                If you need further assistance, please visit or email the HealthPH+ Office at:
             </p>
             <div class="spacer"></div>
             <div class="spacer"></div>
             <div class="spacer"></div>
             <div class="indent">
-                <p class="p">Room 512, HealthPH Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
+                <p class="p">Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
                 <div class="spacer"></div>
                 <p class="p">healthph@national-u.edu.ph</p>
             </div>
@@ -849,7 +769,7 @@ def mail_add_superadmin(receiver, data: dict):
             <div class="spacer"></div>
             <p class="p">Regards</p>
             <div class="spacer"></div>
-            <p class="p">HealthPH</p>
+            <p class="p">HealthPH+</p>
         </div>
     </body>
     </html>
@@ -874,15 +794,15 @@ def mail_enabled(receiver):
     message = mail_setup(receiver, "Account Enabled")
 
     plain_text = f"""\
-    This email contains that your account has been ENABLED. You will now be able to sign in to HealthPH and fully utilize HealthPH and its modules. 
+    This email contains that your account has been ENABLED. You will now be able to sign in to HealthPH+ and fully utilize HealthPH+ and its modules. 
     
-    If you need further assistance, please visit or email the HealthPH Office at:
+    If you need further assistance, please visit or email the HealthPH+ Office at:
     
-    Room 512, HealthPH Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
+    Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
     healthph@national-u.edu.ph
     
     Regards,
-    HealthPH
+    HealthPH+
     """
 
     html = f"""\
@@ -892,7 +812,7 @@ def mail_enabled(receiver):
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>HealthPH</title>
+        <title>HealthPH+</title>
     </head>
     <head>
         {get_styles()}
@@ -905,19 +825,19 @@ def mail_enabled(receiver):
           <p class="p">
             This email contains that your account has been{" "}
             <span class="semibold green">ENABLED </span>. You will now be able to sign in to 
-            HealthPH and fully utilize HealthPH and its modules.
+            HealthPH+ and fully utilize HealthPH+ and its modules.
           </p>
           <div class="spacer"></div>
           <div class="spacer"></div>
           <div class="spacer"></div>
           <p class="p">
-            If you need further assistance, please visit or email the HealthPH Office at:
+            If you need further assistance, please visit or email the HealthPH+ Office at:
           </p>
           <div class="spacer"></div>
           <div class="spacer"></div>
           <div class="spacer"></div>
           <div class="indent">
-            <p class="p">Room 512, HealthPH Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
+            <p class="p">Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
             <div class="spacer"></div>
             <p class="p">healthph@national-u.edu.ph</p>
           </div>
@@ -926,7 +846,7 @@ def mail_enabled(receiver):
           <div class="spacer"></div>
           <p class="p">Regards</p>
           <div class="spacer"></div>
-          <p class="p">HealthPH</p>
+          <p class="p">HealthPH+</p>
         </div>
     </body>
     </html>
@@ -951,17 +871,17 @@ def mail_disabled(receiver):
     message = mail_setup(receiver, "Account Disabled")
 
     plain_text = f"""\
-    This email contains that your account has been DISABLED. You will be unable to sign in to HealthPH and lose access to its modules. 
+    This email contains that your account has been DISABLED. You will be unable to sign in to HealthPH+ and lose access to its modules. 
     
     If you think this is not the case, please contact us.
     
-    If you need further assistance, please visit or email the HealthPH Office at:
+    If you need further assistance, please visit or email the HealthPH+ Office at:
     
-    Room 512, HealthPH Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
+    Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
     healthph@national-u.edu.ph
     
     Regards,
-    HealthPH
+    HealthPH+
     """
 
     html = f"""\
@@ -971,7 +891,7 @@ def mail_disabled(receiver):
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>HealthPH</title>
+        <title>HealthPH+</title>
     </head>
     <head>
         {get_styles()}
@@ -984,7 +904,7 @@ def mail_disabled(receiver):
           <p class="p">
             This email contains that your account has been{" "}
             <span class="semibold red">DISABLED</span>. You will be unable to sign in to 
-            HealthPH and lose access to its modules.
+            HealthPH+ and lose access to its modules.
           </p>
           <div class="spacer"></div>
           <p class="p">
@@ -994,13 +914,13 @@ def mail_disabled(receiver):
           <div class="spacer"></div>
           <div class="spacer"></div>
           <p class="p">
-            If you need further assistance, please visit or email the HealthPH Office at:
+            If you need further assistance, please visit or email the HealthPH+ Office at:
           </p>
           <div class="spacer"></div>
           <div class="spacer"></div>
           <div class="spacer"></div>
           <div class="indent">
-            <p class="p">Room 512, HealthPH Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
+            <p class="p">Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
             <div class="spacer"></div>
             <p class="p">healthph@national-u.edu.ph</p>
           </div>
@@ -1009,7 +929,7 @@ def mail_disabled(receiver):
           <div class="spacer"></div>
           <p class="p">Regards</p>
           <div class="spacer"></div>
-          <p class="p">HealthPH</p>
+          <p class="p">HealthPH+</p>
         </div>
     </body>
     </html>
@@ -1034,15 +954,15 @@ def mail_delete_account(receiver):
     message = mail_setup(receiver, "Account Deleted")
 
     plain_text = f"""\
-    This email contains that your account has been DELETED. You are still allowed to request another account if you want to use HealthPH in another time.
+    This email contains that your account has been DELETED. You are still allowed to request another account if you want to use HealthPH+ in another time.
     
-    If you need further assistance, please visit or email the HealthPH Office at:
+    If you need further assistance, please visit or email the HealthPH+ Office at:
     
-    Room 512, HealthPH Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
+    Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
     healthph@national-u.edu.ph
     
     Regards,
-    HealthPH
+    HealthPH+
     """
 
     html = f"""\
@@ -1052,7 +972,7 @@ def mail_delete_account(receiver):
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>HealthPH</title>
+        <title>HealthPH+</title>
     </head>
     <head>
         {get_styles()}
@@ -1065,19 +985,19 @@ def mail_delete_account(receiver):
           <p>
             This email contains that your account has been 
             <span class="bold red">DELETED</span>. 
-            You are still allowed to request another account if you wan to use HealthPH in another time.
+            You are still allowed to request another account if you want to use HealthPH+ again in the future.
           </p>
           <div class="spacer"></div>
           <div class="spacer"></div>
           <div class="spacer"></div>
           <p class="p">
-            If you need further assistance, please visit or email the HealthPH Office at:
+            If you need further assistance, please visit or email the HealthPH+ Office at:
           </p>
           <div class="spacer"></div>
           <div class="spacer"></div>
           <div class="spacer"></div>
           <div class="indent">
-            <p class="p">Room 512, HealthPH Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
+            <p class="p">Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
             <div class="spacer"></div>
             <p class="p">healthph@national-u.edu.ph</p>
           </div>
@@ -1086,7 +1006,7 @@ def mail_delete_account(receiver):
           <div class="spacer"></div>
           <p class="p">Regards</p>
           <div class="spacer"></div>
-          <p class="p">HealthPH</p>
+          <p class="p">HealthPH+</p>
         </div>
     </body>
     </html>

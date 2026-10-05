@@ -1,8 +1,26 @@
+@import url("./typography.css");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer components {
+  .stepper {
+    display: grid;
+    grid-template-columns: repeat(var(--no-of-steps), 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .stepper .stepper-item {
+    @apply h-[8px] rounded-[4px] bg-primary-100;
+    transition: background-color 0.3s ease-in-out;
+  }
+
+  .stepper .stepper-item.active {
+    @apply bg-primary-500;
+  }
+
   .auth-layout .background {
     @apply fixed top-0 left-0 w-screen h-screen;
     z-index: -1;

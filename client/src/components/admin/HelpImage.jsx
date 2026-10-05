@@ -8,7 +8,6 @@ import AdminUpload from "../../assets/images/help/admin-upload.png";
 import AdminUpload2 from "../../assets/images/help/admin-upload-2.png";
 import AdminUserManagement from "../../assets/images/help/admin-user-management.png";
 import AdminAddUser from "../../assets/images/help/admin-add-user.png";
-import AdminActivityLogs from "../../assets/images/help/admin-activity-logs.png";
 import AdminSettings from "../../assets/images/help/admin-settings.png";
 import AdminOutbreakMonitoring from "../../assets/images/help/admin-outbreak-monitoring.png";
 import AdminMisinformationTracker from "../../assets/images/help/admin-Misinformation-Tracker.png";
@@ -40,7 +39,6 @@ import AdminUploadMd from "../../assets/images/help/admin-upload-md.png";
 import AdminUpload2Md from "../../assets/images/help/admin-upload-2-md.png";
 import AdminUserManagementMd from "../../assets/images/help/admin-user-management-md.png";
 import AdminAddUserMd from "../../assets/images/help/admin-add-user-md.png";
-import AdminActivityLogsMd from "../../assets/images/help/admin-activity-logs-md.png";
 import AdminSettingsMd from "../../assets/images/help/admin-settings-md.png";
 
 import AdminNavigationSm from "../../assets/images/help/admin-navigation-sm.png";
@@ -53,7 +51,6 @@ import AdminUploadSm from "../../assets/images/help/admin-upload-sm.png";
 import AdminUpload2Sm from "../../assets/images/help/admin-upload-2-sm.png";
 import AdminUserManagementSm from "../../assets/images/help/admin-user-management-sm.png";
 import AdminAddUserSm from "../../assets/images/help/admin-add-user-sm.png";
-import AdminActivityLogsSm from "../../assets/images/help/admin-activity-logs-sm.png";
 import AdminSettingsSm from "../../assets/images/help/admin-settings-sm.png";
 
 import UserNavigation from "../../assets/images/help/user-navigation.png";
@@ -119,7 +116,6 @@ const HelpImage = ({ image }) => {
     "admin-upload-dataset-2": AdminUpload2,
     "admin-user-management": AdminUserManagement,
     "admin-add-user": AdminAddUser,
-    "admin-activity-logs": AdminActivityLogs,
     "admin-settings": AdminSettings,
     "admin-outbreak-monitoring": AdminOutbreakMonitoring,
     "admin-Misinformation-Tracker": AdminMisinformationTracker,
@@ -172,7 +168,6 @@ const HelpImage = ({ image }) => {
     "admin-upload-dataset-2": AdminUpload2Md,
     "admin-user-management": AdminUserManagementMd,
     "admin-add-user": AdminAddUserMd,
-    "admin-activity-logs": AdminActivityLogsMd,
     "admin-settings": AdminSettingsMd,
     "user-navigation": UserNavigationMd,
     "user-analytics": UserAnalyticsMd,
@@ -194,7 +189,6 @@ const HelpImage = ({ image }) => {
     "admin-upload-dataset-2": AdminUpload2Sm,
     "admin-user-management": AdminUserManagementSm,
     "admin-add-user": AdminAddUserSm,
-    "admin-activity-logs": AdminActivityLogsSm,
     "admin-settings": AdminSettingsSm,
     "user-navigation": UserNavigationSm,
     "user-analytics": UserAnalyticsSm,

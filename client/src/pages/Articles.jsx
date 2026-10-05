@@ -1,15 +1,18 @@
+/* eslint-disable react/prop-types */
 import { useLocation } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
+import "../assets/css/about.css";
 
 import Icon from "../components/Icon";
 import HomeNavbar from "../components/HomeNavbar";
 import HomeFooter from "../components/HomeFooter";
+import PublicFullscreenModal from "../components/PublicFullscreenModal";
 import ArticleItem, {
   ArticleItemSkeleton,
 } from "../components/about-us/ArticleItem";
 import { useFetchWebsiteHealthLiteracyContentQuery } from "../features/api/healthLiteracyHubSlice";
 import {
-  getContentMediaSource,
+  getResourceImageSource,
   normalizeStaticArticle,
   normalizeWebsiteContent,
   sortNewestFirst,
@@ -17,7 +20,7 @@ import {
 
 import ArticlesList from "../assets/data/articles.json";
 
-const Articles = () => {
+const Articles = ({ embedded = false }) => {
   const location = useLocation();
 
   const [articlePage, setArticlePage] = useState(location.state ?? 1);
@@ -45,8 +48,8 @@ const Articles = () => {
   }, [websiteContent]);
 
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
+    if (!embedded) window.scrollTo(0, 0);
+  }, [embedded]);
 
   useEffect(() => {
     document.getElementsByClassName("article-layout")[0]?.scrollTo({
@@ -71,19 +74,18 @@ const Articles = () => {
     return articlesPerPage.slice(startIndex - numOfArticlesPerPage, startIndex);
   };
 
-  const previewMediaSource = getContentMediaSource(previewContent?.media);
+  const previewMediaSource = getResourceImageSource(previewContent);
   const previewMediaType = previewContent?.media?.contentType ?? "";
-  const isPreviewVideo = previewMediaType.startsWith("video/");
+  const isPreviewVideo =
+    previewContent?.resourceType === "video" ||
+    previewMediaType.startsWith("video/");
   const previewFilename =
     previewContent?.media?.filename || `${previewContent?.articleTitle ?? "infographic"}`;
   const maxArticlePage = Math.ceil(articles.length / numOfArticlesPerPage);
 
-  return (
-    <div className="article-layout">
-      <HomeNavbar />
-
-      <section className="mt-[56px]">
-        <div className="about-container mb-[112px]">
+  const content = (
+    <section id={embedded ? "articles" : undefined} className={embedded ? "public-section public-content-section section-articles" : "mt-[56px]"}>
+      <div className={embedded ? "public-shell" : "about-container mb-[112px]"}>
           <div className="w-full max-w-[1144px]">
             {/* <div className="flex justify-start items-center mb-[24px]">
               <Link
@@ -99,7 +101,8 @@ const Articles = () => {
                 <span className="ms-[8px]">Go Back</span>
               </Link>
             </div> */}
-            <p className="section-title">Articles</p>
+            {embedded && <p className="public-section-intro">Research-informed resources, updates, and public-health learning materials from HealthPH+.</p>}
+            <p className={embedded ? "public-section-heading" : "section-title"}>Articles</p>
             {isWebsiteContentError && (
               <p className="article-status">
                 Dashboard resources could not be loaded. Showing saved articles.
@@ -117,6 +120,9 @@ const Articles = () => {
                           article={a}
                           key={`${a.source}-${a.id ?? a.articleID ?? a.articleSlug}`}
                           articlePage={articlePage}
+                          isLoading={
+                            isFetchingWebsiteContent && a.resourceType === "video"
+                          }
                           onPreviewClick={setPreviewContent}
                         />
                       );
@@ -161,19 +167,17 @@ const Articles = () => {
               </div>
             )}
           </div>
-        </div>
-      </section>
+      </div>
+    </section>
+  );
 
-      <HomeFooter />
-
-      {previewContent && (
-        <div className="image-modal health-literacy-preview-modal">
-          <div
-            className="image-modal-backdrop"
-            onClick={() => setPreviewContent(null)}
-          ></div>
-          <div className="image-modal-container">
-            <div className="image-wrapper">
+  const previewModal = previewContent && (
+    <PublicFullscreenModal
+      ariaLabel={`Preview: ${previewContent.articleTitle}`}
+      onClose={() => setPreviewContent(null)}
+      panelClassName="public-media-modal"
+    >
+            <div className="public-media-modal__media">
               {previewMediaSource && isPreviewVideo ? (
                 <video src={previewMediaSource} controls autoPlay />
               ) : previewMediaSource ? (
@@ -193,7 +197,7 @@ const Articles = () => {
                 </div>
               )}
             </div>
-            <div className="image-caption">
+            <div className="public-media-modal__caption">
               <p>{previewContent.articleTitle}</p>
               {previewContent.resourceType === "infographic" &&
                 previewMediaSource && (
@@ -212,19 +216,14 @@ const Articles = () => {
                   </a>
                 )}
             </div>
-            <div className="close-icon" onClick={() => setPreviewContent(null)}>
-              <Icon
-                iconName="Close"
-                height="24px"
-                width="24px"
-                className="icon"
-              />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </PublicFullscreenModal>
   );
+
+  if (embedded) {
+    return <div className="article-layout one-page-section">{content}{previewModal}</div>;
+  }
+
+  return <div className="article-layout"><HomeNavbar />{content}<HomeFooter />{previewModal}</div>;
 };
 
 export default Articles;
