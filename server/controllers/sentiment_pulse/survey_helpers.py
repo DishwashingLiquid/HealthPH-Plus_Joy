@@ -151,6 +151,9 @@ def parse_ph_datetime(value: str) -> datetime:
 
 
 def get_survey_status(survey: dict, now: Optional[datetime] = None) -> str:
+    if survey.get("endedAt"):
+        return "Ended"
+
     scheduled_at = survey.get("scheduledAt")
     if not scheduled_at:
         return "Draft"
@@ -176,7 +179,12 @@ def serialize_survey(survey: dict, include_private_fields: bool = True) -> dict:
     serialized["createdAt"] = serialize_datetime(survey.get("createdAt"))
     serialized["updatedAt"] = serialize_datetime(survey.get("updatedAt"))
     serialized["scheduledAt"] = serialize_datetime(survey.get("scheduledAt"))
-    serialized["publishedAt"] = serialized["scheduledAt"] if serialized["status"] == "Published" else ""
+    serialized["endedAt"] = serialize_datetime(survey.get("endedAt"))
+    serialized["publishedAt"] = (
+        serialized["scheduledAt"]
+        if serialized["status"] in {"Published", "Ended"}
+        else ""
+    )
     serialized["responses"] = int(survey.get("responseCount") or 0)
     serialized["sentimentBreakdown"] = survey.get("sentimentBreakdown", dict(EMPTY_SENTIMENT_BREAKDOWN))
     serialized["dominantSentiment"] = survey.get("dominantSentiment") or "Neutral"
@@ -204,6 +212,7 @@ def validate_platform(platform: str) -> str:
 def get_public_survey_match(platform: str) -> dict:
     return {
         "scheduledAt": {"$lte": get_ph_datetime()},
+        "endedAt": {"$exists": False},
         "publishToMobile" if platform == "mobile" else "publishToWebsite": True,
     }
 

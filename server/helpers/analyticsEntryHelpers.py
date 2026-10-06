@@ -167,32 +167,26 @@ def build_social_media_analytics_entries(
 
     return entries
 
-def _is_analyzable_text(value):
-    text = _clean_text_value(value)
-
-    if not text:
-        return False
-
-    if text.isnumeric():
-        return False
-
-    return len(text) >= 3
-
-def build_survey_response_analytics_entries(response_document):
+def build_survey_response_analytics_entries(response_document, survey_document):
     entries = []
 
     response_id = str(response_document.get("_id") or response_document.get("id") or "")
     survey_id = str(response_document.get("surveyId") or "")
     answers = response_document.get("answers") or {}
     created_at = response_document.get("createdAt") or get_ph_datetime()
+    questions = {}
+    for question in survey_document.get("questions") or []:
+        if not isinstance(question, dict):
+            continue
+        for key in (question.get("id"), question.get("name")):
+            if key:
+                questions[str(key)] = question
 
     user_location = response_document.get("user_location") or response_document.get("userLocation") or {}
 
     for question_id, answer_value in answers.items():
         text = _clean_text_value(answer_value)
-
-        if not _is_analyzable_text(text):
-            continue
+        question = questions.get(str(question_id), {})
 
         entries.append(
             {
@@ -201,6 +195,9 @@ def build_survey_response_analytics_entries(response_document):
                 "survey_id": survey_id,
                 "response_id": response_id,
                 "question_id": str(question_id),
+                "question_type": _clean_text_value(question.get("type")),
+                "question_text": _clean_text_value(question.get("title")),
+                "raw_answer": answer_value,
 
                 "text": text,
                 "language": "",
@@ -220,12 +217,7 @@ def build_survey_response_analytics_entries(response_document):
                 "collected_at": str(created_at),
 
                 "analysis_status": "SUBMITTED",
-                "analysis_tasks": [
-                    "language_detection",
-                    "sentiment",
-                    "misinformation",
-                    "ner",
-                ],
+                "analysis_tasks": ["sentiment"],
 
                 "analysis": {
                     "language_detection": {
@@ -248,6 +240,8 @@ def build_survey_response_analytics_entries(response_document):
                 "metadata": {
                     "visitor_id": _clean_text_value(response_document.get("visitorId")),
                     "question_id": str(question_id),
+                    "question_type": _clean_text_value(question.get("type")),
+                    "question_text": _clean_text_value(question.get("title")),
                 },
 
                 "created_at": created_at,

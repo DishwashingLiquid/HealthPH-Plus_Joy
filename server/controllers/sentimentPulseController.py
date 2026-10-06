@@ -159,6 +159,11 @@ async def update_survey(
     ],
 ):
     survey = get_survey_or_404(survey_id)
+    if get_survey_status(survey) == "Ended":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Ended surveys cannot be edited",
+        )
     validate_survey_payload(data)
 
     update = build_survey_update_document(data, current_user, survey)
@@ -231,6 +236,67 @@ async def schedule_survey(
 
 
 """
+@desc     End a published survey and prepare all answers for analysis
+route     PATCH api/sentiment-pulse/surveys/{survey_id}/end
+@access   Private
+"""
+
+
+async def end_survey(
+    survey_id: str,
+    current_user: Annotated[
+        dict, Depends(require_role(["Admin", "SUPERADMIN"]))
+    ],
+):
+    survey = get_survey_or_404(survey_id)
+    if get_survey_status(survey) != "Published":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only published surveys can be ended",
+        )
+
+    ended_at = get_ph_datetime()
+    update = {
+        "endedAt": ended_at,
+        "updatedAt": ended_at,
+        "updatedBy": get_user_snapshot(current_user),
+    }
+    result = surveys_collection.update_one(
+        {"id": survey_id, "endedAt": {"$exists": False}},
+        {"$set": update},
+    )
+    if not result.modified_count:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Survey was already ended",
+        )
+
+    try:
+        entries = []
+        for response in survey_responses_collection.find({"surveyId": survey_id}):
+            entries.extend(
+                build_survey_response_analytics_entries(response, survey)
+            )
+        entries = get_valid_analytics_entries(entries)
+        if entries:
+            analytics_entries_collection.insert_many(entries)
+    except Exception:
+        surveys_collection.update_one(
+            {"id": survey_id, "endedAt": ended_at},
+            {"$unset": {"endedAt": ""}, "$set": {"updatedAt": survey.get("updatedAt")}},
+        )
+        raise
+
+    updated_survey = {**survey, **update}
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "message": "Sentiment Pulse survey ended successfully",
+            "analyticsEntryCount": len(entries),
+            "survey": serialize_survey(updated_survey),
+        },
+    )
+"""
 @desc     Delete a Sentiment Pulse survey
 route     DELETE api/sentiment-pulse/surveys/{survey_id}
 @access   Private
@@ -246,6 +312,9 @@ async def delete_survey(
     get_survey_or_404(survey_id)
     surveys_collection.delete_one({"id": survey_id})
     survey_responses_collection.delete_many({"surveyId": survey_id})
+    analytics_entries_collection.delete_many(
+        {"source_type": "survey_response", "survey_id": survey_id}
+    )
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
@@ -295,7 +364,8 @@ async def create_public_survey_response(
     publish_field = "publishToMobile" if platform == "mobile" else "publishToWebsite"
 
     if (
-        scheduled_at is None
+        get_survey_status(survey) != "Published"
+        or scheduled_at is None
         or scheduled_at > publish_match["scheduledAt"]["$lte"]
         or not survey.get(publish_field)
     ):
@@ -332,17 +402,8 @@ async def create_public_survey_response(
         authenticated_mobile_user=authenticated_mobile_user,
     )
 
-    inserted_response = survey_responses_collection.insert_one(response)
+    survey_responses_collection.insert_one(response)
 
-    response["_id"] = inserted_response.inserted_id
-
-    analytics_entries = get_valid_analytics_entries(
-        build_survey_response_analytics_entries(response)
-    )
-
-    if analytics_entries:
-        analytics_entries_collection.insert_many(analytics_entries)
-    
     surveys_collection.update_one(
         {"id": survey_id},
         {

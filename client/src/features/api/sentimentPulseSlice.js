@@ -55,6 +55,17 @@ export const sentimentPulseApi = baseAPI.injectEndpoints({
       }),
       invalidatesTags: ["SentimentPulseSurveys", "SentimentPulseRegionalAnalysis"],
     }),
+    endSentimentPulseSurvey: builder.mutation({
+      query: (surveyId) => ({
+        url: `/sentiment-pulse/surveys/${surveyId}/end`,
+        method: "PATCH",
+      }),
+      invalidatesTags: (_result, _error, surveyId) => [
+        "SentimentPulseSurveys",
+        "SentimentPulseRegionalAnalysis",
+        { type: "SentimentPulseSurveys", id: surveyId },
+      ],
+    }),
     fetchSentimentPulseRegionalAnalysis: builder.query({
       query: ({
         timeRange = "last-30-days",
@@ -92,6 +103,7 @@ export const sentimentPulseApi = baseAPI.injectEndpoints({
 export const {
   useCreateSentimentPulseSurveyMutation,
   useDeleteSentimentPulseSurveyMutation,
+  useEndSentimentPulseSurveyMutation,
   useFetchSentimentPulseSurveyResultsQuery,
   useFetchPublicSentimentPulseSurveysQuery,
   useFetchSentimentPulseRegionalAnalysisQuery,

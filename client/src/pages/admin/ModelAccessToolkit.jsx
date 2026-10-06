@@ -1079,11 +1079,6 @@ const DataManagement = () => {
             description: "Uploaded social media CSV files prepared for analytics and model processing.",
             totalLabel: "Total datasets",
         },
-        survey_response: {
-            title: "Survey Responses",
-            description: "Survey response entries prepared for analytics and NLP processing.",
-            totalLabel: "Total entries",
-        },
         self_report: {
             title: "Self Reports",
             description: "Mobile self-report entries prepared for analytics and NLP processing.",
@@ -1106,11 +1101,6 @@ const DataManagement = () => {
                         label="Social Media Datasets"
                         active={dataSourceView === "social_media"}
                         onClick={() => setDataSourceView("social_media")}
-                    />
-                    <DataSourcePill
-                        label="Survey Responses"
-                        active={dataSourceView === "survey_response"}
-                        onClick={() => setDataSourceView("survey_response")}
                     />
                     <DataSourcePill
                         label="Self Reports"

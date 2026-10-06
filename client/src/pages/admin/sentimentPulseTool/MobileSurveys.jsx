@@ -8,7 +8,10 @@ import {
   formatNumber,
   sentimentColors,
 } from "../../../assets/data/sentimentMockData";
-import { useFetchSentimentPulseSurveyResultsQuery } from "../../../features/api/sentimentPulseSlice";
+import {
+  useEndSentimentPulseSurveyMutation,
+  useFetchSentimentPulseSurveyResultsQuery,
+} from "../../../features/api/sentimentPulseSlice";
 
 export const QUESTION_TYPES = [
   { value: "text", label: "Text" },
@@ -217,6 +220,7 @@ const statusStyles = {
   Draft: "bg-blue-50 text-blue-700",
   Scheduled: "bg-amber-50 text-amber-700",
   Published: "bg-green-50 text-green-700",
+  Ended: "bg-gray-100 text-gray-700",
   Active: "bg-green-50 text-green-700",
   Inactive: "bg-gray-100 text-gray-700",
 };
@@ -1052,9 +1056,39 @@ export default function MobileSurveys({
   onEdit = () => {},
 }) {
   const [selectedResultsSurveyId, setSelectedResultsSurveyId] = useState("");
+  const [surveyToEnd, setSurveyToEnd] = useState(null);
+  const [endSurveyError, setEndSurveyError] = useState("");
+  const [endSurvey, { isLoading: isEndingSurvey }] =
+    useEndSentimentPulseSurveyMutation();
 
   const handleResults = (surveyId) => {
     setSelectedResultsSurveyId(surveyId);
+  };
+
+  const openEndSurveyModal = (survey) => {
+    setEndSurveyError("");
+    setSurveyToEnd(survey);
+  };
+
+  const closeEndSurveyModal = () => {
+    if (isEndingSurvey) return;
+    setEndSurveyError("");
+    setSurveyToEnd(null);
+  };
+
+  const handleEndSurvey = async () => {
+    if (!surveyToEnd?.id) return;
+
+    setEndSurveyError("");
+    try {
+      await endSurvey(surveyToEnd.id).unwrap();
+      setSurveyToEnd(null);
+    } catch (error) {
+      setEndSurveyError(
+        error?.data?.detail ||
+          "Unable to end this survey. Please try again."
+      );
+    }
   };
 
   if (isLoading) {
@@ -1200,7 +1234,7 @@ export default function MobileSurveys({
                   </p>
                 </div>
 
-                <div className="grid w-full grid-cols-2 gap-[8px] lg:w-[176px] lg:shrink-0">
+                <div className="grid w-full grid-cols-3 gap-[8px] lg:w-[280px] lg:shrink-0">
                   <button
                     type="button"
                     onClick={() => handleResults(survey.id)}
@@ -1211,10 +1245,29 @@ export default function MobileSurveys({
                   <button
                     type="button"
                     onClick={() => onEdit(survey)}
-                    className="min-h-[40px] rounded-[10px] bg-[#32418C] px-[14px] py-[10px] text-sm font-medium text-white shadow-sm transition hover:bg-[#27346F]"
+                    disabled={survey.status === "Ended"}
+                    className="min-h-[40px] rounded-[10px] bg-[#32418C] px-[14px] py-[10px] text-sm font-medium text-white shadow-sm transition hover:bg-[#27346F] disabled:cursor-not-allowed disabled:bg-gray-300"
                   >
                     Edit
                   </button>
+                  {survey.status === "Ended" ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="min-h-[40px] rounded-[10px] bg-[#32418C] px-[12px] py-[10px] text-sm font-medium text-white opacity-50"
+                    >
+                      Process
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => openEndSurveyModal(survey)}
+                      disabled={survey.status !== "Published"}
+                      className="min-h-[40px] rounded-[10px] border border-[#B42318] bg-white px-[10px] py-[10px] text-sm font-medium text-[#B42318] transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 disabled:hover:bg-white"
+                    >
+                      End Survey
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1227,6 +1280,33 @@ export default function MobileSurveys({
           surveyId={selectedResultsSurveyId}
           onClose={() => setSelectedResultsSurveyId("")}
         />
+      )}
+
+      {surveyToEnd && (
+        <ModalWithBody
+          heading="End Survey"
+          color="destructive"
+          onConfirm={handleEndSurvey}
+          onConfirmLabel="End Survey"
+          onLoading={isEndingSurvey}
+          onLoadingLabel="Ending..."
+          onCancel={closeEndSurveyModal}
+          onBackdrop={closeEndSurveyModal}
+          additionalClasses="admin-brand-modal"
+        >
+          <div className="space-y-4 px-5 py-5">
+            <p className="text-sm text-gray-700">
+              End <span className="font-semibold">{surveyToEnd.title}</span>?
+              New responses will no longer be accepted, and all submitted
+              answers will be prepared for analysis. This cannot be undone.
+            </p>
+            {endSurveyError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                {endSurveyError}
+              </div>
+            )}
+          </div>
+        </ModalWithBody>
       )}
     </>
   );
