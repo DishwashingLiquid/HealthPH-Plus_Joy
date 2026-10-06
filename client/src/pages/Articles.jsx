@@ -191,7 +191,7 @@ const Articles = ({ embedded = false }) => {
                     iconName="Document"
                     height="48px"
                     width="48px"
-                    fill="#6A8EB5"
+                    fill="#32418C"
                   />
                   <p>Preview is unavailable.</p>
                 </div>

@@ -17,7 +17,7 @@ const announceComingSoon = () => {
   toast(
     <Snackbar
       size="snackbar-md"
-      color="primary"
+      color="public"
       iconName="Information"
       message="Coming soon"
     />
