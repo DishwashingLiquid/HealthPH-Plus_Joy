@@ -518,43 +518,56 @@ const SentimentAnalysis = () => {
     );
 };
 
-const LANGUAGE_COLORS = ["#32418C", "#2572A5", "#1ABC9C", "#9BCC33", "#FBD117", "#F78C6B"];
+const SUPPORTED_LANGUAGES = [
+    { key: "en", label: "English", color: "#32418C" },
+    { key: "fil", label: "Filipino", color: "#2572A5" },
+    { key: "hil", label: "Hiligaynon", color: "#1ABC9C" },
+    { key: "ilo", label: "Ilocano", color: "#9BCC33" },
+    { key: "ceb", label: "Cebuano", color: "#FBD117" },
+];
+
+const SUPPORTED_LANGUAGES_KEYS = new Set(
+    SUPPORTED_LANGUAGES.map((language) => language.key)
+);
+
+const LANGUAGE_BY_KEY = Object.fromEntries(
+    SUPPORTED_LANGUAGES.map((language) => [language.ley, language])
+);
 
 const normalizeLanguageKey = (language) =>
     String(language || "").trim().toLowerCase();
 
 const formatLanguageLabel = (language) => {
-    const value = String(language || "Unknown").trim();
+    const key = normalizeLanguageKey(language);
 
-    if (!value) return "Unknown";
-
-    return value
-        .split(/[\s_-]+/)
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(" ");
+    return LANGUAGE_BY_KEY[key]?.label || "Unknown";
 };
 
 const buildLanguageDistribution = (datasets = []) => {
-    const totals = datasets.reduce((counts, dataset) => {
+    const totals = Object.fromEntries(
+        SUPPORTED_LANGUAGES.map((language) => [language.key, 0])
+    );
+
+    datasets.forEach((dataset) => {
         const languageCounts = dataset.language_counts || {};
 
         Object.entries(languageCounts).forEach(([language, count]) => {
             const key = normalizeLanguageKey(language);
 
-            if (!key) return;
+            if (!SUPPORTED_LANGUAGES_KEYS.has(key)) return;
 
-            counts[key] = (counts[key] || 0) + Number(count || 0);
+            totals[key] += Number(count || 0);
         });
+    });
 
-        return counts;
-    }, {});
-
-    return Object.entries(totals)
-        .map(([language, value]) => ({
-            name: formatLanguageLabel(language),
-            value,
+    return SUPPORTED_LANGUAGES
+        .map((language) => ({
+            key: language.key,
+            name: language.label,
+            value: totals[language.key],
+            color: language.color,
         }))
-        .sort((a, b) => b.value - a.value);
+        .filter((language) => language.value > 0);
 };
 
 const formatLocationLabel = (location) => {
@@ -588,7 +601,12 @@ const buildRegionLanguageDistribution = (datasets = []) => {
                 const languageKey = normalizeLanguageKey(language);
                 const value = Number(count || 0);
 
-                if (!languageKey || value <= 0) return;
+                if (
+                    !SUPPORTED_LANGUAGES_KEYS.has(languageKey) ||
+                    value <= 0
+                ) {
+                    return;
+                }
 
                 regionMap[region][languageKey] =
                     (regionMap[region][languageKey] || 0) + value;
@@ -617,8 +635,8 @@ const LanguageDetection = ({ datasets = [], isDatasetsFetching = false }) => {
     const regionLanguageDistribution =
         buildRegionLanguageDistribution(datasets);
 
-    const chartLanguageKeys = languageDistribution.map((language) =>
-        normalizeLanguageKey(language.name)
+    const chartLanguageKeys = languageDistribution.map(
+        (language) => language.key
     );
 
     return (
@@ -662,7 +680,7 @@ const LanguageDetection = ({ datasets = [], isDatasetsFetching = false }) => {
                                 {languageDistribution.map((entry, index) => (
                                     <Cell
                                         key={`language-cell-${entry.name}`}
-                                        fill={LANGUAGE_COLORS[index % LANGUAGE_COLORS.length]}
+                                        fill={entry.color}
                                     />
                                 ))}
                             </Pie>
@@ -726,7 +744,7 @@ const LanguageDetection = ({ datasets = [], isDatasetsFetching = false }) => {
                                     key={languageKey}
                                     dataKey={languageKey}
                                     name={formatLanguageLabel(languageKey)}
-                                    fill={LANGUAGE_COLORS[index % LANGUAGE_COLORS.length]}
+                                    fill={LANGUAGE_BY_KEY[languageKey].color}
                                 />
                             ))}
                         </BarChart>
