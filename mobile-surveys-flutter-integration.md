@@ -1,5 +1,7 @@
 # Mobile Surveys Flutter Integration Guide
 
+**Current ID contract:** See [SURVEY_ID_HIERARCHY.md](SURVEY_ID_HIERARCHY.md). The ID examples and legacy-ID behavior below describe the prior implementation and are superseded by that contract.
+
 ## Scope and Source Files
 
 This guide covers only the **Mobile Surveys** tab of the Sentiment Pulse Tool and the survey APIs needed by a Flutter client. It excludes Sentiment Trends and Regional Analysis.

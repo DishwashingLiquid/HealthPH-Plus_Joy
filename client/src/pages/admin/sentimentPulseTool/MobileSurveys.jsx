@@ -618,7 +618,11 @@ export function MobileSurveyCreateModal({
                         </p>
                         <p className="text-xs text-gray-500">
                           {question.id
-                            ? `${question.id} - ${getQuestionTypeLabel(question.type)}`
+                            ? `${
+                                question.id.startsWith("question-")
+                                  ? "ID assigned on save"
+                                  : question.id
+                              } - ${getQuestionTypeLabel(question.type)}`
                             : getQuestionTypeLabel(question.type)}
                         </p>
                       </div>

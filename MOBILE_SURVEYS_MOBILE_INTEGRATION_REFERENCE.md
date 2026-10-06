@@ -1,5 +1,7 @@
 # Mobile Surveys: Mobile Integration Reference
 
+**Current ID contract:** See [SURVEY_ID_HIERARCHY.md](SURVEY_ID_HIERARCHY.md). The ID examples and legacy-ID behavior below describe the prior implementation and are superseded by that contract.
+
 ## Scope and Source Trace
 
 This reference covers the Mobile Surveys tab in the Sentiment Pulse Tool and its direct frontend, API, backend, and MongoDB dependencies.

@@ -1651,6 +1651,7 @@ const AnalyticsEntryDetailsModal = ({ entry, sourceType, onClose }) => {
                             <>
                                 <DetailRow label="Survey ID" value={entry.survey_id} />
                                 <DetailRow label="Question ID" value={entry.question_id || entry.metadata?.question_id} />
+                                <DetailRow label="Submission ID" value={entry.submission_id} />
                             </>
                         )}
 

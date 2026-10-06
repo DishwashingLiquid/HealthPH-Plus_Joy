@@ -1,6 +1,4 @@
-from copy import deepcopy
 from datetime import datetime, timedelta, timezone
-import re
 from typing import Optional
 from uuid import uuid4
 
@@ -18,26 +16,19 @@ from .constants import (
     survey_responses_collection,
     surveys_collection,
 )
+from .survey_ids import (
+    HISTORIC_QUESTION_ID_PATTERN, HISTORIC_SURVEY_ID_PATTERN,
+    QUESTION_ID_PATTERN, SURVEY_ID_PATTERN, format_answer_id,
+    format_question_id, format_survey_id, sync_survey_json_names,
+)
 
 
 # Retain the existing settings document and its next value. The old display-ID
 # allocator may already have consumed values, so reusing it prevents a reset.
 APPLICATION_ID_SEQUENCE_SETTINGS_ID = "sentiment_pulse_display_sequences"
 APPLICATION_ID_SEQUENCE_FIELD = "nextSentimentPulseSurveyDisplaySequence"
-SURVEY_ID_PATTERN = re.compile(r"^SUR-(\d+)$")
-QUESTION_ID_PATTERN = re.compile(r"^Q-SUR(\d+)-(\d+)$")
-
-
-def format_survey_id(sequence: int) -> str:
-    return f"SUR-{sequence:05d}"
-
-
-def format_question_id(survey_sequence: int, sequence: int) -> str:
-    return f"Q-SUR{survey_sequence:05d}-{sequence:02d}"
-
-
 def get_application_survey_sequence(survey: dict) -> int:
-    """Only an actual SUR-* application id marks a new-format survey."""
+    """Only an actual hierarchy ID marks a migrated survey."""
     match = SURVEY_ID_PATTERN.match(str(survey.get("id") or ""))
     return int(match.group(1)) if match else 0
 
@@ -47,7 +38,10 @@ def _historic_survey_sequence(survey: dict) -> int:
     sequence = get_application_survey_sequence(survey)
     if isinstance(survey.get("displaySequence"), int):
         sequence = max(sequence, survey["displaySequence"])
-    match = SURVEY_ID_PATTERN.match(str(survey.get("displayId") or ""))
+    match = HISTORIC_SURVEY_ID_PATTERN.match(str(survey.get("displayId") or ""))
+    old_id_match = HISTORIC_SURVEY_ID_PATTERN.match(str(survey.get("id") or ""))
+    if old_id_match:
+        sequence = max(sequence, int(old_id_match.group(1)))
     return max(sequence, int(match.group(1)) if match else 0)
 
 
@@ -86,7 +80,7 @@ def _highest_question_sequence(survey: dict, survey_sequence: int) -> int:
     highest = 0
     for question in survey.get("questions") or []:
         for candidate in (question.get("id"), question.get("displayId")):
-            match = QUESTION_ID_PATTERN.match(str(candidate or ""))
+            match = QUESTION_ID_PATTERN.match(str(candidate or "")) or HISTORIC_QUESTION_ID_PATTERN.match(str(candidate or ""))
             if match and int(match.group(1)) == survey_sequence:
                 highest = max(highest, int(match.group(2)))
     return highest
@@ -163,11 +157,11 @@ def serialize_survey(survey: dict, include_private_fields: bool = True) -> dict:
     serialized = dict(survey)
     serialized.pop("_id", None)
     # Historic display fields stay in MongoDB, but are no longer serialized.
-    for field in ("displayId", "displaySequence", "nextQuestionDisplaySequence", "nextQuestionIdSequence"):
+    for field in ("displayId", "displaySequence", "nextQuestionDisplaySequence", "nextQuestionIdSequence", "nextAnswerIdSequences", "legacyId", "archivedQuestions"):
         serialized.pop(field, None)
     if isinstance(serialized.get("questions"), list):
         serialized["questions"] = [
-            {key: value for key, value in question.items() if key != "displayId"}
+            {key: value for key, value in question.items() if key not in ("displayId", "legacyId", "legacyName")}
             if isinstance(question, dict)
             else question
             for question in serialized["questions"]
@@ -227,24 +221,6 @@ def _without_display_id(question: dict) -> dict:
     return normalized
 
 
-def _sync_survey_json_names(survey_json: dict, id_mapping: dict[str, str]) -> dict:
-    """Keep SurveyJS names and submitted answer keys equal to question IDs."""
-    normalized = deepcopy(survey_json or {})
-
-    def visit(value):
-        if isinstance(value, dict):
-            if isinstance(value.get("name"), str) and value["name"] in id_mapping:
-                value["name"] = id_mapping[value["name"]]
-            for child in value.values():
-                visit(child)
-        elif isinstance(value, list):
-            for child in value:
-                visit(child)
-
-    visit(normalized)
-    return normalized
-
-
 def _normalize_new_survey_questions(questions: list[dict], survey_sequence: int):
     normalized_questions, id_mapping = [], {}
     for position, question in enumerate(questions, start=1):
@@ -270,7 +246,7 @@ def build_survey_document(data, current_user: Optional[dict]) -> dict:
         "target": data.target,
         "questions": questions,
         "nextQuestionIdSequence": len(questions) + 1,
-        "surveyJson": _sync_survey_json_names(data.surveyJson, id_mapping),
+        "surveyJson": sync_survey_json_names(data.surveyJson, id_mapping),
         "publishToMobile": True, "publishToWebsite": True, "scheduledAt": None,
         "responseCount": 0, "sentimentBreakdown": dict(EMPTY_SENTIMENT_BREAKDOWN),
         "dominantSentiment": "Neutral", "createdAt": created_at, "updatedAt": created_at,
@@ -290,32 +266,11 @@ def validate_survey_payload(data) -> None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Survey question IDs must be unique")
 
 
-def _normalize_legacy_questions(survey: dict, questions: list[dict]):
-    existing = {_question_input_id(question): question for question in survey.get("questions") or []}
-    normalized_questions, id_mapping = [], {}
-    for question in questions:
-        question_id = _question_input_id(question)
-        if not question_id:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Legacy survey questions must retain a client-generated question ID")
-        normalized = _without_display_id(question)
-        normalized["id"] = question_id
-        if question_id in existing and existing[question_id].get("name"):
-            # Legacy SurveyJS names can be response keys in their own right.
-            # Preserve them even when the dashboard rebuilds surveyJson.
-            normalized["name"] = existing[question_id]["name"]
-            id_mapping[question_id] = normalized["name"]
-        elif "name" in normalized:
-            normalized["name"] = question_id
-        # Preserve withdrawn fields if an edit includes an existing question.
-        if question_id in existing and "displayId" in existing[question_id]:
-            normalized["displayId"] = existing[question_id]["displayId"]
-        normalized_questions.append(normalized)
-        id_mapping.setdefault(question_id, question_id)
-    return normalized_questions, id_mapping
-
-
 def _normalize_new_format_questions(survey: dict, questions: list[dict]):
     survey_sequence = get_application_survey_sequence(survey)
+    if not survey_sequence:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail="Survey ID migration must finish before this survey can be edited")
     existing = {str(question.get("id")): question for question in survey.get("questions") or []}
     new_questions = [question for question in questions if _question_input_id(question) not in existing]
     next_sequence = allocate_question_id_sequences(survey, len(new_questions))
@@ -328,8 +283,10 @@ def _normalize_new_format_questions(survey: dict, questions: list[dict]):
         normalized = _without_display_id(question)
         normalized["id"] = assigned_id
         normalized["name"] = assigned_id
-        if supplied_id in existing and "displayId" in existing[supplied_id]:
-            normalized["displayId"] = existing[supplied_id]["displayId"]
+        if supplied_id in existing:
+            for field in ("displayId", "legacyId", "legacyName"):
+                if field in existing[supplied_id]:
+                    normalized[field] = existing[supplied_id][field]
         normalized_questions.append(normalized)
         if supplied_id:
             id_mapping[supplied_id] = assigned_id
@@ -337,28 +294,56 @@ def _normalize_new_format_questions(survey: dict, questions: list[dict]):
 
 
 def build_survey_update_document(data, current_user: Optional[dict], survey: dict) -> dict:
-    if get_application_survey_sequence(survey):
-        questions, id_mapping = _normalize_new_format_questions(survey, data.questions)
-    else:
-        questions, id_mapping = _normalize_legacy_questions(survey, data.questions)
+    questions, id_mapping = _normalize_new_format_questions(survey, data.questions)
+    kept = {question["id"] for question in questions}
+    archived = list(survey.get("archivedQuestions") or [])
+    archived_ids = {question["id"] for question in archived}
+    for question in survey.get("questions") or []:
+        if question["id"] not in kept and question["id"] not in archived_ids:
+            archived.append({"id": question["id"], "legacyKey": question.get("legacyName") or question.get("legacyId") or question["id"]})
     # Do not reset publication, counters, responses, or analytics when editing.
     return {
         "title": data.title.strip(),
         "subtitle": (data.subtitle or "").strip() or "Draft mobile sentiment survey",
         "target": data.target, "questions": questions,
-        "surveyJson": _sync_survey_json_names(data.surveyJson, id_mapping),
+        "archivedQuestions": archived,
+        "surveyJson": sync_survey_json_names(data.surveyJson, id_mapping),
         "updatedAt": get_ph_datetime(), "updatedBy": get_user_snapshot(current_user),
     }
 
 
 def build_public_response_document(
-    survey_id: str,
+    survey: dict,
     data,
     platform: str,
     authenticated_mobile_user: Optional[dict] = None,
 ) -> dict:
+    survey_id = survey["id"]
+    if not get_application_survey_sequence(survey):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail="Survey ID migration must finish before responses can be submitted")
+    question_ids = {question["id"] for question in survey.get("questions") or []}
+    if any(not QUESTION_ID_PATTERN.fullmatch(question_id) or
+           not question_id.startswith(survey_id + "-Q") for question_id in question_ids):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail="Question ID migration must finish before responses can be submitted")
+    invalid = set(data.answers) - question_ids
+    if invalid:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Answers contain unknown question IDs")
+    answer_ids = {}
+    for question_id in data.answers:
+        previous = surveys_collection.find_one_and_update(
+            {"id": survey_id},
+            {"$inc": {f"nextAnswerIdSequences.{question_id}": 1}},
+            return_document=ReturnDocument.BEFORE,
+        )
+        if not previous:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Survey changed before answer IDs could be reserved")
+        sequence = (previous.get("nextAnswerIdSequences") or {}).get(question_id, 0) + 1
+        answer_ids[question_id] = format_answer_id(question_id, sequence)
     document = {
-        "id": str(uuid4()), "surveyId": survey_id, "answers": data.answers,
+        "submissionId": str(uuid4()), "surveyId": survey_id,
+        "answers": data.answers, "answerIds": answer_ids,
         "platform": platform, "visitorId": str(data.visitorId or "").strip(),
         "region": data.region or "", "metadata": data.metadata or {},
         "createdAt": get_ph_datetime(),
