@@ -6,6 +6,7 @@ def individual_analytics_entry(entry) -> dict:
         "dataset_id": str(entry.get("dataset_id", "")),
         "survey_id": str(entry.get("survey_id", "")),
         "response_id": str(entry.get("response_id", "")),
+        "submission_id": str(entry.get("submission_id", "")),
         "question_id": str(entry.get("question_id", "")),
         "report_id": str(entry.get("report_id", "")),
         "user_id": str(entry.get("user_id", "")),

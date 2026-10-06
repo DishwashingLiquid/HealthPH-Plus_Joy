@@ -1,4 +1,4 @@
-"""Contract tests for mixed legacy and application survey IDs."""
+"""Contract tests for survey, question, and answer ID allocation."""
 
 import copy
 import sys
@@ -42,14 +42,23 @@ class Collection:
 
     @staticmethod
     def _apply_update(document, update, inserted=False):
+        def target(field):
+            parts = field.split(".")
+            current = document
+            for part in parts[:-1]:
+                current = current.setdefault(part, {})
+            return current, parts[-1]
         if inserted:
             document.update(copy.deepcopy(update.get("$setOnInsert", {})))
         for field, value in update.get("$set", {}).items():
-            document[field] = copy.deepcopy(value)
+            current, key = target(field)
+            current[key] = copy.deepcopy(value)
         for field, value in update.get("$max", {}).items():
-            document[field] = max(document.get(field, value), value)
+            current, key = target(field)
+            current[key] = max(current.get(key, value), value)
         for field, value in update.get("$inc", {}).items():
-            document[field] = document.get(field, 0) + value
+            current, key = target(field)
+            current[key] = current.get(key, 0) + value
 
     def update_one(self, query, update, upsert=False):
         with self.lock:
@@ -109,6 +118,13 @@ class Data:
 
 class SentimentPulseApplicationIdTests(unittest.TestCase):
     def setUp(self):
+        # Other test modules may install their own config/pymongo stubs during
+        # unittest discovery; bind this fixture directly for either order.
+        helpers.ReturnDocument = types.SimpleNamespace(BEFORE="before")
+        helpers.surveys_collection = fake_database.surveys_collection
+        helpers.survey_responses_collection = fake_database.survey_responses_collection
+        helpers.application_settings_collection = fake_database.application_settings_collection
+        helpers.mobile_users_collection = fake_database.mobile_users_collection
         for collection in (
             fake_database.surveys_collection,
             fake_database.survey_responses_collection,
@@ -118,7 +134,7 @@ class SentimentPulseApplicationIdTests(unittest.TestCase):
             with collection.lock:
                 collection.documents.clear()
 
-    def test_legacy_records_are_not_backfilled_or_reidentified(self):
+    def test_historic_display_numbers_are_reserved_for_migration(self):
         legacy = {
             "_id": "legacy-object-id", "id": "legacy-survey-uuid",
             "displayId": "SUR-00007", "displaySequence": 7,
@@ -144,12 +160,12 @@ class SentimentPulseApplicationIdTests(unittest.TestCase):
             None,
         )
 
-        self.assertEqual(document["id"], "SUR-00001")
-        self.assertEqual([q["id"] for q in document["questions"]], ["Q-SUR00001-01", "Q-SUR00001-02"])
-        self.assertEqual([q["name"] for q in document["questions"]], ["Q-SUR00001-01", "Q-SUR00001-02"])
+        self.assertEqual(document["id"], "SUR00001")
+        self.assertEqual([q["id"] for q in document["questions"]], ["SUR00001-Q01", "SUR00001-Q02"])
+        self.assertEqual([q["name"] for q in document["questions"]], ["SUR00001-Q01", "SUR00001-Q02"])
         self.assertEqual(
             [element["name"] for element in document["surveyJson"]["pages"][0]["elements"]],
-            ["Q-SUR00001-01", "Q-SUR00001-02"],
+            ["SUR00001-Q01", "SUR00001-Q02"],
         )
 
     def test_new_format_question_ids_do_not_renumber_after_delete_or_reorder(self):
@@ -163,34 +179,20 @@ class SentimentPulseApplicationIdTests(unittest.TestCase):
             copy.deepcopy(survey),
         )
 
-        self.assertEqual([q["id"] for q in update["questions"]], ["Q-SUR00001-03", "Q-SUR00001-01", "Q-SUR00001-04"])
+        self.assertEqual([q["id"] for q in update["questions"]], ["SUR00001-Q03", "SUR00001-Q01", "SUR00001-Q04"])
         stored = fake_database.surveys_collection.find_one({"id": survey["id"]})
         self.assertEqual(stored["nextQuestionIdSequence"], 5)
-
-    def test_legacy_question_additions_keep_legacy_ids(self):
-        survey = {
-            "id": "legacy-survey-uuid",
-            "questions": [{"id": "question-old", "name": "legacy-answer-key"}],
-        }
-        update = helpers.build_survey_update_document(
-            Data(
-                [{"id": "question-old"}, {"id": "question-client-new"}],
-                {"pages": [{"elements": [{"name": "question-old"}]}]},
-            ),
-            None,
-            survey,
-        )
-        self.assertEqual([q["id"] for q in update["questions"]], ["question-old", "question-client-new"])
-        self.assertEqual(update["questions"][0]["name"], "legacy-answer-key")
-        self.assertEqual(update["surveyJson"]["pages"][0]["elements"][0]["name"], "legacy-answer-key")
+        self.assertEqual(update["archivedQuestions"][0]["id"], "SUR00001-Q02")
 
     def test_question_suffix_expands_past_ninety_nine(self):
         document = helpers.build_survey_document(Data([{"id": f"browser-{i}"} for i in range(100)]), None)
-        self.assertEqual(document["questions"][-1]["id"], "Q-SUR00001-100")
+        self.assertEqual(document["questions"][-1]["id"], "SUR00001-Q100")
+        self.assertEqual(helpers.format_survey_id(100000), "SUR100000")
+        self.assertEqual(helpers.format_answer_id("SUR00001-Q01", 10000), "SUR00001-Q01-RES10000")
 
     def test_authenticated_response_persists_verified_account_and_canonical_region(self):
         data = types.SimpleNamespace(
-            answers={"question": "answer"},
+            answers={"SUR00001-Q01": "answer"},
             visitorId="not-an-account-id",
             region="III",
             metadata={},
@@ -200,11 +202,11 @@ class SentimentPulseApplicationIdTests(unittest.TestCase):
             "regionCode": "130000000",
             "regionLabel": "National Capital Region",
         }
-        authenticated = helpers.build_public_response_document(
-            "SUR-00001", data, "website", account
-        )
+        survey = {"id": "SUR00001", "questions": [{"id": "SUR00001-Q01"}]}
+        fake_database.surveys_collection.documents.append(survey)
+        authenticated = helpers.build_public_response_document(survey, data, "website", account)
         anonymous = helpers.build_public_response_document(
-            "SUR-00001", data, "mobile"
+            survey, data, "mobile"
         )
 
         self.assertEqual(authenticated["mobileUserId"], "mu_verified")
@@ -213,6 +215,9 @@ class SentimentPulseApplicationIdTests(unittest.TestCase):
         self.assertNotIn("mobileUserId", anonymous)
         self.assertNotIn("accountLinkVerified", anonymous)
         self.assertEqual(anonymous["region"], "III")
+        self.assertEqual(authenticated["answerIds"], {"SUR00001-Q01": "SUR00001-Q01-RES0001"})
+        self.assertEqual(anonymous["answerIds"], {"SUR00001-Q01": "SUR00001-Q01-RES0002"})
+        self.assertNotEqual(authenticated["submissionId"], anonymous["submissionId"])
 
     def test_concurrent_survey_reservations_are_unique_and_preserve_historic_counter(self):
         fake_database.application_settings_collection.documents.append(
@@ -234,7 +239,7 @@ class SentimentPulseApplicationIdTests(unittest.TestCase):
         self.assertEqual(sorted(values), list(range(25, 37)))
 
     def test_concurrent_question_reservations_are_unique(self):
-        survey = {"id": "SUR-00001", "questions": [{"id": "Q-SUR00001-01"}], "nextQuestionIdSequence": 2}
+        survey = {"id": "SUR00001", "questions": [{"id": "SUR00001-Q01"}], "nextQuestionIdSequence": 2}
         fake_database.surveys_collection.documents.append(survey)
         values = []
         lock = threading.Lock()
@@ -250,6 +255,28 @@ class SentimentPulseApplicationIdTests(unittest.TestCase):
         for thread in threads:
             thread.join()
         self.assertEqual(sorted(values), list(range(2, 14)))
+
+    def test_answer_numbers_restart_per_question_and_allocate_concurrently(self):
+        survey = {"id": "SUR00001", "questions": [{"id": "SUR00001-Q01"}, {"id": "SUR00001-Q02"}]}
+        fake_database.surveys_collection.documents.append(survey)
+        values = []
+        lock = threading.Lock()
+
+        def reserve():
+            data = types.SimpleNamespace(answers={"SUR00001-Q01": "a", "SUR00001-Q02": "b"},
+                                         visitorId="", region="", metadata={})
+            result = helpers.build_public_response_document(survey, data, "website")
+            with lock:
+                values.append(result["answerIds"])
+
+        threads = [threading.Thread(target=reserve) for _ in range(12)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        for question_id in ("SUR00001-Q01", "SUR00001-Q02"):
+            self.assertEqual(sorted(value[question_id] for value in values),
+                             [helpers.format_answer_id(question_id, number) for number in range(1, 13)])
 
 
 if __name__ == "__main__":

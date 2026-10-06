@@ -46,7 +46,7 @@ const ArticleItem = ({ article, articlePage, isLoading, onPreviewClick }) => {
               iconName="Document"
               height="48px"
               width="48px"
-              fill="#6A8EB5"
+              fill="#32418C"
             />
           </div>
         )}

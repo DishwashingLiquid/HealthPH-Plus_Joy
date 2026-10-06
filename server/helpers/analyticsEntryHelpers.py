@@ -170,9 +170,10 @@ def build_social_media_analytics_entries(
 def build_survey_response_analytics_entries(response_document, survey_document):
     entries = []
 
-    response_id = str(response_document.get("_id") or response_document.get("id") or "")
+    submission_id = str(response_document.get("submissionId") or response_document.get("id") or response_document.get("_id") or "")
     survey_id = str(response_document.get("surveyId") or "")
     answers = response_document.get("answers") or {}
+    answer_ids = response_document.get("answerIds") or {}
     created_at = response_document.get("createdAt") or get_ph_datetime()
     questions = {}
     for question in survey_document.get("questions") or []:
@@ -185,13 +186,16 @@ def build_survey_response_analytics_entries(response_document, survey_document):
     user_location = response_document.get("user_location") or response_document.get("userLocation") or {}
 
     for question_id, answer_value in answers.items():
+        response_id = answer_ids.get(question_id)
+        if not response_id:
+            continue
         text = _clean_text_value(answer_value)
         question = questions.get(str(question_id), {})
 
         entries.append(
             {
                 "source_type": "survey_response",
-                "source_id": f"{response_id}:{question_id}",
+                "source_id": response_id,
                 "survey_id": survey_id,
                 "response_id": response_id,
                 "question_id": str(question_id),

@@ -396,7 +396,7 @@ async def create_public_survey_response(
             )
 
     response = build_public_response_document(
-        survey_id,
+        survey,
         data,
         platform,
         authenticated_mobile_user=authenticated_mobile_user,
@@ -414,7 +414,11 @@ async def create_public_survey_response(
 
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
-        content={"message": "Sentiment Pulse survey response recorded"},
+        content={
+            "message": "Sentiment Pulse survey response recorded",
+            "submissionId": response["submissionId"],
+            "answerIds": response["answerIds"],
+        },
     )
 
 
