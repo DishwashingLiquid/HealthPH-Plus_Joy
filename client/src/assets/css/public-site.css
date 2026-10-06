@@ -23,29 +23,32 @@ html { scroll-behavior: smooth; }
     width: min(1376px, 100%);
     min-height: 76px;
     margin: 0 auto;
-    padding: 10px 18px 10px 28px;
+    padding: 10px 16px 10px 20px;
     border-radius: 24px;
     background: rgba(255, 255, 255, 0.96);
     box-shadow: -6px -6px 14px rgba(255,255,255,.95), 7px 8px 15px rgba(70,83,96,.14);
     display: flex;
     align-items: center;
-    gap: 24px;
+    gap: 12px;
     pointer-events: auto;
   }
 
   .public-logo { display: flex; align-items: center; flex-shrink: 0; }
   .public-logo img { width: 202px; height: 42px; object-fit: contain; object-position: left center; }
-  .public-nav-content { display: flex; align-items: center; justify-content: space-between; gap: 28px; flex: 1; }
-  .public-nav-links { display: flex; align-items: center; justify-content: center; gap: 8px; list-style: none; margin: 0 auto; padding: 0; }
+  .public-nav-content { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: 1; }
+  .public-nav-links { display: flex; align-items: center; justify-content: center; gap: 2px; list-style: none; margin: 0 auto; padding: 0; }
   .public-nav-links a, .public-download-button {
     appearance: none; border: 0; background: transparent; cursor: pointer;
     display: inline-flex; align-items: center; justify-content: center;
-    min-height: 48px; padding: 0 19px; border-radius: 14px;
+    min-height: 48px; padding: 0 10px; border-radius: 14px; white-space: nowrap;
     color: #171e26; font-size: 16px; font-weight: 600; text-decoration: none;
     transition: background-color .2s ease, box-shadow .2s ease, color .2s ease, transform .2s ease;
   }
   .public-nav-links a:hover { background: rgba(50,65,140,.08); color: #32418C; }
-  .public-download-button { color: #fff !important; background-color: #32418C !important; padding-inline: 25px; box-shadow: -2px -2px 5px rgba(255,255,255,.36), 4px 5px 9px rgba(50,65,140,.25); }
+  .public-nav-links a[aria-current="location"] { background: rgba(251,209,23,.6); color: #171e26; }
+  .public-nav-links a[aria-current="location"]:hover { background: rgba(251,209,23,.7); color: #171e26; }
+  .public-nav-links a:focus-visible { outline: 3px solid #32418C; outline-offset: 3px; }
+  .public-download-button { color: #fff !important; background-color: #32418C !important; padding-inline: 16px; box-shadow: -2px -2px 5px rgba(255,255,255,.36), 4px 5px 9px rgba(50,65,140,.25); }
   .public-download-button:hover, .public-primary-button:hover { background: #32418C !important; transform: translateY(-1px); }
   .public-nu-logo { width: 130px; height: 48px; object-fit: contain; flex-shrink: 0; }
   .public-menu-button { display: none; }
@@ -293,10 +296,21 @@ html { scroll-behavior: smooth; }
   .public-team-modal__copy { min-width: 0; align-self: center; }
   .public-team-modal__copy p { max-width: 34ch; margin: 0; color: #465360; font-size: clamp(1.15rem, .98rem + .6vw, 1.55rem); line-height: 1.85; letter-spacing: -.01em; white-space: pre-line; }
 
+  @media (max-width: 1180px) {
+    .public-nav { position: relative; }
+    .public-menu-button { display: grid; gap: 4px; margin-left: auto; padding: 9px; border: 0; background: transparent; cursor: pointer; }
+    .public-menu-button span { display: block; width: 22px; height: 2px; background: #171e26; border-radius: 3px; }
+    .public-nav-content { position: absolute; top: calc(100% + 8px); right: 0; left: 0; display: none; padding: 14px; border-radius: 18px; background: #fff; box-shadow: 0 8px 18px rgba(70,83,96,.18); }
+    .public-nav-content.is-open { display: block; }
+    .public-nav-links { display: grid; gap: 4px; }
+    .public-nav-links li, .public-nav-links a, .public-download-button { width: 100%; }
+    .public-nu-logo { display: none; }
+  }
+
   @media (max-width: 1050px) {
     .public-nav { padding-inline: 20px; }
     .public-logo img { width: 174px; }
-    .public-nav-links a, .public-download-button { padding-inline: 12px; font-size: 14px; }
+    .public-nav-links a, .public-download-button { padding-inline: 12px; }
     .public-nu-logo { width: 112px; }
     .public-hero-grid, .public-site .project-grid { grid-template-columns: 1fr; }
     .phone-stage { width: min(570px, 100%); margin: 0 auto; }
@@ -305,15 +319,8 @@ html { scroll-behavior: smooth; }
 
   @media (max-width: 760px) {
     .public-header { padding: 12px 16px 0; }
-    .public-nav { position: relative; min-height: 63px; border-radius: 18px; padding: 9px 14px 9px 18px; }
+    .public-nav { min-height: 63px; border-radius: 18px; padding: 9px 14px 9px 18px; }
     .public-logo img { width: 154px; height: 35px; }
-    .public-menu-button { display: grid; gap: 4px; padding: 9px; border: 0; background: transparent; cursor: pointer; }
-    .public-menu-button span { display: block; width: 22px; height: 2px; background: #171e26; border-radius: 3px; }
-    .public-nav-content { position: absolute; top: calc(100% + 8px); right: 0; left: 0; display: none; padding: 14px; border-radius: 18px; background: #fff; box-shadow: 0 8px 18px rgba(70,83,96,.18); }
-    .public-nav-content.is-open { display: block; }
-    .public-nav-links { display: grid; gap: 4px; }
-    .public-nav-links li, .public-nav-links a, .public-download-button { width: 100%; }
-    .public-nu-logo { display: none; }
     .public-shell { width: min(100% - 32px, 570px); }
     .public-hero { min-height: auto; padding: 76px 0 70px; }
     .public-hero-title { font-size: 32px; }

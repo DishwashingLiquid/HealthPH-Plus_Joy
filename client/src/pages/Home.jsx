@@ -143,7 +143,7 @@ const Home = () => {
 
   return (
     <div className="public-site">
-      <HomeNavbar />
+      <HomeNavbar trackSections />
       <main>
         <section id="home" className="public-section public-hero">
           <div className="public-shell public-hero-grid">
