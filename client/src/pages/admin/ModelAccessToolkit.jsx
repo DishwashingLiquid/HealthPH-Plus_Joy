@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { format } from "date-fns";
 
@@ -334,13 +334,15 @@ const ModelComparison = () => {
 
 const RAW_DATASET_REQUIRED_HEADERS = [
     "id",
-    "language",
     "text",
     "location",
     "date_posted",
     "source",
     "date_collected",
 ];
+
+const ACTIVE_ANALYTICS_STATUSES = ["QUEUED", "PROCESSING"];
+const PROCESSABLE_ANALYTICS_STATUSES = ["SUBMITTED", "FAILED"];
 
 const normalizeCsvHeader = (header) =>
     String(header || "").trim().toLowerCase().replace(/\s+/g, "_");    
@@ -379,12 +381,27 @@ const DataManagement = () => {
 
     const [createAccountActivity] = useCreateAccountActivityMutation();
 
+    const [datasetPollingInterval, setDatasetPollingInterval] = useState(0);
+
     const {
         data: datasetsByUser,
-        isFetching: isDatasetsByUserFetching,
-    } = useFetchDatasetsByUserQuery(user.id);
+        isLoading: isDatasetsByUserLoading,
+    } = useFetchDatasetsByUserQuery(user.id, {
+        pollingInterval: datasetPollingInterval,
+        skipPollingIfUnfocused: true,
+    });
 
     const datasets = datasetsByUser || [];
+
+    const hasActiveDataset = datasets.some((dataset) =>
+        ["QUEUED", "PROCESSING"].includes(
+            String(dataset.dataset_status || "").toUpperCase()
+        )
+    );
+
+    useEffect(() => {
+        setDatasetPollingInterval(hasActiveDataset ? 3000 : 0);
+    }, [hasActiveDataset]);
 
     const [datasetSearch, setDatasetSearch] = useState("");
     const [datasetStatusFilter, setDatasetStatusFilter] = useState("all");
@@ -394,16 +411,18 @@ const DataManagement = () => {
 
     const [selectedEntryIds, setSelectedEntryIds] = useState([]);
 
+    const [analyticsPollingInterval, setAnalyticsPollingInterval] = useState(0);
+
     const [entrySearch, setEntrySearch] = useState("");
     const [entryStatusFilter, setEntryStatusFilter] = useState("all");
 
     const {
         data: analyticsEntriesData,
-        isFetching: isAnalyticsEntriesFetching,
+        isLoading: isAnalyticsEntriesLoading,
         isError: isAnalyticsEntriesError,
         error: analyticsEntriesError,
         refetch: refetchAnalyticsEntries,
-    } = useFetchAnalyticsEntriesQuery (
+    } = useFetchAnalyticsEntriesQuery(
         {
             sourceType: dataSourceView,
             analysisStatus: entryStatusFilter,
@@ -413,11 +432,25 @@ const DataManagement = () => {
         },
         {
             skip: dataSourceView === "social_media",
+            pollingInterval: analyticsPollingInterval,
+            skipPollingIfUnfocused: true,
         }
     );
 
     const analyticsEntries = analyticsEntriesData?.entries || [];
     const analyticsEntriesTotal = analyticsEntriesData?.total || 0;
+
+    const hasActiveAnalyticsEntries = analyticsEntries.some((entry) =>
+        ACTIVE_ANALYTICS_STATUSES.includes(entry.analysis_status)
+    );
+
+    useEffect(() => {
+        setAnalyticsPollingInterval(
+            dataSourceView !== "social_media" && hasActiveAnalyticsEntries
+                ? 3000
+                : 0
+        );
+    }, [dataSourceView, hasActiveAnalyticsEntries]);
 
     const [processAnalyticsEntries, { isLoading: isProcessEntriesLoading }] =
         useProcessAnalyticsEntriesMutation();
@@ -426,15 +459,26 @@ const DataManagement = () => {
     const [entryDetailsModalActive, setEntryDetailsModalActive] = useState(false);
     const [entryDetailsModalData, setEntryDetailsModalData] = useState(null);
 
+    const [entryProcessRequestError, setEntryProcessRequestError] = useState("");
+
+    const [selectedEntriesProcessError, setSelectedEntriesProcessError] = useState("");
+
     const openEntryDetailsModal = (entry) => {
+        setEntryProcessRequestError("");
         setEntryDetailsModalData(entry);
         setEntryDetailsModalActive(true);
     };
 
     const closeEntryDetailsModal = () => {
+        setEntryProcessRequestError("");
         setEntryDetailsModalData(null);
         setEntryDetailsModalActive(false);
     };
+
+    useEffect(() => {
+        setSelectedEntryIds([]);
+        setSelectedEntriesProcessError("");
+    }, [dataSourceView]);
 
     /* UPLOAD MODAL STATE */
     const inputFile = useRef(null);
@@ -558,17 +602,24 @@ const DataManagement = () => {
 
         try {
             const payload = new FormData();
+            const uploadedFilename = uploadPreviewData.filename;
+
             payload.append("file", selectedFile);
 
             await uploadFile(payload).unwrap();
 
-            await createAccountActivity({
-                user_id: user.id,
-                entry:  `Uploaded dataset: ${uploadPreviewData.filename}`,
-                module: "Model Access and Toolkit",
-            }).unwrap();
-
+            //Close and clear the modal as soon as the upload succeeds.
             resetUploadState();
+
+            try {
+                await createAccountActivity({
+                    user_id: user.id,
+                    entry: `Uploaded dataset: ${uploadedFilename}`,
+                    module: "Model Access and Toolkit",
+                }).unwrap();
+            } catch (activityError) {
+                console.error("Failed to record upload activity", activityError);
+            }
         } catch (error) {
             const message =
                 error?.data?.detail ||
@@ -584,7 +635,6 @@ const DataManagement = () => {
         const sampleRows = [
             {
                 id: "0001",
-                language: "english",
                 text: "Sample post text about lung-related diseases.",
                 location: "Manila",
                 date_posted: "2026-01-15",
@@ -623,22 +673,17 @@ const DataManagement = () => {
         try {
             await processDataset(id).unwrap();
 
-            setPreviewModalData((currentData) =>
-                currentData.id === id
-                    ? {
-                        ...currentData,
-                        dataset_status: "QUEUED",
-                        processing_error: "",
-                        processed_at: "",
-                    }
-                    : currentData
-            );
+            setPreviewModalActive(false);
 
-            await createAccountActivity({
-                user_id: user.id,
-                entry: `started dataset processing: ${filename}`,
-                module: "Model Access and Toolkit",
-            }).unwrap();
+            try {
+                await createAccountActivity({
+                    user_id: user.id,
+                    entry: `Started dataset processing: ${filename}`,
+                    module: "Model Access and Toolkit",
+                }).unwrap();
+            } catch (activityError) {
+                console.error("Failed to record processing activity", activityError);
+            }
         } catch (error) {
             console.error("Failed to process dataset", error);
         }
@@ -772,14 +817,15 @@ const DataManagement = () => {
     );
 
     const processableEntries = analyticsEntries.filter((entry) =>
-        ["pending", "failed"].includes(String(entry.analysis_status || "").toLowerCase())
+        PROCESSABLE_ANALYTICS_STATUSES.includes(entry.analysis_status)
     );
 
     const selectedProcessableEntries = selectedEntries.filter((entry) =>
-        ["pending", "failed"].includes(String(entry.analysis_status || "").toLowerCase())
+        PROCESSABLE_ANALYTICS_STATUSES.includes(entry.analysis_status)
     );
 
     const toggleEntrySelection = (id) => {
+        setSelectedEntriesProcessError("");
         setSelectedEntryIds((currentIds) =>
             currentIds.includes(id)
                 ? currentIds.filter((currentId) => currentId !== id)
@@ -794,6 +840,7 @@ const DataManagement = () => {
             visibleProcessableIds.length > 0 &&
             visibleProcessableIds.every((id) => selectedEntryIds.includes(id));
 
+        setSelectedEntriesProcessError("");
         setSelectedEntryIds((currentIds) =>
             allVisibleSelected
                 ? currentIds.filter((id) => !visibleProcessableIds.includes(id))
@@ -802,6 +849,7 @@ const DataManagement = () => {
     };
 
     const clearSelectedEntries = () => {
+        setSelectedEntriesProcessError("");
         setSelectedEntryIds([]);
     };
 
@@ -855,16 +903,24 @@ const DataManagement = () => {
     };
 
     const handleDeleteDataset = async () => {
+        const deletedFilename = deleteModalData.filename;
+
         try {
             await deleteDataset(deleteModalData.id).unwrap();
 
-            await createAccountActivity({
-                user_id: user.id,
-                entry: `Deleted dataset: ${deleteModalData.filename}`,
-                module: "Model Access and Toolkit",
-            }).unwrap();
+            setDeleteModalActive(false);
+            setDeleteModalData({ id: "", filename: "" });
+            setDeleteError("");
 
-            closeDeleteModal();
+            try {
+                await createAccountActivity({
+                    user_id: user.id,
+                    entry: `Deleted dataset: ${deletedFilename}`,
+                    module: "Model Access and Toolkit",
+                }).unwrap();
+            } catch (activityError) {
+                console.error("Failed to record deletion activity", activityError);
+            }
         } catch (error) {
             setDeleteError("Failed to delete dataset. Please try again.");
             console.error("Failed to delete dataset", error);
@@ -886,6 +942,8 @@ const DataManagement = () => {
     };
 
     const handleConfirmBulkAction = async () => {
+        let activityEntry = "";
+
         try {
             if (bulkActionType === "download") {
                 for (const dataset of selectedDatasets) {
@@ -895,16 +953,12 @@ const DataManagement = () => {
                     });
                 }
 
-                await createAccountActivity({
-                    user_id: user.id,
-                    entry: `Downloaded ${selectedDatasets.length} datasets`,
-                    module: "Model Access and Toolkit",
-                }).unwrap();
-            }
-
-            if (bulkActionType === "process") {
+                activityEntry = `Downloaded ${selectedDatasets.length} datasets`;
+            } else if (bulkActionType === "process") {
                 if (selectedProcessableDatasets.length === 0) {
-                    setBulkActionError("No selected datasets are ready for processing.");
+                    setBulkActionError(
+                        "No selected datasets are ready for processing."
+                    );
                     return;
                 }
 
@@ -912,27 +966,33 @@ const DataManagement = () => {
                     await processDataset(dataset.id).unwrap();
                 }
 
-                await createAccountActivity({
-                    user_id: user.id,
-                    entry: `Started processing ${selectedProcessableDatasets.length} datasets`,
-                    module: "Model Access and Toolkit",
-                }).unwrap();
-            }
-
-            if (bulkActionType === "delete") {
+                activityEntry =
+                    `Started processing ${selectedProcessableDatasets.length} datasets`;
+            } else if (bulkActionType === "delete") {
                 for (const dataset of selectedDatasets) {
                     await deleteDataset(dataset.id).unwrap();
                 }
 
-                await createAccountActivity({
-                    user_id: user.id,
-                    entry: `Deleted ${selectedDatasets.length} datasets`,
-                    module: "Model Access and Toolkit",
-                }).unwrap();
+                activityEntry = `Deleted ${selectedDatasets.length} datasets`;
             }
 
             setSelectedDatasetIds([]);
             closeBulkActionModal();
+
+            if (activityEntry) {
+                try {
+                    await createAccountActivity({
+                        user_id: user.id,
+                        entry: activityEntry,
+                        module: "Model Access and Toolkit",
+                    }).unwrap();
+                } catch (activityError) {
+                    console.error(
+                        "Failed to record bulk dataset activity",
+                        activityError
+                    );
+                }
+            }
         } catch (error) {
             setBulkActionError("Bulk action failed. Please try again.");
             console.error("Bulk action failed", error);
@@ -944,18 +1004,72 @@ const DataManagement = () => {
 
         if (entryIds.length === 0) return;
 
+        setSelectedEntriesProcessError("");
+
         try {
             await processAnalyticsEntries(entryIds).unwrap();
 
-            await createAccountActivity({
-                user_id: user.id,
-                entry: `Started processing ${entryIds.length} analytics entries`,
-                module: "Model Access and Toolkit",
-            }).unwrap();
-
             setSelectedEntryIds([]);
+
+            try {
+                await createAccountActivity({
+                    user_id: user.id,
+                    entry: `Queued ${entryIds.length} analytics entries for language processing`,
+                    module: "Model Access and Toolkit",
+                }).unwrap();
+            } catch (activityError) {
+                console.error(
+                    "Failed to record analytics processing activity",
+                    activityError
+                );
+            }
         } catch (error) {
-            console.error("Failed to process analytics entries", error);
+            setSelectedEntriesProcessError(
+                getRequestErrorMessage(
+                    error,
+                    "Unable to queue the selected entries. Please try again."
+                )
+            );
+
+            console.error("Failed to process selected analytics entries", error);
+        }
+    };
+
+    const handleProcessEntry = async (entry) => {
+        if (
+            !PROCESSABLE_ANALYTICS_STATUSES.includes(entry.analysis_status)
+        ) {
+            return;
+        }
+
+        setEntryProcessRequestError("");
+
+        try {
+            await processAnalyticsEntries([entry.id]).unwrap();
+
+            closeEntryDetailsModal();
+
+            try {
+                await createAccountActivity({
+                    user_id: user.id,
+                    entry: "Queued 1 analytics entry for language processing",
+                    module: "Model Access and Toolkit",
+                }).unwrap();
+            } catch (activityError) {
+                console.error(
+                    "Failed to record analytics processing activity",
+                    activityError
+                );
+            }
+        } catch (error) {
+            setEntryProcessRequestError(
+                getRequestErrorMessage(
+                    error,
+                    "Unable to queue this entry for processing. Please try again."
+                )
+            );
+
+            console.error("Failed to process analytics entry", error);
         }
     };
 
@@ -964,11 +1078,6 @@ const DataManagement = () => {
             title: "Social Media Datasets",
             description: "Uploaded social media CSV files prepared for analytics and model processing.",
             totalLabel: "Total datasets",
-        },
-        survey_response: {
-            title: "Survey Responses",
-            description: "Survey response entries prepared for analytics and NLP processing.",
-            totalLabel: "Total entries",
         },
         self_report: {
             title: "Self Reports",
@@ -992,11 +1101,6 @@ const DataManagement = () => {
                         label="Social Media Datasets"
                         active={dataSourceView === "social_media"}
                         onClick={() => setDataSourceView("social_media")}
-                    />
-                    <DataSourcePill
-                        label="Survey Responses"
-                        active={dataSourceView === "survey_response"}
-                        onClick={() => setDataSourceView("survey_response")}
                     />
                     <DataSourcePill
                         label="Self Reports"
@@ -1078,10 +1182,9 @@ const DataManagement = () => {
                             >
                                 <option value="all">All Status</option>
                                 <option value="UPLOADED">Uploaded</option>
-                                <option value="RAW">Raw</option>
                                 <option value="QUEUED">Queued</option>
                                 <option value="PROCESSING">Processing</option>
-                                <option value="ANNOTATED">Annotated</option>
+                                <option value="PROCESSED">Processed</option>
                                 <option value="FAILED">Failed</option>
                             </ToolbarSelect>
                         ) : (
@@ -1091,10 +1194,11 @@ const DataManagement = () => {
                                 className="w-full md:w-[180px]"
                             >
                                 <option value="all">All Status</option>
-                                <option value="pending">Pending</option>
-                                <option value="processing">Processing</option>
-                                <option value="completed">Completed</option>
-                                <option value="failed">Failed</option>
+                                <option value="SUBMITTED">Submitted</option>
+                                <option value="QUEUED">Queued</option>
+                                <option value="PROCESSING">Processing</option>
+                                <option value="PROCESSED">Processed</option>
+                                <option value="FAILED">Failed</option>
                             </ToolbarSelect>
                         )}
                     </div>
@@ -1139,7 +1243,7 @@ const DataManagement = () => {
                         </div>
                     )}
 
-                    {isDatasetsByUserFetching ? (
+                    {isDatasetsByUserLoading ? (
                         <div className="min-w-full overflow-y-hidden h-[300px]">
                             <SkeletonBody columns={6} />
                         </div>
@@ -1233,9 +1337,10 @@ const DataManagement = () => {
                     sourceType={dataSourceView}
                     entries={analyticsEntries}
                     total={analyticsEntriesTotal}
-                    isLoading={isAnalyticsEntriesFetching}
+                    isLoading={isAnalyticsEntriesLoading}
                     isError={isAnalyticsEntriesError}
                     error={analyticsEntriesError}
+                    actionError={selectedEntriesProcessError}
                     selectedEntryIds={selectedEntryIds}
                     selectedProcessableCount={selectedProcessableEntries.length}
                     isProcessing={isProcessEntriesLoading}
@@ -1289,7 +1394,10 @@ const DataManagement = () => {
             <AnalyticsEntryDetailsModal
                 entry={entryDetailsModalData}
                 sourceType={dataSourceView}
+                isProcessing={isProcessEntriesLoading}
+                requestError={entryProcessRequestError}
                 onClose={closeEntryDetailsModal}
+                onProcess={() => handleProcessEntry(entryDetailsModalData)}
             />
         )}
         {deleteModalActive && (
@@ -1343,6 +1451,7 @@ const AnalyticsEntriesPanel = ({
     isLoading = false,
     isError = false,
     error,
+    actionError,
     selectedEntryIds = [],
     selectedProcessableCount = 0,
     isProcessing = false,
@@ -1355,7 +1464,7 @@ const AnalyticsEntriesPanel = ({
 }) => {
 
     const processableEntries = entries.filter((entry) =>
-        ["pending", "failed"].includes(String(entry.analysis_status || "").toLowerCase())
+        PROCESSABLE_ANALYTICS_STATUSES.includes(entry.analysis_status)
     );
 
     const allVisibleProcessableSelected =
@@ -1375,6 +1484,14 @@ const AnalyticsEntriesPanel = ({
 
     return (
         <div>
+            {actionError && (
+                <div
+                    className="mb-[16px] rounded-[8px] border border-[#FCA5A5] bg-[#FEF2F2] px-[12px] py-[10px] text-sm text-[#B42318]"
+                    role="alert"
+                >
+                    {actionError}
+                </div>
+            )}
             {selectedCount > 0 && (
                 <div className="mb-[16px] flex flex-col gap-[10px] rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] px-[14px] py-[12px] md:flex-row md:items-center md:justify-between">
                     <p className="text-sm text-gray-600">
@@ -1461,9 +1578,10 @@ const AnalyticsEntriesPanel = ({
                         </thead>
                         <tbody>
                             {entries.map((entry) => {
-                                const status = String(entry.analysis_status || "").toLowerCase();
-                                const isProcessed = status === "completed";
-                                const isProcessable = ["pending", "failed"].includes(status);
+                                const status = entry.analysis_status || "SUBMITTED";
+                                const isProcessed = status === "PROCESSED";
+                                const isProcessable =
+                                    PROCESSABLE_ANALYTICS_STATUSES.includes(status);
 
                                 return (
                                     <tr
@@ -1512,7 +1630,7 @@ const AnalyticsEntriesPanel = ({
                                                     }
                                                 </td>
                                                 <td className="py-[14px] px-[10px]">
-                                                    <DatasetStatusBadge status={entry.analysis_status || "pending"} />
+                                                    <DatasetStatusBadge status={entry.analysis_status || "SUBMITTED"} />
                                                 </td>
                                             </>
                                         ) : (
@@ -1536,7 +1654,7 @@ const AnalyticsEntriesPanel = ({
                                                     }
                                                 </td>
                                                 <td className="py-[14px] px-[10px]">
-                                                    <DatasetStatusBadge status={entry.analysis_status || "pending"} />
+                                                    <DatasetStatusBadge status={entry.analysis_status || "SUBMITTED"} />
                                                 </td>
                                             </>
                                         )}
@@ -1596,8 +1714,27 @@ const DetailRow = ({ label, value }) => (
     </div>
 );
 
-const AnalyticsEntryDetailsModal = ({ entry, sourceType, onClose }) => {
+const AnalyticsEntryDetailsModal = ({
+    entry,
+    sourceType,
+    isProcessing,
+    requestError,
+    onClose,
+    onProcess,
+}) => {
     const isSurveySource = sourceType === "survey_response";
+
+    const status = entry.analysis_status || "SUBMITTED";
+
+    const canProcess =
+        PROCESSABLE_ANALYTICS_STATUSES.includes(status);
+
+    const processLabel =
+        status === "FAILED" ? "Retry Processing" : "Process";
+
+    const displayedError =
+        requestError ||
+        (status === "FAILED" ? entry.analysis_error : "");
 
     const location = isSurveySource
         ? formatUserLocation(entry.user_location)
@@ -1641,11 +1778,20 @@ const AnalyticsEntryDetailsModal = ({ entry, sourceType, onClose }) => {
                             </p>
                         </div>
 
-                        <DatasetStatusBadge status={entry.analysis_status || "pending"} />
+                        <DatasetStatusBadge status={status} />
                     </div>
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto p-[20px]">
+                    {displayedError && (
+                        <div
+                            className="mb-[16px] rounded-[8px] border border-[#FCA5A5] bg-[#FEF2F2] px-[12px] py-[10px] text-sm text-[#B42318]"
+                            role="alert"
+                        >
+                            {displayedError}
+                        </div>
+                    )}
+
                     <div className="grid gap-[16px] md:grid-cols-2">
                         {isSurveySource && (
                             <>
@@ -1678,36 +1824,28 @@ const AnalyticsEntryDetailsModal = ({ entry, sourceType, onClose }) => {
                             {entry.text || "-"}
                         </div>
                     </div>
-
-                    <div className="mt-[18px] grid gap-[16px] md:grid-cols-2">
-                        <div>
-                            <p className="text-xs font-medium uppercase text-gray-400">
-                                Metadata
-                            </p>
-                            <pre className="mt-[6px] max-h-[220px] overflow-auto rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] p-[12px] text-xs text-gray-700">
-                                {JSON.stringify(entry.metadata || {}, null, 2)}
-                            </pre>
-                        </div>
-
-                        <div>
-                            <p className="text-xs font-medium uppercase text-gray-400">
-                                Analysis
-                            </p>
-                            <pre className="mt-[6px] max-h-[220px] overflow-auto rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] p-[12px] text-xs text-gray-700">
-                                {JSON.stringify(entry.analysis || {}, null, 2)}
-                            </pre>
-                        </div>
-                    </div>
                 </div>
 
-                <div className="flex justify-end border-t border-[#E5E5E5] px-[20px] py-[16px]">
+                <div className="flex justify-end gap-[10px] border-t border-[#E5E5E5] px-[20px] py-[16px]">
                     <button
                         type="button"
                         className="prod-btn-base prod-btn-secondary"
                         onClick={onClose}
+                        disabled={isProcessing}
                     >
                         Close
                     </button>
+
+                    {canProcess && (
+                        <button
+                            type="button"
+                            className={MODAL_PRIMARY_BUTTON_CLASSES}
+                            onClick={onProcess}
+                            disabled={isProcessing}
+                        >
+                            {isProcessing ? "Processing..." : processLabel}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -1715,15 +1853,16 @@ const AnalyticsEntryDetailsModal = ({ entry, sourceType, onClose }) => {
 };
 
 const DatasetStatusBadge = ({ status }) => {
-    const label = status || "Unknown";
+    const label = status || "UNKNOWN";
+
     const statusColor = {
         UPLOADED: {
             backgroundColor: "#DBEAFE",
             color: "#2563EB",
         },
-        RAW: {
-            backgroundColor: "#F3F4F6",
-            color: "#6B7280",
+        SUBMITTED: {
+            backgroundColor: "#DBEAFE",
+            color: "#2563EB",
         },
         QUEUED: {
             backgroundColor: "#E0E7FF",
@@ -1733,7 +1872,7 @@ const DatasetStatusBadge = ({ status }) => {
             backgroundColor: "#FEF3C7",
             color: "#D97706",
         },
-        ANNOTATED: {
+        PROCESSED: {
             backgroundColor: "#D1FAE5",
             color: "#059669",
         },
@@ -1741,12 +1880,16 @@ const DatasetStatusBadge = ({ status }) => {
             backgroundColor: "#FEE2E2",
             color: "#DC2626",
         },
+        UNKNOWN: {
+            backgroundColor: "#F3F4F6",
+            color: "#6B7280",
+        },
     };
 
     return (
         <span
-            className="px-[8px] py-[4px] rounded-full text-xs font-medium"
-            style={statusColor[label.toUpperCase()] ?? statusColor.RAW}
+            className="rounded-full px-[8px] py-[4px] text-xs font-medium"
+            style={statusColor[label] ?? statusColor.UNKNOWN}
         >
             {label}
         </span>
@@ -1867,7 +2010,7 @@ const DatasetPreviewModal = ({
             text: "Dataset processing is currently in progress.",
             className: "border-[#FDE68A] bg-[#FFFBEB] text-[#B45309]",
         },
-        ANNOTATED: {
+        PROCESSED: {
             text: "Dataset has been processed and is ready for dashboard use.",
             className: "border-[#A7F3D0] bg-[#ECFDF5] text-[#047857]",
         },
@@ -2186,7 +2329,7 @@ const TrainingLogs = () => {
     const getTrainingStatus = (status) => {
         const normalizedStatus = String(status || "").toUpperCase();
 
-        if (normalizedStatus === "ANNOTATED") return "Completed";
+        if (normalizedStatus === "PROCESSED") return "Completed";
         if (normalizedStatus === "PROCESSING") return "Running";
         if (normalizedStatus === "FAILED") return "Failed";
         if (normalizedStatus === "QUEUED") return "Queued";

@@ -3,6 +3,7 @@ import pandas as pd
 from helpers.miscHelpers import get_ph_datetime
 
 DEFAULT_ANALYSIS_TASKS = [
+    "language_detection",
     "sentiment",
     "disease_classification",
     "misinformation",
@@ -124,7 +125,7 @@ def build_social_media_analytics_entries(
                 "uploaded_by": str(uploaded_by),
 
                 "text": text,
-                "language": _clean_text_value(row.get("language")),
+                "language": "",
                 "source_platform": _clean_text_value(row.get("source")),
 
                 "location": {
@@ -142,6 +143,12 @@ def build_social_media_analytics_entries(
                 "analysis_tasks": DEFAULT_ANALYSIS_TASKS,
 
                 "analysis": {
+                    "language_detection": {
+                        "status": "pending",
+                        "detection_source": "",
+                        "confidence": None,
+                        "completed_at": None,
+                    },
                     "sentiment": None,
                     "sentiment_score": None,
                     "disease_labels": [],
@@ -160,18 +167,7 @@ def build_social_media_analytics_entries(
 
     return entries
 
-def _is_analyzable_text(value):
-    text = _clean_text_value(value)
-
-    if not text:
-        return False
-
-    if text.isnumeric():
-        return False
-
-    return len(text) >= 3
-
-def build_survey_response_analytics_entries(response_document):
+def build_survey_response_analytics_entries(response_document, survey_document):
     entries = []
 
     submission_id = str(response_document.get("submissionId") or response_document.get("id") or response_document.get("_id") or "")
@@ -179,6 +175,13 @@ def build_survey_response_analytics_entries(response_document):
     answers = response_document.get("answers") or {}
     answer_ids = response_document.get("answerIds") or {}
     created_at = response_document.get("createdAt") or get_ph_datetime()
+    questions = {}
+    for question in survey_document.get("questions") or []:
+        if not isinstance(question, dict):
+            continue
+        for key in (question.get("id"), question.get("name")):
+            if key:
+                questions[str(key)] = question
 
     user_location = response_document.get("user_location") or response_document.get("userLocation") or {}
 
@@ -187,9 +190,7 @@ def build_survey_response_analytics_entries(response_document):
         if not response_id:
             continue
         text = _clean_text_value(answer_value)
-
-        if not _is_analyzable_text(text):
-            continue
+        question = questions.get(str(question_id), {})
 
         entries.append(
             {
@@ -198,7 +199,9 @@ def build_survey_response_analytics_entries(response_document):
                 "survey_id": survey_id,
                 "response_id": response_id,
                 "question_id": str(question_id),
-                "submission_id": submission_id,
+                "question_type": _clean_text_value(question.get("type")),
+                "question_text": _clean_text_value(question.get("title")),
+                "raw_answer": answer_value,
 
                 "text": text,
                 "language": "",
@@ -217,10 +220,16 @@ def build_survey_response_analytics_entries(response_document):
                 "event_time": str(created_at),
                 "collected_at": str(created_at),
 
-                "analysis_status": "pending",
-                "analysis_tasks": ["sentiment", "misinformation", "ner"],
+                "analysis_status": "SUBMITTED",
+                "analysis_tasks": ["sentiment"],
 
                 "analysis": {
+                    "language_detection": {
+                        "status": "pending",
+                        "detection_source": "",
+                        "confidence": None,
+                        "completed_at": None,
+                    },
                     "sentiment": None,
                     "sentiment_score": None,
                     "disease_labels": [],
@@ -235,6 +244,8 @@ def build_survey_response_analytics_entries(response_document):
                 "metadata": {
                     "visitor_id": _clean_text_value(response_document.get("visitorId")),
                     "question_id": str(question_id),
+                    "question_type": _clean_text_value(question.get("type")),
+                    "question_text": _clean_text_value(question.get("title")),
                 },
 
                 "created_at": created_at,
@@ -294,10 +305,21 @@ def build_self_report_analytics_entry(report_document):
         "event_time": str(created_at),
         "collected_at": str(report_document.get("syncedAt") or created_at),
 
-        "analysis_status": "pending",
-        "analysis_tasks": ["sentiment", "disease_classification", "ner"],
+        "analysis_status": "SUBMITTED",
+        "analysis_tasks": [
+            "language_detection",
+            "sentiment",
+            "disease_classification",
+            "ner",
+        ],
 
         "analysis": {
+            "language_detection": {
+                "status": "pending",
+                "detection_source": "",
+                "confidence": None,
+                "completed_at": None,
+            },
             "sentiment": None,
             "sentiment_score": None,
             "disease_labels": [],
