@@ -1,0 +1,5 @@
+/model/
+/.sentiment-export-*/
+.venv/
+__pycache__/
+.pytest_cache/

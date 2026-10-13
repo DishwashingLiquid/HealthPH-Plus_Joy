@@ -37,11 +37,11 @@ test("the run-evaluation selector exposes every supported backend interval", () 
   assert.equal(normalizeAlertAutomationInterval(120), 1440);
 });
 
-test("a paused automation disables the interval selector and Run Evaluation Now action", () => {
+test("a paused automation disables the interval selector and check action", () => {
   const paused = getRunEvaluationControlState({ enabled: false, intervalMinutes: 15 });
   assert.equal(paused.disabled, true);
   assert.equal(paused.intervalMinutes, 15);
-  assert.equal(paused.helperText, "Enable automation in Alert Settings to run an evaluation.");
+  assert.equal(paused.helperText, "Turn on automatic alerts in Set Up Alerts before checking reports.");
 
   const enabled = getRunEvaluationControlState({ enabled: true, intervalMinutes: 30 });
   assert.equal(enabled.disabled, false);

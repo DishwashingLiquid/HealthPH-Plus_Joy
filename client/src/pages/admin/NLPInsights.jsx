@@ -531,7 +531,7 @@ const SUPPORTED_LANGUAGES_KEYS = new Set(
 );
 
 const LANGUAGE_BY_KEY = Object.fromEntries(
-    SUPPORTED_LANGUAGES.map((language) => [language.ley, language])
+    SUPPORTED_LANGUAGES.map((language) => [language.key, language])
 );
 
 const normalizeLanguageKey = (language) =>
