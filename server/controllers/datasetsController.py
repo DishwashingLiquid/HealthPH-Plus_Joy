@@ -31,6 +31,8 @@ from helpers.analyticsEntryHelpers import (
     get_valid_analytics_entries,
 )
 from helpers.languageDetectionHelpers import detect_languages
+from helpers.diseaseDetectionHelpers import detect_diseases
+
 from controllers.pointControllers import delete_point, create_points
 from collections import Counter, defaultdict
 
@@ -161,18 +163,35 @@ def run_dataset_processing_job(dataset_id: str):
                 "Dataset has no social-media analytics entries to process."
             )
 
-        predictions = detect_languages([
-            entry["text"] for entry in entries
-        ])
+        texts = [
+            entry["text"]
+            for entry in entries
+        ]
+
+        language_predictions = detect_languages(texts)
+        disease_predictions = detect_diseases(texts)
 
         completed_at = get_ph_datetime()
         language_counts = Counter()
+        disease_counts = Counter()
         location_language_counts = defaultdict(Counter)
         updates = []
 
-        for entry, prediction in zip(entries, predictions, strict=True):
-            is_supported = prediction["is_supported"]
-            language = prediction["language"] if is_supported else ""
+        for entry, language_prediction, disease_prediction in zip(
+            entries,
+            language_predictions,
+            disease_predictions,
+            strict=True,
+        ):
+            is_supported = language_prediction["is_supported"]
+            language = (
+                language_prediction["language"]
+                if is_supported
+                else ""
+            )
+
+            disease_labels = disease_prediction["labels"]
+            disease_counts.update(disease_labels)
 
             detection_status = (
                 "completed" if is_supported else "unsupported"
@@ -195,14 +214,31 @@ def run_dataset_processing_job(dataset_id: str):
                             "language": language,
                             "analysis.language_detection": {
                                 "status": detection_status,
-                                "detection_source": prediction["detection_source"],
+                                "detection_source": language_prediction["detection_source"],
                                 "confidence": (
-                                    prediction["confidence"]
+                                    language_prediction["confidence"]
                                     if is_supported
                                     else None
                                 ),
                                 "completed_at": completed_at,
                             },
+                            "analysis.disease_labels": disease_labels,
+                            "analysis.disease_probabilities": (
+                                disease_prediction["probabilities"]
+                            ),
+                            "analysis.disease_classification": {
+                                "status": "completed",
+                                "thresholds_used": (
+                                    disease_prediction["thresholds_used"]
+                                ),
+                                "model_version": (
+                                    disease_prediction["model_version"]
+                                ),
+                                "completed_at": completed_at,
+                            },
+                            "analysis_status": "PROCESSED",
+                            "analysis_error": "",
+                            "analyzed_at": completed_at,
                             "updated_at": completed_at,
                         }
                     },
@@ -223,6 +259,8 @@ def run_dataset_processing_job(dataset_id: str):
                     "dataset_status": "PROCESSED",
                     "languages": sorted(language_counts),
                     "language_counts": dict(language_counts),
+                    "diseases": sorted(disease_counts),
+                    "disease_counts": dict(disease_counts),
                     "location_language_counts": {
                         location: dict(counts)
                         for location, counts in location_language_counts.items()

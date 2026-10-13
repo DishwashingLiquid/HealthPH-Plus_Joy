@@ -153,6 +153,12 @@ def build_social_media_analytics_entries(
                     "sentiment_score": None,
                     "disease_labels": [],
                     "disease_probabilities": {},
+                    "disease_classification": {
+                        "status": "pending",
+                        "thresholds_used": {},
+                        "model_version": "",
+                        "completed_at": None,
+                    },
                     "symptoms": [],
                     "misinformation_score": None,
                     "entities": [],
@@ -273,7 +279,7 @@ def build_self_report_analytics_entry(report_document):
 
     text = notes or fallback_text
 
-    if not _is_analyzable_text(text):
+    if not text:
         return None
 
     location = report_document.get("location") or {}
@@ -324,6 +330,12 @@ def build_self_report_analytics_entry(report_document):
             "sentiment_score": None,
             "disease_labels": [],
             "disease_probabilities": {},
+            "disease_classification": {
+                "status": "pending",
+                "thresholds_used": {},
+                "model_version": "",
+                "completed_at": None,
+            },
             "symptoms": [],
             "misinformation": None,
             "misinformation_score": None,

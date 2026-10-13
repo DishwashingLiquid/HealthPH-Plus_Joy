@@ -9,6 +9,8 @@ from middleware.requireAuth import require_auth
 from middleware.requireRole import require_role
 from schema.analyticsEntrySchema import list_analytics_entries
 from helpers.languageDetectionHelpers import detect_languages
+from helpers.diseaseDetectionHelpers import detect_diseases
+
 from helpers.miscHelpers import get_ph_datetime
 
 
@@ -53,7 +55,7 @@ async def fetch_analytics_entries(
         "entries": list_analytics_entries(entries),
     }
 
-PROCESSABLE_SOURCE_TYPES = ["survey_response", "self_report"]
+PROCESSABLE_SOURCE_TYPES = ["self_report"]
 
 def run_analytics_entry_processing_job(entry_ids: list[str]):
     object_ids = [ObjectId(entry_id) for entry_id in entry_ids]
@@ -87,16 +89,24 @@ def run_analytics_entry_processing_job(entry_ids: list[str]):
         if not entries:
             raise RuntimeError("No analytics entries are available for processing.")
 
-        predictions = detect_languages([
+        texts = [
             entry["text"]
             for entry in entries
-        ])
+        ]
+
+        language_predictions = detect_languages(texts)
+        disease_predictions = detect_diseases(texts)
 
         completed_at = get_ph_datetime()
         updates = []
 
-        for entry, prediction in zip(entries, predictions, strict=True):
-            is_supported = prediction["is_supported"]
+        for entry, language_prediction, disease_prediction in zip(
+            entries,
+            language_predictions,
+            disease_predictions,
+            strict=True,
+        ):
+            is_supported = language_prediction["is_supported"]
 
             updates.append(
                 UpdateOne(
@@ -104,7 +114,7 @@ def run_analytics_entry_processing_job(entry_ids: list[str]):
                     {
                         "$set": {
                             "language": (
-                                prediction["language"]
+                                language_prediction["language"]
                                 if is_supported
                                 else ""
                             ),
@@ -115,12 +125,28 @@ def run_analytics_entry_processing_job(entry_ids: list[str]):
                                     else "unsupported"
                                 ),
                                 "detection_source": (
-                                    prediction["detection_source"]
+                                    language_prediction["detection_source"]
                                 ),
                                 "confidence": (
-                                    prediction["confidence"]
+                                    language_prediction["confidence"]
                                     if is_supported
                                     else None
+                                ),
+                                "completed_at": completed_at,
+                            },
+                            "analysis.disease_labels": (
+                                disease_prediction["labels"]
+                            ),
+                            "analysis.disease_probabilities": (
+                                disease_prediction["probabilities"]
+                            ),
+                            "analysis.disease_classification": {
+                                "status": "completed",
+                                "thresholds_used": (
+                                    disease_prediction["thresholds_used"]
+                                ),
+                                "model_version": (
+                                    disease_prediction["model_version"]
                                 ),
                                 "completed_at": completed_at,
                             },
@@ -223,7 +249,9 @@ async def process_analytics_entries(
     return JSONResponse(
         status_code=status.HTTP_202_ACCEPTED,
         content={
-            "message": "Analytics entries queued for language processing.",
+            "message": (
+                "Self-report entries queued for language and disease processing."
+            ),
             "queued_count": len(eligible_ids),
         },
     )

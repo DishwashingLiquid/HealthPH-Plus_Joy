@@ -666,6 +666,7 @@ def _serialize_self_report(document: dict) -> dict:
         "notes": document.get("notes"),
         "status": document.get("status"),
         "source": document.get("source"),
+        "analyticsEntryId": document.get("analyticsEntryId"),
         "createdAt": _to_iso_or_none(document.get("createdAt")),
         "updatedAt": _to_iso_or_none(document.get("updatedAt")),
         "syncedAt": _to_iso_or_none(document.get("syncedAt")),
@@ -1757,7 +1758,23 @@ async def create_mobile_self_report(
     analytics_entry = build_self_report_analytics_entry(created_report)
 
     if analytics_entry:
-        analytics_entries_collection.insert_one(analytics_entry)
+        inserted_analytics_entry = analytics_entries_collection.insert_one(
+            analytics_entry
+        )
+        analytics_entry_id = str(inserted_analytics_entry.inserted_id)
+
+        self_reports_collection.update_one(
+            {"_id": inserted_report.inserted_id},
+            {
+                "$set": {
+                    "analyticsEntryId": analytics_entry_id,
+                    "updatedAt": get_ph_datetime(),
+                }
+            },
+        )
+        created_report = self_reports_collection.find_one(
+            {"_id": inserted_report.inserted_id}
+        )
 
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
