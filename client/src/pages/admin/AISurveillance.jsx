@@ -51,7 +51,7 @@ const AISurveillance = () => {
     const { data: analyticsEntriesData, isLoading: isAnalyticsEntriesLoading } =
         useFetchAnalyticsEntriesQuery({
             sourceType: "all",
-            analysisStatus: "completed",
+            analysisStatus: "PROCESSED",
             limit: 500,
         });
     
@@ -353,7 +353,7 @@ const AISurveillance = () => {
                         {/* RESPIRATORY ALERTS */}
                         <SummaryCard label="Respiratory Alerts" value={filteredRespiratoryAlertCount} />
                         {/* HIGH RISK AREAS */}
-                        <SummaryCard label="High Risk Areas" value="TBD" />
+                        <SummaryCard label="High Risk Areas" value="-" />
                     </div>
                     <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
                         <h2 className="text-[18px] font-semibold text-gray-800 mb-[12px]">Environmental Data</h2>
