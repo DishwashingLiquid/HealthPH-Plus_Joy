@@ -1,3 +1,5 @@
+from collections import Counter, defaultdict
+
 from typing_extensions import Annotated
 from bson import ObjectId
 from fastapi import BackgroundTasks, Body, Depends, HTTPException, Query, status
@@ -8,7 +10,10 @@ from config.database import analytics_entries_collection
 from middleware.requireAuth import require_auth
 from middleware.requireRole import require_role
 from schema.analyticsEntrySchema import list_analytics_entries
-from helpers.languageDetectionHelpers import detect_languages
+from helpers.languageDetectionHelpers import (
+    SUPPORTED_LANGUAGE_CODES,
+    detect_languages,
+)
 from helpers.diseaseDetectionHelpers import detect_diseases
 
 from helpers.miscHelpers import get_ph_datetime
@@ -53,6 +58,51 @@ async def fetch_analytics_entries(
     return {
         "total": total,
         "entries": list_analytics_entries(entries),
+    }
+
+
+async def fetch_self_report_language_summary(
+    user_id: Annotated[str, Depends(require_auth)],
+):
+    entries = analytics_entries_collection.find(
+        {
+            "source_type": "self_report",
+            "analysis_status": "PROCESSED",
+            "analysis.language_detection.status": "completed",
+            "language": {"$in": sorted(SUPPORTED_LANGUAGE_CODES)},
+        },
+        {
+            "language": 1,
+            "location": 1,
+        },
+    )
+
+    language_counts = Counter()
+    location_language_counts = defaultdict(Counter)
+
+    for entry in entries:
+        language = entry.get("language")
+        language_counts[language] += 1
+
+        location = entry.get("location") or {}
+        location_label = str(
+            location.get("province")
+            or location.get("region")
+            or location.get("raw")
+            or ""
+        ).strip()
+
+        if location_label:
+            location_language_counts[location_label][language] += 1
+
+    return {
+        "source_type": "self_report",
+        "record_count": sum(language_counts.values()),
+        "language_counts": dict(language_counts),
+        "location_language_counts": {
+            location: dict(counts)
+            for location, counts in location_language_counts.items()
+        },
     }
 
 PROCESSABLE_SOURCE_TYPES = ["self_report"]

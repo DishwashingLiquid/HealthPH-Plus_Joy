@@ -24,6 +24,7 @@ import {
 } from "../../features/api/analyticsSlice";
 
 import { useFetchDatasetsByUserQuery } from "../../features/api/datasetsSlice";
+import { useFetchSelfReportLanguageSummaryQuery } from "../../features/api/analyticsEntriesSlice";
 
 import Report from "../../components/admin/Report";
 import capitalizeSymptom from "../../hooks/useCapitalizeSymptom";
@@ -40,6 +41,13 @@ const NLPInsights = () => {
         useFetchDatasetsByUserQuery(user?.id, {
             skip: !user?.id,
         });
+
+    const {
+        data: selfReportLanguageSummary,
+        isFetching: isSelfReportLanguageSummaryFetching,
+    } = useFetchSelfReportLanguageSummaryQuery(undefined, {
+        skip: activeTab !== "language" || !user?.id,
+    });
 
     /* TOP WORDS */
     const [topWordsFilter, setTopWordsFilter] = useState(
@@ -120,7 +128,11 @@ const NLPInsights = () => {
             {activeTab === "language" && (
                 <LanguageDetection
                     datasets={datasets}
-                    isDatasetsFetching={isDatasetsFetching}
+                    selfReportLanguageSummary={selfReportLanguageSummary}
+                    isLanguageDataFetching={
+                        isDatasetsFetching ||
+                        isSelfReportLanguageSummaryFetching
+                    }
                 />
             )}
         </div>
@@ -625,15 +637,23 @@ const buildRegionLanguageDistribution = (datasets = []) => {
         .slice(0, 8);
 };
 
-const LanguageDetection = ({ datasets = [], isDatasetsFetching = false }) => {
-    const languageDistribution = buildLanguageDistribution(datasets);
+const LanguageDetection = ({
+    datasets = [],
+    selfReportLanguageSummary,
+    isLanguageDataFetching = false,
+}) => {
+    const languageSources = selfReportLanguageSummary
+        ? [...datasets, selfReportLanguageSummary]
+        : datasets;
+
+    const languageDistribution = buildLanguageDistribution(languageSources);
     const totalLanguageRows = languageDistribution.reduce(
         (total, language) => total + language.value,
         0
     );
 
     const regionLanguageDistribution =
-        buildRegionLanguageDistribution(datasets);
+        buildRegionLanguageDistribution(languageSources);
 
     const chartLanguageKeys = languageDistribution.map(
         (language) => language.key
@@ -647,10 +667,10 @@ const LanguageDetection = ({ datasets = [], isDatasetsFetching = false }) => {
                     Language Distribution
                 </h2>
                 <p className="text-sm text-gray-500 mb-[12px]">
-                    Detected language distribution from multilingual health-related posts.
+                    Detected languages across social media records and self reports.
                 </p>
 
-                {isDatasetsFetching ? (
+                {isLanguageDataFetching ? (
                     <div className="flex h-[280px] items-center justify-center text-sm text-gray-500">
                         Loading language distribution...
                     </div>
@@ -695,13 +715,13 @@ const LanguageDetection = ({ datasets = [], isDatasetsFetching = false }) => {
                     </ResponsiveContainer>
                 ) : (
                     <div className="flex h-[280px] items-center justify-center rounded-[10px] border border-dashed border-[#D9E2EC] text-sm text-gray-500">
-                        No uploaded dataset language data yet.
+                        No processed language data yet.
                     </div>
                 )}
 
-                {!isDatasetsFetching && languageDistribution.length > 0 && (
+                {!isLanguageDataFetching && languageDistribution.length > 0 && (
                     <p className="mt-[10px] text-center text-sm text-gray-500">
-                        Based on {Number(totalLanguageRows).toLocaleString()} uploaded raw records.
+                        Based on {Number(totalLanguageRows).toLocaleString()} processed records.
                     </p>
                 )}
             </div>
@@ -715,9 +735,9 @@ const LanguageDetection = ({ datasets = [], isDatasetsFetching = false }) => {
                     Regional language patterns detected from public health conversations.
                 </p>
 
-                {isDatasetsFetching ? (
+                {isLanguageDataFetching ? (
                     <div className="flex h-[280px] items-center justify-center text-sm text-gray-500">
-                        Loading uploaded regional language data...
+                        Loading regional language data...
                     </div>
                 ) : regionLanguageDistribution.length > 0 ? (
                     <ResponsiveContainer width="100%" height={280}>
@@ -751,7 +771,7 @@ const LanguageDetection = ({ datasets = [], isDatasetsFetching = false }) => {
                     </ResponsiveContainer>
                 ) : (
                     <div className="flex h-[280px] items-center justify-center rounded-[10px] border border-dashed border-[#D9E2EC] text-sm text-gray-500">
-                        No uploaded regional language data yet.
+                        No processed regional language data yet.
                     </div>
                 )}
             </div>
