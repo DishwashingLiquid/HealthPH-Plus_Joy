@@ -17,6 +17,10 @@ from helpers.languageDetectionHelpers import (
 from helpers.diseaseDetectionHelpers import detect_diseases
 
 from helpers.miscHelpers import get_ph_datetime
+from region_normalization import normalize_region
+
+
+MAP_DISEASE_CODES = {"TB", "PN", "COVID", "AURI"}
 
 
 """
@@ -104,6 +108,98 @@ async def fetch_self_report_language_summary(
             for location, counts in location_language_counts.items()
         },
     }
+
+
+async def fetch_analytics_map_points(
+    user_id: Annotated[str, Depends(require_auth)],
+):
+    entries = analytics_entries_collection.find(
+        {
+            "analysis_status": "PROCESSED",
+            "location.latitude": {"$ne": None},
+            "location.longitude": {"$ne": None},
+            "analysis.disease_labels.0": {"$exists": True},
+        },
+        {
+            "text": 1,
+            "location": 1,
+            "analysis.disease_labels": 1,
+        },
+    )
+
+    grouped_points = {}
+
+    for entry in entries:
+        location = entry.get("location") or {}
+
+        try:
+            latitude = float(location.get("latitude"))
+            longitude = float(location.get("longitude"))
+        except (TypeError, ValueError):
+            continue
+
+        if not (4 <= latitude <= 22 and 116 <= longitude <= 128):
+            continue
+
+        labels = {
+            str(label).strip().upper()
+            for label in (entry.get("analysis") or {}).get("disease_labels", [])
+        } & MAP_DISEASE_CODES
+
+        if not labels:
+            continue
+
+        region = normalize_region(
+            location.get("region")
+            or location.get("regionCode")
+            or location.get("regionName")
+        ) or ""
+        point_key = (round(latitude, 6), round(longitude, 6))
+
+        if point_key not in grouped_points:
+            grouped_points[point_key] = {
+                "PH_code": "",
+                "region": region,
+                "province": str(location.get("province") or "").strip(),
+                "lat": latitude,
+                "long": longitude,
+                "annotation_counts": Counter(),
+                "keyword_counts": Counter(),
+                "keyword_annotations": defaultdict(set),
+            }
+
+        point = grouped_points[point_key]
+        point["annotation_counts"].update(labels)
+
+        text = str(entry.get("text") or "").strip()
+        if text:
+            point["keyword_counts"][text] += 1
+            point["keyword_annotations"][text].update(labels)
+
+    map_points = []
+
+    for point in grouped_points.values():
+        annotation_counts = dict(point.pop("annotation_counts"))
+        keyword_counts = point.pop("keyword_counts")
+        keyword_annotations = point.pop("keyword_annotations")
+
+        map_points.append(
+            {
+                **point,
+                "annotations": sorted(annotation_counts),
+                "annotations_count": annotation_counts,
+                "keywords": [
+                    {
+                        "key": keyword,
+                        "count": count,
+                        "annotation": sorted(keyword_annotations[keyword]),
+                    }
+                    for keyword, count in keyword_counts.most_common(3)
+                ],
+            }
+        )
+
+    return map_points
 
 PROCESSABLE_SOURCE_TYPES = ["self_report"]
 

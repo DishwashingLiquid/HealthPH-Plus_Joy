@@ -25,6 +25,10 @@ export const analyticsEntriesApi = baseAPI.injectEndpoints({
             query: () => "/analytics-entries/language-summary",
             providesTags: ["AnalyticsEntries"],
         }),
+        fetchAnalyticsMapPoints: builder.query({
+            query: () => "/analytics-entries/map-points",
+            providesTags: ["AnalyticsEntries"],
+        }),
         processAnalyticsEntries: builder.mutation({
             query: (entryIds) => ({
                 url: "/analytics-entries/process",
@@ -38,6 +42,7 @@ export const analyticsEntriesApi = baseAPI.injectEndpoints({
 
 export const {
     useFetchAnalyticsEntriesQuery,
+    useFetchAnalyticsMapPointsQuery,
     useFetchSelfReportLanguageSummaryQuery,
     useProcessAnalyticsEntriesMutation,
 } = analyticsEntriesApi;

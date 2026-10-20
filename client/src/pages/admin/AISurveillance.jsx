@@ -7,8 +7,6 @@ import Regions from "../../assets/data/regions.json";
 import RegionsCenter from "../../assets/data/regions_center.json";
 import DummyData from "../../assets/data/dummy_data_v3.json";
 
-import { useFetchPointsQuery } from "../../features/api/pointsSlice";
-
 import {
     XAxis,
     YAxis,
@@ -38,13 +36,15 @@ import {
 } from "../../features/api/analyticsSlice";
 
 import {
-    useFetchAnalyticsEntriesQuery
+    useFetchAnalyticsEntriesQuery,
+    useFetchAnalyticsMapPointsQuery,
 } from "../../features/api/analyticsEntriesSlice";
 
 const AISurveillance = () => {
     const user = useSelector((state) => state.auth.user);
 
-    const { data: points, isLoading: isPointsLoading } = useFetchPointsQuery();
+    const { data: points, isLoading: isPointsLoading } =
+        useFetchAnalyticsMapPointsQuery();
 
     const surveillancePoints = points || [];
 

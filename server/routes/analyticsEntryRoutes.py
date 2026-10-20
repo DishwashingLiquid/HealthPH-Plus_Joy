@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from controllers.analyticsEntryController import (
     fetch_analytics_entries,
+    fetch_analytics_map_points,
     fetch_self_report_language_summary,
     process_analytics_entries,
 )
@@ -16,6 +17,13 @@ router.add_api_route(
     "/language-summary",
     methods=["GET"],
     endpoint=fetch_self_report_language_summary,
+)
+
+#GET /analytics-entries/map-points
+router.add_api_route(
+    "/map-points",
+    methods=["GET"],
+    endpoint=fetch_analytics_map_points,
 )
 
 #POST /analytics-entries/process
