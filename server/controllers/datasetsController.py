@@ -21,6 +21,7 @@ from config.database import (
     point_collection,
 )
 from models.user import AdminResult
+from middleware.requireAuth import require_auth
 from middleware.requireAdmin import require_admin
 from middleware.requireRole import require_role
 from schema.datasetSchema import individual_dataset, list_datasets
@@ -638,24 +639,33 @@ route     GET api/datasets
 """
 
 
-async def fetch_datasets():
-    data = dataset_collection.aggregate(
-        [
-            {
-                "$lookup": {
-                    "from": "users",
-                    "localField": "user_id",
-                    "foreignField": "_id",
-                    "as": "user_data",
-                }
-            },
-            {"$sort": {"created_at": pymongo.DESCENDING}},
-        ]
+def fetch_datasets(
+    current_user_id: Annotated[str, Depends(require_auth)],
+):
+    current_user = user_collection.find_one(
+        {"_id": ObjectId(current_user_id)},
+        {"user_type": 1, "role_label": 1},
     )
 
-    datasets = list_datasets(data)
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Your session is invalid. Please sign in again.",
+        )
 
-    return datasets
+    if current_user.get("user_type") == "SUPERADMIN":
+        query = {}
+    elif current_user.get("role_label") == "Admin":
+        query = {"user_id": current_user_id}
+    else:
+        return []
+
+    datasets = dataset_collection.find(query).sort(
+        "created_at",
+        pymongo.DESCENDING,
+    )
+
+    return list_datasets(datasets)
 
 
 """
@@ -665,44 +675,23 @@ route     GET api/datasets/user/{user_id}
 """
 
 
-async def fetch_datasets_by_user(user_id: str):
-    user_data = user_collection.find_one({"_id": ObjectId(user_id)})
-
-    if user_data["user_type"] == "SUPERADMIN":
-        data = dataset_collection.aggregate(
-            [
-                {
-                    "$lookup": {
-                        "from": "users",
-                        "localField": "user_id",
-                        "foreignField": "_id",
-                        "as": "user_data",
-                    }
-                },
-                {"$sort": {"created_at": pymongo.DESCENDING}},
-            ]
+def fetch_datasets_by_user(
+    user_id: str,
+    current_user_id: Annotated[str, Depends(require_auth)],
+):
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user ID.",
         )
-    elif user_data.get("role_label") == "Admin":
-        data = dataset_collection.aggregate(
-            [
-                {"$match": {"user_id": user_id}},
-                {
-                    "$lookup": {
-                        "from": "users",
-                        "localField": "user_id",
-                        "foreignField": "_id",
-                        "as": "user_data",
-                    }
-                },
-                {"$sort": {"created_at": pymongo.DESCENDING}},
-            ]
+
+    if ObjectId(user_id) != ObjectId(current_user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You cannot request another account's dataset list.",
         )
-    else:
-        return []
 
-    datasets = list_datasets(data)
-
-    return datasets
+    return fetch_datasets(current_user_id)
 
 
 """
