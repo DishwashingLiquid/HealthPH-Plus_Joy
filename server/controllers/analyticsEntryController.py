@@ -9,10 +9,16 @@ from pymongo import UpdateOne
 from config.database import analytics_entries_collection
 from middleware.requireAuth import require_auth
 from middleware.requireRole import require_role
+from middleware.requirePage import require_page
+
 from schema.analyticsEntrySchema import list_analytics_entries
 from helpers.languageDetectionHelpers import (
     SUPPORTED_LANGUAGE_CODES,
     detect_languages,
+)
+from helpers.analyticsAccessHelpers import (
+    get_allowed_analytics_regions,
+    get_analytics_entry_region,
 )
 from helpers.diseaseDetectionHelpers import detect_diseases
 
@@ -66,7 +72,10 @@ async def fetch_analytics_entries(
 
 
 async def fetch_self_report_language_summary(
-    user_id: Annotated[str, Depends(require_auth)],
+    current_user: Annotated[
+        dict,
+        Depends(require_page("NLP Insights")),
+    ],
 ):
     entries = analytics_entries_collection.find(
         {
@@ -83,8 +92,14 @@ async def fetch_self_report_language_summary(
 
     language_counts = Counter()
     location_language_counts = defaultdict(Counter)
+    allowed_regions = get_allowed_analytics_regions(current_user)
 
     for entry in entries:
+        region = get_analytics_entry_region(entry)
+
+        if allowed_regions is not None and region not in allowed_regions:
+            continue
+
         language = entry.get("language")
         language_counts[language] += 1
 
@@ -111,7 +126,10 @@ async def fetch_self_report_language_summary(
 
 
 async def fetch_analytics_map_points(
-    user_id: Annotated[str, Depends(require_auth)],
+    current_user: Annotated[
+        dict,
+        Depends(require_page("AI Surveillance")),
+    ],
 ):
     entries = analytics_entries_collection.find(
         {
@@ -121,7 +139,6 @@ async def fetch_analytics_map_points(
             "analysis.disease_labels.0": {"$exists": True},
         },
         {
-            "text": 1,
             "location": 1,
             "analysis.disease_labels": 1,
         },
@@ -129,7 +146,14 @@ async def fetch_analytics_map_points(
 
     grouped_points = {}
 
+    allowed_regions = get_allowed_analytics_regions(current_user)
+
     for entry in entries:
+        region = get_analytics_entry_region(entry)
+
+        if allowed_regions is not None and region not in allowed_regions:
+            continue
+
         location = entry.get("location") or {}
 
         try:
@@ -149,12 +173,8 @@ async def fetch_analytics_map_points(
         if not labels:
             continue
 
-        region = normalize_region(
-            location.get("region")
-            or location.get("regionCode")
-            or location.get("regionName")
-        ) or ""
-        point_key = (round(latitude, 6), round(longitude, 6))
+        region = region or ""
+        point_key = (region, round(latitude, 6), round(longitude, 6))
 
         if point_key not in grouped_points:
             grouped_points[point_key] = {
@@ -170,11 +190,6 @@ async def fetch_analytics_map_points(
 
         point = grouped_points[point_key]
         point["annotation_counts"].update(labels)
-
-        text = str(entry.get("text") or "").strip()
-        if text:
-            point["keyword_counts"][text] += 1
-            point["keyword_annotations"][text].update(labels)
 
     map_points = []
 
