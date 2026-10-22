@@ -893,6 +893,16 @@ async def set_disable_status(
             detail="User does not exist.",
         )
 
+    #only superadmins can enable or disable admin accounts
+    if not is_superadmin(current_user) and is_admin_account(user_data):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Only superadmins can enable or disable "
+                "administrator accounts."
+            ),
+        )
+
     # Update verify status of user
     new_user = user_collection.find_one_and_update(
         {"_id": ObjectId(id)},
