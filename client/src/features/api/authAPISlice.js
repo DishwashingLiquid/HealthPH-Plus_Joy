@@ -7,6 +7,7 @@ export const authApi = baseAPI.injectEndpoints({
         url: `/auth/authenticate`,
         method: "POST",
         body: loginData,
+        timeout: 30000,
         headers: {
           "Content-Type": "application/json",
         },

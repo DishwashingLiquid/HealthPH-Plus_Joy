@@ -27,16 +27,22 @@ def mail_setup(receiver, subject):
 
 def mail_send(receiver, message):
     try:
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
+        with smtplib.SMTP(
+            smtp_server,
+            int(smtp_port),
+            timeout=10,
+        ) as server:
             server.starttls()
             server.login(smtp_username, smtp_password)
-            server.sendmail(smtp_sender_email, receiver, message.as_string())
+            server.sendmail(
+                smtp_sender_email,
+                receiver,
+                message.as_string(),
+            )
 
-            print("Successfully sent email")
-
-            return True
-    except SMTPException as e:
-        print(e)
+        return True
+    except (SMTPException, OSError) as error:
+        print(f"Email delivery failed: {type(error).__name__}")
         return False
 
 

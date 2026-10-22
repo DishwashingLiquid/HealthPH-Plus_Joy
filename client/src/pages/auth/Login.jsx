@@ -57,36 +57,38 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!checkError()) {
-      setIsLoading(true);
-      setError("");
-      const response = await authenticate(formData);
+    if (checkError()) return;
 
-      if (!response) {
-        console.log("Error authenticating user...");
-        setIsLoading(false);
-        return;
-      }
+    setIsLoading(true);
+    setError("");
 
-      if ("error" in response) {
-        setIsLoading(false);
-        const { data, error } = response["error"];
+    try {
+      const data = await authenticate(formData).unwrap();
 
-        if (data) {
-          setError(data["detail"]);
-        } else if (error) {
-          setError("Failed to sign in. Please try again later.");
-        }
-        return;
-      }
-
-      console.log(response.data);
-      if (response.data.otp_code_sent) {
+      if (data.otp_code_sent) {
         setOtpCodeSent(true);
+    } else {
+      setError("Sign-in could not be completed. Please try again.");
+    }
+    } catch (error) {
+      if (error.status === "TIMEOUT_ERROR") {
+        setError(
+          "Sign-in took too long. Please try again in a moment."  
+        );
+      } else if (typeof error.data?.detail === "string") {
+        setError(error.data.detail);
+      } else if (error.status === "FETCH_ERROR") {
+        setError(
+          "Cannot reach the server. Please check your connection and try again."
+        );
+      } else {
+        setError("Sign-in failed. Please try again later.");
       }
+    } finally {
+      setIsLoading(false);
     }
   };
-
+  
   const checkError = () => {
     let flag = false;
 

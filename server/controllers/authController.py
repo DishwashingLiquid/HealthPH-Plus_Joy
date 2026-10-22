@@ -42,7 +42,7 @@ route     POST api/auth/authenticate
 """
 
 
-async def authenticate_user(
+def authenticate_user(
     response: Response, credentials: Annotated[OAuth2PasswordRequestFormJSON, Depends()]
 ):
     # Check if user submitted an email and password
@@ -97,8 +97,12 @@ async def authenticate_user(
 
     if not result:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Failed to sign in. Please try again later.",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "We couldn't send your verification email. "
+                "The email service is currently unavailable. "
+                "Please try again later."
+            ),
         )
 
     return JSONResponse(
