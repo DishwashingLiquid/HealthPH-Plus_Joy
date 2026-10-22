@@ -57,7 +57,22 @@ route     PUT api/users/update-personal-information
 """
 
 
-async def update_personal_info(data: UpdatePersonalInfo):
+def update_personal_info(
+    data: UpdatePersonalInfo,
+    current_user_id: Annotated[str, Depends(require_auth)],
+):
+    if not ObjectId.is_valid(data.id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user ID.",
+        )
+
+    if ObjectId(data.id) != ObjectId(current_user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only update your own profile.",
+        )
+
     errors = []
 
     # Check if there are missing fields
@@ -83,7 +98,7 @@ async def update_personal_info(data: UpdatePersonalInfo):
         )
 
     # Check if user exists and verify password
-    user_data = user_collection.find_one({"_id": ObjectId(data.id)})
+    user_data = user_collection.find_one({"_id": ObjectId(current_user_id)})
 
     if not user_data:
         errors.append(
@@ -130,7 +145,7 @@ async def update_personal_info(data: UpdatePersonalInfo):
         )
 
     new_user = user_collection.find_one_and_update(
-        {"_id": ObjectId(data.id)},
+        {"_id": ObjectId(current_user_id)},
         {
             "$set": {
                 "first_name": data.first_name,
