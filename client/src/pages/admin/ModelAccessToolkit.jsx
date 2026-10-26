@@ -407,7 +407,7 @@ const DataManagement = () => {
     const [datasetStatusFilter, setDatasetStatusFilter] = useState("all");
     const [selectedDatasetIds, setSelectedDatasetIds] = useState([]);
 
-    const [dataSourceView, setDataSourceView] = useState("social_media");
+    const [dataSourceView, setDataSourceView] = useState("self_report");
 
     const [selectedEntryIds, setSelectedEntryIds] = useState([]);
 
@@ -1098,14 +1098,14 @@ const DataManagement = () => {
             <div className="flex justify-center">
                 <div className="flex flex-wrap items-center justify-center gap-[8px]">
                     <DataSourcePill
-                        label="Social Media Datasets"
-                        active={dataSourceView === "social_media"}
-                        onClick={() => setDataSourceView("social_media")}
-                    />
-                    <DataSourcePill
                         label="Self Reports"
                         active={dataSourceView === "self_report"}
                         onClick={() => setDataSourceView("self_report")}
+                    />
+                    <DataSourcePill
+                        label="Social Media Datasets"
+                        active={dataSourceView === "social_media"}
+                        onClick={() => setDataSourceView("social_media")}
                     />
                 </div>
             </div>
