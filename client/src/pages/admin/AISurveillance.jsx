@@ -1,18 +1,16 @@
 import { useState } from "react";
 import { useSelector } from "react-redux";
 
-import Map from "../../components/admin/Map";
+import SurveillanceMap from "../../components/admin/SurveillanceMap";
 
 import Regions from "../../assets/data/regions.json";
 import RegionsCenter from "../../assets/data/regions_center.json";
-import DummyData from "../../assets/data/dummy_data_v3.json";
 
 import {
     XAxis,
     YAxis,
     CartesianGrid,
     Tooltip,
-    Legend,
     ResponsiveContainer,
     PieChart,
     Pie,
@@ -24,38 +22,31 @@ import {
 } from "recharts";
 
 import {
-    ToolbarSearch,
     ToolbarButton,
     ToolbarSelect,
 } from "../../components/ToolbarControls";
 
-import Report from "../../components/admin/Report";
-
 import {
-    useGeneratePercentageQuery,
-} from "../../features/api/analyticsSlice";
-
-import {
-    useFetchAnalyticsEntriesQuery,
+    useFetchSurveillanceSummaryQuery,
     useFetchAnalyticsMapPointsQuery,
 } from "../../features/api/analyticsEntriesSlice";
 
+const RESPIRATORY_SERIES = [
+    { key: "respiratoryRate", name: "Respiratory Rate", color: "#32418C" },
+    { key: "aqi", name: "AQI", color: "#2572A5" },
+    { key: "temperature", name: "Temperature (°C)", color: "#1D8D9F" },
+    { key: "coughFrequency", name: "Cough Frequency", color: "#1ABC9C" },
+    { key: "pm25", name: "PM2.5", color: "#9BCC33" },
+    { key: "humidity", name: "Humidity (%)", color: "#FBD117" },
+];
+
+const FORECAST_SERIES = [
+    { key: "actual", name: "Actual Reports", color: "#32418C", fill: "#DBEAFE" },
+    { key: "forecast", name: "Forecasted Trend", color: "#FBD117", fill: "#FFEDD5", strokeDasharray: "5 5" },
+];
+
 const AISurveillance = () => {
     const user = useSelector((state) => state.auth.user);
-
-    const { data: points, isLoading: isPointsLoading } =
-        useFetchAnalyticsMapPointsQuery();
-
-    const surveillancePoints = points || [];
-
-    const { data: analyticsEntriesData, isLoading: isAnalyticsEntriesLoading } =
-        useFetchAnalyticsEntriesQuery({
-            sourceType: "all",
-            analysisStatus: "PROCESSED",
-            limit: 500,
-        });
-    
-    const completedAnalyticsEntries = analyticsEntriesData?.entries || [];
 
     const accessibleRegionValues =
         user?.accessible_regions?.length > 0
@@ -72,6 +63,21 @@ const AISurveillance = () => {
         dateRange: 7,
         disease: "all",
     });
+
+    const {
+        currentData: points,
+        isFetching: isPointsLoading,
+        isError: isPointsError,
+        refetch: refetchMapPoints,
+    } = useFetchAnalyticsMapPointsQuery(
+        { days: filters.dateRange },
+        {
+            refetchOnMountOrArgChange: true,
+            refetchOnFocus: true,
+        }
+    );
+
+    const surveillancePoints = points || [];
 
     const handleChangeFilter = (key, value) => {
         setFilters((filters) => ({
@@ -104,116 +110,99 @@ const AISurveillance = () => {
             filters.region.length === accessibleRegions.length ||
             filters.region.some((region) => region.value === point.region);
 
-        const diseaseMatches = 
+        const diseaseMatches =
             filters.disease === "all" ||
             point.annotations?.includes(diseaseCode[filters.disease]);
 
         return regionMatches && diseaseMatches;
     });
 
-    const getEntryRegion = (entry) => {
-        const location = entry.location || {};
-        return location.region || location.regionCode || location.regionName || "";
-    };
+    /* SUMMARY CARDS */
+    const selectedRegion =
+        filters.region.length === accessibleRegions.length
+            ? "all"
+            : filters.region[0]?.value || "all";
 
-    /* SUMMARY CARD/COUNTS */
-    const formatCount = (value) => Number(value || 0).toLocaleString();
+    const selectedDisease =
+        filters.disease === "all"
+            ? "all"
+            : diseaseCode[filters.disease];
 
-    const selectedDiseaseCode = diseaseCode[filters.disease];
-    const diseaseCodes = ["TB", "PN", "COVID", "AURI"];
-
-    const normalizeValue = (value) =>
-        String(value || "").trim().toLowerCase();
-
-    const selectedRegionKeys = filters.region.flatMap((region) =>
-        [region.value, region.label].filter(Boolean).map(normalizeValue)
-    );
-
-    const isAllAccessibleRegionsSelected = 
-        filters.region.length === accessibleRegions.length;
-
-    const getEntryDiseaseLabels = (entry) => {
-        const labels = entry.analysis?.disease_labels;
-
-        if (!Array.isArray(labels)) {
-            return [];
-        }
-
-        return labels.map((label) => String(label).trim().toUpperCase());
-    };
-
-    const filteredCompletedEntries = completedAnalyticsEntries.filter((entry) => {
-        const entryRegion = normalizeValue(getEntryRegion(entry));
-
-        const regionMatches =
-            isAllAccessibleRegionsSelected ||
-            selectedRegionKeys.includes(entryRegion);
-
-        const diseaseLabels = getEntryDiseaseLabels(entry);
-
-        const diseaseMatches =
-            filters.disease === "all" ||
-            diseaseLabels.includes(selectedDiseaseCode);
-
-        return regionMatches && diseaseMatches;
-    });
-
-    const filteredSuspectedSymptoms = filteredCompletedEntries.reduce(
-        (counts, entry) => {
-            const diseaseLabels = getEntryDiseaseLabels(entry);
-
-            diseaseCodes.forEach((code) => {
-                const shouldIncludeDisease = 
-                    filters.disease === "all" || code === selectedDiseaseCode;
-
-                if (shouldIncludeDisease && diseaseLabels.includes(code)) {
-                    counts[code] += 1;
-                }
-            });
-
-            return counts;
+    const {
+        currentData: surveillanceSummary,
+        isFetching: isSummaryFetching,
+        isError: isSummaryError,
+        error: summaryError,
+        refetch: refetchSummary,
+    } = useFetchSurveillanceSummaryQuery(
+        {
+            region: selectedRegion,
+            disease: selectedDisease,
+            days: filters.dateRange,
         },
         {
-            TB: 0,
-            PN: 0,
-            COVID: 0,
-            AURI: 0,
+            refetchOnMountOrArgChange: true,
+            refetchOnFocus: true,
         }
     );
 
-    filteredSuspectedSymptoms.total =
-        filteredSuspectedSymptoms.TB +
-        filteredSuspectedSymptoms.PN +
-        filteredSuspectedSymptoms.COVID +
-        filteredSuspectedSymptoms.AURI;
+    const summaryReady =
+        !isSummaryFetching &&
+        !isSummaryError &&
+        Boolean(surveillanceSummary);
 
-    const filteredActiveRegionCount = new Set(
-        filteredCompletedEntries
-            .map((entry) => getEntryRegion(entry))
-            .filter(Boolean)
-    ).size;
+    const formatCount = (value) =>
+        typeof value === "number"
+            ? value.toLocaleString()
+            : value ?? "-";
 
-    const filteredRespiratoryAlertCount = filteredCompletedEntries.filter(
-        (entry) => getEntryDiseaseLabels(entry).length > 0
-    ).length;
+    const filteredSuspectedSymptoms = {
+        TB: summaryReady ? surveillanceSummary.disease_counts.TB : "-",
+        PN: summaryReady ? surveillanceSummary.disease_counts.PN : "-",
+        COVID: summaryReady ? surveillanceSummary.disease_counts.COVID : "-",
+        AURI: summaryReady ? surveillanceSummary.disease_counts.AURI: "-",
+        total: summaryReady
+            ? surveillanceSummary.disease_label_count
+            : "-",
+    };
 
-    const hasCompletedAnalyticsEntries = completedAnalyticsEntries.length > 0;
+    const filteredActiveRegionCount = summaryReady
+        ? surveillanceSummary.active_region_count
+        : "-";
 
-    const surveillanceDataStatusMessage = isAnalyticsEntriesLoading
-        ? "Loading processed analytics entries..."
-        : hasCompletedAnalyticsEntries
-            ? `${formatCount(filteredCompletedEntries.length)} processed entries match the current filters.`
-            : "No processed analytics entries yet. Upload raw data in Data Management, then process it once annotation is connected.";
+    const filteredRespiratoryAlertCount = summaryReady
+        ? surveillanceSummary.disease_positive_entry_count
+        : "-";
+
+    const surveillanceDataStatusMessage = isSummaryFetching
+        ? "Loading surveillance summary..."
+        : isSummaryError
+            ? typeof summaryError?.data?.detail === "string"
+                ? summaryError.data.detail
+                : "Unable to load surveillance data. Please try again."
+            : summaryReady
+                ? `${formatCount(
+                    surveillanceSummary.processed_entry_count
+                )} processed entries match the selected region and disease in the last ${filters.dateRange} days.`
+                : "Surveillance Summary is unavailable.";
 
     /* SUSPECTED CONDITIONS PERCENTAGE */
-    const [percentageFilter, setPercentageFilter] = useState(
-        user.user_type == "USER" ? user.accessible_regions[0] : "all"
-    );
+    const percentageData = summaryReady
+        ? [
+            { code: "TB", name: "Tuberculosis", color: "#32418C" },
+            { code: "PN", name: "Pneumonia", color: "#2572A5" },
+            { code: "COVID", name: "COVID-19", color: "#9BCC33" },
+            { code: "AURI", name: "AURI", color: "#FBD117" },
+        ].map((condition) => ({
+            ...condition,
+            count: surveillanceSummary.disease_counts[condition.code] || 0,
+        })).filter((condition) => condition.count > 0)
+        : [];
 
-    const { data: percentage, isFetching: isPercentageFetching } =
-        useGeneratePercentageQuery();
-    
-    const COLORS = ["#32418C", "#2572A5", "#9BCC33", "#FBD117"];
+    const percentageTotal = percentageData.reduce(
+        (total, condition) => total + condition.count,
+        0
+    );
     const RADIAN = Math.PI / 180;
 
     return (
@@ -229,102 +218,106 @@ const AISurveillance = () => {
                 </p>
             </div>
 
-            {/* FILTER SECTION */}
-            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[10px]">
-                <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-[16px]">
-                    {/* LEFT */}
-                    <div className="flex flex-wrap gap-[12px]">
-                        <ToolbarSelect
-                            value={filters.dateRange}
-                            onChange={(event) => handleChangeFilter("dateRange", Number(event.target.value))}
-                        >
-                            <option value={7}>Last 7 Days</option>
-                            <option value={14}>Last 14 Days</option>
-                            <option value={28}>Last 28 Days</option>
-                        </ToolbarSelect>
-                        <ToolbarSelect
-                            value={
-                                filters.region.length === accessibleRegions.length
-                                    ? "all"
-                                    : filters.region[0]?.value || "all"   
-                            }
-                            onChange={(event) => {
-                                const value = event.target.value;
-
-                                handleChangeFilter(
-                                    "region",
-                                    value === "all"
-                                        ? accessibleRegions
-                                        : accessibleRegions.filter((region) => region.value === value)
-                                );
-                            }}
-                        >
-                            <option value="all">All Regions</option>
-                            {accessibleRegions.map((region) => (
-                                <option key={region.value} value={region.value}>
-                                    {region.label}
-                                </option>
-                            ))}
-                        </ToolbarSelect>
-                        <ToolbarSelect
-                            value={filters.disease}
-                            onChange={(event) => handleChangeFilter("disease", event.target.value)}
-                        >
-                            <option value="all">All Impacts</option>
-                            <option value="tuberculosis">Tuberculosis</option>
-                            <option value="pneumonia">Pneumonia</option>
-                            <option value="covid">COVID</option>
-                            <option value="auri">AURI</option>
-                        </ToolbarSelect>
-                    </div>
-                    {/* RIGHT */}
-                    <div className="flex flex-wrap gap-[12px]">
-                        <ToolbarSearch placeholder="Search regions, diseases..." />
-                        <ToolbarButton iconName="Upload" variant="primary">
-                            Export
-                        </ToolbarButton>
-                    </div>
-                </div>
-            </div>
-
             {/* MAIN CONTENT */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-[10px]">
+            <div className="grid grid-cols-1 items-stretch gap-[10px] xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
                 {/* MAP SECTION */}
-                <div className="xl:col-span-2 bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[630px]">
+                <div className="flex min-w-0 flex-col rounded-[12px] border border-[#E5E5E5] bg-white p-[16px]">
                     <h2 className="text-[18px] font-semibold text-gray-800 mb-[12px]">Real-time Outbreak Monitoring</h2>
-                    <div className="trends-wrapper h-[595px] rounded-[12px] overflow-hidden border border-[#E5E5E5]">
-                        <Map 
+                    <div className="trends-wrapper relative h-[520px] min-h-[520px] flex-1 rounded-[12px] overflow-hidden border border-[#E5E5E5] md:h-[640px] md:min-h-[640px] xl:h-auto xl:min-h-[720px]">
+                        <SurveillanceMap
                             filters={filters}
-                            data={DummyData}
-                            mapCenter={getCenter}
+                            center={getCenter()}
                             points={filteredSurveillancePoints}
                             isPointsLoading={isPointsLoading}
+                            isPointsError={isPointsError}
+                            onRetry={() => refetchMapPoints()}
                         />
                     </div>
-                    
+
                 </div>
                 {/* RIGHT PANELS */}
                 <div className="flex flex-col gap-[10px]">
+                    {/* FILTERS AND EXPORT */}
+                    <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[10px]">
+                        <div className="flex flex-wrap items-center justify-end gap-[8px]">
+                            <ToolbarSelect
+                                className="min-w-[130px] max-w-full flex-1"
+                                value={filters.dateRange}
+                                onChange={(event) => handleChangeFilter("dateRange", Number(event.target.value))}
+                            >
+                                <option value={7}>Last 7 Days</option>
+                                <option value={14}>Last 14 Days</option>
+                                <option value={28}>Last 28 Days</option>
+                            </ToolbarSelect>
+                            <ToolbarSelect
+                                className="min-w-[130px] max-w-full flex-1"
+                                value={
+                                    filters.region.length === accessibleRegions.length
+                                        ? "all"
+                                        : filters.region[0]?.value || "all"
+                                }
+                                onChange={(event) => {
+                                    const value = event.target.value;
+
+                                    handleChangeFilter(
+                                        "region",
+                                        value === "all"
+                                            ? accessibleRegions
+                                            : accessibleRegions.filter((region) => region.value === value)
+                                    );
+                                }}
+                            >
+                                <option value="all">All Regions</option>
+                                {accessibleRegions.map((region) => (
+                                    <option key={region.value} value={region.value}>
+                                        {region.label}
+                                    </option>
+                                ))}
+                            </ToolbarSelect>
+                            <ToolbarSelect
+                                className="min-w-[130px] max-w-full flex-1"
+                                value={filters.disease}
+                                onChange={(event) => handleChangeFilter("disease", event.target.value)}
+                            >
+                                <option value="all">All Impacts</option>
+                                <option value="tuberculosis">Tuberculosis</option>
+                                <option value="pneumonia">Pneumonia</option>
+                                <option value="covid">COVID</option>
+                                <option value="auri">AURI</option>
+                            </ToolbarSelect>
+                            <ToolbarButton iconName="Upload" variant="primary">
+                                Export
+                            </ToolbarButton>
+                        </div>
+                    </div>
                     {/* SUMMARY CARDS */}
                     <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
                         <div
+                            role={isSummaryError ? "alert" : "status"}
                             className={`mb-[12px] rounded-[8px] border px-[12px] py-[10px] text-sm ${
-                                hasCompletedAnalyticsEntries
-                                    ? "border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]"
-                                    : "border-[#FED7AA] bg-[#FFF7ED] text-[#C2410C]"
+                                isSummaryError
+                                    ? "border-[#FCA5A5] bg-[#FEF2F2] text-[#B42318]"
+                                    : "border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]"
                             }`}
                         >
-                            <span className="font-semibold">
-                                {hasCompletedAnalyticsEntries ? "Processed data available: " : "Processing pending: "}
-                            </span>
-                            {surveillanceDataStatusMessage}
+                            <p>{surveillanceDataStatusMessage}</p>
+
+                            {isSummaryError && (
+                                <button
+                                    type="button"
+                                    onClick={() => refetchSummary()}
+                                    className="mt-[8px] font-semibold underline"
+                                >
+                                    Retry
+                                </button>
+                            )}
                         </div>
                         {/* SUSPECTED CASES */}
                         <div className="xl:col-span-1 bg-white rounded-[12px] border border-[#E5E5E5] p-[16px]">
                             <div className="flex justify-between items-center h-full">
                                 {/* LEFT */}
                                 <div className="flex flex-col justify-center">
-                                    <p className="text-gray-500 text-sm mb-[8px]">Suspected Cases</p>
+                                    <p className="text-gray-500 text-sm mb-[8px]">Disease Label Detections</p>
                                     <h2 className="text-[24px] font-semibold text-gray-800 leading-none">{formatCount(filteredSuspectedSymptoms?.total)}</h2>
                                 </div>
                                 {/* RIGHT */}
@@ -351,7 +344,7 @@ const AISurveillance = () => {
                         {/* ACTIVE REGIONS */}
                         <SummaryCard label="Active Regions" value={filteredActiveRegionCount} />
                         {/* RESPIRATORY ALERTS */}
-                        <SummaryCard label="Respiratory Alerts" value={filteredRespiratoryAlertCount} />
+                        <SummaryCard label="Reports with Disease Signals" value={filteredRespiratoryAlertCount} />
                         {/* HIGH RISK AREAS */}
                         <SummaryCard label="High Risk Areas" value="-" />
                     </div>
@@ -362,13 +355,13 @@ const AISurveillance = () => {
                             <MetricRow label="Weather Pattern" value="Humid / Cloudy" />
                             <MetricRow label="Heat Index" value="38°C" />
                         </div>
-                    </div> 
+                    </div>
                 </div>
             </div>
             {/* HEALTH MONITORING */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-[10px]">
+            <div className="grid grid-cols-1 items-stretch xl:grid-cols-3 gap-[10px]">
                 {/* RESPIRATORY MONITORING */}
-                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[260px]">
+                <div className="flex min-w-0 flex-col bg-white rounded-[12px] border border-[#E5E5E5] px-[20px] pt-[20px] pb-[12px]">
                     <h2 className="text-[18px] font-semibold text-gray-800">
                         Respiratory Monitoring
                     </h2>
@@ -376,7 +369,7 @@ const AISurveillance = () => {
                         Air quality and respiratory metrics with environmental factors.
                     </p>
 
-                    <ResponsiveContainer width="100%" height={360}>
+                    <ResponsiveContainer width="100%" height={280}>
                         <LineChart
                             data={[
                                 {
@@ -407,41 +400,30 @@ const AISurveillance = () => {
                                     humidity: 7,
                                 },
                             ]}
-                            margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
+                            margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
                         >
                             <CartesianGrid strokeDasharray="3 3 " />
                             <XAxis dataKey="time" />
                             <YAxis/>
                             <Tooltip />
-                            <Legend 
-                                verticalAlign="bottom"
-                                align="center"
-                                layout="horizontal"
-                                iconType="circle"
-                                wrapperStyle={{
-                                    paddingTop: "20px",
-                                    width: "100%",
-                                    lineHeight: "28px",
-                                }}
-                                formatter={(value) => (
-                                    <span className="text-[13px] text-gray-700 mr-[24px] inline-block min-w-[160px]">
-                                        {value}
-                                    </span>
-                                )}
-                            />
 
-                            <Line type="monotone" dataKey="respiratoryRate" name="Respiratory Rate" stroke="#32418C" />
-                            <Line type="monotone" dataKey="aqi" name="AQI" stroke="#2572A5" />
-                            <Line type="monotone" dataKey="temperature" name="Temperature (°C)" stroke="#1D8D9F" />
-                            <Line type="monotone" dataKey="coughFrequency" name="Cough Frequency" stroke="#1ABC9C" />
-                            <Line type="monotone" dataKey="pm25" name="PM2.5" stroke="#9BCC33" />
-                            <Line type="monotone" dataKey="humidity" name="Humidity (%)" stroke="#FBD117" />
+
+                            {RESPIRATORY_SERIES.map((series) => (
+                                <Line
+                                    key={series.key}
+                                    type="monotone"
+                                    dataKey={series.key}
+                                    name={series.name}
+                                    stroke={series.color}
+                                />
+                            ))}
                         </LineChart>
                     </ResponsiveContainer>
+                    <ChartLegend items={RESPIRATORY_SERIES} columns />
                 </div>
 
                 {/* TREND FORECASTING */}
-                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[300px]">
+                <div className="flex min-w-0 flex-col bg-white rounded-[12px] border border-[#E5E5E5] px-[20px] pt-[20px] pb-[12px]">
                     <h2 className="text-[18px] font-semibold text-gray-800">
                         Trend Forecasting
                     </h2>
@@ -449,7 +431,7 @@ const AISurveillance = () => {
                         Projected disease signal trends based on recent surveillance patterns.
                     </p>
 
-                    <ResponsiveContainer width="100%" height={360}>
+                    <ResponsiveContainer width="100%" height={280}>
                         <AreaChart
                             data={[
                                 { day: "Mon", actual: 120, forecast: 128 },
@@ -460,76 +442,75 @@ const AISurveillance = () => {
                                 { day: "Sat", actual: null, forecast: 218 },
                                 { day: "Sun", actual: null, forecast: 235 },
                             ]}
-                            margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
+                            margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
                         >
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="day" />
                             <YAxis />
                             <Tooltip />
-                            <Legend
-                                verticalAlign="bottom"
-                                align="center"
-                                iconType="circle"
-                                wrapperStyle={{
-                                    paddingTop: "20px",
-                                    width: "100%",
-                                    lineHeight: "28px",
-                                }}
-                            />
-                        <Area
-                            type="monotone"
-                            dataKey="actual"
-                            name="Actual Reports"
-                            stroke="#32418C"
-                            fill="#DBEAFE"
-                            strokeWidth={2}
-                            dot={{ r: 3 }}
-                            activeDot={{ r: 5 }}
-                        />
-                        <Area
-                            type="monotone"
-                            dataKey="forecast"
-                            name="Forecasted Trend"
-                            stroke="#FBD117"
-                            fill="#FFEDD5"
-                            strokeWidth={2}
-                            strokeDasharray="5 5"
-                            dot={{ r: 3 }}
-                            activeDot={{ r: 5 }}
-                        />
+
+                            {FORECAST_SERIES.map((series) => (
+                                <Area
+                                    key={series.key}
+                                    type="monotone"
+                                    dataKey={series.key}
+                                    name={series.name}
+                                    stroke={series.color}
+                                    fill={series.fill}
+                                    strokeWidth={2}
+                                    strokeDasharray={series.strokeDasharray}
+                                    dot={{ r: 3 }}
+                                    activeDot={{ r: 5 }}
+                                />
+                            ))}
                         </AreaChart>
                     </ResponsiveContainer>
+                    <ChartLegend items={FORECAST_SERIES} />
                 </div>
 
                 {/* SUSPECTED CONDITIONS PERCENTAGE */}
-                <Report
-                    heading="Suspected Conditions Percentage"
-                    filter={percentageFilter}
-                    setFilter={setPercentageFilter}
-                    isLoading={isPercentageFetching}
-                >
-                    <ResponsiveContainer width="100%" height={360}>
-                        {percentage && (
-                            <PieChart>
-                                <Legend 
-                                    verticalAlign="bottom"
-                                    align="center"
-                                    iconType="circle"
-                                    wrapperStyle={{
-                                        paddingTop: "20px",
-                                        lineHeight: "28px",
-                                    }}
-                                    formatter={(value) => (
-                                        <span className="text-[13px] text-gray-700 mr-[18px]">
-                                            {value}
-                                        </span>
-                                    )}
-                                />
+                <div className="flex min-w-0 flex-col bg-white rounded-[12px] border border-[#E5E5E5] px-[20px] pt-[20px] pb-[12px]">
+                    <h2 className="text-[18px] font-semibold text-gray-800 mb-[12px]">
+                        Suspected Conditions Percentage
+                    </h2>
+                    <p className="mb-[12px] text-sm text-gray-500">
+                        Share of disease label detections for the selected filters.
+                        A report may contribute more than one label.
+                    </p>
+                    {isSummaryFetching ? (
+                        <p role="status" className="flex h-[280px] items-center justify-center text-sm text-gray-500">
+                            Loading condition percentages...
+                        </p>
+                    ) : isSummaryError ? (
+                        <div role="alert" className="flex h-[280px] flex-col items-center justify-center gap-3 text-center text-sm text-red-700">
+                            <p>{surveillanceDataStatusMessage}</p>
+                            <button
+                                type="button"
+                                onClick={() => refetchSummary()}
+                                className="font-semibold underline"
+                            >
+                                Retry
+                            </button>
+                        </div>
+                    ) : !summaryReady || percentageTotal === 0 ? (
+                        <p role="status" className="flex h-[280px] items-center justify-center text-center text-sm text-gray-500">
+                            {summaryReady
+                                ? "No disease detections match the selected filters."
+                                : "Surveillance summary is unavailable."}
+                        </p>
+                    ) : (
+                        <>
+                        <ResponsiveContainer width="100%" height={280}>
+                            <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+
 
                                 <Pie
-                                    data={percentage[percentageFilter]}
+                                    data={percentageData}
+                                    nameKey="name"
                                     cx="50%"
                                     cy="50%"
+                                    outerRadius="95%"
+                                    paddingAngle={0}
                                     labelLine={false}
                                     label={({
                                         cx,
@@ -539,6 +520,8 @@ const AISurveillance = () => {
                                         outerRadius,
                                         percent,
                                     }) => {
+                                        if (percent < 0.05) return null;
+
                                         const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
                                         const x = cx + radius * Math.cos(-midAngle * RADIAN);
                                         const y = cy + radius * Math.sin(-midAngle * RADIAN);
@@ -558,22 +541,53 @@ const AISurveillance = () => {
                                     fill="#8884d8"
                                     dataKey="count"
                                 >
-                                    {percentage[percentageFilter]?.map((entry, index) => (
+                                    {percentageData.map((entry) => (
                                         <Cell
-                                            key={`cell-${index}`}
-                                            fill={COLORS[index % COLORS.length]}
+                                            key={entry.code}
+                                            fill={entry.color}
                                         />
                                     ))}
                                 </Pie>
-                                <Tooltip />
+                                <Tooltip
+                                    formatter={(value, name) => [
+                                        `${Number(value).toLocaleString()} detections (${(
+                                            Number(value) / percentageTotal * 100
+                                        ).toFixed(1)}%)`,
+                                        name,
+                                    ]}
+                                />
                             </PieChart>
-                        )}
-                    </ResponsiveContainer>
-                </Report>
+                        </ResponsiveContainer>
+                        <ChartLegend items={percentageData} />
+                        </>
+                    )}
+                </div>
             </div>
         </div>
     );
 };
+
+const ChartLegend = ({ items, columns = false }) => (
+    <ul
+        aria-label="Chart legend"
+        className={`mt-4 shrink-0 text-[13px] leading-5 text-gray-700 ${
+            columns
+                ? "grid grid-cols-2 gap-x-4 gap-y-2"
+                : "flex flex-wrap justify-center gap-x-3 gap-y-2"
+        }`}
+    >
+        {items.map((item) => (
+            <li key={item.key || item.code} className="flex min-w-0 items-center gap-2">
+                <span
+                    aria-hidden="true"
+                    className="h-3 w-3 shrink-0 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                />
+                <span>{item.name}</span>
+            </li>
+        ))}
+    </ul>
+);
 
 const SummaryCard = ({ label, value }) => {
     return (
@@ -592,5 +606,5 @@ const MetricRow = ({ label, value }) => {
         </div>
     );
 };
- 
+
 export default AISurveillance;

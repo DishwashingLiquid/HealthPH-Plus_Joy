@@ -2,6 +2,17 @@ import { baseAPI } from "./_baseAPI";
 
 export const analyticsEntriesApi = baseAPI.injectEndpoints({
     endpoints: (builder) => ({
+        fetchSurveillanceSummary: builder.query({
+            query: ({
+                region = "all",
+                disease = "all",
+                days = 7,
+            } = {}) => ({
+                url: "/analytics-entries/surveillance-summary",
+                params: { region, disease, days },
+            }),
+            providesTags: ["AnalyticsEntries"],
+        }),
         fetchAnalyticsEntries: builder.query({
             query: ({
                 sourceType = "all",
@@ -10,7 +21,7 @@ export const analyticsEntriesApi = baseAPI.injectEndpoints({
                 search = "",
                 limit = 100,
             } = {}) => ({
-                url: "/analytics-entries",
+                url: "/analytics-entries/",
                 params: {
                     source_type: sourceType,
                     analysis_status: analysisStatus,
@@ -26,7 +37,10 @@ export const analyticsEntriesApi = baseAPI.injectEndpoints({
             providesTags: ["AnalyticsEntries"],
         }),
         fetchAnalyticsMapPoints: builder.query({
-            query: () => "/analytics-entries/map-points",
+            query: ({ days = 7 } = {}) => ({
+                url: "/analytics-entries/map-points",
+                params: { days },
+            }),
             providesTags: ["AnalyticsEntries"],
         }),
         processAnalyticsEntries: builder.mutation({
@@ -41,6 +55,7 @@ export const analyticsEntriesApi = baseAPI.injectEndpoints({
 });
 
 export const {
+    useFetchSurveillanceSummaryQuery,
     useFetchAnalyticsEntriesQuery,
     useFetchAnalyticsMapPointsQuery,
     useFetchSelfReportLanguageSummaryQuery,

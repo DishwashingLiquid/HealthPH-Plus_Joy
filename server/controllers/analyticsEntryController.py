@@ -21,6 +21,10 @@ from helpers.analyticsAccessHelpers import (
     get_analytics_entry_region,
 )
 from helpers.diseaseDetectionHelpers import detect_diseases
+from helpers.surveillanceDateHelpers import (
+    get_surveillance_window,
+    is_within_surveillance_window,
+)
 
 from helpers.miscHelpers import get_ph_datetime
 from region_normalization import normalize_region
@@ -130,6 +134,7 @@ async def fetch_analytics_map_points(
         dict,
         Depends(require_page("AI Surveillance")),
     ],
+    days: int = Query(7, ge=1, le=365),
 ):
     entries = analytics_entries_collection.find(
         {
@@ -141,17 +146,26 @@ async def fetch_analytics_map_points(
         {
             "location": 1,
             "analysis.disease_labels": 1,
+            "event_time": 1,
         },
     )
 
     grouped_points = {}
 
     allowed_regions = get_allowed_analytics_regions(current_user)
+    window_start, window_end = get_surveillance_window(days)
 
     for entry in entries:
         region = get_analytics_entry_region(entry)
 
         if allowed_regions is not None and region not in allowed_regions:
+            continue
+
+        if not is_within_surveillance_window(
+            entry,
+            window_start,
+            window_end,
+        ):
             continue
 
         location = entry.get("location") or {}
@@ -223,6 +237,7 @@ def fetch_surveillance_summary(
     ],
     region: str = Query("all"),
     disease: str = Query("all"),
+    days: int = Query(7, ge=1, le=365),
 ):
     allowed_regions = get_allowed_analytics_regions(current_user)
 
@@ -262,6 +277,7 @@ def fetch_surveillance_summary(
             "_id": 0,
             "location": 1,
             "analysis.disease_labels": 1,
+            "event_time": 1,
         },
     )
 
@@ -269,6 +285,7 @@ def fetch_surveillance_summary(
     disease_positive_entries = 0
     disease_counts = Counter()
     active_regions = set()
+    window_start, window_end = get_surveillance_window(days)
 
     for entry in entries:
         entry_region = get_analytics_entry_region(entry)
@@ -276,6 +293,13 @@ def fetch_surveillance_summary(
         if (
             allowed_regions is not None
             and entry_region not in allowed_regions
+        ):
+            continue
+
+        if not is_within_surveillance_window(
+            entry,
+            window_start,
+            window_end,
         ):
             continue
 
