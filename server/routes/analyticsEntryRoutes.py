@@ -5,6 +5,7 @@ from controllers.analyticsEntryController import (
     fetch_analytics_map_points,
     fetch_self_report_language_summary,
     process_analytics_entries,
+    fetch_surveillance_summary,
 )
 
 router = APIRouter()
@@ -28,3 +29,10 @@ router.add_api_route(
 
 #POST /analytics-entries/process
 router.add_api_route("/process", methods=["POST"], endpoint=process_analytics_entries)
+
+# GET /analytics-entries/surveillance-summary
+router.add_api_route(
+    "/surveillance-summary",
+    methods=["GET"],
+    endpoint=fetch_surveillance_summary,
+)

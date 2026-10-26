@@ -216,6 +216,111 @@ async def fetch_analytics_map_points(
 
     return map_points
 
+def fetch_surveillance_summary(
+    current_user: Annotated[
+        dict,
+        Depends(require_page("AI Surveillance")),
+    ],
+    region: str = Query("all"),
+    disease: str = Query("all"),
+):
+    allowed_regions = get_allowed_analytics_regions(current_user)
+
+    selected_region = None
+    if region.strip().lower() != "all":
+        selected_region = normalize_region(region)
+
+        if not selected_region:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid region filter.",
+            )
+
+        if (
+            allowed_regions is not None
+            and selected_region not in allowed_regions
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have access to this region.",
+            )
+
+    selected_disease = disease.strip().upper()
+
+    if selected_disease != "ALL" and selected_disease not in MAP_DISEASE_CODES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid disease filter.",
+        )
+
+    entries = analytics_entries_collection.find(
+        {
+            "analysis_status": "PROCESSED",
+            "source_type": {"$in": ["social_media", "self_report"]},
+        },
+        {
+            "_id": 0,
+            "location": 1,
+            "analysis.disease_labels": 1,
+        },
+    )
+
+    processed_entries = 0
+    disease_positive_entries = 0
+    disease_counts = Counter()
+    active_regions = set()
+
+    for entry in entries:
+        entry_region = get_analytics_entry_region(entry)
+
+        if (
+            allowed_regions is not None
+            and entry_region not in allowed_regions
+        ):
+            continue
+
+        if selected_region and entry_region != selected_region:
+            continue
+
+        raw_labels = (entry.get("analysis") or {}).get(
+            "disease_labels", []
+        )
+
+        labels = (
+            {
+                str(label).strip().upper()
+                for label in raw_labels
+            } & MAP_DISEASE_CODES
+            if isinstance(raw_labels, list)
+            else set()
+        )
+
+        if selected_disease != "ALL":
+            if selected_disease not in labels:
+                continue
+            labels = {selected_disease}
+
+        processed_entries += 1
+
+        if labels:
+            disease_positive_entries += 1
+            disease_counts.update(labels)
+
+            if entry_region:
+                active_regions.add(entry_region)
+
+    return {
+        "processed_entry_count": processed_entries,
+        "disease_positive_entry_count": disease_positive_entries,
+        "disease_label_count": sum(disease_counts.values()),
+        "disease_counts": {
+            code: disease_counts[code]
+            for code in sorted(MAP_DISEASE_CODES)
+        },
+        "active_region_count": len(active_regions),
+        "active_regions": sorted(active_regions),
+    }
+
 PROCESSABLE_SOURCE_TYPES = ["self_report"]
 
 def run_analytics_entry_processing_job(entry_ids: list[str]):
