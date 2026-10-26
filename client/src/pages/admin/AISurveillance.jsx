@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useSelector } from "react-redux";
 
 import SurveillanceMap from "../../components/admin/SurveillanceMap";
+import EnvironmentalDataCard from "../../components/admin/EnvironmentalDataCard";
 
 import Regions from "../../assets/data/regions.json";
 import RegionsCenter from "../../assets/data/regions_center.json";
@@ -348,14 +349,13 @@ const AISurveillance = () => {
                         {/* HIGH RISK AREAS */}
                         <SummaryCard label="High Risk Areas" value="-" />
                     </div>
-                    <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
-                        <h2 className="text-[18px] font-semibold text-gray-800 mb-[12px]">Environmental Data</h2>
-                        <div className="flex flex-col gap-[12px]">
-                            <MetricRow label="Air Quality Index" value="Moderate" />
-                            <MetricRow label="Weather Pattern" value="Humid / Cloudy" />
-                            <MetricRow label="Heat Index" value="38°C" />
-                        </div>
-                    </div>
+                    <EnvironmentalDataCard
+                        region={
+                            filters.region.length === 1
+                                ? filters.region[0].value
+                                : null
+                        }
+                    />
                 </div>
             </div>
             {/* HEALTH MONITORING */}
@@ -598,13 +598,5 @@ const SummaryCard = ({ label, value }) => {
     );
 };
 
-const MetricRow = ({ label, value }) => {
-    return (
-        <div className="flex justify-between items-center bg-[#F5F5F5] rounded-[8px] p-[12px]">
-            <span className="text-sm text-gray-500">{label}</span>
-            <span className="text-sm font-medium text-gray-800">{value}</span>
-        </div>
-    );
-};
 
 export default AISurveillance;
