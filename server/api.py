@@ -1,16 +1,13 @@
 import asyncio
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.exceptions import HTTPException
-from fastapi.templating import Jinja2Templates
-from dotenv import dotenv_values, load_dotenv
 import os
 
-config = dotenv_values()
+from runtime_config import load_server_environment, web_build_directory
+from web_frontend import configure_web_frontend
 
-load_dotenv()
+load_server_environment()
 
 # Import Routes
 from routes.authRoutes import router as authRouter
@@ -21,7 +18,10 @@ from routes.activityLogRoutes import router as activityLogRouter
 from routes.analyticsRoutes import router as analyticsRouter
 from routes.datasetsRoutes import router as datasetsRouter
 from routes.analyticsEntryRoutes import router as analyticsEntryRouter
-from routes.environmentalDataRoutes import router as environmentalDataRouter
+from routes.environmentalDataRoutes import (
+    router as environmentalDataRouter,
+    mobile_router as mobileEnvironmentalDataRouter,
+)
 from routes.pointRoutes import router as pointRouter
 from routes.miscRoutes import router as miscRouter
 from routes.healthLiteracyHubRoutes import (
@@ -33,6 +33,7 @@ from routes.diseaseWatchFeedRoutes import (
     mobile_self_reports_router as mobileSelfReportsRouter,
 )
 from routes.mobileUserRoutes import mobile_users_router as mobileUsersRouter
+from routes.healthRoutes import router as healthRouter
 from controllers.regionalAlertsController import (
     ensure_regional_alert_indexes,
     process_due_regional_alerts,
@@ -43,7 +44,10 @@ from controllers.regionalAlertsController import (
 app = FastAPI()
 
 # Initialize FastAPI app for api routes
-api_app = FastAPI()
+api_app = FastAPI(
+    title="HealthPH+ Shared API",
+    description="Shared web and mobile backend. Public mobile environmental GET routes are available to guests; dashboard and personal-data routes retain their own access rules.",
+)
 regional_alert_scheduler_task = None
 
 
@@ -109,6 +113,11 @@ api_app.include_router(router=activityLogRouter, tags=["Activity Logs"], prefix=
 api_app.include_router(router=datasetsRouter, tags=["Datasets"], prefix="/datasets")
 api_app.include_router(router=analyticsEntryRouter, tags=["Analytics Entries"], prefix="/analytics-entries")
 api_app.include_router(router=environmentalDataRouter, tags=["Environmental Data"], prefix="/environmental-data")
+api_app.include_router(
+    router=mobileEnvironmentalDataRouter,
+    tags=["Mobile Environmental Data"],
+    prefix="/mobile/environmental-data",
+)
 api_app.include_router(router=pointRouter, tags=["Points"], prefix="/points")
 api_app.include_router(router=analyticsRouter, tags=["Analytics"])
 api_app.include_router(router=miscRouter, tags=["Misc"])
@@ -125,23 +134,10 @@ api_app.include_router(
     prefix="/mobile",
 )
 api_app.include_router(router=mobileUsersRouter, tags=["Mobile Users"], prefix="/mobile")
+api_app.include_router(router=healthRouter, tags=["Health"], prefix="/health")
 
 app.mount("/api", api_app, name="api")
 
-# Serve build files from client / frontend
-app.mount("/", StaticFiles(directory="../build", html=True), name="build")
-
-templates = Jinja2Templates(directory="../build")
-
-# Handle 404 error
-""" @app.exception_handler(404)
-async def catch_all(request: Request, exc: HTTPException):
-    return templates.TemplateResponse("index.html", {"request": request}) """
-
-@app.exception_handler(404)
-async def catch_all(request: Request, exc: HTTPException):
-    return templates.TemplateResponse(
-        request=request,
-        name="index.html",
-        context={}
-    )
+# The API can run without a Vite build. Serve it when present, resolving its
+# path from the repository rather than the shell's current directory.
+configure_web_frontend(app, web_build_directory())

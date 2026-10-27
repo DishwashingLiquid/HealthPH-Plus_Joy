@@ -9,3 +9,4 @@ __pycache__/
 .hub-build-check/
 hub-*.json
 hub-*.jsonl
+docs/mobile-backend/live/
