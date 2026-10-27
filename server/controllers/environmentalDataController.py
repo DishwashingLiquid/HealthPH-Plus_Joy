@@ -1,5 +1,9 @@
 from fastapi import Depends, HTTPException, Query
 
+from helpers.airQualityHelpers import (
+    AirQualityServiceError,
+    fetch_current_air_quality,
+)
 from helpers.analyticsAccessHelpers import get_allowed_analytics_regions
 from helpers.environmentalDataHelpers import (
     WeatherServiceError,
@@ -10,7 +14,7 @@ from middleware.requirePage import require_page
 from region_normalization import REGION_NAMES, normalize_region
 
 
-def fetch_environmental_weather(
+def resolve_environmental_location(
     region: str = Query(..., min_length=1, max_length=100),
     current_user: dict = Depends(require_page("AI Surveillance")),
 ):
@@ -19,7 +23,7 @@ def fetch_environmental_weather(
     if not region_code:
         raise HTTPException(
             status_code=400,
-            detail="Select a specific region to view its reference weather.",
+            detail="Select a specific region to view environmental data.",
         )
 
     allowed_regions = get_allowed_analytics_regions(current_user)
@@ -35,18 +39,10 @@ def fetch_environmental_weather(
     if not reference:
         raise HTTPException(
             status_code=400,
-            detail="A weather reference location is not configured for this region.",
+            detail="A reference location is not configured for this region.",
         )
 
     location_name, latitude, longitude = reference
-
-    try:
-        weather = fetch_current_weather(latitude, longitude)
-    except WeatherServiceError as error:
-        raise HTTPException(
-            status_code=502,
-            detail=str(error),
-        ) from error
 
     return {
         "region": region_code,
@@ -56,10 +52,57 @@ def fetch_environmental_weather(
             "latitude": latitude,
             "longitude": longitude,
         },
+    }
+
+def fetch_environmental_weather(
+    location: dict = Depends(resolve_environmental_location),
+):
+    reference = location["reference_location"]
+
+    try:
+        weather = fetch_current_weather(
+            reference["latitude"],
+            reference["longitude"],
+        )
+    except WeatherServiceError as error:
+        raise HTTPException(
+            status_code=502,
+            detail=str(error),
+        ) from error
+
+    return {
+        **location,
         "data_type": "model_estimate",
         "weather": weather,
         "attribution": {
             "label": "Weather data by Open-Meteo",
-            "url": "https://open-meteo.com",
+            "url": "https://open-meteo.com/",
+        },
+    }
+
+def fetch_environmental_air_quality(
+    location: dict = Depends(resolve_environmental_location),
+):
+    reference = location["reference_location"]
+
+    try:
+        air_quality = fetch_current_air_quality(
+            reference["latitude"],
+            reference["longitude"],
+        )
+    except AirQualityServiceError as error:
+        raise HTTPException(
+            status_code=502,
+            detail=str(error),
+        ) from error
+
+    return {
+        **location,
+        "data_type": "model_estimate",
+        "air_quality": air_quality,
+        "attribution": {
+            "label": "Air quality data by Open-Meteo and CAMS",
+            "url": "https://open-meteo.com/",
+            "cams_url": "https://atmosphere.copernicus.eu/",
         },
     }

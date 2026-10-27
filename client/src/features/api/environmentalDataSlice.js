@@ -9,9 +9,18 @@ export const environmentalDataApi = baseAPI.injectEndpoints({
                 timeout: 15000,
             }),
         }),
+
+        fetchCurrentAirQuality: builder.query({
+            query: (region) => ({
+                url: "/environmental-data/air-quality",
+                params: { region },
+                timeout: 15000,
+            }),
+        }),
     }),
 });
 
 export const {
     useFetchCurrentWeatherQuery,
+    useFetchCurrentAirQualityQuery,
 } = environmentalDataApi;

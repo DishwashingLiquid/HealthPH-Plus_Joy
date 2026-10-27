@@ -2,6 +2,8 @@ import {
     useFetchCurrentWeatherQuery,
 } from "../../features/api/environmentalDataSlice";
 
+import AirQualityDetails from "./AirQualityDetails";
+
 const WEATHER_LABELS = {
     0: "Clear sky",
     1: "Mainly clear",
@@ -40,6 +42,28 @@ const formatMeasurement = (value, unit) =>
             maximumFractionDigits: 2,
         })}${unit}`
         : "Unavailable";
+
+const formatWindDirection = (direction, speed) => {
+    if (Number.isFinite(speed) && speed === 0) {
+        return "Calm";
+    }
+
+    if (
+        !Number.isFinite(direction)
+        || direction < 0
+        || direction > 360
+    ) {
+        return "Unavailable";
+    }
+
+    const directions = [
+        "N", "NE", "E", "SE", "S", "SW", "W", "NW",
+    ];
+
+    const compass = directions[Math.round(direction / 45) % 8];
+
+    return `${compass} (${Math.round(direction)}°)`;
+};
 
 const EnvironmentalDataCard = ({ region }) => {
     const {
@@ -116,6 +140,24 @@ const EnvironmentalDataCard = ({ region }) => {
                 value: formatMeasurement(weather.feels_like, " °C"),
             },
             {
+                label: "Estimated Heat Index",
+                value: formatMeasurement(
+                    weather.estimated_heat_index,
+                    " °C"
+                ),
+            },
+            {
+                label: "Wind Speed",
+                value: formatMeasurement(weather.wind_speed, " km/h"),
+            },
+            {
+                label: "Wind Direction",
+                value: formatWindDirection(
+                    weather.wind_direction,
+                    weather.wind_speed
+                ),
+            },
+            {
                 label: precipitationLabel,
                 value: formatMeasurement(weather.precipitation, " mm"),
             },
@@ -153,6 +195,10 @@ const EnvironmentalDataCard = ({ region }) => {
                         {" "}PHT
                     </p>
                     <p>
+                        Estimated Heat Index is calculated from temperature and humidity
+                        for shadedm light-wind conditions.
+                    </p>
+                    <p>
                         Weather data by{" "}
                         <a
                             href="https://open-meteo.com/"
@@ -176,7 +222,10 @@ const EnvironmentalDataCard = ({ region }) => {
             <h2 className="mb-3 text-[18px] font-semibold text-gray-800">
                 Weather &amp; Air Quality
             </h2>
+
             {content}
+
+            {region && <AirQualityDetails region={region} />}
         </section>
     );
 };
