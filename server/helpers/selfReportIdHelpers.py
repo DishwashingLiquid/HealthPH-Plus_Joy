@@ -40,8 +40,10 @@ def ensure_report_id_indexes(reports, counters):
     highest, _ = audit_report_ids(reports.find({}, {"id": 1}))
     # Legacy records without an id are permitted until the controlled backfill.
     reports.create_index(
-        [("id", 1)], name="unique_self_report_public_id", unique=True,
-        partialFilterExpression={"id": {"$type": "string", "$gt": ""}},
+        [("id", 1)],
+        name="unique_self_report_public_id",
+        unique=True,
+        partialFilterExpression={"id": {"$type": "string"}},
     )
     # $max never resets a sequence consumed by another worker or failed insert.
     try:
