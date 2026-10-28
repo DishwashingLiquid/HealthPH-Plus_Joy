@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { divIcon, latLngBounds } from "leaflet";
+import { divIcon, polygon } from "leaflet";
+import "leaflet/dist/leaflet.css";
 import {
     MapContainer,
     Marker,
@@ -8,6 +9,7 @@ import {
 } from "react-leaflet";
 
 import Icon from "../Icon";
+import EnvironmentalDataCard from "./EnvironmentalDataCard";
 
 import Regions from "../../assets/data/regions.json";
 import RegionsCoordinates from "../../assets/data/regions_coordinates.json";
@@ -60,6 +62,15 @@ const createPin = (selected) =>
         return Number.isFinite(count) && count > 0 ? count : 0;
     };
 
+    const mapPanelPadding = (map) => {
+        const panelWidth = Math.min(260, map.getSize().x * 0.26);
+
+        return {
+            paddingTopLeft: [Math.ceil(panelWidth) + 24, 32],
+            paddingBottomRight: [Math.ceil(panelWidth) + 24, 48],
+        };
+    };
+
     const SurveillanceMap = ({
         filters,
         center = [13, 122],
@@ -71,6 +82,7 @@ const createPin = (selected) =>
         const [map, setMap] = useState(null);
         const [selectedKey, setSelectedKey] = useState(null);
         const lastViewportKey = useRef(null);
+        const [mapSizeKey, setMapSizeKey] = useState("");
 
         const visiblePoints = useMemo(() => {
             if (isPointsLoading || isPointsError) return [];
@@ -93,50 +105,86 @@ const createPin = (selected) =>
         const selectedPoint = 
             visiblePoints.find((point) => pointKey(point) === selectedKey) || null;
 
-        const locationBoundsKey = visiblePoints
-            .map((point) => `${Number(point.lat)},${Number(point.long)}`)
-            .sort()
-            .join(";");
+        const selectedRegionCode =
+            filters.region.length === 1
+                ? filters.region[0].value
+                : null;
+
         const centerLat = center[0];
         const centerLong = center[1];
 
-        // Reframe when the visible locations change, without resetting manual zoom
-        // during unrelated summary updates or marker selection.
-        useEffect(() => {
-            if (!map || isPointsLoading || isPointsError) return;
-
-            const viewportKey = `${centerLat}:${centerLong}:${locationBoundsKey}`;
-            if (lastViewportKey.current === viewportKey) return;
-            lastViewportKey.current = viewportKey;
-
-            if (!locationBoundsKey) {
-                map.setView([centerLat, centerLong], 7);
-                return;
-            }
-
-            const coordinates = locationBoundsKey
-                .split(";")
-                .map((coordinate) => coordinate.split(",").map(Number));
-
-            map.fitBounds(latLngBounds(coordinates), {
-                padding: [48, 48],
-                maxZoom: 10,
-                animate: false,
-            });
-        }, [map, locationBoundsKey, centerLat, centerLong, isPointsLoading, isPointsError]);
-
-        // Leaflet must recalculate its viewport when the responsive grid resizes.
+        // Keep Leaflet aware of the fixed windows actual dimes.
         useEffect(() => {
             if (!map) return;
 
-            const observer = new ResizeObserver(() => {
+            const updateSize = () => {
                 map.invalidateSize({ pan: false });
-            });
+
+                const { x, y } = map.getSize();
+
+                if (x > 0 && y > 0) {
+                    setMapSizeKey(`${x}:${y}`);
+                }
+            };
+
+            const observer = new ResizeObserver(updateSize);
+
             observer.observe(map.getContainer());
+            updateSize();
 
             return () => observer.disconnect();
         }, [map]);
-        
+
+        // Reframe for region selection or a resized map window.
+        // Pin selection and data refreshes do not reset manual zoom.
+        useEffect(() => {
+            if (!map || !mapSizeKey) return;
+
+            const viewportKey = [
+                selectedRegionCode || "all",
+                mapSizeKey,
+                centerLat,
+                centerLong,
+            ].join(":");
+
+            if (lastViewportKey.current === viewportKey) return;
+
+            lastViewportKey.current = viewportKey;
+
+            const regionShape = RegionsCoordinates.find(
+                ({ id }) => id === selectedRegionCode
+            );
+
+            map.stop();
+
+            if (regionShape) {
+                const bounds = polygon(
+                    regionShape.coordinates
+                ).getBounds();
+
+                map.fitBounds(bounds, {
+                    ...mapPanelPadding(map),
+                    maxZoom: 8,
+                    animate: true,
+                    duration: 0.35,
+                });
+
+                return;
+            }
+
+            map.setView(
+                [centerLat, centerLong],
+                6,
+                { animate: true }
+            );
+        }, [
+            map,
+            mapSizeKey,
+            selectedRegionCode,
+            centerLat,
+            centerLong,
+        ]);
+
         // Close details when filtering removes the selected location.
         // Preserve selection during a normal data refresh.
         useEffect(() => {
@@ -149,20 +197,17 @@ const createPin = (selected) =>
             }
         }, [isPointsLoading, selectedKey, selectedPoint]);
 
-        // Keep the selected marker outside the details panel.
+        // Keep selected markers in the space between both side panels
         useEffect(() => {
             if (!map || !selectedPoint) return;
 
-            const desktop = window.matchMedia("(min-width: 768px)").matches;
-            const size = map.getSize();
-
             map.panInside(
-                [Number(selectedPoint.lat), Number(selectedPoint.long)],
+                [
+                    Number(selectedPoint.lat),
+                    Number(selectedPoint.long),
+                ],
                 {
-                    paddingTopLeft: desktop ? [330, 30] : [30, 30],
-                    paddingBottomRight: desktop
-                        ? [50, 50]
-                        : [30, Math.round(size.y * 0.6)],
+                    ...mapPanelPadding(map),
                     animate: true,
                 }
             );
@@ -175,16 +220,26 @@ const createPin = (selected) =>
         );
 
         return (
-            <div className="relative isolate h-full w-full">
+            <div
+                className="relative isolate h-full w-full"
+                style={{ "--map-panel-width": "min(260px, 26%)" }}
+            >
                 <MapContainer
                     ref={setMap}
                     center={center}
-                    zoom={7}
-                    minZoom={6}
+                    zoom={6}
+                    minZoom={5}
                     maxZoom={14}
                     maxBounds={[[4, 116], [22, 128]]}
                     maxBoundsViscosity={1}
                     zoomControl={false}
+                    style={{
+                        position: "absolute",
+                        inset: 0,
+                        width: "100%",
+                        height: "100%",
+                        zIndex: 0,
+                    }}
                 >
                     <TileLayer
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -226,6 +281,27 @@ const createPin = (selected) =>
                         );
                     })}
                 </MapContainer>
+
+                {/* ENVIRONMENTAL DATA {ANEL INSDIE THE MAP */}
+                {selectedRegionCode ? (
+                    <aside
+                        aria-label="Environmental data"
+                        className="absolute left-3 top-3 z-[1000] max-h-[calc(100%_-_1.5rem)] overflow-y-auto rounded-xl shadow-xl"
+                        style={{ width: "var(--map-panel-width)" }}
+                    >
+                        <EnvironmentalDataCard
+                            region={selectedRegionCode}
+                        />
+                    </aside>
+                ) : (
+                    <div
+                        role="status"
+                        className="pointer-events-none absolute left-3 top-3 z-[1000] w-max whitespace-normal rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 shadow-md"
+                        style={{ maxWidth: "calc(50% - 18px)" }}
+                    >
+                        Select a region to view environmental data.
+                    </div>
+                )}
 
                 {/* MAP CONTROLS */}
                 <div className="absolute bottom-8 right-3 z-[1000] flex flex-col overflow-hidden rounded-lg border border-gray-300 bg-white shadow-md">
@@ -289,7 +365,8 @@ const createPin = (selected) =>
                 {!selectedPoint && (
                     <div
                         role={isPointsError ? "alert" : "status"}
-                        className="pointer-events-none absolute left-3 top-3 z-[1000] w-max max-w-[calc(100%_-_1.5rem)] whitespace-normal break-words rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 shadow-md"
+                        className="pointer-events-none absolute right-3 top-3 z-[1000] w-max whitespace-normal break-words rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 shadow-md"
+                        style={{ maxWidth: "calc(50% - 18px)" }}
                     >
                         {isPointsLoading
                             ? "Loading map locations..."
@@ -315,7 +392,8 @@ const createPin = (selected) =>
                 {selectedPoint && (
                     <section
                         aria-label="Selected location details"
-                        className="absolute bottom-3 left-3 right-3 z-[1000] max-h-[55%] overflow-y-auto rounded-xl border border-gray-200 bg-white p-4 shadow-xl md:bottom-auto md:right-auto md:top-3 md:max-h-[calc(100%_-_1.5rem)] md:w-[300px]"
+                        className="absolute right-3 top-3 z-[1000] max-h-[calc(100%_-_11rem)] overflow-y-auto rounded-xl border border-gray-200 bg-white p-3 shadow-xl"
+                        style={{ width: "var(--map-panel-width)" }}
                     >
                         <div className="mb-4 flex items-start justify-between gap-3">
                             <div>

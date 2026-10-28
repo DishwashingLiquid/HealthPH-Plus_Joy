@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useSelector } from "react-redux";
 
 import SurveillanceMap from "../../components/admin/SurveillanceMap";
-import EnvironmentalDataCard from "../../components/admin/EnvironmentalDataCard";
 
 import Regions from "../../assets/data/regions.json";
 import RegionsCenter from "../../assets/data/regions_center.json";
@@ -224,7 +223,7 @@ const AISurveillance = () => {
                 {/* MAP SECTION */}
                 <div className="flex min-w-0 flex-col rounded-[12px] border border-[#E5E5E5] bg-white p-[16px]">
                     <h2 className="text-[18px] font-semibold text-gray-800 mb-[12px]">Real-time Outbreak Monitoring</h2>
-                    <div className="trends-wrapper relative h-[520px] min-h-[520px] flex-1 rounded-[12px] overflow-hidden border border-[#E5E5E5] md:h-[640px] md:min-h-[640px] xl:h-auto xl:min-h-[720px]">
+                    <div className="relative h-[720px] flex-none overflow-hidden rounded-[12px] border border-[#E5E5E5]">
                         <SurveillanceMap
                             filters={filters}
                             center={getCenter()}
@@ -349,13 +348,6 @@ const AISurveillance = () => {
                         {/* HIGH RISK AREAS */}
                         <SummaryCard label="High Risk Areas" value="-" />
                     </div>
-                    <EnvironmentalDataCard
-                        region={
-                            filters.region.length === 1
-                                ? filters.region[0].value
-                                : null
-                        }
-                    />
                 </div>
             </div>
             {/* HEALTH MONITORING */}

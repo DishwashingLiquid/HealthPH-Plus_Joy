@@ -1,8 +1,10 @@
 import {
     useFetchCurrentWeatherQuery,
+    useFetchCurrentAirQualityQuery,
 } from "../../features/api/environmentalDataSlice";
 
-import AirQualityDetails from "./AirQualityDetails";
+import { useEffect, useId, useRef, useState } from "react";
+import Icon from "../Icon";
 
 const WEATHER_LABELS = {
     0: "Clear sky",
@@ -36,7 +38,7 @@ const WEATHER_LABELS = {
     99: "Thunderstorm with heavy hail",
 };
 
-const formatMeasurement = (value, unit) =>
+const formatMeasurement = (value, unit = "") =>
     Number.isFinite(value)
         ? `${value.toLocaleString("en-PH", {
             maximumFractionDigits: 2,
@@ -62,170 +64,313 @@ const formatWindDirection = (direction, speed) => {
 
     const compass = directions[Math.round(direction / 45) % 8];
 
-    return `${compass} (${Math.round(direction)}°)`;
+    return compass;
 };
 
 const EnvironmentalDataCard = ({ region }) => {
-    const {
-        currentData: weatherData,
-        isFetching,
-        isError,
-        error,
-        refetch,
-    } = useFetchCurrentWeatherQuery(region, {
+    const [showDataInfo, setShowDataInfo] = useState(false);
+    const dataInfoRef = useRef(null);
+    const dataInfoId = useId();
+
+    useEffect(() => {
+        if (!showDataInfo) return;
+
+        const closeOutside = (event) => {
+            if (!dataInfoRef.current?.contains(event.target)) {
+                setShowDataInfo(false);
+            }
+        };
+
+        const closeOnEscape = (event) => {
+            if (event.key === "Escape") {
+                setShowDataInfo(false);
+            }
+        };
+
+        document.addEventListener("pointerdown", closeOutside);
+        document.addEventListener("keydown", closeOnEscape);
+
+        return () => {
+            document.removeEventListener("pointerdown", closeOutside);
+            document.removeEventListener("keydown", closeOnEscape);
+        };
+    }, [showDataInfo]);
+
+    const queryOptions = {
         skip: !region,
         pollingInterval: 600000,
         skipPollingIfUnfocused: true,
         refetchOnMountOrArgChange: true,
-    });
+    };
 
-    let content = (
-        <p role="status" className="text-sm text-gray-500">
-            Loading weather...
-        </p>
+    const weatherRequest = useFetchCurrentWeatherQuery(
+        region,
+        queryOptions
     );
 
-    if (!region) {
-        content = (
-            <p className="text-sm text-gray-500">
-                Select a region above to view weather at its reference city.
-            </p>
-        );
-    } else if (isError) {
-        const message =
-            typeof error?.data?.detail === "string"
-                ? error.data.detail
-                : error?.status === "TIMEOUT_ERROR"
-                    ? "The weather request timed out. Please try again."
-                    : "Unable to load weather. Please try again.";
+    const airRequest = useFetchCurrentAirQualityQuery(
+        region,
+        queryOptions
+    );
 
-        content = (
-            <div role="alert" className="text-sm text-red-700">
-                <p>{message}</p>
-                <button
-                    type="button"
-                    onClick={() => refetch()}
-                    className="mt-2 font-semibold underline"
-                >
-                    Retry
-                </button>
-            </div>
-        );
-    } else if (weatherData?.weather) {
-        const weather = weatherData.weather;
+    const weather = weatherRequest.isError
+        ? null
+        : weatherRequest.currentData?.weather;
 
-        const precipitationLabel =
-            Number.isFinite(weather.interval_seconds)
-            && weather.interval_seconds > 0
-                ? `Precipitation (last ${
-                    weather.interval_seconds / 60
-                } min)`
-                : "Precipitation";
+    const airQuality = airRequest.isError
+        ? null
+        : airRequest.currentData?.air_quality;
 
-        const metrics = [
-            {
-                label: "Weather Conditions",
-                value: WEATHER_LABELS[weather.weather_code] ?? "Unavailable",
-            },
-            {
-                label: "Air Temperature",
-                value: formatMeasurement(weather.temperature, " °C"),
-            },
-            {
-                label: "Relative Humidity",
-                value: formatMeasurement(weather.relative_humidity, "%"),
-            },
-            {
-                label: "Feels Like",
-                value: formatMeasurement(weather.feels_like, " °C"),
-            },
-            {
-                label: "Estimated Heat Index",
-                value: formatMeasurement(
-                    weather.estimated_heat_index,
-                    " °C"
-                ),
-            },
-            {
-                label: "Wind Speed",
-                value: formatMeasurement(weather.wind_speed, " km/h"),
-            },
-            {
-                label: "Wind Direction",
-                value: formatWindDirection(
-                    weather.wind_direction,
-                    weather.wind_speed
-                ),
-            },
-            {
-                label: precipitationLabel,
-                value: formatMeasurement(weather.precipitation, " mm"),
-            },
-        ];
+    const reference = 
+        weatherRequest.currentData?.reference_location
+        || airRequest.currentData?.reference_location;
 
-        content = (
-            <>
-                <p className="mb-1 text-sm font-medium text-gray-800">
-                    Reference city: {weatherData.reference_location.name}
-                </p>
-                <p className="mb-3 text-xs text-gray-500">
-                    Model estimates for this location; not a regional average.
-                </p>
+    const displayValue = (request, ready, value) =>
+        ready
+            ? value
+            : request.isFetching
+                ? "Loading..."
+                : "Unavailable";
 
-                <dl className="flex flex-col gap-3">
-                    {metrics.map(({ label, value }) => (
-                        <div
-                            key={label}
-                            className="flex items-center justify-between gap-4 rounded-lg bg-[#F5F5F5] p-3"
-                        >
-                            <dt className="text-sm text-gray-500">
-                                {label}
-                            </dt>
-                            <dd className="text-right text-sm font-medium text-gray-800">
-                                {value}
-                            </dd>
-                        </div>
-                    ))}
-                </dl>
+    const weatherValue = (value) =>
+        displayValue(weatherRequest, Boolean(weather), value);
 
-                <div className="mt-3 space-y-1 text-xs text-gray-500">
-                    <p>
-                        Data time:{" "}
-                        {weather.data_time?.replace("T", " ") ?? "Unavailable"}
-                        {" "}PHT
-                    </p>
-                    <p>
-                        Estimated Heat Index is calculated from temperature and humidity
-                        for shadedm light-wind conditions.
-                    </p>
-                    <p>
-                        Weather data by{" "}
-                        <a
-                            href="https://open-meteo.com/"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="underline"
-                        >
-                            Open-Meteo
-                        </a>
-                    </p>
-                    {isFetching && (
-                        <p role="status">Updating weather...</p>
-                    )}
-                </div>
-            </>
-        );
-    }
+    const airValue = (value) =>
+        displayValue(airRequest, Boolean(airQuality), value);
+
+    const direction = formatWindDirection(
+        weather?.wind_direction,
+        weather?.wind_speed
+    );
+
+    const windParts = [
+        formatMeasurement(weather?.wind_speed, " km/h"),
+        direction,
+    ].filter((part) => part !== "Unavailable");
+
+    const windValue = direction === "Calm"
+        ? "Calm"
+        : windParts.join(" · ") || "Unavailable";
+
+    const precipitationLabel =
+        Number.isFinite(weather?.interval_seconds)
+        && weather.interval_seconds > 0
+            ? `Precip. (${weather.interval_seconds / 60} min)`
+            : "Precipitation";
+
+    const metrics = [
+        {
+            label: "Conditions",
+            value: weatherValue(
+                WEATHER_LABELS[weather?.weather_code] ?? "Unavailable"
+            ),
+        },
+        {
+            label: "Temp / humidity",
+            value: weatherValue(
+                `${formatMeasurement(weather?.temperature, " °C")} / ${
+                    formatMeasurement(weather?.relative_humidity, "%")
+                }`
+            ),
+        },
+        {
+            label: "Estimated Heat Index",
+            value: weatherValue(
+                formatMeasurement(weather?.estimated_heat_index, " °C")
+            ),
+        },
+        {
+            label: "Wind",
+            value: weatherValue(windValue),
+        },
+        {
+            label: precipitationLabel,
+            value: weatherValue(
+                formatMeasurement(weather?.precipitation, " mm")
+            ),
+        },
+        {
+            label: "US AQI",
+            value: airValue(
+                formatMeasurement(airQuality?.us_aqi)
+            ),
+        },
+        {
+            label: "PM2.5",
+            value: airValue(
+                formatMeasurement(airQuality?.pm25, " µg/m³")
+            ),
+        },
+    ];
+
+    const requests = [
+        { label: "Weather", request: weatherRequest },
+        { label: "Air Quality", request: airRequest },
+    ];
 
     return (
-        <section className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
-            <h2 className="mb-3 text-[18px] font-semibold text-gray-800">
-                Weather &amp; Air Quality
-            </h2>
+        <section className="rounded-xl border border-[#E5E5E5] bg-white p-3">
+            <div
+                ref={dataInfoRef}
+                className="relative flex items-center justify-between gap-2"
+                onMouseLeave={(event) => {
+                    if (!event.currentTarget.contains(document.activeElement)) {
+                        setShowDataInfo(false);
+                    }
+                }}
+                onBlur={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget)) {
+                        setShowDataInfo(false);
+                    }
+                }}
+            >
+                <h2 className="text-base font-semibold text-gray-800">
+                    Environmental Data
+                </h2>
 
-            {content}
+                <button
+                    type="button"
+                    aria-label="About environmental data"
+                    aria-describedby={showDataInfo ? dataInfoId : undefined}
+                    onMouseEnter={() => setShowDataInfo(true)}
+                    onFocus={() => setShowDataInfo(true)}
+                    onClick={(event) => {
+                        event.currentTarget.focus();
+                        setShowDataInfo(true);
+                    }}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500"
+                >
+                    <Icon
+                        iconName="Information"
+                        height="18px"
+                        width="18px"
+                        fill="#687582"
+                    />
+                </button>
 
-            {region && <AirQualityDetails region={region} />}
+                {showDataInfo && (
+                    <div
+                        id={dataInfoId}
+                        role="tooltip"
+                        className="absolute inset-x-0 top-full z-[1100] pt-2"
+                    >
+                        <div className="rounded-lg bg-gray-900 p-3 text-xs leading-5 text-white shadow-xl">
+                            <p className="font-semibold">Data details</p>
+                            <p className="mt-1">
+                                Estimated Heat Index is calculated from temperature
+                                and humidity for shaded, light-wind conditions.
+                            </p>
+                            <p className="mt-2">
+                                Air quality uses CAMS Global model estimates.
+                                These values are not local monitoring-station
+                                measurements or regional averages.
+                            </p>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {!region ? (
+                <p className="mt-2 text-sm text-gray-500">
+                    Select a region to view environmental data.
+                </p>
+            ) : (
+                <>
+                    <p className="mt-1 text-xs font-medium text-gray-700">
+                        {reference?.name ||region}
+                    </p>
+                    <p className="mb-3 text-[10px] text-gray-500">
+                        Reference-city model estimates
+                    </p>
+
+                    <dl className="flex flex-col gap-1.5">
+                        {metrics.map(({ label, value }) => (
+                            <div
+                                key={label}
+                                className="flex items-center justify-between gap-2 rounded-lg bg-[#F5F5F5] px-2 py-2"
+                            >
+                                <dt className="min-w-0 text-xs leading-4 text-gray-500">
+                                    {label}
+                                </dt>
+                                <dd className="max-w-[65%] break-words text-right text-xs font-semibold leading-4 text-gray-800">
+                                    {value}
+                                </dd>
+                            </div>
+                        ))}
+                    </dl>
+
+                    {requests
+                        .filter(({ request }) => request.isError)
+                        .map(({ label, request }) => (
+                            <div
+                                key={label}
+                                role="alert"
+                                className="mt-2 text-xs text-destructive-700"
+                            >
+                                <p>
+                                    {label}:{" "}
+                                    {typeof request.error?.data?.detail === "string"
+                                        ? request.error.data.detail
+                                        : request.error?.status === "TIMEOUT_ERROR"
+                                            ? "Request timed out."
+                                            : "Unable to load data."
+                                    }
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => request.refetch()}
+                                    className="mt-1 font-semibold underline"
+                                >
+                                    Retry {label.toLowerCase()}
+                                </button>
+                            </div>
+                        ))
+                    }
+
+                    {(weatherRequest.isFetching || airRequest.isFetching) && (
+                        <p role="status" className="mt-2 text-[10px] text-gray-500">
+                            Loading or updating environmental data...
+                        </p>
+                    )}
+
+                    <div className="mt-3 space-y-1 text-[10px] leading-4 text-gray-500">
+                        <p>
+                            Weather:{" "}
+                            {weather?.data_time
+                                ? `${weather.data_time.replace("T", " ")} PHT`
+                                : "Unavailable"
+                            }
+                        </p>
+                        <p>
+                            Air:{" "}
+                            {airQuality?.data_time
+                                ? `${airQuality.data_time.replace("T", " ")} PHT`
+                                : "Unavailable"
+                            }
+                        </p>
+                        <p>
+                            Sources:{" "}
+                            <a
+                                href="https://open-meteo.com"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="underline"
+                            >
+                                Open-Meteo
+                            </a>
+                            {" · "}
+                            <a
+                                href="https://atmosphere.copernicus.eu/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="underline"
+                            >
+                                CAMS
+                            </a>
+                        </p>
+                    </div>
+                </>
+            )}
         </section>
     );
 };
