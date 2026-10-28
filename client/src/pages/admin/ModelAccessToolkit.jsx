@@ -1529,7 +1529,7 @@ const AnalyticsEntriesPanel = ({
 
             {isLoading ? (
                 <div className="overflow-y-hidden min-w-full h-[300px]">
-                    <SkeletonBody columns={6} />
+                    <SkeletonBody columns={isSurveySource ? 10 : 7} />
                 </div>
             ) : isError ? (
                 <EmptyState
@@ -1573,7 +1573,6 @@ const AnalyticsEntriesPanel = ({
                                 ) : (
                                     <>
                                         <th className="py-[12px] px-[10px] font-medium">Report ID</th>
-                                        <th className="py-[12px] px-[10px] font-medium">Reporter</th>
                                         <th className="py-[12px] px-[10px] font-medium">Language</th>
                                         <th className="py-[12px] px-[10px] font-medium">Text</th>
                                         <th className="py-[12px] px-[10px] font-medium">Location</th>
@@ -1644,9 +1643,6 @@ const AnalyticsEntriesPanel = ({
                                             <>
                                                 <td className="max-w-[150px] truncate py-[14px] px-[10px] font-medium text-gray-800">
                                                     {entry.sourcePublicId || entry.source_id || entry.report_id || entry.id || "-"}
-                                                </td>
-                                                <td className="py-[14px] px-[10px] text-gray-600">
-                                                    {getSelfReportReporterLabel(entry)}
                                                 </td>
                                                 <td className="py-[14px] px-[10px] text-gray-600">
                                                     {entry.language || "-"}
