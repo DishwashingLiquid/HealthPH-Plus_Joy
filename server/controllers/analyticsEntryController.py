@@ -274,7 +274,11 @@ def fetch_surveillance_summary(
             "source_type": {"$in": ["social_media", "self_report"]},
         },
         {
-            "_id": 0,
+            "_id": 1,
+            "source_type": 1,
+            "report_id": 1,
+            "source_id": 1,
+            "metadata.symptom_labels": 1,
             "location": 1,
             "analysis.disease_labels": 1,
             "event_time": 1,
@@ -285,6 +289,8 @@ def fetch_surveillance_summary(
     disease_positive_entries = 0
     disease_counts = Counter()
     active_regions = set()
+    symptom_reports = defaultdict(set)
+    symptom_labels = {}
     window_start, window_end = get_surveillance_window(days)
 
     for entry in entries:
@@ -326,6 +332,24 @@ def fetch_surveillance_summary(
 
         processed_entries += 1
 
+        # Structured, submitted symptoms are currently available for self reports.
+        # Count reports, rather than repeated labels or duplicate analytics entries.
+        if entry.get("source_type") == "self_report":
+            metadata = entry.get("metadata")
+            raw_symptoms = metadata.get("symptom_labels") if isinstance(metadata, dict) else []
+            report_id = entry.get("report_id") or entry.get("source_id") or entry.get("_id")
+
+            if isinstance(raw_symptoms, list) and report_id is not None:
+                for raw_symptom in raw_symptoms:
+                    if not isinstance(raw_symptom, str):
+                        continue
+                    symptom = " ".join(raw_symptom.split())
+                    if not symptom:
+                        continue
+                    key = symptom.casefold()
+                    symptom_labels.setdefault(key, symptom)
+                    symptom_reports[key].add(str(report_id))
+
         if labels:
             disease_positive_entries += 1
             disease_counts.update(labels)
@@ -343,6 +367,13 @@ def fetch_surveillance_summary(
         },
         "active_region_count": len(active_regions),
         "active_regions": sorted(active_regions),
+        "symptom_counts": [
+            {"symptom": symptom_labels[key], "report_count": len(report_ids)}
+            for key, report_ids in sorted(
+                symptom_reports.items(),
+                key=lambda item: (-len(item[1]), item[0]),
+            )
+        ],
     }
 
 PROCESSABLE_SOURCE_TYPES = ["self_report"]

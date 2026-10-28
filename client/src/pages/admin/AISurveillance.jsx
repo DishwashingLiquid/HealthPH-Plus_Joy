@@ -166,13 +166,9 @@ const AISurveillance = () => {
             : "-",
     };
 
-    const filteredActiveRegionCount = summaryReady
-        ? surveillanceSummary.active_region_count
-        : "-";
-
-    const filteredRespiratoryAlertCount = summaryReady
-        ? surveillanceSummary.disease_positive_entry_count
-        : "-";
+    const symptomCounts = summaryReady
+        ? surveillanceSummary.symptom_counts || []
+        : [];
 
     const surveillanceDataStatusMessage = isSummaryFetching
         ? "Loading surveillance summary..."
@@ -238,19 +234,22 @@ const AISurveillance = () => {
                 {/* RIGHT PANELS */}
                 <div className="flex flex-col gap-[10px]">
                     {/* FILTERS AND EXPORT */}
-                    <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[10px]">
-                        <div className="flex flex-wrap items-center justify-end gap-[8px]">
+                    <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[14px]">
+                        <div className="flex flex-wrap items-center justify-end gap-[10px]">
                             <ToolbarSelect
-                                className="min-w-[130px] max-w-full flex-1"
+                                className="min-h-[48px] min-w-[140px] max-w-full flex-1 !text-[16px] font-medium"
                                 value={filters.dateRange}
-                                onChange={(event) => handleChangeFilter("dateRange", Number(event.target.value))}
+                                onChange={(event) =>
+                                    handleChangeFilter("dateRange", Number(event.target.value))
+                                }
                             >
                                 <option value={7}>Last 7 Days</option>
                                 <option value={14}>Last 14 Days</option>
                                 <option value={28}>Last 28 Days</option>
                             </ToolbarSelect>
+
                             <ToolbarSelect
-                                className="min-w-[130px] max-w-full flex-1"
+                                className="min-h-[48px] min-w-[140px] max-w-full flex-1 !text-[16px] font-medium"
                                 value={
                                     filters.region.length === accessibleRegions.length
                                         ? "all"
@@ -263,7 +262,9 @@ const AISurveillance = () => {
                                         "region",
                                         value === "all"
                                             ? accessibleRegions
-                                            : accessibleRegions.filter((region) => region.value === value)
+                                            : accessibleRegions.filter(
+                                                (region) => region.value === value
+                                            )
                                     );
                                 }}
                             >
@@ -274,10 +275,13 @@ const AISurveillance = () => {
                                     </option>
                                 ))}
                             </ToolbarSelect>
+
                             <ToolbarSelect
-                                className="min-w-[130px] max-w-full flex-1"
+                                className="min-h-[48px] min-w-[140px] max-w-full flex-1 !text-[16px] font-medium"
                                 value={filters.disease}
-                                onChange={(event) => handleChangeFilter("disease", event.target.value)}
+                                onChange={(event) =>
+                                    handleChangeFilter("disease", event.target.value)
+                                }
                             >
                                 <option value="all">All Impacts</option>
                                 <option value="tuberculosis">Tuberculosis</option>
@@ -285,7 +289,12 @@ const AISurveillance = () => {
                                 <option value="covid">COVID</option>
                                 <option value="auri">AURI</option>
                             </ToolbarSelect>
-                            <ToolbarButton iconName="Upload" variant="primary">
+
+                            <ToolbarButton
+                                iconName="Upload"
+                                variant="primary"
+                                className="min-h-[48px] !text-[16px]"
+                            >
                                 Export
                             </ToolbarButton>
                         </div>
@@ -341,12 +350,47 @@ const AISurveillance = () => {
                                 </div>
                             </div>
                         </div>
-                        {/* ACTIVE REGIONS */}
-                        <SummaryCard label="Active Regions" value={filteredActiveRegionCount} />
-                        {/* RESPIRATORY ALERTS */}
-                        <SummaryCard label="Reports with Disease Signals" value={filteredRespiratoryAlertCount} />
-                        {/* HIGH RISK AREAS */}
-                        <SummaryCard label="High Risk Areas" value="-" />
+                        <section aria-labelledby="symptom-frequency-title" className="mt-[12px] rounded-[12px] border border-[#E5E5E5] bg-white">
+                            <div className="border-b border-[#E5E5E5] px-[16px] py-[12px]">
+                                <h2 id="symptom-frequency-title" className="text-[18px] font-semibold text-gray-800">
+                                    Symptom Frequency
+                                </h2>
+                                <p className="mt-[4px] text-xs leading-relaxed text-gray-500">
+                                    Processed self reports matching these filters. Each report counts once per symptom.
+                                </p>
+                            </div>
+                            <div role="region" aria-labelledby="symptom-frequency-title" aria-busy={isSummaryFetching} tabIndex={0} className="max-h-[280px] overflow-y-auto overscroll-contain rounded-b-[12px] px-[16px] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#32418C]">
+                                {isSummaryFetching ? (
+                                    <p role="status" className="py-[20px] text-sm text-gray-500">Loading symptom counts...</p>
+                                ) : isSummaryError ? (
+                                    <div className="py-[20px] text-sm text-[#B42318]">
+                                        <p>Unable to load symptom frequency.</p>
+                                        <button type="button" onClick={() => refetchSummary()} className="mt-[8px] font-semibold underline">Retry</button>
+                                    </div>
+                                ) : !summaryReady ? (
+                                    <p className="py-[20px] text-sm text-gray-500">Symptom frequency is unavailable.</p>
+                                ) : symptomCounts.length === 0 ? (
+                                    <p className="py-[20px] text-sm leading-relaxed text-gray-500">No reported symptoms in the processed self reports matching these filters.</p>
+                                ) : (
+                                    <>
+                                        <div className="flex justify-between gap-[12px] pb-[8px] pt-[12px] text-xs font-medium text-gray-500" aria-hidden="true">
+                                            <span>Symptom</span>
+                                            <span>Reports</span>
+                                        </div>
+                                        <dl className="divide-y divide-[#E5E5E5]">
+                                            {symptomCounts.map(({ symptom, report_count }) => (
+                                                <div key={symptom} className="flex items-center justify-between gap-[16px] py-[12px] text-sm">
+                                                    <dt className="min-w-0 break-words text-gray-700">{symptom}</dt>
+                                                    <dd className="shrink-0 font-semibold tabular-nums text-[#32418C]">
+                                                        {formatCount(report_count)}<span className="sr-only"> reports</span>
+                                                    </dd>
+                                                </div>
+                                            ))}
+                                        </dl>
+                                    </>
+                                )}
+                            </div>
+                        </section>
                     </div>
                 </div>
             </div>
@@ -580,15 +624,5 @@ const ChartLegend = ({ items, columns = false }) => (
         ))}
     </ul>
 );
-
-const SummaryCard = ({ label, value }) => {
-    return (
-        <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[12px] mt-[10px]">
-            <p className="text-gray-500 text-sm">{label}</p>
-            <h2 className="text-[24px] font-semibold text-gray-800">{value}</h2>
-        </div>
-    );
-};
-
 
 export default AISurveillance;
