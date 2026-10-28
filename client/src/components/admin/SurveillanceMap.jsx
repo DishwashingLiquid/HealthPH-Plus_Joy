@@ -13,6 +13,7 @@ import EnvironmentalDataCard from "./EnvironmentalDataCard";
 
 import Regions from "../../assets/data/regions.json";
 import RegionsCoordinates from "../../assets/data/regions_coordinates.json";
+import { use } from "react";
 
 const CONDITIONS = [
     { code: "TB", label: "Tuberculosis" },
@@ -199,19 +200,8 @@ const createPin = (selected) =>
 
         // Keep selected markers in the space between both side panels
         useEffect(() => {
-            if (!map || !selectedPoint) return;
-
-            map.panInside(
-                [
-                    Number(selectedPoint.lat),
-                    Number(selectedPoint.long),
-                ],
-                {
-                    ...mapPanelPadding(map),
-                    animate: true,
-                }
-            );
-        }, [map, selectedPoint]);
+            setSelectedKey(null);
+        }, [selectedRegionCode]);
 
         const labelCount = CONDITIONS.reduce(
             (total, { code }) =>
@@ -275,7 +265,31 @@ const createPin = (selected) =>
                                 alt="Disease signal location"
                                 keyboard
                                 eventHandlers={{
-                                    click: () => setSelectedKey(key),
+                                    click: () => {
+                                        setSelectedKey(key);
+
+                                        if (!map) return;
+
+                                        const coordinates = [
+                                            Number(point.lat),
+                                            Number(point.long),
+                                        ];
+
+                                        map.stop();
+
+                                        map.fitBounds(
+                                            [coordinates, coordinates],
+                                            {
+                                                ...mapPanelPadding(map),
+                                                maxZoom: Math.max(
+                                                    map.getZoom(),
+                                                    9
+                                                ),
+                                                animate: true,
+                                                duration: 1.8,
+                                            }
+                                        );
+                                    },
                                 }}
                             />
                         );
@@ -283,23 +297,47 @@ const createPin = (selected) =>
                 </MapContainer>
 
                 {/* ENVIRONMENTAL DATA {ANEL INSDIE THE MAP */}
-                {selectedRegionCode ? (
+                {selectedPoint ? (
                     <aside
                         aria-label="Environmental data"
                         className="absolute left-3 top-3 z-[1000] max-h-[calc(100%_-_1.5rem)] overflow-y-auto rounded-xl shadow-xl"
                         style={{ width: "var(--map-panel-width)" }}
                     >
                         <EnvironmentalDataCard
-                            region={selectedRegionCode}
+                            region={selectedPoint.region}
+                            latitude={Number(selectedPoint.lat)}
+                            longitude={Number(selectedPoint.long)}
+                            locationLabel={[
+                                selectedPoint.province,
+                                regionLabel(selectedPoint.region),
+                            ].filter(Boolean).join(", ")}
+                            dateRange={filters.dateRange}
                         />
                     </aside>
                 ) : (
                     <div
-                        role="status"
+                        role={isPointsError ? "alert" : "status"}
                         className="pointer-events-none absolute left-3 top-3 z-[1000] w-max whitespace-normal rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 shadow-md"
-                        style={{ maxWidth: "calc(50% - 18px)" }}
+                        style={{ maxWidth: "calc(100% - 24px)" }}
                     >
-                        Select a region to view environmental data.
+                        {isPointsLoading
+                            ? "Loading map locations..."
+                            : isPointsError
+                                ? "Unable to load map locations."
+                                : visiblePoints.length === 0
+                                    ? "No mapped locations match the current filters."
+                                    : "Select a red pin to view disease signals and current environmental data."
+                        }
+
+                        {isPointsError && onRetry && (
+                            <button
+                                type="button"
+                                onClick={onRetry}
+                                className="pointer-events-auto ml-2 font-semibold text-[#32418C] underline"
+                            >
+                                Retry
+                            </button>
+                        )}
                     </div>
                 )}
 
@@ -361,33 +399,6 @@ const createPin = (selected) =>
                         />
                     </button>
                 </div>
-
-                {!selectedPoint && (
-                    <div
-                        role={isPointsError ? "alert" : "status"}
-                        className="pointer-events-none absolute right-3 top-3 z-[1000] w-max whitespace-normal break-words rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 shadow-md"
-                        style={{ maxWidth: "calc(50% - 18px)" }}
-                    >
-                        {isPointsLoading
-                            ? "Loading map locations..."
-                            : isPointsError
-                                ? "Unable to load map locations."
-                                : visiblePoints.length === 0
-                                    ? "No mapped locations match the current filters."
-                                    : "Select a red pin to view disease signal details."
-                        }
-
-                        {isPointsError && onRetry && (
-                            <button
-                                type="button"
-                                onClick={onRetry}
-                                className="pointer-events-auto ml-2 font-semibold text-[#32418C] underline"
-                            >
-                                Retry
-                            </button>
-                        )}
-                    </div>
-                )}
 
                 {selectedPoint && (
                     <section

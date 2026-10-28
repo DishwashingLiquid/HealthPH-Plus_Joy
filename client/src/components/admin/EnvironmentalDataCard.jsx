@@ -67,7 +67,13 @@ const formatWindDirection = (direction, speed) => {
     return compass;
 };
 
-const EnvironmentalDataCard = ({ region }) => {
+const EnvironmentalDataCard = ({
+    region,
+    latitude,
+    longitude,
+    locationLabel = "Selected map location",
+    dateRange = 7,
+}) => {
     const [showDataInfo, setShowDataInfo] = useState(false);
     const dataInfoRef = useRef(null);
     const dataInfoId = useId();
@@ -96,20 +102,26 @@ const EnvironmentalDataCard = ({ region }) => {
         };
     }, [showDataInfo]);
 
+    const hasLocation = Boolean(region)
+        && Number.isFinite(latitude)
+        && Number.isFinite(longitude);
+
+    const queryArgs = { region, latitude, longitude };
+
     const queryOptions = {
-        skip: !region,
+        skip: !hasLocation,
         pollingInterval: 600000,
         skipPollingIfUnfocused: true,
         refetchOnMountOrArgChange: true,
     };
 
     const weatherRequest = useFetchCurrentWeatherQuery(
-        region,
+        queryArgs,
         queryOptions
     );
 
     const airRequest = useFetchCurrentAirQualityQuery(
-        region,
+        queryArgs,
         queryOptions
     );
 
@@ -120,10 +132,6 @@ const EnvironmentalDataCard = ({ region }) => {
     const airQuality = airRequest.isError
         ? null
         : airRequest.currentData?.air_quality;
-
-    const reference = 
-        weatherRequest.currentData?.reference_location
-        || airRequest.currentData?.reference_location;
 
     const displayValue = (request, ready, value) =>
         ready
@@ -270,17 +278,23 @@ const EnvironmentalDataCard = ({ region }) => {
                 )}
             </div>
 
-            {!region ? (
+            {!hasLocation ? (
                 <p className="mt-2 text-sm text-gray-500">
-                    Select a region to view environmental data.
+                    Environmental data is unavailable for this location.
                 </p>
             ) : (
                 <>
                     <p className="mt-1 text-xs font-medium text-gray-700">
-                        {reference?.name ||region}
+                        {locationLabel}
                     </p>
-                    <p className="mb-3 text-[10px] text-gray-500">
-                        Reference-city model estimates
+                    <p className="mt-1 text-[10px] text-gray-500">
+                        {latitude.toFixed(4)}, {longitude.toFixed(4)}
+                    </p>
+                    <p className="mb-2 mt-1 text-[10px] text-gray-500">
+                        Current model estimates for the selected pin
+                    </p>
+                    <p className="mb-3 rounded-lg bg-blue-50 px-2 py-2 text-[11px] leading-4 text-blue-800">
+                        Current conditions only. Environmental history for the selected {dateRange}-day period is not provided in this view.
                     </p>
 
                     <dl className="flex flex-col gap-1.5">

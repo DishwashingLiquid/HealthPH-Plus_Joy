@@ -46,6 +46,8 @@ def build_reference_location(region):
 
 def resolve_environmental_location(
     region: str = Query(..., min_length=1, max_length=100),
+    latitude: float | None = Query(None, ge=4, le=22),
+    longitude: float | None = Query(None, ge=116, le=128),
     current_user: dict = Depends(require_page("AI Surveillance")),
 ):
     location = build_reference_location(region)
@@ -56,6 +58,19 @@ def resolve_environmental_location(
             status_code=403,
             detail="You do not have access to this region.",
         )
+
+    if (latitude is None) != (longitude is None):
+        raise HTTPException(
+            status_code=400,
+            detail="Provide both latitude and longitude.",
+        )
+
+    if latitude is not None and longitude is not None:
+        location["reference_location"] = {
+            "name": "Selected map location",
+            "latitude": latitude,
+            "longitude": longitude,
+        }
 
     return location
 
