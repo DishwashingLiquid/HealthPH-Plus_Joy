@@ -28,6 +28,7 @@ from helpers.analyticsEntryHelpers import (
     build_self_report_analytics_entry,
     validate_analytics_entry,
 )
+from helpers.selfReportIdHelpers import insert_report_with_id, ReportIdError
 from helpers.miscHelpers import get_ph_datetime
 from middleware.requireAuth import require_auth
 from middleware.requireMobileAuth import optional_mobile_auth, require_mobile_auth
@@ -449,6 +450,8 @@ def _to_iso_or_none(value):
 
 
 def _build_public_report_id(document: dict) -> str:
+    if document.get("id"):
+        return document["id"]
     raw_value = (
         f"{document.get('_id') or ''}:{_to_iso_or_none(document.get('createdAt')) or ''}"
     )
@@ -640,6 +643,7 @@ def _serialize_self_report(document: dict) -> dict:
             "userId": str(reporter["userId"]) if reporter.get("userId") else None,
             "mobileUserId": reporter.get("mobileUserId"),
             "reporterType": reporter.get("reporterType"),
+            "label": "GUEST" if reporter.get("reporterType") == "guest" else "Registered user",
             "roleId": reporter.get("roleId"),
             "roleLabel": reporter.get("roleLabel"),
             "fullName": reporter.get("fullName"),
@@ -721,7 +725,7 @@ def _build_self_report_document(
             legacy_role=payload.reporter.role,
         )
         reporter = {
-            "userId": _to_object_id_or_none(payload.reporter.userId),
+            "userId": None,
             "mobileUserId": None,
             "reporterType": "guest",
             "roleId": role_id,
@@ -1749,7 +1753,14 @@ async def create_mobile_self_report(
         )
 
     document = _build_self_report_document(payload, authenticated_mobile_user)
-    inserted_report = self_reports_collection.insert_one(document)
+    from config.database import report_id_counters_collection
+
+    try:
+        inserted_report = insert_report_with_id(
+            self_reports_collection, report_id_counters_collection, document
+        )
+    except ReportIdError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
     created_report = self_reports_collection.find_one({"_id": inserted_report.inserted_id})
 
     update_regional_summary_for_report(created_report)

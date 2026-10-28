@@ -68,6 +68,10 @@ async def _regional_alert_scheduler():
 @app.on_event("startup")
 async def start_regional_alert_scheduler():
     global regional_alert_scheduler_task
+    from config.database import self_reports_collection, report_id_counters_collection
+    from helpers.selfReportIdHelpers import ensure_report_id_indexes
+
+    ensure_report_id_indexes(self_reports_collection, report_id_counters_collection)
     ensure_regional_alert_indexes()
     regional_alert_scheduler_task = asyncio.create_task(_regional_alert_scheduler())
 

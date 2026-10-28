@@ -54,6 +54,8 @@ survey_responses_collection = db["survey_responses"]
 # collection, not a general-purpose sequence/counters collection.
 application_settings_collection = db["application_settings"]
 self_reports_collection = db["self_reports"]
+# Atomic readable-ID sequence, separate from application settings and report _id.
+report_id_counters_collection = db["report_id_counters"]
 mobile_users_collection = db["mobile_users"]
 # Disease Watch Feed's derived/admin-only records share one physical
 # collection. Kind-scoped views keep every operation isolated while source

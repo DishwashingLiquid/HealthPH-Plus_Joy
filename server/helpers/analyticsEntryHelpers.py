@@ -289,6 +289,10 @@ def build_self_report_analytics_entry(report_document):
         "source_type": "self_report",
         "source_id": report_id,
         "report_id": report_id,
+        "sourcePublicId": report_document.get("id") or "",
+        "reporter": {
+            "reporterType": (report_document.get("reporter") or {}).get("reporterType"),
+        },
 
         "text": text,
         "language": "",

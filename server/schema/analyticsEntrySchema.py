@@ -3,6 +3,8 @@ def individual_analytics_entry(entry) -> dict:
         "id": str(entry["_id"]),
         "source_type": entry.get("source_type", ""),
         "source_id": entry.get("source_id", ""),
+        "sourcePublicId": entry.get("sourcePublicId", ""),
+        "reporter": {"reporterType": (entry.get("reporter") or {}).get("reporterType")},
         "dataset_id": str(entry.get("dataset_id", "")),
         "survey_id": str(entry.get("survey_id", "")),
         "response_id": str(entry.get("response_id", "")),

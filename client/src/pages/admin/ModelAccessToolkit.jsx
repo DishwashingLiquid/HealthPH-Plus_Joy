@@ -1445,6 +1445,12 @@ const MODAL_PRIMARY_BUTTON_CLASSES =
 const MODAL_DESTRUCTIVE_BUTTON_CLASSES =
     "inline-flex items-center justify-center rounded-[8px] !bg-[#DC2626] px-[14px] py-[9px] text-sm font-medium !text-white shadow-sm transition hover:!bg-[#B91C1C] disabled:cursor-not-allowed disabled:!bg-[#E87D7D] disabled:!text-[#FBE9E9]";
 
+const getSelfReportReporterLabel = (entry) => {
+    if (entry.reporter?.reporterType === "guest") return "GUEST";
+    if (entry.reporter?.reporterType === "registered") return "Registered user";
+    return "-";
+};
+
 const AnalyticsEntriesPanel = ({
     sourceType,
     entries = [],
@@ -1566,7 +1572,8 @@ const AnalyticsEntriesPanel = ({
                                     </>
                                 ) : (
                                     <>
-                                        <th className="py-[12px] px-[10px] font-medium">ID</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Report ID</th>
+                                        <th className="py-[12px] px-[10px] font-medium">Reporter</th>
                                         <th className="py-[12px] px-[10px] font-medium">Language</th>
                                         <th className="py-[12px] px-[10px] font-medium">Text</th>
                                         <th className="py-[12px] px-[10px] font-medium">Location</th>
@@ -1636,7 +1643,10 @@ const AnalyticsEntriesPanel = ({
                                         ) : (
                                             <>
                                                 <td className="max-w-[150px] truncate py-[14px] px-[10px] font-medium text-gray-800">
-                                                    {entry.source_id || entry.report_id || entry.id || "-"}
+                                                    {entry.sourcePublicId || entry.source_id || entry.report_id || entry.id || "-"}
+                                                </td>
+                                                <td className="py-[14px] px-[10px] text-gray-600">
+                                                    {getSelfReportReporterLabel(entry)}
                                                 </td>
                                                 <td className="py-[14px] px-[10px] text-gray-600">
                                                     {entry.language || "-"}
@@ -1746,7 +1756,7 @@ const AnalyticsEntryDetailsModal = ({
 
     const primaryId = isSurveySource
         ? entry.response_id || entry.source_id || entry.id
-        : entry.source_id || entry.report_id || entry.id;
+        : entry.sourcePublicId || entry.source_id || entry.report_id || entry.id;
 
     const title = isSurveySource
         ? "Survey Response Details"
@@ -1801,7 +1811,10 @@ const AnalyticsEntryDetailsModal = ({
                             </>
                         )}
 
-                        <DetailRow label="ID" value={primaryId} />
+                        <DetailRow label={isSurveySource ? "ID" : "Report ID"} value={primaryId} />
+                        {!isSurveySource && (
+                            <DetailRow label="Reporter" value={getSelfReportReporterLabel(entry)} />
+                        )}
                         <DetailRow label="Language" value={entry.language} />
                         <DetailRow label={dateLabel} value={displayEntryDateTime(dateValue)} />
                         <DetailRow label="Location" value={location} />
