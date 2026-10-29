@@ -10,10 +10,12 @@ import {
 
 import Icon from "../Icon";
 import EnvironmentalDataCard from "./EnvironmentalDataCard";
+import LoadingSkeleton from "../LoadingSkeleton";
 
 import Regions from "../../assets/data/regions.json";
 import RegionsCoordinates from "../../assets/data/regions_coordinates.json";
-import { use } from "react";
+
+const STACKED_PANEL_WIDTH = 768;
 
 const CONDITIONS = [
     { code: "TB", label: "Tuberculosis" },
@@ -64,6 +66,10 @@ const createPin = (selected) =>
     };
 
     const mapPanelPadding = (map) => {
+        if (map.getSize().x < STACKED_PANEL_WIDTH) {
+            return { paddingTopLeft: [24, 32], paddingBottomRight: [24, 48] };
+        }
+
         const panelWidth = Math.min(260, map.getSize().x * 0.26);
 
         return {
@@ -84,6 +90,7 @@ const createPin = (selected) =>
         const [selectedKey, setSelectedKey] = useState(null);
         const lastViewportKey = useRef(null);
         const [mapSizeKey, setMapSizeKey] = useState("");
+        const panelsStacked = !mapSizeKey || Number(mapSizeKey.split(":")[0]) < STACKED_PANEL_WIDTH;
 
         const visiblePoints = useMemo(() => {
             if (isPointsLoading || isPointsError) return [];
@@ -296,24 +303,112 @@ const createPin = (selected) =>
                     })}
                 </MapContainer>
 
-                {/* ENVIRONMENTAL DATA {ANEL INSDIE THE MAP */}
+                {/* SELECTED LOCATION PANELS INSIDE THE MAP */}
                 {selectedPoint ? (
-                    <aside
-                        aria-label="Environmental data"
-                        className="absolute left-3 top-3 z-[1000] max-h-[calc(100%_-_1.5rem)] overflow-y-auto rounded-xl shadow-xl"
-                        style={{ width: "var(--map-panel-width)" }}
-                    >
-                        <EnvironmentalDataCard
-                            region={selectedPoint.region}
-                            latitude={Number(selectedPoint.lat)}
-                            longitude={Number(selectedPoint.long)}
-                            locationLabel={[
-                                selectedPoint.province,
-                                regionLabel(selectedPoint.region),
-                            ].filter(Boolean).join(", ")}
-                            dateRange={filters.dateRange}
-                        />
-                    </aside>
+                    <>
+                        <div
+                            className={panelsStacked
+                                ? "absolute inset-3 z-[1100] flex flex-col gap-3 overflow-y-auto overscroll-contain rounded-xl"
+                                : "pointer-events-none absolute inset-0 z-[1000]"}
+                        >
+                            <section
+                                aria-label="Selected location details"
+                                className={`pointer-events-auto min-w-0 shrink-0 rounded-xl border border-gray-200 bg-white p-3 shadow-xl ${
+                                    panelsStacked ? "w-full" : "absolute right-3 top-3 max-h-[calc(100%_-_11rem)] overflow-y-auto"
+                                }`}
+                                style={panelsStacked ? undefined : { width: "var(--map-panel-width)" }}
+                            >
+                                <div className="mb-4 flex items-start justify-between gap-3">
+                                    <div className="min-w-0 break-words">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
+                                            Selected location
+                                        </p>
+                                        <h3 className="mt-1 text-lg font-semibold text-gray-900">
+                                            {regionLabel(selectedPoint.region)}
+                                        </h3>
+                                        {selectedPoint.province && (
+                                            <p className="mt-1 text-sm text-gray-600">
+                                                {selectedPoint.province}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        aria-label="Close location details"
+                                        onClick={() => setSelectedKey(null)}
+                                        className={`flex shrink-0 items-center justify-center rounded-lg border border-gray-200 text-xl text-gray-600 hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 ${panelsStacked ? "h-11 w-11" : "h-9 w-9"}`}
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+
+                                <div className="rounded-lg px-3">
+                                    <p className="text-sm text-gray-600">
+                                        Total Reports
+                                    </p>
+                                    <p className="mt-1 text-3xl font-semibold text-gray-900">
+                                        {Number.isFinite(selectedPoint.report_count)
+                                            ? selectedPoint.report_count.toLocaleString()
+                                            : "Unavailable"
+                                        }
+                                    </p>
+                                </div>
+                                <div className="rounded-lg bg-red-50 px-3">
+                                    <p className="text-sm text-gray-600">
+                                        Disease label detections
+                                    </p>
+                                    <p className="mt-1 text-[26px] font-semibold text-red-700">
+                                        {labelCount.toLocaleString()}
+                                    </p>
+                                </div>
+
+                                <p className="mt-2 text-sm font-semibold text-gray-900">
+                                    Breakdown at this location
+                                </p>
+
+                                <dl>
+                                    {CONDITIONS.map(({ code, label }) => (
+                                        <div
+                                            key={code}
+                                            className="flex items-center justify-between border-b border-gray-100 py-2 text-sm"
+                                        >
+                                            <dt className="text-gray-600">{label}</dt>
+                                            <dd className="font-semibold text-gray-900">
+                                                {countValue(
+                                                    selectedPoint.annotations_count?.[code]
+                                                ).toLocaleString()}
+                                            </dd>
+                                        </div>
+                                    ))}
+                                </dl>
+
+                                <p className="mt-4 text-xs leading-5 text-gray-500">
+                                    A report may contribute to more than one disease label.
+                                    Select another pin to change the displayed location.
+                                </p>
+                            </section>
+                            <aside
+                                aria-label="Environmental data"
+                                className={`pointer-events-auto min-w-0 shrink-0 rounded-xl shadow-xl ${
+                                    panelsStacked ? "w-full" : "absolute left-3 top-3 max-h-[calc(100%_-_1.5rem)] overflow-y-auto"
+                                }`}
+                                style={panelsStacked ? undefined : { width: "var(--map-panel-width)" }}
+                            >
+                                <EnvironmentalDataCard
+                                    region={selectedPoint.region}
+                                    latitude={Number(selectedPoint.lat)}
+                                    longitude={Number(selectedPoint.long)}
+                                    locationLabel={[
+                                        selectedPoint.province,
+                                        regionLabel(selectedPoint.region),
+                                    ].filter(Boolean).join(", ")}
+                                    dateRange={filters.dateRange}
+                                />
+                            </aside>
+                        </div>
+
+                    </>
                 ) : (
                     <div
                         role={isPointsError ? "alert" : "status"}
@@ -321,7 +416,7 @@ const createPin = (selected) =>
                         style={{ maxWidth: "calc(100% - 24px)" }}
                     >
                         {isPointsLoading
-                            ? "Loading map locations..."
+                            ? <LoadingSkeleton className="h-[14px] w-[200px]" label="Loading map locations..." />
                             : isPointsError
                                 ? "Unable to load map locations."
                                 : visiblePoints.length === 0
@@ -400,83 +495,7 @@ const createPin = (selected) =>
                     </button>
                 </div>
 
-                {selectedPoint && (
-                    <section
-                        aria-label="Selected location details"
-                        className="absolute right-3 top-3 z-[1000] max-h-[calc(100%_-_11rem)] overflow-y-auto rounded-xl border border-gray-200 bg-white p-3 shadow-xl"
-                        style={{ width: "var(--map-panel-width)" }}
-                    >
-                        <div className="mb-4 flex items-start justify-between gap-3">
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
-                                    Selected location
-                                </p>
-                                <h3 className="mt-1 text-lg font-semibold text-gray-900">
-                                    {regionLabel(selectedPoint.region)}
-                                </h3>
-                                {selectedPoint.province && (
-                                    <p className="mt-1 text-sm text-gray-600">
-                                        {selectedPoint.province}
-                                    </p>
-                                )}
-                            </div>
 
-                            <button
-                                type="button"
-                                aria-label="Close location details"
-                                onClick={() => setSelectedKey(null)}
-                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-xl text-gray-600 hover:bg-gray-100"
-                            >
-                                ×
-                            </button>
-                        </div>
-
-                        <div className="rounded-lg px-3">
-                            <p className="text-sm text-gray-600">
-                                Total Reports
-                            </p>
-                            <p className="mt-1 text-3xl font-semibold text-gray-900">
-                                {Number.isFinite(selectedPoint.report_count)
-                                    ? selectedPoint.report_count.toLocaleString()
-                                    : "-"
-                                }
-                            </p>
-                        </div>
-                        <div className="rounded-lg bg-red-50 px-3">
-                            <p className="text-sm text-gray-600">
-                                Disease label detections
-                            </p>
-                            <p className="mt-1 text-[26px] font-semibold text-red-700">
-                                {labelCount.toLocaleString()}
-                            </p>
-                        </div>
-
-                        <p className="mt-2 text-sm font-semibold text-gray-900">
-                            Breakdown at this location
-                        </p>
-
-                        <dl>
-                            {CONDITIONS.map(({ code, label }) => (
-                                <div
-                                    key={code}
-                                    className="flex items-center justify-between border-b border-gray-100 py-2 text-sm"
-                                >
-                                    <dt className="text-gray-600">{label}</dt>
-                                    <dd className="font-semibold text-gray-900">
-                                        {countValue(
-                                            selectedPoint.annotations_count?.[code]
-                                        ).toLocaleString()}
-                                    </dd>
-                                </div>
-                            ))}
-                        </dl>
-
-                        <p className="mt-4 text-xs leading-5 text-gray-500">
-                            A report may contribute to more than one disease label.
-                            Select another pin to change the displayed location.
-                        </p>
-                    </section>
-                )}
             </div>
         );
     };

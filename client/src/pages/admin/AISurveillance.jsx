@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useSelector } from "react-redux";
 
 import SurveillanceMap from "../../components/admin/SurveillanceMap";
+import LoadingSkeleton, { ChartSkeleton } from "../../components/LoadingSkeleton";
 
 import Regions from "../../assets/data/regions.json";
 import RegionsCenter from "../../assets/data/regions_center.json";
@@ -148,29 +149,21 @@ const AISurveillance = () => {
     const formatCount = (value) =>
         typeof value === "number"
             ? value.toLocaleString()
-            : value ?? "-";
+            : value ?? "Unavailable";
 
     const renderDiseaseCount = (value, isTotal = false) =>
         isSummaryFetching ? (
-            <>
-                <span
-                    aria-hidden="true"
-                    className={`inline-block animate-pulse rounded-[6px] bg-[#E4E7EB] align-middle motion-reduce:animate-none ${
-                        isTotal ? "h-[24px] w-[64px]" : "h-[12px] w-[24px]"
-                    }`}
-                />
-                <span className="sr-only">Loading...</span>
-            </>
+            <LoadingSkeleton className={isTotal ? "h-[24px] w-[64px]" : "h-[12px] w-[24px]"} />
         ) : formatCount(value);
 
     const filteredSuspectedSymptoms = {
-        TB: summaryReady ? surveillanceSummary.disease_counts.TB : "-",
-        PN: summaryReady ? surveillanceSummary.disease_counts.PN : "-",
-        COVID: summaryReady ? surveillanceSummary.disease_counts.COVID : "-",
-        AURI: summaryReady ? surveillanceSummary.disease_counts.AURI: "-",
+        TB: summaryReady ? surveillanceSummary.disease_counts.TB : null,
+        PN: summaryReady ? surveillanceSummary.disease_counts.PN : null,
+        COVID: summaryReady ? surveillanceSummary.disease_counts.COVID : null,
+        AURI: summaryReady ? surveillanceSummary.disease_counts.AURI : null,
         total: summaryReady
             ? surveillanceSummary.disease_label_count
-            : "-",
+            : null,
     };
 
     const symptomCounts = summaryReady
@@ -327,7 +320,9 @@ const AISurveillance = () => {
                                     : "border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]"
                             }`}
                         >
-                            <p>{surveillanceDataStatusMessage}</p>
+                            <p>{isSummaryFetching
+                                ? <LoadingSkeleton className="h-[14px] w-[260px]" label="Loading surveillance summary..." />
+                                : surveillanceDataStatusMessage}</p>
 
                             {isSummaryError && (
                                 <button
@@ -478,9 +473,7 @@ const AISurveillance = () => {
                         A report may contribute more than one label.
                     </p>
                     {isSummaryFetching ? (
-                        <p role="status" className="flex h-[280px] items-center justify-center text-sm text-gray-500">
-                            Loading condition percentages...
-                        </p>
+                        <ChartSkeleton variant="pie" label="Loading condition percentages..." />
                     ) : isSummaryError ? (
                         <div role="alert" className="flex h-[280px] flex-col items-center justify-center gap-3 text-center text-sm text-red-700">
                             <p>{surveillanceDataStatusMessage}</p>

@@ -27,6 +27,7 @@ import { useFetchDatasetsByUserQuery } from "../../features/api/datasetsSlice";
 import { useFetchSelfReportLanguageSummaryQuery } from "../../features/api/analyticsEntriesSlice";
 
 import Report from "../../components/admin/Report";
+import LoadingSkeleton, { ChartSkeleton } from "../../components/LoadingSkeleton";
 import capitalizeSymptom from "../../hooks/useCapitalizeSymptom";
 import { getRegionFromLocation } from "../../utils/locationRegionMap";
 
@@ -37,7 +38,7 @@ const NLPInsights = () => {
 
     const user = useSelector((state) => state.auth.user);
 
-    const { data: datasets = [], isFetching: isDatasetsFetching } = 
+    const { data: datasets = [], isFetching: isDatasetsFetching, isError: isDatasetsError } =
         useFetchDatasetsByUserQuery(user?.id, {
             skip: !user?.id,
         });
@@ -45,6 +46,7 @@ const NLPInsights = () => {
     const {
         data: selfReportLanguageSummary,
         isFetching: isSelfReportLanguageSummaryFetching,
+        isError: isSelfReportLanguageSummaryError,
     } = useFetchSelfReportLanguageSummaryQuery(undefined, {
         skip: activeTab !== "language" || !user?.id,
     });
@@ -56,7 +58,7 @@ const NLPInsights = () => {
             : "all"
     );
 
-    const { data: frequentWords, isFetching: isTopWordsFetching } =
+    const { data: frequentWords, isFetching: isTopWordsFetching, isError: isTopWordsError } =
         useGenerateFrequentWordsQuery(topWordsFilter);
 
     /* WORD CLOUD */
@@ -66,7 +68,7 @@ const NLPInsights = () => {
             : "all"
     );
 
-    const { data: wordcloud, isFetching: isWordCloudFetching } =
+    const { data: wordcloud, isFetching: isWordCloudFetching, isError: isWordCloudError } =
         useGenerateWordCloudQuery(wordCloudFilter);
 
     const wordcloudOptions = {
@@ -117,10 +119,12 @@ const NLPInsights = () => {
                     setTopWordsFilter={setTopWordsFilter}
                     frequentWords={frequentWords}
                     isTopWordsFetching={isTopWordsFetching}
+                    isTopWordsError={isTopWordsError}
                     wordCloudFilter={wordCloudFilter}
                     setWordCloudFilter={setWordCloudFilter}
                     wordcloud={wordcloud}
                     isWordCloudFetching={isWordCloudFetching}
+                    isWordCloudError={isWordCloudError}
                     wordcloudOptions={wordcloudOptions}
                 />
             )}
@@ -129,6 +133,7 @@ const NLPInsights = () => {
                 <LanguageDetection
                     datasets={datasets}
                     selfReportLanguageSummary={selfReportLanguageSummary}
+                    isLanguageDataError={isDatasetsError || isSelfReportLanguageSummaryError}
                     isLanguageDataFetching={
                         isDatasetsFetching ||
                         isSelfReportLanguageSummaryFetching
@@ -160,10 +165,12 @@ const NamedEntityRecognition = ({
     setTopWordsFilter,
     frequentWords,
     isTopWordsFetching,
+    isTopWordsError,
     wordCloudFilter,
     setWordCloudFilter,
     wordcloud,
     isWordCloudFetching,
+    isWordCloudError,
     wordcloudOptions,
 }) => {
     return (
@@ -329,6 +336,8 @@ const NamedEntityRecognition = ({
                         filter={topWordsFilter}
                         setFilter={setTopWordsFilter}
                         isLoading={isTopWordsFetching}
+                        loadingContent={<ChartSkeleton height={260} label="Loading top words..." />}
+                        errorMessage={isTopWordsError ? "Unable to load top words. Please try again." : ""}
                     >
                         <ResponsiveContainer width="100%" height={260}>
                             {frequentWords && frequentWords["frequent_words"]?.length > 0 ? (
@@ -371,6 +380,8 @@ const NamedEntityRecognition = ({
                         filter={wordCloudFilter}
                         setFilter={setWordCloudFilter}
                         isLoading={isWordCloudFetching}
+                        loadingContent={<ChartSkeleton height={260} label="Loading word cloud..." />}
+                        errorMessage={isWordCloudError ? "Unable to load the word cloud. Please try again." : ""}
                     >
                         <ResponsiveContainer width="100%" height={260}>
                             {wordcloud && wordcloud !== "No datasets" ? (
@@ -641,6 +652,7 @@ const LanguageDetection = ({
     datasets = [],
     selfReportLanguageSummary,
     isLanguageDataFetching = false,
+    isLanguageDataError = false,
 }) => {
     const languageSources = selfReportLanguageSummary
         ? [...datasets, selfReportLanguageSummary]
@@ -671,9 +683,11 @@ const LanguageDetection = ({
                 </p>
 
                 {isLanguageDataFetching ? (
-                    <div className="flex h-[280px] items-center justify-center text-sm text-gray-500">
-                        Loading language distribution...
-                    </div>
+                    <ChartSkeleton variant="pie" label="Loading language distribution..." />
+                ) : isLanguageDataError ? (
+                    <p role="alert" className="flex h-[280px] items-center justify-center text-center text-sm text-gray-500">
+                        Unable to load language distribution. Please try again.
+                    </p>
                 ) : languageDistribution.length > 0 ? (
                     <ResponsiveContainer width="100%" height={280}>
                         <PieChart>
@@ -719,9 +733,11 @@ const LanguageDetection = ({
                     </div>
                 )}
 
-                {!isLanguageDataFetching && languageDistribution.length > 0 && (
+                {(isLanguageDataFetching || (!isLanguageDataError && languageDistribution.length > 0)) && (
                     <p className="mt-[10px] text-center text-sm text-gray-500">
-                        Based on {Number(totalLanguageRows).toLocaleString()} processed records.
+                        Based on {isLanguageDataFetching
+                            ? <LoadingSkeleton className="h-[14px] w-[48px]" />
+                            : Number(totalLanguageRows).toLocaleString()} processed records.
                     </p>
                 )}
             </div>
@@ -736,9 +752,11 @@ const LanguageDetection = ({
                 </p>
 
                 {isLanguageDataFetching ? (
-                    <div className="flex h-[280px] items-center justify-center text-sm text-gray-500">
-                        Loading regional language data...
-                    </div>
+                    <ChartSkeleton label="Loading regional language data..." />
+                ) : isLanguageDataError ? (
+                    <p role="alert" className="flex h-[280px] items-center justify-center text-center text-sm text-gray-500">
+                        Unable to load regional language data. Please try again.
+                    </p>
                 ) : regionLanguageDistribution.length > 0 ? (
                     <ResponsiveContainer width="100%" height={280}>
                         <BarChart

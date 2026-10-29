@@ -694,6 +694,7 @@ const AdminsTable = ({
                             >
                                 <CustomSelect
                                     options={organizationOptions}
+                                    isLoading={isOrganizationsLoading}
                                     id="update-admin-organization"
                                     placeholder={
                                         isOrganizationsLoading

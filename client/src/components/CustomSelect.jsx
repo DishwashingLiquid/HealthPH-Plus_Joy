@@ -1,4 +1,5 @@
 import Icon from "./Icon";
+import LoadingSkeleton from "./LoadingSkeleton";
 import React, { useEffect, useRef, useState, forwardRef } from "react";
 
 const CustomSelect = ({
@@ -14,6 +15,7 @@ const CustomSelect = ({
   state,
   additionalClasses,
   editable = true,
+  isLoading = false,
   menuMaxHeight,
   ...props
 }) => {
@@ -24,7 +26,7 @@ const CustomSelect = ({
 
   useEffect(() => {
     const handler = (e) => {
-      if (editable) {
+      if (editable && !isLoading) {
         if (inputRef.current && inputRef.current.contains(e.target)) {
           if (menuRef.current && menuRef.current.contains(e.target)) return;
           setShowMenu(!showMenu);
@@ -58,6 +60,7 @@ const CustomSelect = ({
         name={name}
         id={id}
         value={value}
+        disabled={isLoading}
         onChange={(e) => handleChange(e.target.value)}
       >
         {options &&
@@ -80,21 +83,23 @@ const CustomSelect = ({
           ${showMenu ? "show-menu" : ""}
           ${editable ? "" : "read-only"}`}
           tabIndex={0}
+          aria-busy={isLoading}
+          aria-disabled={isLoading || !editable}
           onClick={(e) => {
-            if (editable) {
+            if (editable && !isLoading) {
               inputRef.current.focus();
             } else {
               e.preventDefault();
             }
           }}
         >
-          <span>{getLabel(value)}</span>
+          <span>{isLoading ? <LoadingSkeleton className="h-[14px] w-[120px]" label="Loading options..." /> : getLabel(value)}</span>
 
           <Icon iconName="ChevronDown" fill="#8693A0" className="icon" />
         </div>
 
         {/* Custom Select Input Menu */}
-        {showMenu && (
+        {showMenu && !isLoading && (
           <ul
             className={`input-select-menu w-full ${
               !menuMaxHeight ? "" : menuMaxHeight

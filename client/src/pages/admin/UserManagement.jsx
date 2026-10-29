@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { useReactToPrint } from "react-to-print";
 
 import SkeletonBody from "../../components/SkeletonBody";
+import LoadingSkeleton, { ChartSkeleton } from "../../components/LoadingSkeleton";
 import Icon from "../../components/Icon";
 import Input from "../../components/Input";
 import PrintComponent from "../../components/admin/PrintComponent";
@@ -104,32 +105,37 @@ const UserManagement = () => {
 
   const {
     data: accountAnalytics = {},
-    isLoading: isAccountAnalyticsLoading,
+    isFetching: isAccountAnalyticsLoading,
+    isError: isAccountAnalyticsError,
+    refetch: refetchAccountAnalytics,
   } = useFetchAccountAnalyticsQuery();
 
   let {
     data: admins = [],
-    isLoading: isAdminsLoading,
+    isFetching: isAdminsLoading,
     isError: isAdminsError,
     refetch: refetchAdmins,
   } = useFetchAdminsQuery(undefined, { skip: !canManageSuperadmins });
 
   let {
     data: users = [],
-    isLoading: isUsersLoading,
+    isFetching: isUsersLoading,
     isError: isUsersError,
     refetch: refetchUsers,
   } = useFetchUsersQuery(undefined, { skip: !canViewUsers });
 
   const {
     data: organizations = [],
-    isLoading: isOrganizationsLoading,
+    isFetching: isOrganizationsLoading,
+    isError: isOrganizationsError,
+    refetch: refetchOrganizations,
   } = useFetchOrganizationsQuery();
 
   const {
     data: roleLabels = [],
-    isLoading: isRoleLabelsLoading,
+    isFetching: isRoleLabelsLoading,
     isError: isRoleLabelsError,
+    refetch: refetchRoleLabels,
   } = useFetchRoleLabelsQuery();
 
   const [createRoleLabel, { isLoading: isCreateRoleLabelLoading }] =
@@ -264,7 +270,7 @@ const UserManagement = () => {
   };
 
   const getRegionLabel = (region) =>
-    Regions.regions.find(({ value }) => value == region)?.label || region || "-";
+    Regions.regions.find(({ value }) => value == region)?.label || region || "Unavailable";
 
   const allAccounts = [...(admins || []), ...(users || [])];
 
@@ -722,15 +728,27 @@ const UserManagement = () => {
       : currentTableTab == "Users"
       ? canViewUsers && isUsersLoading
       : isOrganizationsRoleTab
-      ? (canManageSuperadmins && isAdminsLoading) ||
+      ? isAccountAnalyticsLoading || (canManageSuperadmins && isAdminsLoading) ||
         (canViewUsers && isUsersLoading) ||
         (isOrganizationsSubtab ? isOrganizationsLoading : isRoleLabelsLoading)
       : false;
 
   const isToolbarTotalLoading =
     isCurrentTableLoading || (isAnalyticsTab && isAccountAnalyticsLoading);
+  const isCurrentTableError = currentTableTab === "Superadmins"
+    ? isAdminsError
+    : currentTableTab === "Users"
+      ? isUsersError
+      : isOrganizationsRoleTab
+        ? isAccountAnalyticsError || (isOrganizationsSubtab ? isOrganizationsError : isRoleLabelsError) || (canManageSuperadmins && isAdminsError) || (canViewUsers && isUsersError)
+        : isAccountAnalyticsError;
 
   const currentTableSkeletonColumns = currentTableTab == "Superadmins" ? 6 : 8;
+  const currentTableSkeletonHeaders = currentTableTab === "Superadmins"
+    ? ["", "Full Name", "Email", "Date Created", "Account Type", "Status"]
+    : currentTableTab === "Users"
+      ? ["", "Full Name", "Email", "Regional Office", "Role", "Organization", "Date Created", "Status"]
+      : undefined;
 
   const handleSaveOrganization = async (payload) => {
     const isEditMode = organizationFormMode === "edit" && selectedOrganization?.id;
@@ -958,8 +976,8 @@ const UserManagement = () => {
                   {toolbarTotalLabel}:{" "}
                   <span className="ml-[4px] font-semibold text-gray-800">
                     {isToolbarTotalLoading
-                      ? "-"
-                      : currentTabTotal
+                      ? <LoadingSkeleton className="h-[14px] w-[48px]" />
+                      : isCurrentTableError ? "Unavailable" : currentTabTotal
                     }
                   </span>
                 </div>
@@ -1107,7 +1125,25 @@ const UserManagement = () => {
           {/* TABLE */}
           <div>
             {isCurrentTableLoading ? (
-              <SkeletonBody columns={currentTableSkeletonColumns} rows={6} />
+              isOrganizationsRoleTab ? (
+                <AccountCardsSkeleton isOrganizations={isOrganizationsSubtab} isSuperadmin={isSuperadmin} />
+              ) : (
+                <SkeletonBody columns={currentTableSkeletonColumns} headers={currentTableSkeletonHeaders} rows={6} />
+              )
+            ) : isCurrentTableError && !isAnalyticsTab ? (
+              <EmptyState iconName="Error" heading="Unable to Load Account Data" content="Please try loading the account data again.">
+                <button type="button" className="prod-btn-base prod-btn-secondary" onClick={() => {
+                  if (currentTableTab === "Superadmins") refetchAdmins();
+                  else if (currentTableTab === "Users") refetchUsers();
+                  else {
+                    refetchAccountAnalytics();
+                    refetchOrganizations();
+                    refetchRoleLabels();
+                    if (canManageSuperadmins) refetchAdmins();
+                    if (canViewUsers) refetchUsers();
+                  }
+                }}>Retry</button>
+              </EmptyState>
             ) : currentTableTab == "Superadmins" ? (
               <AdminsTable
                 admins={admins}
@@ -1153,6 +1189,11 @@ const UserManagement = () => {
                 accountAnalytics={accountAnalytics}
                 organizations={organizationList}
                 isAccountAnalyticsLoading={isAccountAnalyticsLoading}
+                isAccountAnalyticsError={isAccountAnalyticsError}
+                isOrganizationsLoading={isOrganizationsLoading}
+                isOrganizationsError={isOrganizationsError}
+                isRoleLabelsLoading={isRoleLabelsLoading}
+                isRoleLabelsError={isRoleLabelsError}
                 viewerType={
                   isSuperadmin ? "SUPERADMIN" : isAdminRole ? "Admin" : "USER"
                 }
@@ -1622,7 +1663,7 @@ const UserAccountModal = ({
                 caption={
                   formErrors.role_label ||
                   (isRoleLabelsLoading
-                    ? "Loading role labels..."
+                    ? ""
                     : isRoleLabelsError
                     ? "Using default role labels until the role label list refreshes."
                     : !hasAvailableRoleOptions
@@ -1639,6 +1680,7 @@ const UserAccountModal = ({
               >
                 <CustomSelect
                   options={roleLabelOptions}
+                  isLoading={isRoleLabelsLoading}
                   id="role-label"
                   placeholder="Select role"
                   size="input-select-md"
@@ -1726,6 +1768,7 @@ const UserAccountModal = ({
             >
               <CustomSelect
                 options={organizationOptions}
+                isLoading={isOrganizationsLoading}
                 id="organization"
                 placeholder={
                   isOrganizationsLoading
@@ -2495,6 +2538,29 @@ const UserManagementInnerPill = ({ label, active, onClick }) => (
   </button>
 );
 
+const AccountCardsSkeleton = ({ isOrganizations, isSuperadmin }) => {
+  const labels = ["Users", ...(isOrganizations && isSuperadmin ? ["Superadmins"] : []), "Active", "Disabled"];
+
+  return (
+    <div className={`grid grid-cols-1 gap-[16px] md:grid-cols-2 xl:grid-cols-3 ${isOrganizations ? "2xl:grid-cols-4" : ""}`}>
+      {Array.from({ length: 3 }, (_, index) => (
+        <div key={index} className="rounded-[12px] border border-[#E5E5E5] bg-white p-[16px]">
+          <LoadingSkeleton className="h-[18px] w-[160px]" label={`Loading ${isOrganizations ? "organization" : "role"}...`} />
+          <div className="mt-[8px]"><LoadingSkeleton className="h-[14px] w-[200px]" /></div>
+          <div className={`mt-[14px] grid gap-[12px] ${isOrganizations ? "grid-cols-2" : "grid-cols-3"}`}>
+            {labels.map((label) => (
+              <div key={label}>
+                <p className="text-sm text-gray-500">{label}</p>
+                <LoadingSkeleton className="mt-[4px] h-[16px] w-[32px]" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const RolesPanel = ({
   roles,
   canEditRoles,
@@ -2718,7 +2784,7 @@ const DetailItem = ({ label, value, className = "" }) => (
       {label}
     </p>
     <p className="mt-[6px] text-sm font-semibold text-gray-900">
-      {value || "-"}
+      {value === null || value === undefined || value === "" ? "Unavailable" : value}
     </p>
   </div>
 );
@@ -2870,6 +2936,11 @@ const AccountAnalyticsPanel = ({
   accountAnalytics = {},
   organizations = [],
   isAccountAnalyticsLoading,
+  isAccountAnalyticsError = false,
+  isOrganizationsLoading = false,
+  isOrganizationsError = false,
+  isRoleLabelsLoading = false,
+  isRoleLabelsError = false,
   viewerType,
   getRegionLabel,
   roleDefinitions = [],
@@ -2927,13 +2998,13 @@ const AccountAnalyticsPanel = ({
   const formatLoggedAt = (value) => {
     const date = new Date(value);
     return Number.isNaN(date.getTime())
-      ? "-"
+      ? "Unavailable"
       : format(date, "MMM dd, yyyy hh:mm a");
   };
 
   const getRelativeTime = (value) => {
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "-";
+    if (Number.isNaN(date.getTime())) return "Unavailable";
 
     const diffMs = Date.now() - date.getTime();
     const diffMinutes = Math.floor(diffMs / 60000);
@@ -2953,21 +3024,29 @@ const AccountAnalyticsPanel = ({
         <AnalyticsSummaryCard
           label="Total User Accounts"
           value={totalUserAccounts}
+          isLoading={isAccountAnalyticsLoading}
+          isError={isAccountAnalyticsError}
           helper="User accounts only"
         />
         <AnalyticsSummaryCard
           label="Organizations"
           value={organizations.length}
+          isLoading={isOrganizationsLoading}
+          isError={isOrganizationsError}
           helper="Official organization records"
         />
         <AnalyticsSummaryCard
           label="Roles"
           value={roleDefinitions.length}
+          isLoading={isRoleLabelsLoading}
+          isError={isRoleLabelsError}
           helper="Configured account roles"
         />
         <AnalyticsSummaryCard
           label="Activity This Week"
           value={totalActivityActions}
+          isLoading={isAccountAnalyticsLoading}
+          isError={isAccountAnalyticsError}
           helper="Recorded account actions"
         />
       </div>
@@ -2981,9 +3060,9 @@ const AccountAnalyticsPanel = ({
 
           <div className="mt-[16px] h-[300px]">
             {isAccountActivityLoading ? (
-              <div className="flex h-full items-center">
-                <SkeletonBody columns={4} rows={4} />
-              </div>
+              <ChartSkeleton height={300} label="Loading user activity..." />
+            ) : isAccountAnalyticsError ? (
+              <p role="alert" className="flex h-full items-center justify-center text-center text-sm text-gray-500">Unable to load account activity.</p>
             ) : totalActivityActions > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={activityByDay}>
@@ -3025,10 +3104,10 @@ const AccountAnalyticsPanel = ({
           </p>
 
           <div className="mt-[16px] h-[300px]">
-            {isAccountActivityLoading ? (
-              <div className="flex h-full items-center">
-                <SkeletonBody columns={4} rows={4} />
-              </div>
+            {isAccountActivityLoading || isRoleLabelsLoading ? (
+              <ChartSkeleton height={300} label="Loading regional role distribution..." />
+            ) : isAccountAnalyticsError || isRoleLabelsError ? (
+              <p role="alert" className="flex h-full items-center justify-center text-center text-sm text-gray-500">Unable to load regional role distribution.</p>
             ) : hasRoleDistribution ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={roleRegionDistribution}>
@@ -3082,8 +3161,10 @@ const AccountAnalyticsPanel = ({
 
           {isAccountActivityLoading ? (
             <div className="mt-[16px]">
-              <SkeletonBody columns={6} rows={5} />
+              <SkeletonBody headers={["User", "Entry", "Module", "Time", "IP Address", "Logged At"]} rows={5} />
             </div>
+          ) : isAccountAnalyticsError ? (
+            <p role="alert" className="py-[24px] text-center text-sm text-gray-500">Unable to load recent account activity.</p>
           ) : recentAccountActivity.length > 0 ? (
             <div className="mt-[16px] overflow-x-auto">
               <table className="w-full text-sm">
@@ -3101,26 +3182,26 @@ const AccountAnalyticsPanel = ({
                   {recentAccountActivity.map((log) => (
                     <tr key={log.id} className="border-b border-[#F0F0F0]">
                       <td className="px-[10px] py-[14px] font-medium text-gray-800">
-                        <div>{log.user_name || "-"}</div>
+                        <div>{log.user_name || "Unavailable"}</div>
                         <div className="text-xs font-normal text-gray-500">
                           {log.user_type === "SUPERADMIN"
                             ? "SUPERADMIN"
-                            : log.role_label || log.user_type || "-"}
+                            : log.role_label || log.user_type || "Unavailable"}
                         </div>
                       </td>
                       <td className="px-[10px] py-[14px] text-gray-600">
                         <span className="block max-w-[360px] truncate">
-                          {log.entry || "-"}
+                          {log.entry || "Unavailable"}
                         </span>
                       </td>
                       <td className="px-[10px] py-[14px] text-gray-600">
-                        {log.module || "-"}
+                        {log.module || "Unavailable"}
                       </td>
                       <td className="px-[10px] py-[14px] text-gray-600">
                         {getRelativeTime(log.created_at)}
                       </td>
                       <td className="px-[10px] py-[14px] text-gray-600">
-                        {log.ip_address || log.ip || "-"}
+                        {log.ip_address || log.ip || "Unavailable"}
                       </td>
                       <td className="px-[10px] py-[14px] text-gray-600">
                         {formatLoggedAt(log.created_at)}
@@ -3143,10 +3224,12 @@ const AccountAnalyticsPanel = ({
   );
 };
   
-const AnalyticsSummaryCard = ({ label, value, helper }) => (
-  <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[16px]">
+const AnalyticsSummaryCard = ({ label, value, helper, isLoading = false, isError = false }) => (
+  <div aria-busy={isLoading} className="rounded-[12px] border border-[#E5E5E5] bg-white p-[16px]">
     <p className="text-sm text-gray-500">{label}</p>
-    <p className="mt-[6px] text-[28px] font-semibold text-gray-900">{value}</p>
+    <p className="mt-[6px] text-[28px] font-semibold text-gray-900">
+      {isLoading ? <LoadingSkeleton className="h-[28px] w-[72px]" /> : isError ? <span className="text-sm">Unavailable</span> : value}
+    </p>
     <p className="mt-[2px] text-sm text-gray-500">{helper}</p>
   </div>
 );

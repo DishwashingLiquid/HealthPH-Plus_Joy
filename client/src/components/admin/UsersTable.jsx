@@ -844,6 +844,7 @@ const UsersTable = ({
               >
                 <CustomSelect
                   options={organizationOptions}
+                  isLoading={isOrganizationsLoading}
                   id="update-organization"
                   placeholder={
                     isOrganizationsLoading

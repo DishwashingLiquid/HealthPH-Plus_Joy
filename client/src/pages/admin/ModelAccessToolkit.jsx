@@ -6,6 +6,7 @@ import CSVReader from "react-csv-reader";
 
 import EmptyState from "../../components/admin/EmptyState";
 import SkeletonBody from "../../components/SkeletonBody";
+import LoadingSkeleton from "../../components/LoadingSkeleton";
 
 import {
     useFetchDatasetsByUserQuery,
@@ -384,13 +385,17 @@ const DataManagement = () => {
     const [datasetPollingInterval, setDatasetPollingInterval] = useState(0);
 
     const {
-        data: datasetsByUser,
-        isLoading: isDatasetsByUserLoading,
+        currentData: datasetsByUser,
+        isLoading: isDatasetsByUserInitiallyLoading,
+        isFetching: isDatasetsByUserFetching,
+        isError: isDatasetsByUserError,
+        refetch: refetchDatasetsByUser,
     } = useFetchDatasetsByUserQuery(user.id, {
         pollingInterval: datasetPollingInterval,
         skipPollingIfUnfocused: true,
     });
 
+    const isDatasetsByUserLoading = (isDatasetsByUserInitiallyLoading || isDatasetsByUserFetching) && !datasetsByUser;
     const datasets = datasetsByUser || [];
 
     const hasActiveDataset = datasets.some((dataset) =>
@@ -417,8 +422,9 @@ const DataManagement = () => {
     const [entryStatusFilter, setEntryStatusFilter] = useState("all");
 
     const {
-        data: analyticsEntriesData,
-        isLoading: isAnalyticsEntriesLoading,
+        currentData: analyticsEntriesData,
+        isLoading: isAnalyticsEntriesInitiallyLoading,
+        isFetching: isAnalyticsEntriesFetching,
         isError: isAnalyticsEntriesError,
         error: analyticsEntriesError,
         refetch: refetchAnalyticsEntries,
@@ -437,6 +443,7 @@ const DataManagement = () => {
         }
     );
 
+    const isAnalyticsEntriesLoading = (isAnalyticsEntriesInitiallyLoading || isAnalyticsEntriesFetching) && !analyticsEntriesData;
     const analyticsEntries = analyticsEntriesData?.entries || [];
     const analyticsEntriesTotal = analyticsEntriesData?.total || 0;
 
@@ -705,10 +712,10 @@ const DataManagement = () => {
         String(dataset.dataset_status || dataset.dataset_type || "UNKNOWN").toUpperCase();
 
     const displayDatasetDate = (value) => {
-        if (!value) return "-";
+        if (!value) return "Unavailable";
 
         const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return "-";
+        if (Number.isNaN(date.getTime())) return "Unavailable";
 
         return format(date, "MMM dd, yyyy hh:mm a");
     };
@@ -1168,7 +1175,11 @@ const DataManagement = () => {
                         <p className="text-sm text-gray-500">
                             {activeDataSourceDetails.totalLabel}:{" "}
                             <span className="font-semibold text-gray-800">
-                                {Number(activeDataSourceTotal || 0).toLocaleString()}
+                                {(dataSourceView === "social_media" ? isDatasetsByUserLoading : isAnalyticsEntriesLoading)
+                                    ? <LoadingSkeleton className="h-[14px] w-[48px]" />
+                                    : (dataSourceView === "social_media" ? isDatasetsByUserError : isAnalyticsEntriesError)
+                                        ? "Unavailable"
+                                        : Number(activeDataSourceTotal || 0).toLocaleString()}
                             </span>
                         </p>
                     </div>
@@ -1245,8 +1256,12 @@ const DataManagement = () => {
 
                     {isDatasetsByUserLoading ? (
                         <div className="min-w-full overflow-y-hidden h-[300px]">
-                            <SkeletonBody columns={6} />
+                            <SkeletonBody headers={["", "File Name", "Records", "Languages", "Date Uploaded", "Uploaded by", "Status"]} />
                         </div>
+                    ) : isDatasetsByUserError ? (
+                        <EmptyState iconName="Error" heading="Unable to Load Datasets" content="Please try loading the datasets again.">
+                            <button type="button" onClick={() => refetchDatasetsByUser()} className="prod-btn-base prod-btn-secondary">Retry</button>
+                        </EmptyState>
                     ) : filteredDatasets.length > 0 ? (
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
@@ -1286,7 +1301,7 @@ const DataManagement = () => {
                                                     />
                                                 </td>
                                                 <td className="max-w-[260px] truncate py-[14px] px-[10px] font-medium text-gray-800">
-                                                    {dataset.original_filename || dataset.filename || "-"}
+                                                    {dataset.original_filename || dataset.filename || "Unavailable"}
                                                 </td>
                                                 <td className="py-[14px] px-[10px] text-gray-600">
                                                     {Number(dataset.num_of_rows || 0).toLocaleString()}
@@ -1311,7 +1326,7 @@ const DataManagement = () => {
                                                     {displayDatasetDate(dataset.created_at)}
                                                 </td>
                                                 <td className="py-[14px] px-[10px] text-gray-600">
-                                                    {dataset.user_name || "-"}
+                                                    {dataset.user_name || "Unavailable"}
                                                 </td>
                                                 <td className="py-[14px] px-[10px]">
                                                     <DatasetStatusBadge status={dataset.dataset_status} />
@@ -1448,7 +1463,7 @@ const MODAL_DESTRUCTIVE_BUTTON_CLASSES =
 const getSelfReportReporterLabel = (entry) => {
     if (entry.reporter?.reporterType === "guest") return "GUEST";
     if (entry.reporter?.reporterType === "registered") return "Registered user";
-    return "-";
+    return "Unavailable";
 };
 
 const AnalyticsEntriesPanel = ({
@@ -1529,7 +1544,9 @@ const AnalyticsEntriesPanel = ({
 
             {isLoading ? (
                 <div className="overflow-y-hidden min-w-full h-[300px]">
-                    <SkeletonBody columns={isSurveySource ? 10 : 7} />
+                    <SkeletonBody headers={isSurveySource
+                        ? ["", "Survey ID", "Question ID", "ID", "Language", "Answer", "User ID", "User Location", "Date Answered", "Status"]
+                        : ["", "Report ID", "Language", "Text", "Location", "Date Reported", "Status"]} />
                 </div>
             ) : isError ? (
                 <EmptyState
@@ -1609,22 +1626,22 @@ const AnalyticsEntriesPanel = ({
                                         {isSurveySource ? (
                                             <>
                                                 <td className="max-w-[140px] truncate py-[14px] px-[10px] text-gray-600">
-                                                    {entry.survey_id || "-"}
+                                                    {entry.survey_id || "Unavailable"}
                                                 </td>
                                                 <td className="max-w-[140px] truncate py-[14px] px-[10px] text-gray-600">
-                                                    {entry.question_id || entry.metadata?.question_id || "-"}
+                                                    {entry.question_id || entry.metadata?.question_id || "Unavailable"}
                                                 </td>
                                                 <td className="max-w-[150px] truncate py-[14px] px-[10px] font-medium text-gray-800">
-                                                    {entry.response_id || entry.source_id || entry.id || "-"}
+                                                    {entry.response_id || entry.source_id || entry.id || "Unavailable"}
                                                 </td>
                                                 <td className="py-[14px] px-[10px] text-gray-600">
-                                                    {entry.language || "-"}
+                                                    {entry.language || "Unavailable"}
                                                 </td>
                                                 <td className="max-w-[360px] truncate py-[14px] px-[10px] text-gray-800">
-                                                    {entry.text || "-"}
+                                                    {entry.text || "Unavailable"}
                                                 </td>
                                                 <td className="max-w-[150px] truncate py-[14px] px-[10px] text-gray-600">
-                                                    {entry.user_id || entry.metadata?.user_id || entry.metadata?.visitor_id || "-"}
+                                                    {entry.user_id || entry.metadata?.user_id || entry.metadata?.visitor_id || "Unavailable"}
                                                 </td>
                                                 <td className="max-w-[260px] truncate py-[14px] px-[10px] text-gray-600">
                                                     {formatUserLocation(entry.user_location)}
@@ -1632,7 +1649,7 @@ const AnalyticsEntriesPanel = ({
                                                 <td className="py-[14px] px-[10px] text-gray-600">
                                                     {entry.event_time
                                                         ? format(new Date(entry.event_time), "MMM dd, yyyy hh:mm a")
-                                                        : "-"
+                                                        : "Unavailable"
                                                     }
                                                 </td>
                                                 <td className="py-[14px] px-[10px]">
@@ -1642,21 +1659,21 @@ const AnalyticsEntriesPanel = ({
                                         ) : (
                                             <>
                                                 <td className="max-w-[150px] truncate py-[14px] px-[10px] font-medium text-gray-800">
-                                                    {entry.sourcePublicId || entry.source_id || entry.report_id || entry.id || "-"}
+                                                    {entry.sourcePublicId || entry.source_id || entry.report_id || entry.id || "Unavailable"}
                                                 </td>
                                                 <td className="py-[14px] px-[10px] text-gray-600">
-                                                    {entry.language || "-"}
+                                                    {entry.language || "Unavailable"}
                                                 </td>
                                                 <td className="max-w-[420px] truncate py-[14px] px-[10px] text-gray-800">
-                                                    {entry.text || "-"}
+                                                    {entry.text || "Unavailable"}
                                                 </td>
                                                 <td className="py-[14px] px-[10px] text-gray-600">
-                                                    {entry.location?.raw || entry.location?.city || entry.location?.province || entry.location?.region || "-"}
+                                                    {entry.location?.raw || entry.location?.city || entry.location?.province || entry.location?.region || "Unavailable"}
                                                 </td>
                                                 <td className="py-[14px] px-[10px] text-gray-600">
                                                     {entry.created_at
                                                         ? format(new Date(entry.created_at), "MMM dd, yyyy hh:mm a")
-                                                        : "-"
+                                                        : "Unavailable"
                                                     }
                                                 </td>
                                                 <td className="py-[14px] px-[10px]">
@@ -1686,12 +1703,12 @@ const AnalyticsEntriesPanel = ({
 };
 
 const displayEntryDateTime = (value) => {
-    if (!value) return "-";
+    if (!value) return "Unavailable";
 
     const date = new Date(value);
 
     if (Number.isNaN(date.getTime())) {
-        return "-";
+        return "Unavailable";
     }
 
     return format(date, "MMM dd, yyyy hh:mm a");
@@ -1706,7 +1723,7 @@ const formatUserLocation = (location = {}) => {
         location.regionCode,
     ].filter(Boolean);
 
-    return parts.length > 0 ? parts.join(", ") : "-";
+    return parts.length > 0 ? parts.join(", ") : "Unavailable";
 };
 
 const DetailRow = ({ label, value }) => (
@@ -1715,7 +1732,7 @@ const DetailRow = ({ label, value }) => (
             {label}
         </p>
         <p className="mt-[4px] break-words text-sm text-gray-800">
-            {value || "-"}
+            {value === null || value === undefined || value === "" ? "Unavailable" : value}
         </p>
     </div>
 );
@@ -1748,7 +1765,7 @@ const AnalyticsEntryDetailsModal = ({
             entry.location?.city ||
             entry.location?.province ||
             entry.location?.region ||
-            "-";
+            "Unavailable";
 
     const primaryId = isSurveySource
         ? entry.response_id || entry.source_id || entry.id
@@ -1780,7 +1797,7 @@ const AnalyticsEntryDetailsModal = ({
                                 {title}
                             </h3>
                             <p className="mt-[4px] text-sm text-gray-500">
-                                {primaryId || "-"}
+                                {primaryId || "Unavailable"}
                             </p>
                         </div>
 
@@ -1830,7 +1847,7 @@ const AnalyticsEntryDetailsModal = ({
                             {isSurveySource ? "Answer" : "Text"}
                         </p>
                         <div className="mt-[6px] rounded-[8px] border border-[#E5E5E5] bg-[#F8FAFC] p-[12px] text-sm leading-6 text-gray-800">
-                            {entry.text || "-"}
+                            {entry.text || "Unavailable"}
                         </div>
                     </div>
                 </div>
@@ -2331,6 +2348,8 @@ const TrainingLogs = () => {
     const {
         data: datasetsByUser,
         isFetching: isTrainingLogsFetching,
+        isError: isTrainingLogsError,
+        refetch: refetchTrainingLogs,
     } = useFetchDatasetsByUserQuery(user.id);
 
     const datasets = datasetsByUser || [];
@@ -2352,10 +2371,11 @@ const TrainingLogs = () => {
 
         if (normalizedStatus === "PROCESSING") return "In progress";
         if (["UPLOADED", "QUEUED"].includes(normalizedStatus)) return "Pending";
-        if (!created_at || !processed_at) return "-";
+        if (!created_at || !processed_at) return "Unavailable";
 
         const started = new Date(created_at);
         const ended = new Date(processed_at);
+        if (Number.isNaN(started.getTime()) || Number.isNaN(ended.getTime())) return "Unavailable";
         const diffInMinutes = Math.max(1, Math.round((ended - started) / 60000));
 
         if (diffInMinutes >= 60) {
@@ -2397,8 +2417,12 @@ const TrainingLogs = () => {
 
             {isTrainingLogsFetching ? (
                 <div className="overflow-y-hidden min-w-full h-[300px]">
-                    <SkeletonBody columns={7} />
+                    <SkeletonBody headers={["Run ID", "Model", "Dataset", "Status", "Started", "Duration", "Actions"]} />
                 </div>
+            ) : isTrainingLogsError ? (
+                <EmptyState iconName="Error" heading="Unable to Load Training Logs" content="Please try loading the logs again.">
+                    <button type="button" onClick={() => refetchTrainingLogs()} className="prod-btn-base prod-btn-secondary">Retry</button>
+                </EmptyState>
             ) : (
                 <div className="overflow-x-auto">
                     {trainingLogs.length > 0 ? (

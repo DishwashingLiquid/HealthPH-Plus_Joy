@@ -1,5 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import LoadingSkeleton from "../LoadingSkeleton";
 import Icon from "../Icon";
 import { useFetchEnvironmentalHistoryQuery } from "../../features/api/environmentalDataSlice";
 
@@ -190,13 +191,7 @@ const EnvironmentalDataCard = ({
 
     const renderDetail = (value, width = "w-[80px]") =>
         request.isFetching ? (
-            <>
-                <span
-                    aria-hidden="true"
-                    className={`inline-block h-[12px] ${width} max-w-full animate-pulse rounded-[6px] bg-[#E4E7EB] align-middle motion-reduce:animate-none`}
-                />
-                <span className="sr-only">Loading...</span>
-            </>
+            <LoadingSkeleton className={`h-[12px] ${width}`} />
         ) : value;
 
     const displayValue = (ready, value) =>
