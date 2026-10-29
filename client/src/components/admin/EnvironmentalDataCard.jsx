@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Icon from "../Icon";
 import { useFetchEnvironmentalHistoryQuery } from "../../features/api/environmentalDataSlice";
 
@@ -71,14 +72,80 @@ const EnvironmentalDataCard = ({
     dateRange = 7,
 }) => {
     const [showDataInfo, setShowDataInfo] = useState(false);
+    const [dataInfoPosition, setDataInfoPosition] = useState(null);
+    const cardRef = useRef(null);
     const dataInfoRef = useRef(null);
+    const tooltipRef = useRef(null);
+    const closeInfoTimer = useRef(null);
+    const infoHovered = useRef(false);
     const dataInfoId = useId();
+
+    const openDataInfo = () => {
+        clearTimeout(closeInfoTimer.current);
+        setShowDataInfo(true);
+    };
+
+    const scheduleCloseDataInfo = () => {
+        clearTimeout(closeInfoTimer.current);
+        closeInfoTimer.current = setTimeout(() => {
+            if (
+                !infoHovered.current
+                && !dataInfoRef.current?.contains(document.activeElement)
+                && !tooltipRef.current?.contains(document.activeElement)
+            ) {
+                setShowDataInfo(false);
+            }
+        }, 150);
+    };
+
+    useEffect(() => () => clearTimeout(closeInfoTimer.current), []);
+
+    // Render outside the scrolling map panel, then anchor beside the card.
+    useLayoutEffect(() => {
+        if (!showDataInfo) return;
+
+        const updatePosition = () => {
+            if (!cardRef.current || !dataInfoRef.current || !tooltipRef.current) return;
+
+            const card = cardRef.current.getBoundingClientRect();
+            const header = dataInfoRef.current.getBoundingClientRect();
+            const width = Math.min(320, window.innerWidth - 24);
+            const right = card.right + 8;
+            const left = card.left - width - 8;
+            const x = right + width <= window.innerWidth - 12
+                ? right
+                : left >= 12 ? left : Math.max(12, window.innerWidth - width - 12);
+            const height = tooltipRef.current.getBoundingClientRect().height;
+            const y = Math.max(12, Math.min(header.top, window.innerHeight - height - 12));
+
+            setDataInfoPosition((previous) =>
+                previous?.left === x && previous?.top === y && previous?.width === width
+                    ? previous : { left: x, top: y, width }
+            );
+        };
+
+        updatePosition();
+        const observer = new ResizeObserver(updatePosition);
+        observer.observe(cardRef.current);
+        observer.observe(tooltipRef.current);
+        window.addEventListener("resize", updatePosition);
+        window.addEventListener("scroll", updatePosition, true);
+
+        return () => {
+            observer.disconnect();
+            window.removeEventListener("resize", updatePosition);
+            window.removeEventListener("scroll", updatePosition, true);
+        };
+    }, [showDataInfo]);
 
     useEffect(() => {
         if (!showDataInfo) return;
 
         const closeOutside = (event) => {
-            if (!dataInfoRef.current?.contains(event.target)) {
+            if (
+                !dataInfoRef.current?.contains(event.target)
+                && !tooltipRef.current?.contains(event.target)
+            ) {
                 setShowDataInfo(false);
             }
         };
@@ -217,18 +284,20 @@ const EnvironmentalDataCard = ({
         : "";
 
     return (
-        <section className="rounded-xl border border-[#E5E5E5] bg-white p-3">
+        <section ref={cardRef} className="rounded-xl border border-[#E5E5E5] bg-white p-3">
             <div
                 ref={dataInfoRef}
                 className="relative flex items-center justify-between gap-2"
-                onMouseLeave={(event) => {
-                    if (!event.currentTarget.contains(document.activeElement)) {
-                        setShowDataInfo(false);
-                    }
+                onMouseLeave={() => {
+                    infoHovered.current = false;
+                    scheduleCloseDataInfo();
                 }}
                 onBlur={(event) => {
-                    if (!event.currentTarget.contains(event.relatedTarget)) {
-                        setShowDataInfo(false);
+                    if (
+                        !event.currentTarget.contains(event.relatedTarget)
+                        && !tooltipRef.current?.contains(event.relatedTarget)
+                    ) {
+                        scheduleCloseDataInfo();
                     }
                 }}
             >
@@ -240,11 +309,14 @@ const EnvironmentalDataCard = ({
                     type="button"
                     aria-label="About environmental data"
                     aria-describedby={showDataInfo ? dataInfoId : undefined}
-                    onMouseEnter={() => setShowDataInfo(true)}
-                    onFocus={() => setShowDataInfo(true)}
+                    onMouseEnter={() => {
+                        infoHovered.current = true;
+                        openDataInfo();
+                    }}
+                    onFocus={openDataInfo}
                     onClick={(event) => {
                         event.currentTarget.focus();
-                        setShowDataInfo(true);
+                        openDataInfo();
                     }}
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500"
                 >
@@ -256,13 +328,27 @@ const EnvironmentalDataCard = ({
                     />
                 </button>
 
-                {showDataInfo && (
+                {showDataInfo && createPortal(
                     <div
+                        ref={tooltipRef}
                         id={dataInfoId}
                         role="tooltip"
-                        className="absolute inset-x-0 top-full z-[1100] pt-2"
+                        className="fixed z-[2000] max-h-[calc(100dvh_-_24px)] overflow-y-auto rounded-lg bg-gray-900 text-white shadow-xl"
+                        style={{
+                            ...dataInfoPosition,
+                            width: dataInfoPosition?.width ?? "min(320px, calc(100vw - 24px))",
+                            visibility: dataInfoPosition ? "visible" : "hidden",
+                        }}
+                        onMouseEnter={() => {
+                            infoHovered.current = true;
+                            clearTimeout(closeInfoTimer.current);
+                        }}
+                        onMouseLeave={() => {
+                            infoHovered.current = false;
+                            scheduleCloseDataInfo();
+                        }}
                     >
-                        <div className="rounded-lg bg-gray-900 p-3 text-xs leading-5 text-white shadow-xl">
+                        <div className="p-3 text-xs leading-5">
                             <p className="font-semibold">Data details</p>
                             <p className="mt-1">
                                 Numeric values are averages of available hourly readings
@@ -287,7 +373,8 @@ const EnvironmentalDataCard = ({
                                 is the average completed hourly total, shown in mm/h.
                             </p>
                         </div>
-                    </div>
+                    </div>,
+                    document.body
                 )}
             </div>
 
@@ -300,11 +387,8 @@ const EnvironmentalDataCard = ({
                     <p className="mt-1 text-xs font-medium text-gray-700">
                         {locationLabel}
                     </p>
-                    <p className="mt-1 text-[10px] text-gray-500">
-                        {latitude.toFixed(4)}, {longitude.toFixed(4)}
-                    </p>
                     <p className="mt-2 text-xs font-semibold text-gray-800">
-                        Averages for selected date range · {timeLabel}
+                        Averages for the {timeLabel}
                     </p>
                     <p className="mb-3 mt-1 text-[11px] leading-4 text-gray-600">
                         {renderDetail(
