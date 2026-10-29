@@ -1,5 +1,8 @@
 from collections import Counter, defaultdict
 
+import re
+from datetime import date, datetime, time
+
 from typing_extensions import Annotated
 from bson import ObjectId
 from fastapi import BackgroundTasks, Body, Depends, HTTPException, Query, status
@@ -27,7 +30,7 @@ from helpers.surveillanceDateHelpers import (
 )
 
 from helpers.miscHelpers import get_ph_datetime
-from region_normalization import normalize_region
+from region_normalization import REGION_ALIASES, normalize_region
 
 
 MAP_DISEASE_CODES = {"TB", "PN", "COVID", "AURI"}
@@ -46,6 +49,11 @@ async def fetch_analytics_entries(
     dataset_id: str = Query("all"),
     search: str = Query(""),
     limit: int = Query(100),
+    offset: int = Query(0, ge=0),
+    language: str = Query("all"),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    region: str = Query("all"),
 ):
     query = {}
 
@@ -58,22 +66,103 @@ async def fetch_analytics_entries(
     if dataset_id != "all":
         query["dataset_id"] = dataset_id
 
-    if search:
-        query["text"] = {"$regex": search, "$options": "i"}
+    if region.strip().lower() != "all":
+        selected_region = normalize_region(region)
+        if not selected_region:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid region filter.",
+            )
+
+        aliases = sorted(
+            alias for alias, code in REGION_ALIASES.items()
+            if code == selected_region
+        )
+        region_pattern = r"^\s*(?:" + "|".join(
+            r"\s+".join(re.escape(word) for word in alias.split())
+            for alias in aliases
+        ) + r")\s*$"
+
+        # Keep the region alternatives separate from the text/location search.
+        query["$and"] = [{
+            "$or": [
+                {field: {"$regex": region_pattern, "$options": "i"}}
+                for field in (
+                    "location.region",
+                    "location.regionCode",
+                    "location.regionName",
+                )
+            ]
+        }]
+
+    if language != "all":
+        if language not in SUPPORTED_LANGUAGE_CODES:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid language filter.",
+            )
+
+        query["language"] = language
+
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(
+            status_code=400,
+            detail="From date must be on or before To date.",
+        )
+
+    date_filter = {}
+
+    if date_from:
+        date_filter["$gte"] = datetime.combine(
+            date_from, time.min
+        )
+
+    if date_to:
+        date_filter["$lte"] = datetime.combine(
+            date_to, time.max
+        )
+
+    if date_filter:
+        query["created_at"] = date_filter
+
+    search_value = search.strip()
+
+    if search_value:
+        search_pattern = re.escape(search_value)
+
+        query["$or"] = [
+            {
+                field: {
+                    "$regex": search_pattern,
+                    "$options": "i",
+                }
+            }
+            for field in (
+                "text",
+                "location.raw",
+                "location.city",
+                "location.province",
+                "location.region",
+                "location.barangay",
+            )
+        ]
 
     limit = max(1, min(limit, 500))
-
-    entries = analytics_entries_collection.find(query).sort(
-        "created_at", -1
-    ).limit(limit)
-
     total = analytics_entries_collection.count_documents(query)
+
+    entries = (
+        analytics_entries_collection.find(query)
+        .sort([("created_at", -1), ("_id", -1)])
+        .skip(offset)
+        .limit(limit)
+    )
 
     return {
         "total": total,
+        "limit": limit,
+        "offset": offset,
         "entries": list_analytics_entries(entries),
     }
-
 
 async def fetch_self_report_language_summary(
     current_user: Annotated[

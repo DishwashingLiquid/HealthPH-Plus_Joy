@@ -21,6 +21,11 @@ export const analyticsEntriesApi = baseAPI.injectEndpoints({
                 datasetId = "all",
                 search = "",
                 limit = 100,
+                offset = 0,
+                language = "all",
+                dateFrom = "",
+                dateTo = "",
+                region = "all",
             } = {}) => ({
                 url: "/analytics-entries/",
                 params: {
@@ -28,7 +33,12 @@ export const analyticsEntriesApi = baseAPI.injectEndpoints({
                     analysis_status: analysisStatus,
                     dataset_id: datasetId,
                     search,
-                    limit, 
+                    limit,
+                    offset,
+                    language,
+                    date_from: dateFrom || undefined,
+                    date_to: dateTo || undefined,
+                    region,
                 },
             }),
             providesTags: ["AnalyticsEntries"],
@@ -58,6 +68,7 @@ export const analyticsEntriesApi = baseAPI.injectEndpoints({
 export const {
     useFetchSurveillanceSummaryQuery,
     useFetchAnalyticsEntriesQuery,
+    useLazyFetchAnalyticsEntriesQuery,
     useFetchAnalyticsMapPointsQuery,
     useFetchSelfReportLanguageSummaryQuery,
     useProcessAnalyticsEntriesMutation,

@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { format } from "date-fns";
+import { useReactToPrint } from "react-to-print";
 
 import CSVReader from "react-csv-reader";
 
 import EmptyState from "../../components/admin/EmptyState";
 import SkeletonBody from "../../components/SkeletonBody";
 import LoadingSkeleton from "../../components/LoadingSkeleton";
+import Regions from "../../assets/data/regions.json";
+import SelfReportPrint from "../../components/admin/SelfReportPrint";
+import { loadSelfReportsForPrint } from "../../utils/selfReportPrintHelpers";
 
 import {
     useFetchDatasetsByUserQuery,
@@ -20,6 +24,7 @@ import { useCreateAccountActivityMutation } from "../../features/api/accountActi
 
 import {
     useFetchAnalyticsEntriesQuery,
+    useLazyFetchAnalyticsEntriesQuery,
     useProcessAnalyticsEntriesMutation,
 } from "../../features/api/analyticsEntriesSlice";
 
@@ -41,6 +46,7 @@ import {
 
 import { ToolbarButton, ToolbarSearch, ToolbarSelect } from "../../components/ToolbarControls";
 import { popup } from "leaflet";
+import { current } from "@reduxjs/toolkit";
 
 const ModelAccessToolkit = () => {
     const [activeTab, setActiveTab] = useState("comparison");
@@ -343,6 +349,8 @@ const RAW_DATASET_REQUIRED_HEADERS = [
 ];
 
 const ACTIVE_ANALYTICS_STATUSES = ["QUEUED", "PROCESSING"];
+const ANALYTICS_PAGE_SIZE = 25;
+const DATASET_PAGE_SIZE = 25;
 const PROCESSABLE_ANALYTICS_STATUSES = ["SUBMITTED", "FAILED"];
 
 const normalizeCsvHeader = (header) =>
@@ -374,6 +382,58 @@ const getRequestErrorMessage = (error, fallback) => {
 /* SUBTAB 2 = DATA MANAGEMENT */
 const DataManagement = () => {
     const user = useSelector((state) => state.auth.user);
+
+    const selfReportPrintRef = useRef(null);
+    const printRequestRef = useRef(null);
+    const printMountedRef = useRef(true);
+    const printLockRef = useRef(false);
+    const pendingPrintRef = useRef(false);
+    const [printReport, setPrintReport] = useState(null);
+    const [isPreparingPrint, setIsPreparingPrint] = useState(false);
+    const [selfReportPrintError, setSelfReportPrintError] = useState("");
+    const [fetchPrintEntries] = useLazyFetchAnalyticsEntriesQuery();
+
+    const finishSelfReportPrint = () => {
+        printLockRef.current = false;
+        pendingPrintRef.current = false;
+        if (printMountedRef.current) {
+            setIsPreparingPrint(false);
+            setPrintReport(null);
+        }
+    };
+
+    const printSelfReports = useReactToPrint({
+        content: () => selfReportPrintRef.current,
+        documentTitle: "HealthPH+ - Self Reports",
+        // Safari can return from window.print before its preview has finished.
+        removeAfterPrint: false,
+        pageStyle: "@page { size: A4 landscape; margin: 12mm; } @media print { html, body { height: auto !important; overflow: visible !important; margin: 0 !important; } }",
+        onAfterPrint: finishSelfReportPrint,
+        onPrintError: () => {
+            if (printMountedRef.current) {
+                setSelfReportPrintError("Unable to open the print dialog. Please try again.");
+            }
+            finishSelfReportPrint();
+        },
+    });
+
+    useEffect(() => {
+        printMountedRef.current = true;
+        return () => {
+            printMountedRef.current = false;
+            pendingPrintRef.current = false;
+            printLockRef.current = false;
+            printRequestRef.current?.abort();
+        };
+    }, []);
+
+    // React has committed the complete report before the print library clones it.
+    useEffect(() => {
+        if (printReport && pendingPrintRef.current) {
+            pendingPrintRef.current = false;
+            printSelfReports();
+        }
+    }, [printReport, printSelfReports]);
 
     /* API HOOKS */
     const [downloadDataset] = useDownloadDatasetMutation();
@@ -410,6 +470,7 @@ const DataManagement = () => {
 
     const [datasetSearch, setDatasetSearch] = useState("");
     const [datasetStatusFilter, setDatasetStatusFilter] = useState("all");
+    const [datasetPage, setDatasetPage] = useState(1);
     const [selectedDatasetIds, setSelectedDatasetIds] = useState([]);
 
     const [dataSourceView, setDataSourceView] = useState("self_report");
@@ -420,6 +481,20 @@ const DataManagement = () => {
 
     const [entrySearch, setEntrySearch] = useState("");
     const [entryStatusFilter, setEntryStatusFilter] = useState("all");
+    const [entryPage, setEntryPage] = useState(1);
+
+    const [dataDateFrom, setDataDateFrom] = useState("");
+    const [dataDateTo, setDataDateTo] = useState("");
+    const [dataLanguageFilter, setDataLanguageFilter] = useState("all");
+    const [dataRegionFilter, setDataRegionFilter] = useState("all");
+
+    const handleDataFilterChange = (setter, value) => {
+        setter(value);
+        setEntryPage(1);
+        setDatasetPage(1);
+        setSelectedEntryIds([]);
+        setSelectedDatasetIds([]);
+    };
 
     const {
         currentData: analyticsEntriesData,
@@ -434,7 +509,12 @@ const DataManagement = () => {
             analysisStatus: entryStatusFilter,
             datasetId: "all",
             search: entrySearch,
-            limit: 100,
+            limit: ANALYTICS_PAGE_SIZE,
+            offset: (entryPage - 1) * ANALYTICS_PAGE_SIZE,
+            language: dataLanguageFilter,
+            dateFrom: dataDateFrom,
+            dateTo: dataDateTo,
+            region: dataRegionFilter,
         },
         {
             skip: dataSourceView === "social_media",
@@ -446,6 +526,48 @@ const DataManagement = () => {
     const isAnalyticsEntriesLoading = (isAnalyticsEntriesInitiallyLoading || isAnalyticsEntriesFetching) && !analyticsEntriesData;
     const analyticsEntries = analyticsEntriesData?.entries || [];
     const analyticsEntriesTotal = analyticsEntriesData?.total || 0;
+
+    const entryPageCount = Math.max(
+        1,
+        Math.ceil(analyticsEntriesTotal / ANALYTICS_PAGE_SIZE)
+    );
+
+    const firstVisibleEntry =
+        analyticsEntries.length > 0
+            ? (entryPage - 1) * ANALYTICS_PAGE_SIZE + 1
+            : 0;
+
+    const lastVisibleEntry =
+        analyticsEntries.length > 0
+            ? firstVisibleEntry + analyticsEntries.length - 1
+            : 0;
+
+    useEffect(() => {
+        if (
+            dataSourceView === "social_media" ||
+            isAnalyticsEntriesFetching ||
+            isAnalyticsEntriesError ||
+            !analyticsEntriesData
+        ) {
+            return;
+        }
+
+        const lastPage = Math.max(
+            1,
+            Math.ceil(
+                analyticsEntriesData.total / ANALYTICS_PAGE_SIZE
+            )
+        );
+
+        setEntryPage((currentPage) =>
+            Math.min(currentPage, lastPage)
+        );
+    }, [
+        dataSourceView,
+        analyticsEntriesData,
+        isAnalyticsEntriesFetching,
+        isAnalyticsEntriesError,
+    ]);
 
     const hasActiveAnalyticsEntries = analyticsEntries.some((entry) =>
         ACTIVE_ANALYTICS_STATUSES.includes(entry.analysis_status)
@@ -485,7 +607,16 @@ const DataManagement = () => {
     useEffect(() => {
         setSelectedEntryIds([]);
         setSelectedEntriesProcessError("");
-    }, [dataSourceView]);
+    }, [
+        dataSourceView,
+        entryPage,
+        entrySearch,
+        entryStatusFilter,
+        dataDateFrom,
+        dataDateTo,
+        dataLanguageFilter,
+        dataRegionFilter,
+    ]);
 
     /* UPLOAD MODAL STATE */
     const inputFile = useRef(null);
@@ -720,6 +851,39 @@ const DataManagement = () => {
         return format(date, "MMM dd, yyyy hh:mm a");
     };
 
+    const normalizePreviewRows = (rows) => {
+        let value = rows;
+
+        for (let i = 0; i < 2; i += 1) {
+            if (Array.isArray(value)) return value;
+            if (typeof value !== "string") return [];
+
+            try {
+                value = JSON.parse(value);
+            } catch {
+                return [];
+            }
+        }
+        return Array.isArray(value) ? value : [];
+    };
+
+
+    const getDatasetLanguages = (dataset) => {
+        if (Array.isArray(dataset.languages) && dataset.languages.length > 0) {
+            return dataset.languages;
+        }
+
+        const previewRows = normalizePreviewRows(dataset.preview_data);
+
+        return [
+            ...new Set(
+                previewRows
+                    .map((row) => row.language)
+                    .filter(Boolean)
+            ),
+        ];
+    };
+
     const filteredDatasets = datasets.filter((dataset) => {
         const searchValue = datasetSearch.trim().toLowerCase();
         const status = getDatasetStatus(dataset);
@@ -739,24 +903,63 @@ const DataManagement = () => {
         const matchesStatus =
             datasetStatusFilter === "all" || status === datasetStatusFilter;
 
-        return matchesSearch && matchesStatus;
+        const uploadedDate = String(dataset.created_at || "").slice(0, 10);
+        const hasValidDate = /^\d{4}-\d{2}-\d{2}$/.test(uploadedDate);
+
+        const matchesDate =
+            (!dataDateFrom && !dataDateTo) ||
+            (
+                hasValidDate &&
+                (!dataDateFrom || uploadedDate >= dataDateFrom) &&
+                (!dataDateTo || uploadedDate <= dataDateTo)
+            );
+
+        const matchesLanguage =
+            dataLanguageFilter === "all" ||
+            getDatasetLanguages(dataset).some(
+                (language) =>
+                    String(language).toLowerCase() === dataLanguageFilter
+            );
+
+        return (
+            matchesSearch &&
+            matchesStatus &&
+            matchesDate &&
+            matchesLanguage
+        );
     });
 
-    const getDatasetLanguages = (dataset) => {
-        if (Array.isArray(dataset.languages) && dataset.languages.length > 0) {
-            return dataset.languages;
-        }
+    const datasetPageCount = Math.max(
+        1,
+        Math.ceil(filteredDatasets.length / DATASET_PAGE_SIZE)
+    );
+    const currentDatasetPage = Math.min(datasetPage, datasetPageCount);
+    const datasetPageOffset = (currentDatasetPage - 1) * DATASET_PAGE_SIZE;
+    const paginatedDatasets = filteredDatasets.slice(
+        datasetPageOffset,
+        datasetPageOffset + DATASET_PAGE_SIZE
+    );
+    const firstVisibleDataset = paginatedDatasets.length > 0 ? datasetPageOffset + 1 : 0;
+    const lastVisibleDataset = paginatedDatasets.length > 0
+        ? datasetPageOffset + paginatedDatasets.length
+        : 0;
 
-        const previewRows = normalizePreviewRows(dataset.preview_data);
+    useEffect(() => {
+        if (isDatasetsByUserLoading || isDatasetsByUserError) return;
+        setDatasetPage((page) => Math.min(page, datasetPageCount));
+    }, [isDatasetsByUserLoading, isDatasetsByUserError, datasetPageCount]);
 
-        return [
-            ...new Set(
-                previewRows
-                    .map((row) => row.language)
-                    .filter(Boolean)
-            ),
-        ];
-    };
+    useEffect(() => {
+        setSelectedDatasetIds([]);
+    }, [
+        datasetPage,
+        dataSourceView,
+        datasetSearch,
+        datasetStatusFilter,
+        dataDateFrom,
+        dataDateTo,
+        dataLanguageFilter,
+    ]);
 
     const toggleDatasetSelection = (id) => {
         setSelectedDatasetIds((currentIds) =>
@@ -767,7 +970,7 @@ const DataManagement = () => {
     };
 
     const toggleAllVisibleDatasets = () => {
-        const visibleIds = filteredDatasets.map((dataset) => dataset.id);
+        const visibleIds = paginatedDatasets.map((dataset) => dataset.id);
 
         const allVisibleSelected =
             visibleIds.length > 0 &&
@@ -781,8 +984,8 @@ const DataManagement = () => {
     };
 
     const allVisibleDatasetsSelected =
-        filteredDatasets.length > 0 &&
-        filteredDatasets.every((dataset) => selectedDatasetIds.includes(dataset.id));
+        paginatedDatasets.length > 0 &&
+        paginatedDatasets.every((dataset) => selectedDatasetIds.includes(dataset.id));
 
     const selectedDatasets = datasets.filter((dataset) =>
         selectedDatasetIds.includes(dataset.id)
@@ -803,21 +1006,6 @@ const DataManagement = () => {
         return [];
     };
 
-    const normalizePreviewRows = (rows) => {
-        let value = rows;
-
-        for (let i = 0; i < 2; i += 1) {
-            if (Array.isArray(value)) return value;
-            if (typeof value !== "string") return [];
-
-            try {
-                value = JSON.parse(value);
-            } catch {
-                return [];
-            }
-        }
-        return Array.isArray(value) ? value : [];
-    };
 
     const selectedEntries = analyticsEntries.filter((entry) =>
         selectedEntryIds.includes(entry.id)
@@ -1099,6 +1287,103 @@ const DataManagement = () => {
             ? filteredDatasets.length
             : analyticsEntriesTotal;
 
+    const pagination = dataSourceView === "social_media"
+        ? {
+            page: currentDatasetPage,
+            pageCount: datasetPageCount,
+            first: firstVisibleDataset,
+            last: lastVisibleDataset,
+            total: filteredDatasets.length,
+            unit: "datasets",
+            label: "Dataset",
+            isLoading: isDatasetsByUserLoading,
+            isFetching: isDatasetsByUserFetching,
+            isError: isDatasetsByUserError,
+            isBusy: isDeleteLoading || isProcessLoading,
+            setPage: setDatasetPage,
+        }
+        : {
+            page: entryPage,
+            pageCount: entryPageCount,
+            first: firstVisibleEntry,
+            last: lastVisibleEntry,
+            total: analyticsEntriesTotal,
+            unit: "reports",
+            label: "Report",
+            isLoading: isAnalyticsEntriesLoading,
+            isFetching: isAnalyticsEntriesFetching,
+            isError: isAnalyticsEntriesError,
+            isBusy: isProcessEntriesLoading,
+            setPage: setEntryPage,
+        };
+
+    const handleResetDataFilters = () => {
+        setDataDateFrom("");
+        setDataDateTo("");
+        setDataLanguageFilter("all");
+        setDataRegionFilter("all");
+        setDatasetPage(1);
+        if (dataSourceView === "social_media") {
+            setDatasetSearch("");
+            setDatasetStatusFilter("all");
+            setSelectedDatasetIds([]);
+        } else {
+            setEntrySearch("");
+            setEntryStatusFilter("all");
+            setSelectedEntryIds([]);
+            setSelectedEntriesProcessError("");
+            setEntryPage(1);
+        }
+    };
+
+    const handleSelfReportPrint = async () => {
+        if (printLockRef.current || dataSourceView !== "self_report") return;
+        printLockRef.current = true;
+        setIsPreparingPrint(true);
+        setSelfReportPrintError("");
+
+        // Capture the filters once, even if the controls change during preparation.
+        const filters = {
+            analysisStatus: entryStatusFilter,
+            datasetId: "all",
+            search: entrySearch.trim(),
+            language: dataLanguageFilter,
+            dateFrom: dataDateFrom,
+            dateTo: dataDateTo,
+            region: dataRegionFilter,
+        };
+
+        try {
+            const entries = await loadSelfReportsForPrint((args) => {
+                if (!printMountedRef.current) throw new Error("Print preparation cancelled.");
+                const request = fetchPrintEntries(args, false);
+                printRequestRef.current = request;
+                return request.unwrap();
+            }, filters);
+
+            if (!printMountedRef.current) return;
+            if (entries.length === 0) {
+                throw new Error("No self reports match these filters. Refresh the table and try again.");
+            }
+
+            pendingPrintRef.current = true;
+            setPrintReport({
+                entries,
+                filters,
+                generatedAt: new Date().toISOString(),
+                generatedBy: [user.first_name, user.last_name].filter(Boolean).join(" "),
+            });
+        } catch (error) {
+            if (printMountedRef.current) {
+                setSelfReportPrintError(getRequestErrorMessage(
+                    error,
+                    error?.message || "Unable to prepare the report. Please try again."
+                ));
+            }
+            finishSelfReportPrint();
+        }
+    };
+
     return (
         <>
         <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
@@ -1107,12 +1392,20 @@ const DataManagement = () => {
                     <DataSourcePill
                         label="Self Reports"
                         active={dataSourceView === "self_report"}
-                        onClick={() => setDataSourceView("self_report")}
+                        onClick={() => {
+                            setDataSourceView("self_report");
+                            setEntryPage(1);
+                            setDatasetPage(1);
+                        }}
                     />
                     <DataSourcePill
                         label="Social Media Datasets"
                         active={dataSourceView === "social_media"}
-                        onClick={() => setDataSourceView("social_media")}
+                        onClick={() => {
+                            setDataSourceView("social_media");
+                            setEntryPage(1);
+                            setDatasetPage(1);
+                        }}
                     />
                 </div>
             </div>
@@ -1127,6 +1420,19 @@ const DataManagement = () => {
                             {activeDataSourceDetails.description}
                         </p>
                     </div>
+
+                    {dataSourceView === "self_report" && (
+                        <ToolbarButton
+                            iconName="Printer"
+                            variant="primary"
+                            className="self-start md:self-auto"
+                            onClick={handleSelfReportPrint}
+                            disabled={isPreparingPrint || isAnalyticsEntriesFetching || isAnalyticsEntriesError || analyticsEntriesTotal === 0}
+                            title="Print all self reports matching the current filters"
+                        >
+                            {isPreparingPrint ? "Preparing..." : "Print"}
+                        </ToolbarButton>
+                    )}
 
                     {dataSourceView === "social_media" && (
                         <div className="flex flex-col gap-[10px] sm:flex-row sm:items-center md:justify-end">
@@ -1156,23 +1462,9 @@ const DataManagement = () => {
                     )}
                 </div>
 
-                <div className="flex flex-col gap-[10px] xl:flex-row xl:items-center xl:justify-between">
-                    <div className="flex flex-col gap-[10px] md:flex-row md:items-center">
-                        {dataSourceView === "social_media" ? (
-                            <ToolbarSearch
-                                placeholder="Search datasets..."
-                                value={datasetSearch}
-                                onChange={(event) => setDatasetSearch(event.target.value)}
-                            />
-                        ) : (
-                            <ToolbarSearch
-                                placeholder={`Search ${activeDataSourceDetails.title.toLowerCase()}...`}
-                                value={entrySearch}
-                                onChange={(event) => setEntrySearch(event.target.value)}
-                            />
-                        )}
-
-                        <p className="text-sm text-gray-500">
+                <div className="flex flex-wrap items-end justify-between gap-x-[20px] gap-y-[14px]">
+                    <div className="flex w-full flex-col gap-[6px] sm:w-[280px] sm:shrink-0">
+                        <p className="flex h-[30px] items-center gap-[4px] text-sm text-gray-500">
                             {activeDataSourceDetails.totalLabel}:{" "}
                             <span className="font-semibold text-gray-800">
                                 {(dataSourceView === "social_media" ? isDatasetsByUserLoading : isAnalyticsEntriesLoading)
@@ -1182,39 +1474,124 @@ const DataManagement = () => {
                                         : Number(activeDataSourceTotal || 0).toLocaleString()}
                             </span>
                         </p>
+                        <ToolbarSearch
+                            className="!w-full"
+                            placeholder={dataSourceView === "social_media"
+                                ? "Search datasets..."
+                                : "Search report text or location..."}
+                            value={dataSourceView === "social_media" ? datasetSearch : entrySearch}
+                            onChange={(event) => handleDataFilterChange(
+                                dataSourceView === "social_media" ? setDatasetSearch : setEntrySearch,
+                                event.target.value
+                            )}
+                        />
                     </div>
 
-                    <div className="flex flex-col gap-[10px] md:items-end md:justify-end">
-                        {dataSourceView === "social_media" ? (
-                            <ToolbarSelect
-                                value={datasetStatusFilter}
-                                onChange={(event) => setDatasetStatusFilter(event.target.value)}
-                                className="w-full md:w-[180px]"
-                            >
-                                <option value="all">All Status</option>
-                                <option value="UPLOADED">Uploaded</option>
-                                <option value="QUEUED">Queued</option>
-                                <option value="PROCESSING">Processing</option>
-                                <option value="PROCESSED">Processed</option>
-                                <option value="FAILED">Failed</option>
-                            </ToolbarSelect>
-                        ) : (
-                            <ToolbarSelect
-                                value={entryStatusFilter}
-                                onChange={(event) => setEntryStatusFilter(event.target.value)}
-                                className="w-full md:w-[180px]"
-                            >
-                                <option value="all">All Status</option>
-                                <option value="SUBMITTED">Submitted</option>
-                                <option value="QUEUED">Queued</option>
-                                <option value="PROCESSING">Processing</option>
-                                <option value="PROCESSED">Processed</option>
-                                <option value="FAILED">Failed</option>
-                            </ToolbarSelect>
-                        )}
+                    <div className="ml-auto flex max-w-full flex-wrap items-end justify-end gap-[10px]">
+                        <div className="flex max-w-full flex-wrap items-end gap-[10px]">
+                            <label className="flex w-[145px] max-w-full flex-col gap-[6px] text-sm text-gray-600">
+                                <span className="flex h-[30px] items-center">From date</span>
+                                <input
+                                    type="date"
+                                    value={dataDateFrom}
+                                    max={dataDateTo || undefined}
+                                    onChange={(event) => handleDataFilterChange(setDataDateFrom, event.target.value)}
+                                    className="h-[42px] w-full min-w-0 rounded-[10px] border border-[#E5E5E5] bg-white px-[12px] py-[10px] text-sm text-gray-800"
+                                />
+                            </label>
+
+                            <label className="flex w-[145px] max-w-full flex-col gap-[6px] text-sm text-gray-600">
+                                <span className="flex h-[30px] items-center">To date</span>
+                                <input
+                                    type="date"
+                                    value={dataDateTo}
+                                    min={dataDateFrom || undefined}
+                                    onChange={(event) => handleDataFilterChange(setDataDateTo, event.target.value)}
+                                    className="h-[42px] w-full min-w-0 rounded-[10px] border border-[#E5E5E5] bg-white px-[12px] py-[10px] text-sm text-gray-800"
+                                />
+                            </label>
+                        </div>
+
+                        <div className="flex max-w-full flex-col gap-[6px]">
+                            <div className="flex h-[30px] items-center justify-end">
+                                <button
+                                    type="button"
+                                    onClick={handleResetDataFilters}
+                                    className="rounded-[8px] border border-[#E5E5E5] px-[10px] py-[6px] text-xs font-medium text-gray-600 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500"
+                                >
+                                    Reset filters
+                                </button>
+                            </div>
+
+                            <div className="flex max-w-full flex-wrap items-end justify-end gap-[10px]">
+                                <label className="block min-w-0 max-w-full">
+                                    <span className="sr-only">Language</span>
+                                    <ToolbarSelect
+                                        value={dataLanguageFilter}
+                                        onChange={(event) => handleDataFilterChange(setDataLanguageFilter, event.target.value)}
+                                        className="h-[42px] w-auto max-w-full"
+                                    >
+                                        <option value="all">All Languages</option>
+                                        <option value="en">English</option>
+                                        <option value="fil">Filipino</option>
+                                        <option value="ceb">Cebuano</option>
+                                        <option value="hil">Hiligaynon</option>
+                                        <option value="ilo">Ilocano</option>
+                                    </ToolbarSelect>
+                                </label>
+
+                                {dataSourceView === "self_report" && (
+                                    <label className="block min-w-0 max-w-full">
+                                        <span className="sr-only">Region</span>
+                                        <ToolbarSelect
+                                            value={dataRegionFilter}
+                                            onChange={(event) => handleDataFilterChange(setDataRegionFilter, event.target.value)}
+                                            className="h-[42px] w-auto max-w-full"
+                                        >
+                                            <option value="all">All Regions</option>
+                                            {Regions.regions.map(({ value, label }) => (
+                                                <option key={value} value={value}>{label}</option>
+                                            ))}
+                                        </ToolbarSelect>
+                                    </label>
+                                )}
+
+                                <label className="block min-w-0 max-w-full">
+                                    <span className="sr-only">Status</span>
+                                    <ToolbarSelect
+                                        value={dataSourceView === "social_media" ? datasetStatusFilter : entryStatusFilter}
+                                        onChange={(event) => handleDataFilterChange(
+                                            dataSourceView === "social_media" ? setDatasetStatusFilter : setEntryStatusFilter,
+                                            event.target.value
+                                        )}
+                                        className="h-[42px] w-auto max-w-full"
+                                    >
+                                        <option value="all">All Status</option>
+                                        {dataSourceView === "social_media"
+                                            ? <option value="UPLOADED">Uploaded</option>
+                                            : <option value="SUBMITTED">Submitted</option>}
+                                        <option value="QUEUED">Queued</option>
+                                        <option value="PROCESSING">Processing</option>
+                                        <option value="PROCESSED">Processed</option>
+                                        <option value="FAILED">Failed</option>
+                                    </ToolbarSelect>
+                                </label>
+                            </div>
+                        </div>
                     </div>
                 </div>
+                {dataDateFrom && dataDateTo && dataDateFrom > dataDateTo && (
+                    <p role="alert" className="text-sm text-red-700">
+                        From date must be on or before To date.
+                    </p>
+                )}
             </div>
+
+            {dataSourceView === "self_report" && selfReportPrintError && (
+                <p role="alert" className="mb-[16px] rounded-[8px] border border-[#FCA5A5] bg-[#FEF2F2] px-[12px] py-[10px] text-sm text-[#B42318]">
+                    {selfReportPrintError}
+                </p>
+            )}
 
             {dataSourceView === "social_media" && (
                 <>
@@ -1283,7 +1660,7 @@ const DataManagement = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filteredDatasets.map((dataset) => {
+                                    {paginatedDatasets.map((dataset) => {
                                         const languages = getDatasetLanguages(dataset);
 
                                         return (
@@ -1367,6 +1744,69 @@ const DataManagement = () => {
                     onRetry={refetchAnalyticsEntries}
                 />
             )}
+            <div className="mt-[16px] flex flex-wrap items-center justify-between gap-[12px] border-t border-[#E5E5E5] pt-[16px]">
+                <p className="text-sm text-gray-500">
+                    {pagination.isLoading ? (
+                        <LoadingSkeleton
+                            className="h-[14px] w-[180px]"
+                            label={`Loading ${pagination.unit} range...`}
+                        />
+                    ) : pagination.isError ? (
+                        `${pagination.label} range unavailable`
+                    ) : (
+                        `Showing ${pagination.first.toLocaleString()}–${pagination.last.toLocaleString()} of ${pagination.total.toLocaleString()} ${pagination.unit}`
+                    )}
+                </p>
+
+                <div className="flex items-center gap-[12px]">
+                    <ToolbarButton
+                        disabled={
+                            pagination.isFetching ||
+                            pagination.isError ||
+                            pagination.isBusy ||
+                            pagination.page <= 1
+                        }
+                        onClick={() =>
+                            pagination.setPage((page) => Math.max(1, page -1))
+                        }
+                    >
+                        Previous
+                    </ToolbarButton>
+
+                    <span className="text-sm text-gray-600">
+                        Page{" "}
+                        {pagination.isLoading ? (
+                            <LoadingSkeleton
+                                className="h-[14px] w-[48px]"
+                                label="Loading page count..."
+                            />
+                        ) : pagination.isError ? (
+                            "unavailable"
+                        ) : (
+                            `${pagination.page} of ${pagination.pageCount}`
+                        )}
+                    </span>
+
+                    <ToolbarButton
+                        disabled={
+                            pagination.isFetching ||
+                            pagination.isError ||
+                            pagination.isBusy ||
+                            pagination.page >= pagination.pageCount
+                        }
+                        onClick={() =>
+                            pagination.setPage((page) =>
+                                Math.min(pagination.pageCount, page + 1)
+                            )
+                        }
+                    >
+                        Next
+                    </ToolbarButton>
+                </div>
+            </div>
+        </div>
+        <div style={{ display: "none" }}>
+            <SelfReportPrint ref={selfReportPrintRef} report={printReport} />
         </div>
         {bulkActionModalActive && (
             <BulkDatasetActionModal
