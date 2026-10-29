@@ -108,9 +108,10 @@ def _generate_public_id() -> str:
 
 
 def serialize_mobile_user(document: dict) -> dict:
-    """Return the mobile account DTO. Password material is deliberately omitted."""
+    """Return public account fields and PIN state, never password/PIN material."""
     return {
         "id": document.get("id"),
+        "pinConfigured": bool(_stored_pin_hash(document)),
         "fullName": document.get("fullName"),
         "email": document.get("email"),
         "roleId": document.get("roleId"),
