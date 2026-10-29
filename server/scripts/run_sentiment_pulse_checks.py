@@ -9,6 +9,7 @@ import subprocess
 import sys
 
 SUITES = (
+    "test_sentiment_pulse_mobile_trends.py",
     "test_sentiment_pulse_annotations.py",
     "test_sentiment_pulse_summary.py",
     "test_sentiment_pulse_regional_analysis.py",

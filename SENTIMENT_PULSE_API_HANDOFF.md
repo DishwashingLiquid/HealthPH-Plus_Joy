@@ -513,3 +513,252 @@ Existing user modifications to the service ignore file were retained.
 - Operational acceptance of in-process jobs, duplicate inference across workers,
   linear reporting scans, and model suitability requires deployment planning and
   real workload/quality evaluation. Durable recovery was not implemented or claimed.
+
+## Sentiment Trends web/mobile reporting update (2026-10-29)
+
+This follow-up is limited to Sentiment Trends and a new mobile aggregate read API.
+The existing admin `/api/sentiment-pulse/trends` response, role dependency,
+calculations, filters, and consumers are unchanged. The web uses one Trends
+response for Overview, Trends, and Detailed Data, in that scrolling order.
+Overview includes overall sentiment, analysis coverage, and the existing Worried
+Share Over Time and Satisfaction Over Time graphs. Trends adds separate horizontal
+sentiment and satisfaction distributions with exact percentage/count tables.
+Survey Breakdown and Daily Answer Counts remain directly available under Detailed
+data. Existing time-series styling, null gaps, and detailed table contents remain.
+There is one satisfaction time-series graph. Shared `SentimentSummary`,
+`sentimentContract`, StaticContainers, parent filters/queries, Regional Analysis,
+Mobile Surveys, and all export branches are unchanged. Existing Trends CSV fields
+already contain the summed counts and denominators behind these presentations.
+
+The requested web sentiment distribution now keeps categories in Calm, Neutral,
+Worried order, displaying Neutral as 0 answers and 0% when classified answers
+exist. This is a display reference category: the stored classifier and mobile
+report remain Calm/Worried only. Missing predictions are never counted as Neutral.
+With no classified answers, all distribution shares remain unavailable.
+
+The web view uses short labels and omits explanatory paragraphs under the charts
+and tables. Missing results and incomplete analysis retain brief status messages.
+This wording change is confined to Trends; metric definitions, API fields, shared
+summaries, and exports keep their existing meanings.
+
+The existing satisfaction time-series card is now titled "Satisfaction Answers
+Over Time" and shows stacked daily answer counts for Satisfied (green), Neutral
+(theme gray), and Dissatisfied (destructive red). Its vertical axis is an automatic
+whole-answer scale starting at zero, with exact counts in tooltips. With complete
+category mappings, the stack height is the day's total scored satisfaction answers.
+Missing days, dates without scored satisfaction answers, and unavailable category
+mappings stay gaps rather than invented zero counts. Incomplete category mappings
+show a brief unavailable message. Daily Answer Counts also exposes Neutral and
+Dissatisfied counts within its grouped Satisfaction cell as a tabular equivalent.
+Satisfaction Distribution and the overall satisfaction summary remain percentages.
+This web presentation uses existing daily counts without backend, mobile API,
+scoring, filter, or export changes; mobile retains its date-based percentage trend.
+
+Detailed Data is now presented by the Trends-only `TrendsDetailedData.jsx`:
+
+- Survey Breakdown uses Survey, Sentiment, Analyzed, and Satisfaction columns.
+  Sentiment shows both Calm and Worried percentages of classified answers with
+  their counts. Analyzed is classified/eligible (for example `3/5`), with the
+  without-results count shown below when positive. Satisfaction shows the leading
+  rating category (Satisfied, Neutral, or Dissatisfied), with its count out of
+  valid scored answers. Equal leading counts list the tied categories explicitly.
+  Missing category mappings show Not available; zero scored answers show No answers.
+  The keyboard-accessible Breakdown retains all category counts and percentages.
+  Labels use scoped summed counts, not model predictions or a fixed percentage
+  threshold, and require a complete category mapping before choosing a leader.
+- Daily Answer Counts uses Date, Analyzed, Sentiment, and Satisfaction columns.
+  Counts are grouped under their full category names. The satisfaction total stays
+  visible; native keyboard-accessible Percentages disclosures retain daily Calm,
+  Worried, Satisfied, Neutral satisfaction, and Dissatisfied shares. Dates display
+  in short Philippine format and retain their original ISO date in a `time` element.
+- Both tables remain in the scrolling page, with captions, row/column headers,
+  named focusable scroll regions, and all previous counts/percentages available.
+  Zero, missing category mappings, incomplete analysis, and empty tables retain
+  distinct displays. No backend, filters, graphs, mobile routes, shared summaries,
+  or export branches changed for this table update.
+- The three frontend suites (integration, Regional Analysis, and summary cards)
+  passed **44 tests** after the table update. Focused ESLint and `git diff --check`
+  also passed. Browser layout and interaction QA remains unverified because of the
+  browser-access limitation recorded below.
+
+The dashboard summary cards now use shorter text: Sentiment Score, Survey
+Responses, Active Regions, and Latest Response. Helper labels use concise phrases
+such as analyzed answers, Published surveys, With responses, and Next month.
+The sentiment card's full filter scope remains available on hover and to screen
+readers. Response comparisons still refer to survey publication months, region
+counts still use the latest published surveys, and Latest Response still shows the
+original response cutoff in Philippine time. Error, empty, unknown-region, and
+incomplete-analysis messages are shortened. This changes only card wording in
+`StaticContainers.jsx` and corresponding assertions; props, queries, and refresh
+behavior are unchanged. Sentiment Score displays the dominant Calm/Worried category
+alongside its share of analyzed answers, reusing the existing `surveyCardSentiment`
+assessment without changing it. A tie reads Calm / Worried with 50% each. The
+percentage represents the category's answer share, not model confidence or an
+average model probability. Analysis counts, missing-result counts, applied filter
+scope, loading/error states, and absent results remain distinct. Other summary
+cards retain their metrics and layout.
+
+The Sentiment Trends toolbar now groups the time range, regions, and optional
+survey selector in that order, with Refresh Results aligned to the right on
+screens with sufficient space. It wraps on smaller screens; custom dates and
+selected-region chips remain below the main row. The existing shared filter
+component accepts optional control/action slots while its default Regional
+Analysis rendering is preserved. Filter state and query parameters are unchanged.
+Refresh reuses the existing Trends refetch and is disabled during a fetch, for
+invalid dates, and before the query has initialized. The separate survey card and
+chart-header refresh button were replaced by this single toolbar action; the
+existing reporting-scope text and error retry remain available. This is a web-only
+layout change and does not affect mobile reporting.
+
+### Mobile endpoint and visibility
+
+```http
+GET /api/mobile/sentiment-pulse/trends?timeRange=last-30-days
+Authorization: Bearer <mobile access token>
+```
+
+This separate GET route uses `require_mobile_auth` (JWT audience `mobile`, type
+`mobile_access`) and verifies that its subject is an existing mobile registration
+with the existing mobile role. Missing, invalid, expired, wrong-audience,
+wrong-type, or unrecognized mobile credentials return 401. Admin reporting access
+has not been broadened; an admin token is not a mobile token.
+
+Results aggregate **all participants' eligible mobile answers**, independent of
+the authenticated user's answers or profile region. Server-side visibility requires
+`publishToMobile: true` and a valid `scheduledAt` no later than request time, reusing
+the existing publication-eligibility helper. Ended surveys remain reportable:
+ending stages their answers for analysis. Drafts, future publications, missing
+surveys, and website-only surveys are excluded. Requesting any such `surveyId`
+returns the same 404. Publication eligibility is independent of the selected
+submission window. This is historical reporting visibility, not the active survey
+list's eligibility for accepting new submissions.
+
+Filters have the same meanings as admin Trends:
+
+- `timeRange`: defaults to `last-30-days`; also `last-7-days`, `last-90-days`,
+  or `custom`. Rolling ranges include today and the preceding N-1 Philippine days.
+- `startDate`, `endDate`: required only for `custom`, inclusive calendar dates;
+  reporting is still capped at request time. Date validation/error behavior reuses
+  the admin helper, including its handling of future custom end dates. Bad dates,
+  reversed ranges, unsupported ranges, and unknown regions return 400.
+- `regions`: optional comma-separated canonical codes or existing recognized
+  aliases; normalized/deduplicated on the server. Omission includes unknown regions;
+  a specific region selection excludes them. This is a reporting filter, not a
+  participant identity filter.
+- `surveyId`: optional exact application survey ID, restricted by mobile visibility.
+
+Response fields are explicitly allowlisted by this feature's adapter. Example
+with three classified answers out of four eligible, and five valid ratings:
+
+```json
+{
+  "sources": ["mobile"],
+  "filters": {
+    "timeRange": "custom", "startDate": "2026-10-28", "endDate": "2026-10-28",
+    "regions": ["NCR"], "surveyId": "SUR00001", "unknownRegionIncluded": false,
+    "timezone": "Asia/Manila", "surveyVisibility": "published-to-mobile",
+    "participants": "all"
+  },
+  "sentiment": {
+    "status": "configured", "dominantCategory": "calm",
+    "dominantShare": 66.66666666666666,
+    "eligibleAnswers": 4, "predictedAnswers": 3, "answersWithoutResults": 1,
+    "analysisCoverage": 75.0
+  },
+  "satisfaction": {
+    "status": "configured", "satisfactionAnswers": 5,
+    "satisfiedAnswers": 2, "satisfactionShare": 40.0
+  },
+  "sentimentDistribution": [
+    {"category": "calm", "answers": 2, "share": 66.66666666666666},
+    {"category": "worried", "answers": 1, "share": 33.33333333333333}
+  ],
+  "satisfactionDistribution": [
+    {"category": "satisfied", "answers": 2, "share": 40.0},
+    {"category": "neutral", "answers": 1, "share": 20.0},
+    {"category": "dissatisfied", "answers": 2, "share": 40.0}
+  ],
+  "satisfactionTrend": [
+    {"date": "2026-10-28", "satisfactionAnswers": 5,
+     "satisfiedAnswers": 2, "satisfactionShare": 40.0}
+  ]
+}
+```
+
+### Units, denominators, unavailable values, and dates
+
+- Every count is **answers**, not unique respondents. All percentages are numbers
+  in **0–100 percentage units**, not 0–1 fractions. Display rounding is a client
+  concern. Overall percentages use summed counts, never averages of daily/survey
+  percentages. Model probabilities are never used as population or satisfaction
+  percentages.
+- `predictedAnswers` is classified eligible sentiment answers, equal to Calm plus
+  Worried. Distribution `share` is category answers / `predictedAnswers` × 100.
+  `dominantCategory` is `calm`, `worried`, `tie`, or null when none is classified.
+  A tie has `dominantShare: 50` and means equal Calm/Worried counts. Otherwise
+  `dominantShare` is the larger category's share of classified answers.
+- `analysisCoverage` is `predictedAnswers` / `eligibleAnswers` × 100. It is null
+  with no eligible answers, and measured zero when eligible answers exist but none
+  have results. `answersWithoutResults` indicates incomplete analysis, without
+  asserting whether those answers are pending, failed, or interrupted.
+- Satisfaction uses its separate `satisfactionAnswers` denominator: valid raw
+  scored answers under the existing survey/operator rules. Summary/trend
+  `satisfactionShare` is `satisfiedAnswers` / `satisfactionAnswers` × 100.
+  Each satisfaction distribution share uses that same denominator. Default 1–5
+  ratings use 4–5 Satisfied, 3 Neutral, 1–2 Dissatisfied. Explicit overrides remain
+  authoritative; unsupported scales are not assigned the 1–5 defaults.
+- `neutral` in `satisfactionDistribution` means rating satisfaction only. There is
+  no neutral text sentiment. If a legacy override does not define a category,
+  that category's `answers` and `share` remain null when scored answers exist.
+  They are not inferred from the remaining categories. Any share with a zero
+  denominator is null; a measured category count of zero with a positive
+  denominator has share 0. Status is `configured` or `not_configured`, independent
+  of whether observations exist in the requested window.
+- `satisfactionTrend` contains date-based satisfaction counts needed for its
+  denominator/tooltips, without the web's daily sentiment/count-table data. Dates
+  follow original submission `event_time`, falling back to original `created_at`,
+  converted to Asia/Manila under the existing legacy-naive convention. Invalid
+  dates are excluded. Only dates observed by the shared report are returned;
+  a date with text-only observations has null satisfaction share. Absent days and
+  null shares must remain chart gaps, never zero-filled or connected across gaps.
+- `filters` echoes the applied date/region/survey scope and adds the fixed timezone,
+  publication visibility, and all-participant scope. Equivalent authorized
+  admin/mobile scopes produce matching counts and percentages; admin's unrestricted
+  all-surveys scope can intentionally include surveys unavailable to mobile.
+
+No raw answers, participant identifiers, per-survey breakdowns, regional breakdowns,
+model metadata, worried-share series, or detailed daily-count table data are
+returned to mobile. The route calls the existing `annotation_reporting.report`
+read service and projects its result. It does not trigger inference, staging,
+submission, configuration writes, or any collection/schema changes. The existing
+linear report scan remains; no production capacity claim is made. Mobile screens
+and other mobile workflows were not changed.
+
+### Checks for this follow-up
+
+- Frontend: **43 passed**, using the four existing suites for Sentiment Pulse
+  integration, Regional Analysis, summary cards, and dashboard regions. New checks
+  cover section order, both retained graphs/tables, weighted totals, dominant/tied
+  sentiment, incomplete coverage, missing/zero values, and unknown category mappings.
+  Existing CSV and Mobile Surveys checks pass without export/component changes.
+- Backend: **119 passed, 6 optional MongoDB cases skipped**, across the ten suites
+  in `server/scripts/run_sentiment_pulse_checks.py`. The added eight mobile tests
+  cover JWT access controls, publication visibility, all-participant aggregation,
+  authorized web/mobile parity, identical scope, Philippine midnight, partial
+  processing, no writes/inference on GET, minimal response fields, gaps, null/zero,
+  weighted totals, custom scoring overrides, and unsupported scales. All storage
+  used in these checks is in memory; real MongoDB construction is blocked.
+- Focused frontend ESLint and the production build passed. Build output went to
+  ignored `client/dist/sentiment-trends-check`, leaving the served `build/` alone.
+  The build reported Browserslist age, CSS minifier syntax, and bundle-size
+  warnings; no global styles or dependencies were changed to address them.
+- `git diff --check` passed. Scope review confirms no edits to existing shared
+  reporting calculations/contracts, submission/staging/inference, survey schemas,
+  Regional Analysis, Mobile Surveys, shared cards, styles, or export branches.
+- Browser visual/interaction QA could not be completed: the browser host was
+  unavailable, and the Windows fallback stopped because it could not establish
+  the current browser URL. Desktop/narrow-screen rendering, live tooltips, and
+  keyboard interactions therefore remain unverified in a real browser. No
+  production app startup, deployment, production data access, or model execution
+  was performed for this follow-up. The existing report still scans scoped answers
+  in Python and has not been production load-tested.

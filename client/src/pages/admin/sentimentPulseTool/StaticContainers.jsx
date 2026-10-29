@@ -4,7 +4,7 @@ import {
   formatPercentage,
   formatNumber,
 } from "../../../assets/data/sentimentMockData";
-import { formatShare, summaryState, reportingScope, formatCount } from "./sentimentContract";
+import { formatShare, surveyCardSentiment, reportingScope, formatCount } from "./sentimentContract";
 
 const formatPhDate = (value, options) =>
   new Intl.DateTimeFormat("en-PH", {
@@ -14,6 +14,10 @@ const formatPhDate = (value, options) =>
 
 export default function StaticContainers({ summary, isLoading, isError, sentimentReport, isSentimentLoading, isSentimentError }) {
   const unavailable = isLoading ? "Loading..." : "Unavailable";
+  const assessment = surveyCardSentiment(sentimentReport);
+  const sentimentLabel = ({ "Not configured": "Not available", "No eligible feedback": "No answers to analyze",
+    "Not processed": "No results yet" })[assessment.label] || assessment.label;
+  const scope = sentimentReport && !isSentimentError ? reportingScope(sentimentReport) : "Sentiment Trends date, region, and survey filters";
   const trendResponses = getTrendIndicator(summary?.responseChangePercent ?? 0);
   const monthLabel = (month) => formatPhDate(`${month}-01T00:00:00+08:00`, {
     month: "short", year: "numeric",
@@ -24,22 +28,26 @@ export default function StaticContainers({ summary, isLoading, isError, sentimen
       {isError && (
         <p role="alert" className="text-sm text-red-700 md:col-span-2 xl:col-span-4">
           {summary
-            ? "Unable to refresh survey summary. Showing the last loaded values."
-            : "Unable to load survey summary. Retrying automatically."}
+            ? "Refresh failed. Showing previous values."
+            : "Unable to load summary. Retrying..."}
         </p>
       )}
       <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
-        <h3 className="mb-[8px] text-sm text-gray-500">Worried share of feedback answers</h3>
+        <h3 className="mb-[8px] text-sm text-gray-500">Sentiment Score</h3>
         <div className="flex items-end justify-between">
           <div>
-            <p className="text-[32px] font-semibold leading-none text-gray-800">
-              {isSentimentLoading ? "Loading..." : isSentimentError ? "Unavailable" : formatShare(sentimentReport?.totals?.worriedShare)}
+            <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[32px] font-semibold leading-tight text-gray-800">
+              {isSentimentLoading ? "Loading..." : isSentimentError ? "Unavailable" : <>
+                <span>{sentimentLabel}</span>
+                {assessment.share !== null && <span className="text-xl">· {formatShare(assessment.share)}{assessment.kind === "tie" ? " each" : ""}</span>}
+              </>}
             </p>
-            <p className="mt-[4px] text-xs text-gray-500">{!isSentimentLoading && !isSentimentError && sentimentReport ? `${formatCount(sentimentReport.totals?.predictedAnswers)} classified text/choice answers` : "Classified mobile text/choice answers"}</p>
+            <p className="mt-[4px] text-xs text-gray-500">{!isSentimentLoading && !isSentimentError && sentimentReport ? `${formatCount(sentimentReport.totals?.predictedAnswers)} analyzed answers` : "Analyzed mobile answers"}</p>
           </div>
         </div>
-        <p className="mt-3 text-xs text-gray-500">{sentimentReport && !isSentimentError ? reportingScope(sentimentReport) : "Current Trends date, region, and survey filters"}</p>
-        {sentimentReport && !isSentimentError && !isSentimentLoading && <p className="mt-2 text-xs text-gray-600">{summaryState(sentimentReport)}{sentimentReport.totals?.answersWithoutResults > 0 ? ` · ${formatCount(sentimentReport.totals.answersWithoutResults)} eligible text/choice answers without results` : ""}</p>}
+        <p className="mt-3 text-xs text-gray-500" title={scope}>Current Trends filters<span className="sr-only">: {scope}</span></p>
+        {sentimentReport && !isSentimentError && !isSentimentLoading && sentimentReport.totals?.answersWithoutResults > 0 &&
+          <p className="mt-2 text-xs text-gray-600">{formatCount(sentimentReport.totals.answersWithoutResults)} without results</p>}
       </div>
 
       <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
@@ -50,19 +58,19 @@ export default function StaticContainers({ summary, isLoading, isError, sentimen
               {summary ? formatNumber(summary.surveyResponses) : unavailable}
             </p>
             <p className="mt-[4px] text-xs text-gray-500">
-              {summary ? `Surveys published in ${monthLabel(summary.currentPublicationMonth)}` : "By survey publication month"}
+              {summary ? `Published surveys: ${monthLabel(summary.currentPublicationMonth)}` : "Published surveys"}
             </p>
           </div>
           <div className={`text-right ${trendResponses.color}`}>
             <p className="text-sm font-semibold">
               {summary && (summary.responseChangePercent === null
                 ? summary.surveyResponses === 0
-                  ? "No responses in either group"
-                  : "No previous-month responses"
+                  ? "No responses yet"
+                  : "No comparison yet"
                 : `${trendResponses.arrow} ${formatPercentage(summary.responseChangePercent)}%`)}
             </p>
             <p className="text-xs text-gray-500">
-              {summary && `vs surveys published in ${monthLabel(summary.previousPublicationMonth)} (${formatNumber(summary.previousMonthResponses)} responses)`}
+              {summary && `vs ${monthLabel(summary.previousPublicationMonth)} · ${formatNumber(summary.previousMonthResponses)} responses`}
             </p>
           </div>
         </div>
@@ -75,25 +83,25 @@ export default function StaticContainers({ summary, isLoading, isError, sentimen
             <p className="text-[32px] font-semibold leading-none text-gray-800">
               {summary ? `${summary.activeRegions}/${summary.totalRegions}` : unavailable}
             </p>
-            <p className="mt-[4px] text-xs text-gray-500">regions active</p>
+            <p className="mt-[4px] text-xs text-gray-500">With responses</p>
           </div>
         </div>
         <p className="mt-[8px] text-xs text-gray-500">
           {summary?.publishedSurveyCount === 0
-            ? "No published surveys yet."
+            ? "No published surveys"
             : summary
-              ? `Across the latest ${summary.publishedSurveyCount} published ${summary.publishedSurveyCount === 1 ? "survey" : "surveys"}.`
-              : "Across the latest five published surveys."}
+              ? `Latest ${summary.publishedSurveyCount} published ${summary.publishedSurveyCount === 1 ? "survey" : "surveys"}`
+              : "Latest published surveys"}
         </p>
         {summary?.unknownRegionResponses > 0 && (
           <p className="mt-[4px] text-xs text-gray-500">
-            {formatNumber(summary.unknownRegionResponses)} responses have an unknown region in these surveys.
+            {formatNumber(summary.unknownRegionResponses)} responses · region unknown
           </p>
         )}
       </div>
 
       <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
-        <h3 className="mb-[8px] text-sm text-gray-500">Last Update</h3>
+        <h3 className="mb-[8px] text-sm text-gray-500">Latest Response</h3>
         <div className="space-y-3">
           <div>
             <p className="text-lg font-semibold text-gray-800">
@@ -105,11 +113,11 @@ export default function StaticContainers({ summary, isLoading, isError, sentimen
                   : "No responses yet"
                 : unavailable}
             </p>
-            <p className="mt-[4px] text-xs text-gray-500">Latest response · Philippine time</p>
+            <p className="mt-[4px] text-xs text-gray-500">Philippine time</p>
           </div>
           <div className="pt-2 border-t border-gray-200">
             <p className="text-sm text-gray-700">
-              Next reporting period: <span className="font-semibold text-blue-600">
+              Next month: <span className="font-semibold text-blue-600">
                 {summary
                   ? formatPhDate(summary.nextReportingPeriod, { dateStyle: "medium" })
                   : unavailable}

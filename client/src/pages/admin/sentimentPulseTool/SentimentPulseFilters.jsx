@@ -13,6 +13,8 @@ export default function SentimentPulseFilters({
   onCustomStartDateChange,
   onCustomEndDateChange,
   maxDate,
+  children,
+  trailingAction,
 }) {
   const [showRegionDropdown, setShowRegionDropdown] = useState(false);
   const regionDropdownRef = useRef(null);
@@ -36,7 +38,7 @@ export default function SentimentPulseFilters({
 
   return (
     <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
-      <div className="flex flex-col gap-[12px] sm:flex-row">
+      <div className={children || trailingAction ? "flex flex-col gap-[12px] sm:flex-row sm:flex-wrap sm:items-center" : "flex flex-col gap-[12px] sm:flex-row"}>
         <div className="w-full sm:w-[140px]">
           <select
             value={timeRange}
@@ -107,6 +109,8 @@ export default function SentimentPulseFilters({
             )}
           </div>
         </div>
+        {children}
+        {trailingAction && <div className="w-full sm:ml-auto sm:w-auto">{trailingAction}</div>}
       </div>
 
       {timeRange === "custom" && onCustomStartDateChange && (

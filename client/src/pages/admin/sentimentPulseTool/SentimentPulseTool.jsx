@@ -25,6 +25,7 @@ import MobileSurveys, {
 import RegionalAnalysis, { REGIONS } from "./RegionalAnalysis";
 import SentimentPulseFilters from "./SentimentPulseFilters";
 import SentimentTrends from "./SentimentTrends";
+import SentimentTrendsToolbar from "./SentimentTrendsToolbar";
 import StaticContainers from "./StaticContainers";
 import {
   exportSentimentPulseCsv,
@@ -96,7 +97,7 @@ export default function SentimentPulseTool() {
   const isConfirmingSurveyRef = useRef(false);
   const trendFilters = { timeRange, regions: selectedRegions, startDate: customStartDate, endDate: customEndDate, surveyId: selectedSurveyId };
   const filterError = dateRangeError(trendFilters);
-  const { currentData: trends, isFetching: isTrendsFetching, isError: isTrendsError, refetch: refetchTrends } =
+  const { currentData: trends, isFetching: isTrendsFetching, isError: isTrendsError, isUninitialized: isTrendsUninitialized, refetch: refetchTrends } =
     useFetchSentimentPulseTrendsQuery(trendFilters, { ...SURVEY_REFRESH_OPTIONS, skip: Boolean(filterError) });
   const {
     data: regionalAnalysisData,
@@ -686,7 +687,7 @@ export default function SentimentPulseTool() {
 
       {activeTab === "sentiment-trends" && (
         <>
-          <SentimentPulseFilters
+          <SentimentTrendsToolbar
             timeRange={timeRange}
             onTimeRangeChange={setTimeRange}
             selectedRegions={selectedRegions}
@@ -697,15 +698,14 @@ export default function SentimentPulseTool() {
             onCustomStartDateChange={setCustomStartDate}
             onCustomEndDateChange={setCustomEndDate}
             maxDate={getPhilippineDateInput()}
+            surveys={surveys}
+            surveyId={selectedSurveyId}
+            onSurveyChange={setSelectedSurveyId}
+            onRefresh={refetchTrends}
+            isFetching={isTrendsFetching}
+            isUninitialized={isTrendsUninitialized}
+            filterError={filterError}
           />
-          <div className="rounded-xl border border-gray-200 bg-white p-5">
-            <label className="block text-sm font-medium text-gray-700">Survey
-              <select value={selectedSurveyId} onChange={(event) => setSelectedSurveyId(event.target.value)} className="mt-2 min-h-[40px] w-full rounded-lg border border-gray-300 bg-white px-3 py-2 sm:max-w-md">
-                <option value="">All surveys</option>
-                {surveys.map((survey) => <option key={survey.id} value={survey.id}>{survey.title} ({survey.id})</option>)}
-              </select>
-            </label>
-          </div>
           <SentimentTrends report={trends} surveys={surveys} isLoading={!trends && isTrendsFetching} isFetching={isTrendsFetching} isError={isTrendsError} filterError={filterError} onRefresh={refetchTrends} />
         </>
       )}
