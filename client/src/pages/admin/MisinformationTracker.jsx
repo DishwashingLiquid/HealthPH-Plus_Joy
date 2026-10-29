@@ -13,10 +13,14 @@ import {
 } from "recharts";
 
 import { ToolbarSearch } from "../../components/ToolbarControls";
+import EmptyState from "../../components/admin/EmptyState";
+
+// Preserve the sample dashboard for future reference; it is not live model output.
+const SHOW_STATIC_PREVIEW = false;
 
 const MisinformationTracker = () => {
     return (
-        <div className="flex flex-col gap-[10px]">
+        <div className="flex min-h-full flex-col gap-[10px]">
             {/* PAGE HEADER */}
             <div>
                 <h1 className="text-[24px] font-semibold text-gray-800">
@@ -27,6 +31,8 @@ const MisinformationTracker = () => {
                 </p>
             </div>
 
+            {SHOW_STATIC_PREVIEW ? (
+                <>
             {/* FILTESR SECTION */}
             <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[10px]">
                 <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-[16px]">
@@ -235,6 +241,19 @@ const MisinformationTracker = () => {
                     </table>
                 </div>
             </div>
+                </>
+            ) : (
+                <section
+                    role="status"
+                    className="flex min-h-[280px] flex-1 items-center justify-center rounded-[12px] border border-[#E5E5E5] bg-white p-[16px] sm:p-[32px]"
+                >
+                    <EmptyState
+                        iconName="Information"
+                        heading="Under development"
+                        content="The misinformation detection model is still being developed. Results will be available once the model is finalized and connected."
+                    />
+                </section>
+            )}
         </div>
     );
 };
