@@ -23,8 +23,12 @@ import {
     useGenerateWordCloudQuery,
 } from "../../features/api/analyticsSlice";
 
+import { useFetchDatasetsByUserQuery } from "../../features/api/datasetsSlice";
+import { useFetchSelfReportLanguageSummaryQuery } from "../../features/api/analyticsEntriesSlice";
+
 import Report from "../../components/admin/Report";
 import capitalizeSymptom from "../../hooks/useCapitalizeSymptom";
+import { getRegionFromLocation } from "../../utils/locationRegionMap";
 
 import ReactWordCloud from "react-wordcloud";
 
@@ -32,6 +36,18 @@ const NLPInsights = () => {
     const [activeTab, setActiveTab] = useState("ner");
 
     const user = useSelector((state) => state.auth.user);
+
+    const { data: datasets = [], isFetching: isDatasetsFetching } = 
+        useFetchDatasetsByUserQuery(user?.id, {
+            skip: !user?.id,
+        });
+
+    const {
+        data: selfReportLanguageSummary,
+        isFetching: isSelfReportLanguageSummaryFetching,
+    } = useFetchSelfReportLanguageSummaryQuery(undefined, {
+        skip: activeTab !== "language" || !user?.id,
+    });
 
     /* TOP WORDS */
     const [topWordsFilter, setTopWordsFilter] = useState(
@@ -109,7 +125,16 @@ const NLPInsights = () => {
                 />
             )}
             {activeTab === "sentiment" && <SentimentAnalysis />}
-            {activeTab === "language" && <LanguageDetection />}
+            {activeTab === "language" && (
+                <LanguageDetection
+                    datasets={datasets}
+                    selfReportLanguageSummary={selfReportLanguageSummary}
+                    isLanguageDataFetching={
+                        isDatasetsFetching ||
+                        isSelfReportLanguageSummaryFetching
+                    }
+                />
+            )}
         </div>
     );
 };
@@ -505,7 +530,135 @@ const SentimentAnalysis = () => {
     );
 };
 
-const LanguageDetection = () => {
+const SUPPORTED_LANGUAGES = [
+    { key: "en", label: "English", color: "#32418C" },
+    { key: "fil", label: "Filipino", color: "#2572A5" },
+    { key: "hil", label: "Hiligaynon", color: "#1ABC9C" },
+    { key: "ilo", label: "Ilocano", color: "#9BCC33" },
+    { key: "ceb", label: "Cebuano", color: "#FBD117" },
+];
+
+const SUPPORTED_LANGUAGES_KEYS = new Set(
+    SUPPORTED_LANGUAGES.map((language) => language.key)
+);
+
+const LANGUAGE_BY_KEY = Object.fromEntries(
+    SUPPORTED_LANGUAGES.map((language) => [language.key, language])
+);
+
+const normalizeLanguageKey = (language) =>
+    String(language || "").trim().toLowerCase();
+
+const formatLanguageLabel = (language) => {
+    const key = normalizeLanguageKey(language);
+
+    return LANGUAGE_BY_KEY[key]?.label || "Unknown";
+};
+
+const buildLanguageDistribution = (datasets = []) => {
+    const totals = Object.fromEntries(
+        SUPPORTED_LANGUAGES.map((language) => [language.key, 0])
+    );
+
+    datasets.forEach((dataset) => {
+        const languageCounts = dataset.language_counts || {};
+
+        Object.entries(languageCounts).forEach(([language, count]) => {
+            const key = normalizeLanguageKey(language);
+
+            if (!SUPPORTED_LANGUAGES_KEYS.has(key)) return;
+
+            totals[key] += Number(count || 0);
+        });
+    });
+
+    return SUPPORTED_LANGUAGES
+        .map((language) => ({
+            key: language.key,
+            name: language.label,
+            value: totals[language.key],
+            color: language.color,
+        }))
+        .filter((language) => language.value > 0);
+};
+
+const formatLocationLabel = (location) => {
+    const value = String(location || "Unknown").trim();
+
+    if (!value) return "Unknown";
+
+    return value
+        .split(/[\s_-]+/)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(" ");
+};
+
+const buildRegionLanguageDistribution = (datasets = []) => {
+    const regionMap = {};
+
+    datasets.forEach((dataset) => {
+        const locationLanguageCounts = dataset.location_language_counts || {};
+
+        Object.entries(locationLanguageCounts).forEach(([location, languageCounts]) => {
+            const region = getRegionFromLocation(location);
+
+            if (!regionMap[region]) {
+                regionMap[region] = {
+                    region,
+                    total: 0,
+                };
+            }
+
+            Object.entries(languageCounts || {}).forEach(([language, count]) => {
+                const languageKey = normalizeLanguageKey(language);
+                const value = Number(count || 0);
+
+                if (
+                    !SUPPORTED_LANGUAGES_KEYS.has(languageKey) ||
+                    value <= 0
+                ) {
+                    return;
+                }
+
+                regionMap[region][languageKey] =
+                    (regionMap[region][languageKey] || 0) + value;
+
+                regionMap[region].total += value;
+            });
+        });
+    });
+
+    return Object.values(regionMap)
+        .sort((a, b) => {
+            if (a.region === "UNMAPPED") return 1;
+            if (b.region === "UNMAPPED") return -1;
+            return b.total - a.total;
+        })
+        .slice(0, 8);
+};
+
+const LanguageDetection = ({
+    datasets = [],
+    selfReportLanguageSummary,
+    isLanguageDataFetching = false,
+}) => {
+    const languageSources = selfReportLanguageSummary
+        ? [...datasets, selfReportLanguageSummary]
+        : datasets;
+
+    const languageDistribution = buildLanguageDistribution(languageSources);
+    const totalLanguageRows = languageDistribution.reduce(
+        (total, language) => total + language.value,
+        0
+    );
+
+    const regionLanguageDistribution =
+        buildRegionLanguageDistribution(languageSources);
+
+    const chartLanguageKeys = languageDistribution.map(
+        (language) => language.key
+    );
+
     return (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-[10px]">
             {/* LANGUAGE DISTRIBUTION */}
@@ -514,43 +667,63 @@ const LanguageDetection = () => {
                     Language Distribution
                 </h2>
                 <p className="text-sm text-gray-500 mb-[12px]">
-                    Detected language distribution from multilingual health-related posts.
+                    Detected languages across social media records and self reports.
                 </p>
 
-                <ResponsiveContainer width="100%" height={280}>
-                    <PieChart>
-                        <Legend
-                            verticalAlign="bottom"
-                            align="center"
-                            iconType="circle"
-                            wrapperStyle={{
-                                paddingTop: "20px",
-                                lineHeight: "28px"
-                            }}
-                        />
+                {isLanguageDataFetching ? (
+                    <div className="flex h-[280px] items-center justify-center text-sm text-gray-500">
+                        Loading language distribution...
+                    </div>
+                ) : languageDistribution.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={280}>
+                        <PieChart>
+                            <Legend
+                                verticalAlign="bottom"
+                                align="center"
+                                iconType="circle"
+                                wrapperStyle={{
+                                    paddingTop: "20px",
+                                    lineHeight: "28px",
+                                }}
+                            />
 
-                        <Pie
-                            data={[
-                                { name: "English", value: 34 },
-                                { name: "Filipino", value: 28 },
-                                { name: "Cebuano", value: 16 },
-                                { name: "Ilocano", value: 12 },
-                                { name: "Hiligaynon", value: 10 },
-                            ]}
-                            cx="50%"
-                            cy="50%"
-                            outerRadius={90}
-                            dataKey="value"
-                            label
-                        >
-                            {["#32418C", "#2572A5", "#1ABC9C", "#9BCC33", "#FBD117"].map((color, index) => (
-                                <Cell key={`language-cell-${index}`} fill={color} />
-                            ))}
-                        </Pie>
+                            <Pie
+                                data={languageDistribution}
+                                cx="50%"
+                                cy="50%"
+                                outerRadius={90}
+                                dataKey="value"
+                                label={({ name, percent }) =>
+                                    `${name} ${(percent * 100).toFixed(0)}%`
+                                }
+                            >
+                                {languageDistribution.map((entry, index) => (
+                                    <Cell
+                                        key={`language-cell-${entry.name}`}
+                                        fill={entry.color}
+                                    />
+                                ))}
+                            </Pie>
 
-                        <Tooltip />
-                    </PieChart>
-                </ResponsiveContainer>
+                            <Tooltip
+                                formatter={(value) => [
+                                    `${Number(value).toLocaleString()} records`,
+                                    "Rows",
+                                ]}
+                            />
+                        </PieChart>
+                    </ResponsiveContainer>
+                ) : (
+                    <div className="flex h-[280px] items-center justify-center rounded-[10px] border border-dashed border-[#D9E2EC] text-sm text-gray-500">
+                        No processed language data yet.
+                    </div>
+                )}
+
+                {!isLanguageDataFetching && languageDistribution.length > 0 && (
+                    <p className="mt-[10px] text-center text-sm text-gray-500">
+                        Based on {Number(totalLanguageRows).toLocaleString()} processed records.
+                    </p>
+                )}
             </div>
 
             {/* LANGUAGE DISTRIBUTION BY REGION */}
@@ -562,35 +735,45 @@ const LanguageDetection = () => {
                     Regional language patterns detected from public health conversations.
                 </p>
 
-                <ResponsiveContainer width="100%" height={280}>
-                    <BarChart
-                        data={[
-                            { region: "NCR", english: 42, filipino: 38, regional: 20 },
-                            { region: "VII", english: 22, filipino: 18, regional: 60 },
-                            { region: "I", english: 25, filipino: 20, regional: 55 },
-                            { region: "VI", english: 20, filipino: 24, regional: 56 },
-                        ]}
-                        margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
-                    >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="region" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend
-                            verticalAlign="bottom"
-                            align="center"
-                            iconType="circle"
-                            wrapperStyle={{
-                                paddingTop: "20px",
-                                lineHeight: "28px",
-                            }}
-                        />
+                {isLanguageDataFetching ? (
+                    <div className="flex h-[280px] items-center justify-center text-sm text-gray-500">
+                        Loading regional language data...
+                    </div>
+                ) : regionLanguageDistribution.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={280}>
+                        <BarChart
+                            data={regionLanguageDistribution}
+                            margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
+                        >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="region" />
+                            <YAxis />
+                            <Tooltip />
+                            <Legend
+                                verticalAlign="bottom"
+                                align="center"
+                                iconType="circle"
+                                wrapperStyle={{
+                                    paddingTop: "20px",
+                                    lineHeight: "28px",
+                                }}
+                            />
 
-                        <Bar dataKey="english" name="English" fill="#32418C" />
-                        <Bar dataKey="filipino" name="Filipino" fill="#1ABC9C" />
-                        <Bar dataKey="regional" name="Regional Languages" fill="#FBD117" />
-                    </BarChart>
-                </ResponsiveContainer>
+                            {chartLanguageKeys.map((languageKey, index) => (
+                                <Bar
+                                    key={languageKey}
+                                    dataKey={languageKey}
+                                    name={formatLanguageLabel(languageKey)}
+                                    fill={LANGUAGE_BY_KEY[languageKey].color}
+                                />
+                            ))}
+                        </BarChart>
+                    </ResponsiveContainer>
+                ) : (
+                    <div className="flex h-[280px] items-center justify-center rounded-[10px] border border-dashed border-[#D9E2EC] text-sm text-gray-500">
+                        No processed regional language data yet.
+                    </div>
+                )}
             </div>
 
             {/* LANGUAGE PROCESSING MODEL PERFORMANCE */}

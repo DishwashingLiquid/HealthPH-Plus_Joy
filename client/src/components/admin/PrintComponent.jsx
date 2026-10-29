@@ -60,7 +60,7 @@ const PrintComponent = forwardRef(
               <div className="page" key={i} style={{ height: "297mm" }}>
                 <div className="page-header mb-[36px]">
                   <p>{pageName}</p>
-                  <p>HealthPH</p>
+                  <p>HealthPH+</p>
                 </div>
                 <div
                   className="page-content"
@@ -121,7 +121,7 @@ const PrintComponent = forwardRef(
           <div className="page">
             <div className="page-header mb-[36px]">
               <p>{pageName}</p>
-              <p>HealthPH</p>
+              <p>HealthPH+</p>
             </div>
             <div
               className="page-content"

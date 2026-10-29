@@ -1,15 +1,17 @@
 import Logo from "../assets/images/logo.png";
-const HomeFooter = () => {
-  return (
-    <footer className="flex-col sm:flex-row items-start sm:items-center">
-      <div className="footer-logo h-[24px] mb-[16px] sm:mb-0">
-        <img src={Logo} alt="" />
-      </div>
+import "../assets/css/public-site.css";
 
-      <p className="prod-l2 text-gray-300">
-        &#169; 2026 HealthPH+. All Rights reserved.
-      </p>
-    </footer>
-  );
-};
+const HomeFooter = () => (
+  <footer className="public-footer">
+    <div className="public-footer-inner">
+      <div className="footer-logo"><img src={Logo} alt="HealthPH+" /></div>
+      <nav aria-label="Footer navigation" className="public-footer-links">
+        <a href="/#research-team">Research Team</a>
+        <a href="/#contact">Contact Us</a>
+      </nav>
+      <p>© 2026 HealthPH+. All Rights Reserved.</p>
+    </div>
+  </footer>
+);
+
 export default HomeFooter;

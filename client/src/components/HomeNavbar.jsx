@@ -1,130 +1,120 @@
-import { Link, NavLink } from "react-router-dom";
+/* eslint-disable react-refresh/only-export-components */
+import { useEffect, useState } from "react";
+import { toast } from "react-toastify";
 import WebLogo from "../assets/images/website-logo.svg";
-import { useState } from "react";
-import HamburgerMenu from "./HamburgerMenu";
-import Icon from "./Icon";
-
 import NULogoLgAlt from "../assets/images/nu-logo-lg-alt.png";
+import Snackbar from "./Snackbar";
+import "../assets/css/public-site.css";
 
-const HomeNavbar = ({ background = "transparent" }) => {
-  const [isMenuActive, setIsMenuActive] = useState(false);
+const navigation = [
+  { href: "/#home", label: "Download the app", download: true },
+  { href: "/#articles", label: "Articles" },
+  { href: "/#about", label: "About the Project" },
+  { href: "/#research-team", label: "Research Team" },
+  { href: "/#contact", label: "Contact Us" },
+];
 
-  const [menuAnimate, setMenuAnimate] = useState("");
+const sectionIds = ["home", "articles", "about", "research-team", "contact"];
 
-  const handleOpenMenu = () => {
-    setIsMenuActive(!isMenuActive);
-    setMenuAnimate(!isMenuActive ? "show-menu" : "hide-menu");
-  };
-
-  const handleAnimationEnd = (e) => {
-    if (e.target.classList.contains("hide-menu")) {
-      setMenuAnimate("");
-    }
-  };
-
-  const navLinks = [
-    { path: "/", iconName: "Home", label: "Home" },
-    {
-      path: "/about-the-project",
-      iconName: "Information",
-      label: "About The Project",
-    },
-    { path: "/articles", iconName: "Document", label: "Articles" },
-    { path: "/research-team", iconName: "UserThree", label: "Research Team" },
-    { path: "/contact-us", iconName: "Mail", label: "Contact Us" },
-  ];
-
-  return (
-    <nav
-      className={
-        "home-nav h-[96px] mx-[20px] flex justify-between items-center background-" +
-        background
-      }
-    >
-      <div className="flex justify-between items-center w-full max-w-[1326px] mx-auto">
-        {/* LOGO */}
-        <div className="flex">
-          <Link to="/" className="logo-wrapper h-[44px] me-[16px]">
-            <img
-              src={WebLogo}
-              alt=""
-            />
-          </Link>
-        </div>
-
-        <div className={"home-nav-links " + menuAnimate}>
-          {/* NAV LINKS */}
-          <ul>
-            {navLinks.map(({ path, iconName, label }, i) => {
-              return (
-                <li key={i}>
-                  <NavLink to={path}>
-                    <Icon
-                      iconName={iconName}
-                      height="20px"
-                      width="20px"
-                      className="icon"
-                    />
-                    <span>{label}</span>
-                  </NavLink>
-                </li>
-              );
-            })}
-          </ul>
-
-          <div className="flex justify-center items-center">
-            <div className="w-[152px] h-full">
-              <img
-                src={NULogoLgAlt}
-                alt="national-university"
-                className="w-full h-full object-contain"
-              />
-            </div>
-          </div>
-
-          {/* CTA*/}
-          {/* <div className="home-cta flex justify-center items-center"> */}
-          {/* <Link
-              to="/login"
-              className="prod-btn-lg prod-btn-primary me-[16px]"
-            >
-              Sign In
-            </Link> */}
-          {/* <Link
-              to="assets/healthph-pre-alpha.apk"
-              target="_blank"
-              className="prod-btn-lg prod-btn-secondary flex justify-center items-center"
-            >
-              <span>Download HealthPH</span>
-              <Icon
-                iconName="Download"
-                height="24"
-                width="24"
-                fill="#8693A0"
-                className="icon ms-[8px]"
-              />
-            </Link> */}
-
-          {/* <Link to="/register" className="prod-btn-lg prod-btn-secondary">
-            Join HealthPH
-          </Link> */}
-          {/* </div> */}
-        </div>
-
-        <HamburgerMenu
-          isMenuActive={isMenuActive}
-          handleClick={handleOpenMenu}
-          additionalClasses="block min-[1100px]:hidden"
-        />
-      </div>
-      <div
-        className={`nav-backdrop min-[1100px]:!hidden  ${
-          isMenuActive ? "active" : ""
-        } ${menuAnimate} `}
-        onAnimationEnd={handleAnimationEnd}
-        onClick={handleOpenMenu}
-      ></div>
-    </nav>
+const announceComingSoon = () => {
+  toast(
+    <Snackbar
+      size="snackbar-md"
+      color="public"
+      iconName="Information"
+      message="Coming soon"
+    />
   );
 };
+
+// eslint-disable-next-line react/prop-types
+const HomeNavbar = ({ trackSections = false }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState(null);
+  const closeMenu = () => setIsOpen(false);
+
+  useEffect(() => {
+    if (!trackSections) return undefined;
+
+    const header = document.querySelector(".public-header");
+    const sections = sectionIds.map((id) => document.getElementById(id)).filter(Boolean);
+    if (!header || sections.length !== sectionIds.length) return undefined;
+
+    let observer;
+    const getProbeOffset = () => {
+      const anchorOffset = parseFloat(window.getComputedStyle(sections[0]).scrollMarginTop) || 0;
+      return Math.min(
+        Math.max(Math.ceil(header.getBoundingClientRect().bottom), anchorOffset) + 1,
+        window.innerHeight - 1
+      );
+    };
+    const updateActiveSection = () => {
+      const probeOffset = getProbeOffset();
+      let current = null;
+      for (const section of sections) {
+        if (section.getBoundingClientRect().top <= probeOffset) current = section.id;
+      }
+      setActiveSection(current === "home" ? null : current);
+    };
+    const observeSections = () => {
+      observer?.disconnect();
+      const probeOffset = getProbeOffset();
+      observer = new IntersectionObserver(updateActiveSection, {
+        rootMargin: `-${probeOffset}px 0px -${window.innerHeight - probeOffset - 1}px 0px`,
+      });
+      sections.forEach((section) => observer.observe(section));
+      updateActiveSection();
+    };
+
+    observeSections();
+    window.addEventListener("resize", observeSections);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", observeSections);
+    };
+  }, [trackSections]);
+
+  return (
+    <header className="public-header">
+      <nav className="public-nav" aria-label="Public navigation">
+        <a href="/#home" className="public-logo" aria-label="HealthPH+ home" onClick={() => { setActiveSection(null); closeMenu(); }}>
+          <img src={WebLogo} alt="HealthPH+" />
+        </a>
+        <button
+          type="button"
+          className="public-menu-button"
+          aria-label="Toggle navigation menu"
+          aria-expanded={isOpen}
+          onClick={() => setIsOpen((open) => !open)}
+        >
+          <span></span><span></span><span></span>
+        </button>
+        <div className={`public-nav-content ${isOpen ? "is-open" : ""}`}>
+          <ul className="public-nav-links">
+            {navigation.map(({ href, label, download }) => (
+              <li key={label}>
+                {download ? (
+                  <button type="button" className="public-download-button" onClick={() => { announceComingSoon(); closeMenu(); }}>
+                    {label}
+                  </button>
+                ) : (
+                  <a
+                    href={href}
+                    aria-current={trackSections && activeSection === href.slice(2) ? "location" : undefined}
+                    onClick={() => { if (trackSections) setActiveSection(href.slice(2)); closeMenu(); }}
+                  >
+                    {label}
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+          <img className="public-nu-logo" src={NULogoLgAlt} alt="National University" />
+        </div>
+      </nav>
+    </header>
+  );
+};
+
+export { announceComingSoon };
 export default HomeNavbar;

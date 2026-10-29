@@ -2,11 +2,12 @@
 def individual_activity_log(log) -> dict:
     return {
         "id": str(log["_id"]),
-        "user_id": str(log["_id"]),
-        "user_name": log['user_name'] ,
-        "user_type": log["user_type"] ,
-        "entry": log["entry"],
-        "module": log["module"],
+        "user_id": log.get("user_id", ""),
+        "user_name": log.get("user_name", "Unknown account"),
+        "user_type": log.get("user_type", ""),
+        "role_label": log.get("role_label", ""),
+        "entry": log.get("entry", "-"),
+        "module": log.get("module", "-"),
         "ip_address": log.get("ip_address", ""),
         "created_at": str(log["created_at"]) if "created_at" in log.keys() else "",
     }

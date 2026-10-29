@@ -3,6 +3,9 @@ const ModalWithBody = ({
   onConfirm,
   onConfirmDisabled,
   onConfirmLabel,
+  onCancelLabel = "Cancel",
+  confirmButtonStyle,
+  cancelButtonStyle,
   onCancel,
   onBackdrop,
   onLoading,
@@ -10,6 +13,7 @@ const ModalWithBody = ({
   heading,
   color,
   additionalClasses,
+  leadingActions,
   children,
 }) => {
   return (
@@ -26,24 +30,29 @@ const ModalWithBody = ({
           {children}
         </div>
         <div className="modal-actions">
-          {onCancel && (
-            <button
-              className="prod-btn-base prod-btn-secondary me-0 sm:me-[16px]"
-              onClick={onCancel}
-              disabled={onLoading}
-            >
-              Cancel
-            </button>
-          )}
-          <button
-            className={`prod-btn-base prod-btn-${color ?? "primary"} ${
-              onCancel ? "mb-[16px]" : ""
-            } sm:mb-0`}
-            onClick={onConfirm}
-            disabled={onLoading || onConfirmDisabled}
-          >
-            {onLoading ? onLoadingLabel : onConfirmLabel}
-          </button>
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="w-full sm:w-auto">{leadingActions}</div>
+            <div className="flex w-full flex-col-reverse gap-3 sm:w-auto sm:flex-row sm:items-center">
+              {onCancel && (
+                <button
+                  className="prod-btn-base prod-btn-secondary"
+                  onClick={onCancel}
+                  disabled={onLoading}
+                  style={cancelButtonStyle}
+                >
+                  {onCancelLabel}
+                </button>
+              )}
+              <button
+                className={`prod-btn-base prod-btn-${color ?? "primary"}`}
+                onClick={onConfirm}
+                disabled={onLoading || onConfirmDisabled}
+                style={confirmButtonStyle}
+              >
+                {onLoading ? onLoadingLabel : onConfirmLabel}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -1,3 +1,4 @@
+/* eslint-disable react/prop-types */
 import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
@@ -7,7 +8,7 @@ import {
   useResendCodeMutation,
   useVerifyCodeMutation,
 } from "../../features/api/authAPISlice";
-import { useCreateActivityLogMutation } from "../../features/api/activityLogsSlice";
+import { useCreateAccountActivityMutation } from "../../features/api/accountActivitySlice";
 import {
   authenticateUser,
   updateInitialLogin,
@@ -17,8 +18,14 @@ import Cookies from "js-cookie";
 import FieldGroup from "../../components/FieldGroup";
 import Input from "../../components/Input";
 import InputPassword from "../../components/InputPassword";
-import Checkbox from "../../components/Checkbox";
 import useDeviceDetect from "../../hooks/useDeviceDetect";
+
+const stablePrimaryButtonStyle = {
+  backgroundColor: "#007aff",
+  boxShadow: "none",
+  border: "none",
+  outline: "none",
+};
 
 const Login = () => {
   const { isPWA } = useDeviceDetect();
@@ -35,13 +42,11 @@ const Login = () => {
 
   const [error, setError] = useState("");
 
-  const [remember, setRemember] = useState(false);
-
   const [isLoading, setIsLoading] = useState(false);
 
   const [authenticate] = useAuthenticateMutation();
 
-  const [log_activity] = useCreateActivityLogMutation();
+  const [log_activity] = useCreateAccountActivityMutation();
 
   const dispatch = useDispatch();
 
@@ -52,36 +57,38 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!checkError()) {
-      setIsLoading(true);
-      setError("");
-      const response = await authenticate(formData);
+    if (checkError()) return;
 
-      if (!response) {
-        console.log("Error authenticating user...");
-        setIsLoading(false);
-        return;
-      }
+    setIsLoading(true);
+    setError("");
 
-      if ("error" in response) {
-        setIsLoading(false);
-        const { data, error } = response["error"];
+    try {
+      const data = await authenticate(formData).unwrap();
 
-        if (data) {
-          setError(data["detail"]);
-        } else if (error) {
-          setError("Failed to sign in. Please try again later.");
-        }
-        return;
-      }
-
-      console.log(response.data);
-      if (response.data.otp_code_sent) {
+      if (data.otp_code_sent) {
         setOtpCodeSent(true);
+    } else {
+      setError("Sign-in could not be completed. Please try again.");
+    }
+    } catch (error) {
+      if (error.status === "TIMEOUT_ERROR") {
+        setError(
+          "Sign-in took too long. Please try again in a moment."  
+        );
+      } else if (typeof error.data?.detail === "string") {
+        setError(error.data.detail);
+      } else if (error.status === "FETCH_ERROR") {
+        setError(
+          "Cannot reach the server. Please check your connection and try again."
+        );
+      } else {
+        setError("Sign-in failed. Please try again later.");
       }
+    } finally {
+      setIsLoading(false);
     }
   };
-
+  
   const checkError = () => {
     let flag = false;
 
@@ -168,23 +175,15 @@ const Login = () => {
           />
         </FieldGroup>
         <div className="flex flex-col-reverse sm:flex-row justify-between items-start sm:items-center my-[24px]">
-          {/* <Checkbox
-            name="remember"
-            id="remember"
-            label="Remember Me"
-            checked={remember}
-            handleChange={setRemember}
-            size="input-checkbox-md"
-            additionalClasses="items-center"
-          /> */}
           <NavLink to="/forgot-password" className="mb-0 sm:mb-0">
             Forgot Password
           </NavLink>
         </div>
         <button
           type="submit"
-          className="prod-btn-base prod-btn-primary w-full mb-[16px]"
+          className="prod-btn-base prod-btn-primary w-full mb-[16px] hover:bg-primary-500"
           disabled={isLoading}
+          style={stablePrimaryButtonStyle}
         >
           {isLoading ? "Signing in...." : "Sign In"}
         </button>
@@ -216,13 +215,11 @@ const OTPCode = ({ email }) => {
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const [isResendLoading, setIsResendLoading] = useState(false);
-
   const [verifyCode] = useVerifyCodeMutation();
 
   const [resendCode] = useResendCodeMutation();
 
-  const [log_activity] = useCreateActivityLogMutation();
+  const [log_activity] = useCreateAccountActivityMutation();
 
   const dispatch = useDispatch();
 
@@ -256,7 +253,10 @@ const OTPCode = ({ email }) => {
         return;
       }
 
-      if (["SUPERADMIN", "ADMIN"].includes(response.data.user.user_type)) {
+      if (
+        response.data.user.user_type === "SUPERADMIN" ||
+        response.data.user.role_label === "Admin"
+      ) {
         await log_activity({
           user_id: response.data.user.id,
           entry: "Login",
@@ -314,7 +314,6 @@ const OTPCode = ({ email }) => {
 
   const handleResend = async () => {
     setSecsLeft(15);
-    setIsResendLoading(true);
     setError("");
 
     const response = await resendCode(email);
@@ -369,14 +368,15 @@ const OTPCode = ({ email }) => {
         </FieldGroup>
         <button
           type="submit"
-          className="prod-btn-base prod-btn-primary w-full mt-[4px] mb-[32px]"
+          className="prod-btn-base prod-btn-primary w-full mt-[4px] mb-[32px] hover:bg-primary-500"
           disabled={isLoading}
+          style={stablePrimaryButtonStyle}
         >
           {isLoading ? "Verifying..." : "Verify"}
         </button>
         <p className="text-center">
           <span className=" prod-p2 text-gray-700 font-medium">
-            Didn't receive it?
+            Didn&apos;t receive it?
           </span>
           <a
             href="#"

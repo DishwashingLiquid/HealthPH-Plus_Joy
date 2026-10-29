@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useRef } from "react";
 // import TestList from "./test.json";
 import React, { useState, useCallback, useMemo } from "react";
 import ScrollToTop from "./components/ScrollToTop";
+import "./assets/css/map.css";
 
 import {
   deviceType,

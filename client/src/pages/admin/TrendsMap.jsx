@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { format, subDays } from "date-fns";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
+import "../../assets/css/map.css";
 
 import { updateInitialLogin } from "../../features/auth/authSlice";
 import useSwipe from "../../hooks/useSwipe";
@@ -29,7 +30,7 @@ import {
   useFetchPointsQuery,
 } from "../../features/api/pointsSlice";
 import EmptyState from "../../components/admin/EmptyState";
-import { useCreateActivityLogMutation } from "../../features/api/activityLogsSlice";
+import { useCreateAccountActivityMutation } from "../../features/api/accountActivitySlice";
 
 import { toPng } from "html-to-image";
 import { toast } from "react-toastify";
@@ -37,10 +38,12 @@ import Snackbar from "../../components/Snackbar";
 
 const TrendsMap = () => {
   const user = useSelector((state) => state.auth.user);
+  const isAdminUser =
+    user.user_type === "SUPERADMIN" || user.role_label === "Admin";
 
   const auth = useSelector((state) => state.auth);
 
-  const [log_activity] = useCreateActivityLogMutation();
+  const [log_activity] = useCreateAccountActivityMutation();
 
   const { isPWA } = useDeviceDetect();
 
@@ -236,7 +239,7 @@ const TrendsMap = () => {
   }, [showDisclaimer]);
 
   const getCenter = () => {
-    if (user.user_type == "USER") {
+    if (!isAdminUser) {
       return RegionsCenter.find((c) => c.region == user.region).center;
     }
     return [13, 122];
@@ -425,7 +428,7 @@ const TrendsMap = () => {
       <div className="trends-wrapper">
         <div
           className={`sidebar ${sidebarActive ? "" : "close-sidebar"} ${
-            ["ADMIN", "SUPERADMIN"].includes(user.user_type) && !isPWA
+            isAdminUser && !isPWA
               ? ""
               : "sidebar-sm"
           }`}
@@ -445,19 +448,18 @@ const TrendsMap = () => {
                 user.accessible_regions.includes(r.value)
               )}
               defaultValue={
-                user.user_type == "USER" ? user.accessible_regions : []
+                !isAdminUser ? user.accessible_regions : []
               }
               placeHolder="Select Region/s"
               onChange={(e) => handleChangeFilter("region", e)}
               selectAllLabel={getAccessibleRegionsDisplay()}
               selectAll={true}
-              showSelectAll={user.user_type == "USER" ? false : true}
+              showSelectAll={!isAdminUser ? false : true}
               additionalClassname="w-full"
               menuPlacement="top"
               menuClassname={`${
                 sidebarActive ? "menu-bottom" : "menu-top"
               } md:menu-bottom`}
-              // selectable={["ADMIN", "SUPERADMIN"].includes(user.user_type)}
             />
             {/* <CustomSelect
             options={getDateRangeOptions()}
@@ -468,7 +470,7 @@ const TrendsMap = () => {
             additionalClasses="w-full"
           /> */}
 
-            {!isPWA && ["ADMIN", "SUPERADMIN"].includes(user.user_type) && (
+            {!isPWA && isAdminUser && (
               <Link
                 to="/dashboard/trends-map/upload-dataset"
                 className="prod-btn-base prod-btn-primary w-full flex items-center justify-center mt-[20px]"
