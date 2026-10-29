@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useCreateSentimentPulseSurveyMutation,
   useDeleteSentimentPulseSurveyMutation,
   useFetchSentimentPulseRegionalAnalysisQuery,
   useFetchSentimentPulseSurveysQuery,
   useFetchSentimentPulseSummaryQuery,
+  useFetchSentimentPulseTrendsQuery,
   useScheduleSentimentPulseSurveyMutation,
   useUpdateSentimentPulseSurveyMutation,
 } from "../../../features/api/sentimentPulseSlice";
@@ -30,6 +31,7 @@ import {
   showSentimentPulsePdfExportNotice,
 } from "./exportUtils";
 import { SENTIMENT_PULSE_TABS } from "./tabs";
+import { dateRangeError, getPhilippineDateInput } from "./sentimentContract";
 
 const freezeSnapshot = (value) => {
   if (!value || typeof value !== "object" || Object.isFrozen(value)) {
@@ -69,16 +71,11 @@ const SURVEY_REFRESH_OPTIONS = {
   refetchOnFocus: true,
 };
 
-const getPhilippineDateInput = (dayOffset = 0) => {
-  const philippinesNow = new Date(Date.now() + 8 * 60 * 60 * 1000);
-  philippinesNow.setUTCDate(philippinesNow.getUTCDate() + dayOffset);
-  return philippinesNow.toISOString().slice(0, 10);
-};
-
 export default function SentimentPulseTool() {
   const [activeTab, setActiveTab] = useState("sentiment-trends");
   const [selectedRegions, setSelectedRegions] = useState([]);
   const [timeRange, setTimeRange] = useState("last-30-days");
+  const [selectedSurveyId, setSelectedSurveyId] = useState("");
   const [customStartDate, setCustomStartDate] = useState(() =>
     getPhilippineDateInput(-29)
   );
@@ -97,6 +94,10 @@ export default function SentimentPulseTool() {
   const [scheduleItems, setScheduleItems] = useState([]);
   const [scheduleError, setScheduleError] = useState("");
   const isConfirmingSurveyRef = useRef(false);
+  const trendFilters = { timeRange, regions: selectedRegions, startDate: customStartDate, endDate: customEndDate, surveyId: selectedSurveyId };
+  const filterError = dateRangeError(trendFilters);
+  const { currentData: trends, isFetching: isTrendsFetching, isError: isTrendsError, refetch: refetchTrends } =
+    useFetchSentimentPulseTrendsQuery(trendFilters, { ...SURVEY_REFRESH_OPTIONS, skip: Boolean(filterError) });
   const {
     data: regionalAnalysisData,
     isLoading: isRegionalAnalysisLoading,
@@ -166,6 +167,19 @@ export default function SentimentPulseTool() {
     () => (Array.isArray(surveysData) ? surveysData : surveysData?.surveys ?? []),
     [surveysData]
   );
+  useEffect(() => {
+    if (selectedSurveyId && !isSurveysLoading && !isSurveysError && !surveys.some((survey) => survey.id === selectedSurveyId)) {
+      setSelectedSurveyId("");
+    }
+  }, [selectedSurveyId, isSurveysLoading, isSurveysError, surveys]);
+  const [surveyFeedback, setSurveyFeedback] = useState({});
+  const handleFeedbackSnapshot = useCallback((surveyId, snapshot) => {
+    setSurveyFeedback((current) => ({ ...current, [surveyId]: snapshot }));
+  }, []);
+  const mobileExportUnavailable = isSurveysLoading || isSurveysError || surveys.some((survey) => {
+    const snapshot = surveyFeedback[survey.id];
+    return (survey.status === "Ended" || snapshot) && (!snapshot?.data || snapshot.isError || snapshot.isFetching);
+  });
   const draftSurveys = useMemo(
     () => surveys.filter((survey) => survey.status === "Draft"),
     [surveys]
@@ -616,13 +630,16 @@ export default function SentimentPulseTool() {
                   selectedRegions,
                   regionalAnalysis: regionalAnalysisData,
                   surveys,
+                  trends,
+                  surveyFeedback,
                 })
               }
               variant="primary"
               className="sm:w-auto"
               disabled={
-                activeTab === "regional-analysis" &&
-                (isRegionalAnalysisLoading || isRegionalAnalysisError)
+                (activeTab === "regional-analysis" && (isRegionalAnalysisLoading || isRegionalAnalysisError)) ||
+                (activeTab === "sentiment-trends" && (!trends || isTrendsFetching || isTrendsError || Boolean(filterError))) ||
+                (activeTab === "mobile-surveys" && mobileExportUnavailable)
               }
             >
               Export as CSV
@@ -643,6 +660,9 @@ export default function SentimentPulseTool() {
         summary={summary}
         isLoading={isSummaryLoading}
         isError={isSummaryError}
+        sentimentReport={filterError ? undefined : trends}
+        isSentimentLoading={!filterError && !trends && isTrendsFetching}
+        isSentimentError={Boolean(filterError) || isTrendsError}
       />
 
       <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[12px]">
@@ -672,8 +692,21 @@ export default function SentimentPulseTool() {
             selectedRegions={selectedRegions}
             onRegionChange={handleRegionChange}
             onSelectAllRegions={handleSelectAllRegions}
+            customStartDate={customStartDate}
+            customEndDate={customEndDate}
+            onCustomStartDateChange={setCustomStartDate}
+            onCustomEndDateChange={setCustomEndDate}
+            maxDate={getPhilippineDateInput()}
           />
-          <SentimentTrends />
+          <div className="rounded-xl border border-gray-200 bg-white p-5">
+            <label className="block text-sm font-medium text-gray-700">Survey
+              <select value={selectedSurveyId} onChange={(event) => setSelectedSurveyId(event.target.value)} className="mt-2 min-h-[40px] w-full rounded-lg border border-gray-300 bg-white px-3 py-2 sm:max-w-md">
+                <option value="">All surveys</option>
+                {surveys.map((survey) => <option key={survey.id} value={survey.id}>{survey.title} ({survey.id})</option>)}
+              </select>
+            </label>
+          </div>
+          <SentimentTrends report={trends} surveys={surveys} isLoading={!trends && isTrendsFetching} isFetching={isTrendsFetching} isError={isTrendsError} filterError={filterError} onRefresh={refetchTrends} />
         </>
       )}
 
@@ -746,6 +779,7 @@ export default function SentimentPulseTool() {
               isLoading={isSurveysLoading}
               isError={isSurveysError}
               onEdit={handleEditSurvey}
+              onFeedbackSnapshot={handleFeedbackSnapshot}
             />
           </div>
         </div>

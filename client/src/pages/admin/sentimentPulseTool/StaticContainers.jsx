@@ -1,10 +1,10 @@
 import PropTypes from "prop-types";
 import {
-  sentimentStats,
   getTrendIndicator,
   formatPercentage,
   formatNumber,
 } from "../../../assets/data/sentimentMockData";
+import { formatShare, summaryState, reportingScope, formatCount } from "./sentimentContract";
 
 const formatPhDate = (value, options) =>
   new Intl.DateTimeFormat("en-PH", {
@@ -12,8 +12,7 @@ const formatPhDate = (value, options) =>
     ...options,
   }).format(new Date(value));
 
-export default function StaticContainers({ summary, isLoading, isError }) {
-  const trendSentiment = getTrendIndicator(sentimentStats.comparisonRate);
+export default function StaticContainers({ summary, isLoading, isError, sentimentReport, isSentimentLoading, isSentimentError }) {
   const unavailable = isLoading ? "Loading..." : "Unavailable";
   const trendResponses = getTrendIndicator(summary?.responseChangePercent ?? 0);
   const monthLabel = (month) => formatPhDate(`${month}-01T00:00:00+08:00`, {
@@ -30,21 +29,17 @@ export default function StaticContainers({ summary, isLoading, isError }) {
         </p>
       )}
       <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
-        <h3 className="mb-[8px] text-sm text-gray-500">Sentiment Score</h3>
+        <h3 className="mb-[8px] text-sm text-gray-500">Worried share of feedback answers</h3>
         <div className="flex items-end justify-between">
           <div>
             <p className="text-[32px] font-semibold leading-none text-gray-800">
-              {sentimentStats.currentScore}
+              {isSentimentLoading ? "Loading..." : isSentimentError ? "Unavailable" : formatShare(sentimentReport?.totals?.worriedShare)}
             </p>
-            <p className="mt-[4px] text-xs text-gray-500">out of 100</p>
-          </div>
-          <div className={`text-right ${trendSentiment.color}`}>
-            <p className="text-sm font-semibold">
-              {trendSentiment.arrow} {formatPercentage(sentimentStats.comparisonRate)}%
-            </p>
-            <p className="text-xs text-gray-500">vs previous</p>
+            <p className="mt-[4px] text-xs text-gray-500">{!isSentimentLoading && !isSentimentError && sentimentReport ? `${formatCount(sentimentReport.totals?.predictedAnswers)} classified text/choice answers` : "Classified mobile text/choice answers"}</p>
           </div>
         </div>
+        <p className="mt-3 text-xs text-gray-500">{sentimentReport && !isSentimentError ? reportingScope(sentimentReport) : "Current Trends date, region, and survey filters"}</p>
+        {sentimentReport && !isSentimentError && !isSentimentLoading && <p className="mt-2 text-xs text-gray-600">{summaryState(sentimentReport)}{sentimentReport.totals?.answersWithoutResults > 0 ? ` · ${formatCount(sentimentReport.totals.answersWithoutResults)} eligible text/choice answers without results` : ""}</p>}
       </div>
 
       <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
@@ -128,6 +123,9 @@ export default function StaticContainers({ summary, isLoading, isError }) {
 }
 
 StaticContainers.propTypes = {
+  sentimentReport: PropTypes.object,
+  isSentimentLoading: PropTypes.bool,
+  isSentimentError: PropTypes.bool,
   summary: PropTypes.shape({
     activeRegions: PropTypes.number.isRequired,
     unknownRegionResponses: PropTypes.number,

@@ -46,7 +46,8 @@ def test_copied_service_is_offline_portable_and_restart_activates_update(tmp_pat
     service = Path(__file__).resolve().parents[1]
     target = tmp_path / "standalone"
     shutil.copytree(service, target, ignore=shutil.ignore_patterns(
-        ".venv", "__pycache__", ".pytest_cache", "tests", ".DS_Store",
+        ".venv", ".runtime", ".cache", ".sentiment-backup-*", ".sentiment-staging-*",
+        "pytest-cache-files-*", "__pycache__", ".pytest_cache", "tests", ".DS_Store",
     ))
     program = '''
 import json

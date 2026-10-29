@@ -1,5 +1,12 @@
 /model/
+/models/*.bin
+/models/*.ftz
 /.sentiment-export-*/
 .venv/
 __pycache__/
 .pytest_cache/
+/.sentiment-staging-*/
+/.sentiment-backup-*/
+/.runtime/
+/.cache/
+/pytest-cache-files-*/

@@ -37,7 +37,7 @@ def test_export_excludes_training_state_and_replaces_complete_bundle(bundle, tmp
     assert len(staged_loader) == 2
     assert not staged_loader[0].exists()
     assert not (target / "stale-file").exists()
-    assert sorted(str(p.relative_to(target)) for p in target.rglob("*") if p.is_file()) == sorted([
+    assert sorted(p.relative_to(target).as_posix() for p in target.rglob("*") if p.is_file()) == sorted([
         *REQUIRED_FILES, "best_model/vocab.txt",
     ])
     assert artifact_fingerprint(target) == artifact_fingerprint(bundle)

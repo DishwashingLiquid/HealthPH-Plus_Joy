@@ -1,7 +1,23 @@
 import { baseAPI } from "./_baseAPI";
+import { trendsRequest } from "../../pages/admin/sentimentPulseTool/sentimentContract";
 
 export const sentimentPulseApi = baseAPI.injectEndpoints({
   endpoints: (builder) => ({
+    fetchSentimentPulseTrends: builder.query({
+      query: trendsRequest,
+      providesTags: [{ type: "SentimentPulseSurveys", id: "SENTIMENT_TRENDS" }],
+    }),
+    fetchSentimentPulseProcessing: builder.query({
+      query: (surveyId) => `/sentiment-pulse/surveys/${encodeURIComponent(surveyId)}/processing`,
+      providesTags: (_result, _error, surveyId) => [{ type: "SentimentPulseSurveys", id: `PROCESSING_${surveyId}` }],
+    }),
+    processSentimentPulseSurvey: builder.mutation({
+      query: (surveyId) => ({ url: `/sentiment-pulse/surveys/${encodeURIComponent(surveyId)}/process`, method: "POST" }),
+      invalidatesTags: (_result, _error, surveyId) => [
+        { type: "SentimentPulseSurveys", id: `PROCESSING_${surveyId}` },
+        { type: "SentimentPulseSurveys", id: "SENTIMENT_TRENDS" },
+      ],
+    }),
     fetchSentimentPulseSummary: builder.query({
       query: () => "/sentiment-pulse/summary",
       providesTags: ["SentimentPulseSurveys"],
@@ -101,6 +117,9 @@ export const sentimentPulseApi = baseAPI.injectEndpoints({
 });
 
 export const {
+  useFetchSentimentPulseTrendsQuery,
+  useFetchSentimentPulseProcessingQuery,
+  useProcessSentimentPulseSurveyMutation,
   useCreateSentimentPulseSurveyMutation,
   useDeleteSentimentPulseSurveyMutation,
   useEndSentimentPulseSurveyMutation,

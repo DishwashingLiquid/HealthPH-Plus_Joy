@@ -1,4 +1,5 @@
 import json
+import re
 import shutil
 import threading
 import time
@@ -151,7 +152,7 @@ def test_tokenizer_mismatch_rejected(bundle, monkeypatch):
 def test_environment_override(bundle, monkeypatch):
     monkeypatch.setenv("HEALTHPH_SENTIMENT_ARTIFACT_DIR", str(bundle))
     (bundle / "threshold.json").unlink()
-    with pytest.raises(ValueError, match=str(bundle)):
+    with pytest.raises(ValueError, match=re.escape(str(bundle))):
         SentimentPredictor()
 
 
