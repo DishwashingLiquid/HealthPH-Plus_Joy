@@ -431,16 +431,27 @@ const createPin = (selected) =>
                             </button>
                         </div>
 
-                        <div className="mb-4 rounded-lg bg-red-50 p-3">
+                        <div className="rounded-lg px-3">
+                            <p className="text-sm text-gray-600">
+                                Total Reports
+                            </p>
+                            <p className="mt-1 text-3xl font-semibold text-gray-900">
+                                {Number.isFinite(selectedPoint.report_count)
+                                    ? selectedPoint.report_count.toLocaleString()
+                                    : "-"
+                                }
+                            </p>
+                        </div>
+                        <div className="rounded-lg bg-red-50 px-3">
                             <p className="text-sm text-gray-600">
                                 Disease label detections
                             </p>
-                            <p className="mt-1 text-3xl font-semibold text-red-700">
+                            <p className="mt-1 text-[26px] font-semibold text-red-700">
                                 {labelCount.toLocaleString()}
                             </p>
                         </div>
 
-                        <p className="mb-2 text-sm font-semibold text-gray-900">
+                        <p className="mt-2 text-sm font-semibold text-gray-900">
                             Breakdown at this location
                         </p>
 
@@ -448,7 +459,7 @@ const createPin = (selected) =>
                             {CONDITIONS.map(({ code, label }) => (
                                 <div
                                     key={code}
-                                    className="flex items-center justify-between border-b border-gray-100 py-3 text-sm"
+                                    className="flex items-center justify-between border-b border-gray-100 py-2 text-sm"
                                 >
                                     <dt className="text-gray-600">{label}</dt>
                                     <dd className="font-semibold text-gray-900">

@@ -198,12 +198,14 @@ async def fetch_analytics_map_points(
                 "province": str(location.get("province") or "").strip(),
                 "lat": latitude,
                 "long": longitude,
+                "report_count": 0,
                 "annotation_counts": Counter(),
                 "keyword_counts": Counter(),
                 "keyword_annotations": defaultdict(set),
             }
 
         point = grouped_points[point_key]
+        point["report_count"] += 1
         point["annotation_counts"].update(labels)
 
     map_points = []
