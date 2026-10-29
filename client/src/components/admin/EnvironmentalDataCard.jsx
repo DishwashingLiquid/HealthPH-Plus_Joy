@@ -1,10 +1,6 @@
-import {
-    useFetchCurrentWeatherQuery,
-    useFetchCurrentAirQualityQuery,
-} from "../../features/api/environmentalDataSlice";
-
 import { useEffect, useId, useRef, useState } from "react";
 import Icon from "../Icon";
+import { useFetchEnvironmentalHistoryQuery } from "../../features/api/environmentalDataSlice";
 
 const WEATHER_LABELS = {
     0: "Clear sky",
@@ -105,46 +101,49 @@ const EnvironmentalDataCard = ({
     const hasLocation = Boolean(region)
         && Number.isFinite(latitude)
         && Number.isFinite(longitude);
+    const timeWindow = dateRange === "24h" ? { hours: 24 } : { days: dateRange };
+    const timeLabel = dateRange === "24h" ? "Last 24 hours" : `Last ${dateRange} days`;
 
-    const queryArgs = { region, latitude, longitude };
-
-    const queryOptions = {
-        skip: !hasLocation,
-        pollingInterval: 600000,
-        skipPollingIfUnfocused: true,
-        refetchOnMountOrArgChange: true,
-    };
-
-    const weatherRequest = useFetchCurrentWeatherQuery(
-        queryArgs,
-        queryOptions
+    const request = useFetchEnvironmentalHistoryQuery(
+        { region, latitude, longitude, ...timeWindow },
+        {
+            skip: !hasLocation,
+            pollingInterval: 600000,
+            skipPollingIfUnfocused: true,
+            refetchOnMountOrArgChange: true,
+        }
     );
 
-    const airRequest = useFetchCurrentAirQualityQuery(
-        queryArgs,
-        queryOptions
-    );
+    const history = request?.isError ? null : request?.currentData;
+    const weatherCoverage = history?.weather_coverage;
+    const airCoverage = history?.air_quality_coverage;
+    const weather = weatherCoverage?.status === "unavailable" ? null : history?.summary;
+    const airQuality = airCoverage?.status === "unavailable" ? null : history?.summary;
+    const noData = !request?.isFetching && !weather && !airQuality;
 
-    const weather = weatherRequest.isError
-        ? null
-        : weatherRequest.currentData?.weather;
+    const renderDetail = (value, width = "w-[80px]") =>
+        request.isFetching ? (
+            <>
+                <span
+                    aria-hidden="true"
+                    className={`inline-block h-[12px] ${width} max-w-full animate-pulse rounded-[6px] bg-[#E4E7EB] align-middle motion-reduce:animate-none`}
+                />
+                <span className="sr-only">Loading...</span>
+            </>
+        ) : value;
 
-    const airQuality = airRequest.isError
-        ? null
-        : airRequest.currentData?.air_quality;
-
-    const displayValue = (request, ready, value) =>
+    const displayValue = (ready, value) =>
         ready
             ? value
-            : request.isFetching
+            : request?.isFetching
                 ? "Loading..."
                 : "Unavailable";
 
     const weatherValue = (value) =>
-        displayValue(weatherRequest, Boolean(weather), value);
+        displayValue(Boolean(weather), value);
 
     const airValue = (value) =>
-        displayValue(airRequest, Boolean(airQuality), value);
+        displayValue(Boolean(airQuality), value);
 
     const direction = formatWindDirection(
         weather?.wind_direction,
@@ -159,12 +158,6 @@ const EnvironmentalDataCard = ({
     const windValue = direction === "Calm"
         ? "Calm"
         : windParts.join(" · ") || "Unavailable";
-
-    const precipitationLabel =
-        Number.isFinite(weather?.interval_seconds)
-        && weather.interval_seconds > 0
-            ? `Precip. (${weather.interval_seconds / 60} min)`
-            : "Precipitation";
 
     const metrics = [
         {
@@ -192,9 +185,9 @@ const EnvironmentalDataCard = ({
             value: weatherValue(windValue),
         },
         {
-            label: precipitationLabel,
+            label: "Precipitation",
             value: weatherValue(
-                formatMeasurement(weather?.precipitation, " mm")
+                formatMeasurement(weather?.precipitation, " mm/h")
             ),
         },
         {
@@ -211,10 +204,17 @@ const EnvironmentalDataCard = ({
         },
     ];
 
-    const requests = [
-        { label: "Weather", request: weatherRequest },
-        { label: "Air Quality", request: airRequest },
+    const coverages = [
+        { label: "Weather", coverage: weatherCoverage },
+        { label: "Air quality", coverage: airCoverage },
     ];
+
+    const periodDate = (value) => value
+        ? new Date(value).toLocaleString("en-PH", {
+            month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Manila",
+            ...(dateRange === "24h" ? { hour: "2-digit", minute: "2-digit" } : {}),
+        })
+        : "";
 
     return (
         <section className="rounded-xl border border-[#E5E5E5] bg-white p-3">
@@ -265,6 +265,14 @@ const EnvironmentalDataCard = ({
                         <div className="rounded-lg bg-gray-900 p-3 text-xs leading-5 text-white shadow-xl">
                             <p className="font-semibold">Data details</p>
                             <p className="mt-1">
+                                Numeric values are averages of available hourly readings
+                                at this pin over the selected date range, including
+                                AQI and Estimated Heat Index. Wind uses mean speed
+                                and a speed-weighted circular mean direction.
+                                Conditions show the most frequent weather code;
+                                categorical weather codes are not averaged.
+                            </p>
+                            <p className="mt-1">
                                 Estimated Heat Index is calculated from temperature
                                 and humidity for shaded, light-wind conditions.
                             </p>
@@ -272,6 +280,11 @@ const EnvironmentalDataCard = ({
                                 Air quality uses CAMS Global model estimates.
                                 These values are not local monitoring-station
                                 measurements or regional averages.
+                            </p>
+                            <p className="mt-2">
+                                Missing hours are excluded, not replaced with zero.
+                                Today includes elapsed hours only. Precipitation
+                                is the average completed hourly total, shown in mm/h.
                             </p>
                         </div>
                     </div>
@@ -290,13 +303,23 @@ const EnvironmentalDataCard = ({
                     <p className="mt-1 text-[10px] text-gray-500">
                         {latitude.toFixed(4)}, {longitude.toFixed(4)}
                     </p>
-                    <p className="mb-2 mt-1 text-[10px] text-gray-500">
-                        Current model estimates for the selected pin
+                    <p className="mt-2 text-xs font-semibold text-gray-800">
+                        Averages for selected date range · {timeLabel}
                     </p>
-                    <p className="mb-3 rounded-lg bg-blue-50 px-2 py-2 text-[11px] leading-4 text-blue-800">
-                        Current conditions only. Environmental history for the selected {dateRange}-day period is not provided in this view.
+                    <p className="mb-3 mt-1 text-[11px] leading-4 text-gray-600">
+                        {renderDetail(
+                            history
+                                ? `${periodDate(history.requested_start)} - ${periodDate(history.request_end)} (PHT)`
+                                : timeLabel,
+                            "w-[180px]"
+                        )}
                     </p>
 
+                    {noData ? (
+                        <p role="status" className="py-3 text-sm text-gray-500">
+                            No environmental data available for this location and date range.
+                        </p>
+                    ) : (
                     <dl className="flex flex-col gap-1.5">
                         {metrics.map(({ label, value }) => (
                             <div
@@ -307,61 +330,58 @@ const EnvironmentalDataCard = ({
                                     {label}
                                 </dt>
                                 <dd className="max-w-[65%] break-words text-right text-xs font-semibold leading-4 text-gray-800">
-                                    {value}
+                                    {renderDetail(value)}
                                 </dd>
                             </div>
                         ))}
                     </dl>
+                    )}
 
-                    {requests
-                        .filter(({ request }) => request.isError)
-                        .map(({ label, request }) => (
-                            <div
-                                key={label}
-                                role="alert"
-                                className="mt-2 text-xs text-destructive-700"
-                            >
-                                <p>
-                                    {label}:{" "}
-                                    {typeof request.error?.data?.detail === "string"
-                                        ? request.error.data.detail
-                                        : request.error?.status === "TIMEOUT_ERROR"
-                                            ? "Request timed out."
-                                            : "Unable to load data."
-                                    }
-                                </p>
-                                <button
-                                    type="button"
-                                    onClick={() => request.refetch()}
-                                    className="mt-1 font-semibold underline"
-                                >
-                                    Retry {label.toLowerCase()}
-                                </button>
-                            </div>
-                        ))
-                    }
+                    {request?.isError && (
+                        <p role="alert" className="mt-2 text-xs text-destructive-700">
+                            {typeof request.error?.data?.detail === "string"
+                                ? request.error.data.detail
+                                : "Unable to load environmental history. Please try again."}
+                        </p>
+                    )}
+                    {coverages.filter(({ coverage }) => coverage?.message).map(({ label, coverage }) => (
+                        <p key={label} className="mt-2 text-[11px] leading-4 text-gray-600">
+                            {label}: {coverage.message}
+                        </p>
+                    ))}
+                    {(request?.isError || coverages.some(({ coverage }) => coverage && coverage.status !== "available")) && (
+                        <button type="button" onClick={() => request.refetch()} className="mt-2 text-xs font-semibold underline">
+                            Retry environmental history
+                        </button>
+                    )}
 
-                    {(weatherRequest.isFetching || airRequest.isFetching) && (
-                        <p role="status" className="mt-2 text-[10px] text-gray-500">
-                            Loading or updating environmental data...
+                    {request?.isFetching && (
+                        <p role="status" className="sr-only">
+                            Loading environmental history...
                         </p>
                     )}
 
                     <div className="mt-3 space-y-1 text-[10px] leading-4 text-gray-500">
-                        <p>
-                            Weather:{" "}
-                            {weather?.data_time
-                                ? `${weather.data_time.replace("T", " ")} PHT`
-                                : "Unavailable"
-                            }
-                        </p>
-                        <p>
-                            Air:{" "}
-                            {airQuality?.data_time
-                                ? `${airQuality.data_time.replace("T", " ")} PHT`
-                                : "Unavailable"
-                            }
-                        </p>
+                        {coverages
+                            .filter(({ coverage }) => coverage || request.isFetching)
+                            .map(({ label, coverage }) => (
+                                <p key={label}>
+                                    {label}:{" "}
+                                    {renderDetail(
+                                        coverage
+                                            ? `${coverage.available_hours}/${coverage.expected_hours} hourly slots${
+                                                coverage.last_time
+                                                    ? ` · through ${coverage.last_time
+                                                        .slice(0, 16)
+                                                        .replace("T", " ")} PHT`
+                                                    : ""
+                                            }`
+                                            : null,
+                                        "w-[130px]"
+                                    )}
+                                </p>
+                            ))
+                        }
                         <p>
                             Sources:{" "}
                             <a

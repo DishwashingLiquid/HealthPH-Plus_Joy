@@ -34,6 +34,7 @@ from routes.diseaseWatchFeedRoutes import (
 )
 from routes.mobileUserRoutes import mobile_users_router as mobileUsersRouter
 from routes.healthRoutes import router as healthRouter
+from routes.mobileSurveillanceRoutes import router as mobileSurveillanceRouter
 from controllers.regionalAlertsController import (
     ensure_regional_alert_indexes,
     process_due_regional_alerts,
@@ -139,6 +140,11 @@ api_app.include_router(
 )
 api_app.include_router(router=mobileUsersRouter, tags=["Mobile Users"], prefix="/mobile")
 api_app.include_router(router=healthRouter, tags=["Health"], prefix="/health")
+api_app.include_router(
+    router=mobileSurveillanceRouter,
+    tags=["Mobile Surveillance"],
+    prefix="/mobile/surveillance",
+)
 
 app.mount("/api", api_app, name="api")
 

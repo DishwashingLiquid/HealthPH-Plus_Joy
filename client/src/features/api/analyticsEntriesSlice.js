@@ -7,9 +7,10 @@ export const analyticsEntriesApi = baseAPI.injectEndpoints({
                 region = "all",
                 disease = "all",
                 days = 7,
+                hours,
             } = {}) => ({
                 url: "/analytics-entries/surveillance-summary",
-                params: { region, disease, days },
+                params: { region, disease, days, hours },
             }),
             providesTags: ["AnalyticsEntries"],
         }),
@@ -37,9 +38,9 @@ export const analyticsEntriesApi = baseAPI.injectEndpoints({
             providesTags: ["AnalyticsEntries"],
         }),
         fetchAnalyticsMapPoints: builder.query({
-            query: ({ days = 7 } = {}) => ({
+            query: ({ days = 7, hours } = {}) => ({
                 url: "/analytics-entries/map-points",
-                params: { days },
+                params: { days, hours },
             }),
             providesTags: ["AnalyticsEntries"],
         }),

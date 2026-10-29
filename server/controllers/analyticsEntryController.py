@@ -135,6 +135,7 @@ async def fetch_analytics_map_points(
         Depends(require_page("AI Surveillance")),
     ],
     days: int = Query(7, ge=1, le=365),
+    hours: int | None = Query(None, ge=24, le=24, description="Use a rolling 24-hour window instead of calendar days."),
 ):
     entries = analytics_entries_collection.find(
         {
@@ -153,7 +154,7 @@ async def fetch_analytics_map_points(
     grouped_points = {}
 
     allowed_regions = get_allowed_analytics_regions(current_user)
-    window_start, window_end = get_surveillance_window(days)
+    window_start, window_end = get_surveillance_window(days, hours)
 
     for entry in entries:
         region = get_analytics_entry_region(entry)
@@ -238,6 +239,7 @@ def fetch_surveillance_summary(
     region: str = Query("all"),
     disease: str = Query("all"),
     days: int = Query(7, ge=1, le=365),
+    hours: int | None = Query(None, ge=24, le=24, description="Use a rolling 24-hour window instead of calendar days."),
 ):
     allowed_regions = get_allowed_analytics_regions(current_user)
 
@@ -291,7 +293,7 @@ def fetch_surveillance_summary(
     active_regions = set()
     symptom_reports = defaultdict(set)
     symptom_labels = {}
-    window_start, window_end = get_surveillance_window(days)
+    window_start, window_end = get_surveillance_window(days, hours)
 
     for entry in entries:
         entry_region = get_analytics_entry_region(entry)

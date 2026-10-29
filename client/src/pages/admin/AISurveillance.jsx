@@ -7,18 +7,11 @@ import Regions from "../../assets/data/regions.json";
 import RegionsCenter from "../../assets/data/regions_center.json";
 
 import {
-    XAxis,
-    YAxis,
-    CartesianGrid,
     Tooltip,
     ResponsiveContainer,
     PieChart,
     Pie,
     Cell,
-    LineChart,
-    Line,
-    AreaChart,
-    Area,
 } from "recharts";
 
 import {
@@ -30,20 +23,6 @@ import {
     useFetchSurveillanceSummaryQuery,
     useFetchAnalyticsMapPointsQuery,
 } from "../../features/api/analyticsEntriesSlice";
-
-const RESPIRATORY_SERIES = [
-    { key: "respiratoryRate", name: "Respiratory Rate", color: "#32418C" },
-    { key: "aqi", name: "AQI", color: "#2572A5" },
-    { key: "temperature", name: "Temperature (°C)", color: "#1D8D9F" },
-    { key: "coughFrequency", name: "Cough Frequency", color: "#1ABC9C" },
-    { key: "pm25", name: "PM2.5", color: "#9BCC33" },
-    { key: "humidity", name: "Humidity (%)", color: "#FBD117" },
-];
-
-const FORECAST_SERIES = [
-    { key: "actual", name: "Actual Reports", color: "#32418C", fill: "#DBEAFE" },
-    { key: "forecast", name: "Forecasted Trend", color: "#FBD117", fill: "#FFEDD5", strokeDasharray: "5 5" },
-];
 
 const AISurveillance = () => {
     const user = useSelector((state) => state.auth.user);
@@ -60,9 +39,16 @@ const AISurveillance = () => {
     /* MAP */
     const [filters, setFilters] = useState({
         region: accessibleRegions,
-        dateRange: 7,
+        dateRange: "24h",
         disease: "all",
     });
+
+    const selectedTimeWindow = filters.dateRange === "24h"
+        ? { hours: 24 }
+        : { days: filters.dateRange };
+    const selectedTimeLabel = filters.dateRange === "24h"
+        ? "last 24 hours"
+        : `last ${filters.dateRange} days`;
 
     const {
         currentData: points,
@@ -70,7 +56,7 @@ const AISurveillance = () => {
         isError: isPointsError,
         refetch: refetchMapPoints,
     } = useFetchAnalyticsMapPointsQuery(
-        { days: filters.dateRange },
+        selectedTimeWindow,
         {
             refetchOnMountOrArgChange: true,
             refetchOnFocus: true,
@@ -89,7 +75,7 @@ const AISurveillance = () => {
     const handleResetFilters = () => {
         setFilters({
             region: accessibleRegions,
-            dateRange: 7,
+            dateRange: "24h",
             disease: "all",
         });
     };
@@ -146,7 +132,7 @@ const AISurveillance = () => {
         {
             region: selectedRegion,
             disease: selectedDisease,
-            days: filters.dateRange,
+            ...selectedTimeWindow,
         },
         {
             refetchOnMountOrArgChange: true,
@@ -200,7 +186,7 @@ const AISurveillance = () => {
             : summaryReady
                 ? `${formatCount(
                     surveillanceSummary.processed_entry_count
-                )} processed entries match the selected filters in the last ${filters.dateRange} days.`
+                )} processed entries match the selected filters in the ${selectedTimeLabel}.`
                 : "Surveillance Summary is unavailable.";
 
     /* SUSPECTED CONDITIONS PERCENTAGE */
@@ -281,12 +267,12 @@ const AISurveillance = () => {
                                 className="min-h-[48px] w-full min-w-0 !px-[8px] !text-[16px] font-medium"
                                 value={filters.dateRange}
                                 onChange={(event) =>
-                                    handleChangeFilter("dateRange", Number(event.target.value))
+                                    handleChangeFilter("dateRange", event.target.value === "24h" ? "24h" : Number(event.target.value))
                                 }
                             >
-                                <option value={7}>Last 7 Days</option>
-                                <option value={14}>Last 14 Days</option>
-                                <option value={28}>Last 28 Days</option>
+                                <option value="24h">Last 24 hours</option>
+                                <option value={7}>Last 7 days</option>
+                                <option value={30}>Last 30 days</option>
                             </ToolbarSelect>
 
                             <ToolbarSelect
@@ -461,58 +447,10 @@ const AISurveillance = () => {
                     <p className="text-sm text-gray-500 mb-[12px]">
                         Air quality and respiratory metrics with environmental factors.
                     </p>
-
-                    <ResponsiveContainer width="100%" height={280}>
-                        <LineChart
-                            data={[
-                                {
-                                    time: "13:00",
-                                    respiratoryRate: 3.4,
-                                    aqi: 13,
-                                    temperature: 15,
-                                    coughFrequency: 12,
-                                    pm25: 2.9,
-                                    humidity: 7,
-                                },
-                                {
-                                    time: "13:01",
-                                    respiratoryRate: 3.7,
-                                    aqi: 13.3,
-                                    temperature: 15.5,
-                                    coughFrequency: 12.5,
-                                    pm25: 3.5,
-                                    humidity: 7.2,
-                                },
-                                {
-                                    time: "13:02",
-                                    respiratoryRate: 3.4,
-                                    aqi: 13,
-                                    temperature: 15,
-                                    coughFrequency: 12,
-                                    pm25: 2.9,
-                                    humidity: 7,
-                                },
-                            ]}
-                            margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
-                        >
-                            <CartesianGrid strokeDasharray="3 3 " />
-                            <XAxis dataKey="time" />
-                            <YAxis/>
-                            <Tooltip />
-
-
-                            {RESPIRATORY_SERIES.map((series) => (
-                                <Line
-                                    key={series.key}
-                                    type="monotone"
-                                    dataKey={series.key}
-                                    name={series.name}
-                                    stroke={series.color}
-                                />
-                            ))}
-                        </LineChart>
-                    </ResponsiveContainer>
-                    <ChartLegend items={RESPIRATORY_SERIES} columns />
+                    <p role="status" className="flex h-[280px] items-center justify-center text-center text-sm text-gray-500">
+                        Respiratory monitoring unavailable: respiratory rate and cough
+                        frequency measurements have not been connected yet.
+                    </p>
                 </div>
 
                 {/* TREND FORECASTING */}
@@ -524,41 +462,10 @@ const AISurveillance = () => {
                         Projected disease signal trends based on recent surveillance patterns.
                     </p>
 
-                    <ResponsiveContainer width="100%" height={280}>
-                        <AreaChart
-                            data={[
-                                { day: "Mon", actual: 120, forecast: 128 },
-                                { day: "Tue", actual: 135, forecast: 142 },
-                                { day: "Wed", actual: 150, forecast: 160 },
-                                { day: "Thu", actual: 170, forecast: 182 },
-                                { day: "Fri", actual: 185, forecast: 205 },
-                                { day: "Sat", actual: null, forecast: 218 },
-                                { day: "Sun", actual: null, forecast: 235 },
-                            ]}
-                            margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
-                        >
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="day" />
-                            <YAxis />
-                            <Tooltip />
-
-                            {FORECAST_SERIES.map((series) => (
-                                <Area
-                                    key={series.key}
-                                    type="monotone"
-                                    dataKey={series.key}
-                                    name={series.name}
-                                    stroke={series.color}
-                                    fill={series.fill}
-                                    strokeWidth={2}
-                                    strokeDasharray={series.strokeDasharray}
-                                    dot={{ r: 3 }}
-                                    activeDot={{ r: 5 }}
-                                />
-                            ))}
-                        </AreaChart>
-                    </ResponsiveContainer>
-                    <ChartLegend items={FORECAST_SERIES} />
+                    <p role="status" className="flex h-[280px] items-center justify-center text-center text-sm text-gray-500">
+                        Forecast unavailable: a forecasting model and prediction data
+                        have not been connected yet.
+                    </p>
                 </div>
 
                 {/* SUSPECTED CONDITIONS PERCENTAGE */}

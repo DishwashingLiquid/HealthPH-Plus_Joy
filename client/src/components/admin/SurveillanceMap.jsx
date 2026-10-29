@@ -198,7 +198,7 @@ const createPin = (selected) =>
             }
         }, [isPointsLoading, selectedKey, selectedPoint]);
 
-        // Keep selected markers in the space between both side panels
+        // A region change clears the shared pin selection and both panels.
         useEffect(() => {
             setSelectedKey(null);
         }, [selectedRegionCode]);
@@ -326,7 +326,7 @@ const createPin = (selected) =>
                                 ? "Unable to load map locations."
                                 : visiblePoints.length === 0
                                     ? "No mapped locations match the current filters."
-                                    : "Select a red pin to view disease signals and current environmental data."
+                                    : "Select a red pin to view disease signals and environmental data for the selected period."
                         }
 
                         {isPointsError && onRetry && (

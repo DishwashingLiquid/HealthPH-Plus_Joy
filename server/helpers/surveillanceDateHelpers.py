@@ -2,8 +2,11 @@ from datetime import datetime, timedelta, timezone
 
 PH_TIMEZONE = timezone(timedelta(hours=8))
 
-def get_surveillance_window(days):
+def get_surveillance_window(days, hours=None):
     end = datetime.now(PH_TIMEZONE)
+
+    if hours is not None:
+        return end - timedelta(hours=hours), end
 
     start = (end - timedelta(days=days - 1)).replace(
         hour=0,

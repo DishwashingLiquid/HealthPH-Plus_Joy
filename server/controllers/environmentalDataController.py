@@ -10,6 +10,7 @@ from helpers.environmentalDataHelpers import (
     fetch_current_weather,
 )
 from helpers.environmentalLocations import REGION_WEATHER_LOCATIONS
+from helpers.environmentalHistoryHelpers import fetch_environmental_history
 from middleware.requirePage import require_page
 from region_normalization import REGION_NAMES, normalize_region
 
@@ -44,12 +45,7 @@ def build_reference_location(region):
     }
 
 
-def resolve_environmental_location(
-    region: str = Query(..., min_length=1, max_length=100),
-    latitude: float | None = Query(None, ge=4, le=22),
-    longitude: float | None = Query(None, ge=116, le=128),
-    current_user: dict = Depends(require_page("AI Surveillance")),
-):
+def build_accessible_environmental_location(region, current_user, latitude=None, longitude=None):
     location = build_reference_location(region)
     allowed = get_allowed_analytics_regions(current_user)
 
@@ -73,6 +69,35 @@ def resolve_environmental_location(
         }
 
     return location
+
+
+def resolve_environmental_location(
+    region: str = Query(..., min_length=1, max_length=100),
+    latitude: float | None = Query(None, ge=4, le=22),
+    longitude: float | None = Query(None, ge=116, le=128),
+    current_user: dict = Depends(require_page("AI Surveillance")),
+):
+    return build_accessible_environmental_location(region, current_user, latitude, longitude)
+
+
+async def fetch_environmental_period(
+    region: str = Query(..., min_length=1, max_length=100),
+    latitude: float = Query(..., ge=4, le=22),
+    longitude: float = Query(..., ge=116, le=128),
+    days: int = Query(7, ge=1, le=30),
+    hours: int | None = Query(None, ge=24, le=24, description="Use a rolling 24-hour window instead of calendar days."),
+    current_user: dict = Depends(require_page("AI Surveillance")),
+):
+    location = build_accessible_environmental_location(region, current_user, latitude, longitude)
+    history = await fetch_environmental_history(latitude, longitude, days, hours)
+    return {
+        **location, **history,
+        "attribution": {
+            "label": "Historical model estimates by Open-Meteo and CAMS",
+            "url": "https://open-meteo.com/",
+            "cams_url": "https://atmosphere.copernicus.eu/",
+        },
+    }
 
 
 def resolve_mobile_environmental_location(

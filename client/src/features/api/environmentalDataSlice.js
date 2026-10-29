@@ -2,6 +2,14 @@ import { baseAPI } from "./_baseAPI";
 
 export const environmentalDataApi = baseAPI.injectEndpoints({
     endpoints: (builder) => ({
+        fetchEnvironmentalHistory: builder.query({
+            query: ({ region, latitude, longitude, days, hours }) => ({
+                url: "/environmental-data/history",
+                params: { region, latitude, longitude, days, hours },
+                timeout: 30000,
+            }),
+            keepUnusedDataFor: 120,
+        }),
         fetchCurrentWeather: builder.query({
             query: (location) => ({
                 url: "/environmental-data/weather",
@@ -27,6 +35,7 @@ export const environmentalDataApi = baseAPI.injectEndpoints({
 });
 
 export const {
+    useFetchEnvironmentalHistoryQuery,
     useFetchCurrentWeatherQuery,
-useFetchCurrentAirQualityQuery,
+    useFetchCurrentAirQualityQuery,
 } = environmentalDataApi;
