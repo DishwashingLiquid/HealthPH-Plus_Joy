@@ -26,7 +26,8 @@ import { useCreateAccountActivityMutation } from "../../features/api/accountActi
 
 const AdminsTable = ({
     admins = [],
-    setCurrentData,
+    visibleAdmins = admins,
+    page = 1,
     searchQuery,
     setSearchQuery,
     organizationOptions = [],
@@ -34,7 +35,7 @@ const AdminsTable = ({
 }) => {
     const user = useSelector((state) => state.auth.user);
 
-    const [tableData, setTableData] = useState([]);
+    const tableData = visibleAdmins;
     const [selectedAdminIds, setSelectedAdminIds] = useState([]);
     const [bulkActionModalActive, setBulkActionModalActive] = useState(false);
     const [bulkActionType, setBulkActionType] = useState("");
@@ -66,37 +67,8 @@ const AdminsTable = ({
     const [updateModalErrors, setUpdateModalErrors] = useState(emptyUpdateModalErrors);
 
     useEffect(() => {
-        if (admins) {
-            setTableData(admins);
-            setCurrentData(admins);
-        }
-    }, [admins]);
-
-    useEffect(() => {
-        if (admins) {
-            const searchQuerySplit = searchQuery
-                .split(" ")
-                .filter((search) => search.length > 0);
-
-            const filteredRows = admins.filter((admin) => {
-                return searchQuerySplit.some((search) => {
-                    const reg = new RegExp("^.*" + search + ".*$", "i");
-
-                    return (
-                        reg.test(admin["last_name"]) ||
-                        reg.test(admin["first_name"]) ||
-                        reg.test(admin["email"]) ||
-                        reg.test(admin["user_type"])
-                    );
-                });
-            });
-
-            const nextData = searchQuery.length > 0 ? filteredRows : admins;
-
-            setTableData(nextData);
-            setCurrentData(nextData);
-        }
-    }, [searchQuery, admins]);
+        setSelectedAdminIds([]);
+    }, [page, searchQuery]);
 
     const [isModalLoading, setIsModalLoading] = useState(false);
 

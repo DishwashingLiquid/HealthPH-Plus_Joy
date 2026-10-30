@@ -6,6 +6,13 @@ export const accountActivityApi = baseAPI.injectEndpoints({
       query: () => "/activity-logs/account-analytics",
       providesTags: ["AccountAnalytics"],
     }),
+    fetchRecentAccountActivity: builder.query({
+      query: ({ limit = 25, offset = 0 } = {}) => ({
+        url: "/activity-logs/recent",
+        params: { limit, offset },
+      }),
+      providesTags: ["AccountActivity"],
+    }),
     createAccountActivity: builder.mutation({
       query: (data) => ({
         url: "/activity-logs",
@@ -19,5 +26,6 @@ export const accountActivityApi = baseAPI.injectEndpoints({
 
 export const {
   useFetchAccountAnalyticsQuery,
+  useFetchRecentAccountActivityQuery,
   useCreateAccountActivityMutation
 } = accountActivityApi;

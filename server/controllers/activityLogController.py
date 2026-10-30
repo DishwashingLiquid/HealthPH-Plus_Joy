@@ -1,4 +1,4 @@
-from fastapi import HTTPException, status, Depends, Request
+from fastapi import HTTPException, status, Depends, Request, Query
 from fastapi.responses import JSONResponse
 from bson import ObjectId
 import pymongo
@@ -140,6 +140,49 @@ async def fetch_activity_logs(user_id: Annotated[str, Depends(require_auth)]):
 
     return activity_logs
 
+def get_recent_activity_query(user_data):
+    if user_data.get("user_type") == "SUPERADMIN":
+        return {}
+
+    if user_data.get("role_label") == "Admin":
+        organization = user_data.get("organization", "")
+        organization_users = user_collection.find(
+            {
+                "user_type": "USER",
+                "organization": {
+                    "$regex": f"^{re.escape(organization)}$",
+                    "$options": "i",
+                },
+            },
+            {"_id": 1},
+        )
+        return {"user_id": {"$in": [str(account["_id"]) for account in organization_users]}}
+
+    return None
+
+
+async def fetch_recent_account_activity(
+    user_id: Annotated[str, Depends(require_auth)],
+    limit: int = Query(25, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+):
+    user_data = user_collection.find_one({"_id": ObjectId(user_id)})
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Not Authorized")
+
+    query = get_recent_activity_query(user_data)
+    if query is None:
+        raise HTTPException(status_code=403, detail="You do not have access to recent account activity.")
+
+    total = activity_logs_collection.count_documents(query)
+    entries = activity_logs_collection.find(query).sort([
+        ("created_at", pymongo.DESCENDING),
+        ("_id", pymongo.DESCENDING),
+    ]).skip(offset).limit(limit)
+
+    return {"entries": list_activity_logs(entries), "total": total, "limit": limit, "offset": offset}
+
+
 async def fetch_account_analytics(user_id: Annotated[str, Depends(require_auth)]):
     user_data = user_collection.find_one({"_id": ObjectId(user_id)})
 
@@ -196,41 +239,14 @@ async def fetch_account_analytics(user_id: Annotated[str, Depends(require_auth)]
         if role_label in role_region_map[region]:
             role_region_map[region][role_label] += 1
 
+    recent_query = get_recent_activity_query(user_data)
+    show_recent_activity = recent_query is not None
     recent_activity = []
-    show_recent_activity = (
-        user_data.get("user_type") == "SUPERADMIN"
-        or user_data.get("role_label") == "Admin"
-    )
-
-    if user_data.get("user_type") == "SUPERADMIN":
-        recent_cursor = activity_logs_collection.find().sort(
-            [("created_at", pymongo.DESCENDING)]
-        ).limit(20)
-
-        recent_activity = list_activity_logs(recent_cursor)
-
-    elif user_data.get("role_label") == "Admin":
-        organization = user_data.get("organization", "")
-
-        same_organization_users = user_collection.find(
-            {
-                "user_type": "USER",
-                "organization": {
-                    "$regex": f"^{re.escape(organization)}$",
-                    "$options": "i",
-                },
-            },
-            {"_id": 1},
-        )
-
-        same_organization_user_ids = [
-            str(account["_id"]) for account in same_organization_users
-        ]
-
-        recent_cursor = activity_logs_collection.find({
-            "user_id": {"$in": same_organization_user_ids}
-        }).sort([("created_at", pymongo.DESCENDING)]).limit(20)
-
+    if show_recent_activity:
+        recent_cursor = activity_logs_collection.find(recent_query).sort([
+            ("created_at", pymongo.DESCENDING),
+            ("_id", pymongo.DESCENDING),
+        ]).limit(20)
         recent_activity = list_activity_logs(recent_cursor)
 
     return {

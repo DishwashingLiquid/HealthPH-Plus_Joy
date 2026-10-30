@@ -26,8 +26,9 @@ import Regions from "../../assets/data/regions.json";
 import MultiSelect from "../MultiSelect";
 
 const UsersTable = ({
-  users,
-  setCurrentData,
+  users = [],
+  visibleUsers = users,
+  page = 1,
   searchQuery,
   setSearchQuery,
   organizationOptions = [],
@@ -43,43 +44,15 @@ const UsersTable = ({
       ? organizationName
       : "";
 
-  const [tableData, setTableData] = useState([]);
+  const tableData = visibleUsers;
   
   const [selectedUserIds, setSelectedUserIds] = useState([]);
   const [bulkActionModalActive, setBulkActionModalActive] = useState(false);
   const [bulkActionType, setBulkActionType] = useState("");
 
   useEffect(() => {
-    if (users) {
-      setTableData(users);
-      setCurrentData(users);
-    }
-  }, [users]);
-
-  useEffect(() => {
-    if (users) {
-      let searchQuerySplit = searchQuery.split(" ");
-      searchQuerySplit = searchQuerySplit.filter((s) => s.length > 0);
-
-      const filteredRows = users.filter((user) => {
-        return searchQuerySplit.some((s) => {
-          const reg = new RegExp("^.*" + s + ".*$", "i");
-          if (
-            reg.test(user["last_name"]) ||
-            reg.test(user["first_name"]) ||
-            reg.test(user["email"]) ||
-            reg.test(user["organization"]) ||
-            reg.test(user["role_label"])
-          ) {
-            return true;
-          }
-        });
-      });
-
-      setTableData(searchQuery.length > 0 ? filteredRows : users);
-      setCurrentData(searchQuery.length > 0 ? filteredRows : users);
-    }
-  }, [searchQuery]);
+    setSelectedUserIds([]);
+  }, [page, searchQuery]);
 
   const displayRegion = (region) => {
     const regions = {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
@@ -6,6 +6,7 @@ import { useReactToPrint } from "react-to-print";
 
 import SkeletonBody from "../../components/SkeletonBody";
 import LoadingSkeleton, { ChartSkeleton } from "../../components/LoadingSkeleton";
+import TablePagination from "../../components/TablePagination";
 import Icon from "../../components/Icon";
 import Input from "../../components/Input";
 import PrintComponent from "../../components/admin/PrintComponent";
@@ -59,6 +60,7 @@ import {
 import {
   useCreateAccountActivityMutation,
   useFetchAccountAnalyticsQuery,
+  useFetchRecentAccountActivityQuery,
 } from "../../features/api/accountActivitySlice";
 
 
@@ -89,6 +91,15 @@ const ROLE_COLORS = [
 ];
 
 const HEALTHPH_PLUS_MODULE_COVERAGE = Object.values(ROLE_PAGES);
+const ACCOUNT_PAGE_SIZE = 25;
+
+const filterAccountRows = (accounts, search, fields) => {
+  const terms = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return accounts;
+  return accounts.filter((account) => terms.some((term) =>
+    fields.some((field) => String(account[field] || "").toLowerCase().includes(term))
+  ));
+};
 
 const UserManagement = () => {
   const user = useSelector((state) => state.auth.user);
@@ -170,7 +181,13 @@ const UserManagement = () => {
   const [roleLabelFormMode, setRoleLabelFormMode] = useState("create");
   const [selectedRoleLabel, setSelectedRoleLabel] = useState(null);
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchValue] = useState("");
+  const [accountPages, setAccountPages] = useState({ Superadmins: 1, Users: 1 });
+
+  const setSearchQuery = (value) => {
+    setSearchValue(value);
+    setAccountPages({ Superadmins: 1, Users: 1 });
+  };
 
   const printRef = useRef();
 
@@ -462,12 +479,20 @@ const UserManagement = () => {
     })
   : organizationList;
 
-  const [tabs, setTabs] = useState([
-    { label: "Superadmins", count: 0 },
-    { label: "Users", count: 0 },
-    { label: "Organizations & Roles", count: 0 },
-    { label: "Account Analytics", count: 0 },
-  ]);
+  const currentAdminsData = useMemo(() => filterAccountRows(
+    admins, searchQuery, ["last_name", "first_name", "email", "user_type"]
+  ), [admins, searchQuery]);
+
+  const currentUsersData = useMemo(() => filterAccountRows(
+    users, searchQuery, ["last_name", "first_name", "email", "organization", "role_label"]
+  ), [users, searchQuery]);
+
+  const tabs = [
+    { label: "Superadmins", count: currentAdminsData.length },
+    { label: "Users", count: currentUsersData.length },
+    { label: "Organizations & Roles", count: filteredOrganizations.length },
+    { label: "Account Analytics", count: allAccounts.length },
+  ];
 
   const getDefaultTab = () => {
     if (isSuperadmin) return "Superadmins";
@@ -479,69 +504,6 @@ const UserManagement = () => {
 
   const [currentOrganizationSubtab, setCurrentOrganizationSubtab] =
     useState("Organizations");
-
-  useEffect(() => {
-    if (admins && users) {
-      if (searchQuery) {
-        let searchQuerySplit = searchQuery.split(" ");
-        searchQuerySplit = searchQuerySplit.filter((s) => s.length > 0);
-
-        const filteredAdmins = admins.filter((admin) => {
-          return searchQuerySplit.some((s) => {
-            const reg = new RegExp("^.*" + s + ".*$", "i");
-            if (
-              reg.test(admin["last_name"]) ||
-              reg.test(admin["first_name"]) ||
-              reg.test(admin["email"])
-            ) {
-              return true;
-            }
-          });
-        });
-
-        const filteredUsers = users.filter((user) => {
-          return searchQuerySplit.some((s) => {
-            const reg = new RegExp("^.*" + s + ".*$", "i");
-            if (
-              reg.test(user["last_name"]) ||
-              reg.test(user["first_name"]) ||
-              reg.test(user["email"]) ||
-              reg.test(user["organization"])
-            ) {
-              return true;
-            }
-          });
-        });
-
-        setTabs([
-          { label: "Superadmins", count: filteredAdmins.length },
-          { label: "Users", count: filteredUsers.length },
-          { label: "Organizations & Roles", count: filteredOrganizations.length },
-          { label: "Account Analytics", count: allAccounts.length },
-        ]);
-      } else {
-        setTabs([
-          { label: "Superadmins", count: admins.length },
-          { label: "Users", count: users.length },
-          { label: "Organizations & Roles", count: organizationList.length },
-          { label: "Account Analytics", count: allAccounts.length },
-        ]);
-      }
-    }
-  }, [
-    searchQuery,
-    admins,
-    users,
-    filteredOrganizations.length,
-    organizationList.length,
-    allAccounts.length,
-    isAdminsLoading,
-    isUsersLoading,
-  ]);
-
-  const [currentAdminsData, setCurrentAdminsData] = useState([]);
-
-  const [currentUsersData, setCurrentUsersData] = useState([]);
 
   const visibleTabs = isSuperadmin
     ? tabs
@@ -565,6 +527,14 @@ const UserManagement = () => {
     isOrganizationsRoleTab && currentOrganizationSubtab == "Roles";
 
   const isAccountTableTab = currentTableTab == "Superadmins" || isUsersTab;
+
+  const accountRows = currentTableTab === "Superadmins" ? currentAdminsData : currentUsersData;
+  const accountPageCount = Math.max(1, Math.ceil(accountRows.length / ACCOUNT_PAGE_SIZE));
+  const accountPage = Math.min(accountPages[currentTableTab] || 1, accountPageCount);
+  const accountPageOffset = (accountPage - 1) * ACCOUNT_PAGE_SIZE;
+  const visibleAccountRows = accountRows.slice(accountPageOffset, accountPageOffset + ACCOUNT_PAGE_SIZE);
+  const firstVisibleAccount = visibleAccountRows.length > 0 ? accountPageOffset + 1 : 0;
+  const lastVisibleAccount = visibleAccountRows.length > 0 ? accountPageOffset + visibleAccountRows.length : 0;
 
   const canPrintCurrentView = isAccountTableTab || isOrganizationsSubtab;
 
@@ -742,6 +712,13 @@ const UserManagement = () => {
       : isOrganizationsRoleTab
         ? isAccountAnalyticsError || (isOrganizationsSubtab ? isOrganizationsError : isRoleLabelsError) || (canManageSuperadmins && isAdminsError) || (canViewUsers && isUsersError)
         : isAccountAnalyticsError;
+
+  useEffect(() => {
+    if (!isAccountTableTab || isCurrentTableLoading || isCurrentTableError) return;
+    setAccountPages((pages) => (pages[currentTableTab] || 1) > accountPageCount
+      ? { ...pages, [currentTableTab]: accountPageCount }
+      : pages);
+  }, [currentTableTab, isAccountTableTab, isCurrentTableLoading, isCurrentTableError, accountPageCount]);
 
   const currentTableSkeletonColumns = currentTableTab == "Superadmins" ? 6 : 8;
   const currentTableSkeletonHeaders = currentTableTab === "Superadmins"
@@ -989,7 +966,7 @@ const UserManagement = () => {
                 type="button"
                 className="flex items-center gap-[8px] rounded-[10px] border border-[#E5E5E5] bg-[#F8F9FA] px-[16px] py-[10px] text-sm text-gray-800"
                 onClick={handlePrint}
-                disabled={isPrinting || !canPrintCurrentView}
+                disabled={isPrinting || !canPrintCurrentView || isCurrentTableLoading || isCurrentTableError}
               >
                 <Icon
                   iconName="Printer"
@@ -1147,18 +1124,20 @@ const UserManagement = () => {
             ) : currentTableTab == "Superadmins" ? (
               <AdminsTable
                 admins={admins}
+                visibleAdmins={visibleAccountRows}
+                page={accountPage}
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
-                setCurrentData={setCurrentAdminsData}
                 organizationOptions={organizationOptions}
                 isOrganizationsLoading={isOrganizationsLoading}
               />
             ) : currentTableTab == "Users" ? (
               <UsersTable
                 users={users}
+                visibleUsers={visibleAccountRows}
+                page={accountPage}
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
-                setCurrentData={setCurrentUsersData}
                 organizationOptions={organizationOptions}
                 isOrganizationsLoading={isOrganizationsLoading}
                 roleLabelOptions={roleLabelOptions}
@@ -1199,6 +1178,22 @@ const UserManagement = () => {
                 }
                 getRegionLabel={getRegionLabel}
                 roleDefinitions={accountRoleDefinitions}
+              />
+            )}
+            {isAccountTableTab && (
+              <TablePagination
+                page={accountPage}
+                pageCount={accountPageCount}
+                first={firstVisibleAccount}
+                last={lastVisibleAccount}
+                total={accountRows.length}
+                itemLabel={isUsersTab ? "users" : "superadmins"}
+                isLoading={isCurrentTableLoading}
+                isError={isCurrentTableError}
+                onPageChange={(page) => setAccountPages((pages) => ({
+                  ...pages,
+                  [currentTableTab]: Math.max(1, Math.min(accountPageCount, page)),
+                }))}
               />
             )}
           </div>
@@ -2954,9 +2949,32 @@ const AccountAnalyticsPanel = ({
     region: getRegionLabel(row.region),
   }));
 
-  const recentAccountActivity = accountAnalytics.recent_activity || [];
   const showRecentActivity = accountAnalytics.show_recent_activity === true;
   const isAccountActivityLoading = isAccountAnalyticsLoading;
+
+  const [recentActivityPage, setRecentActivityPage] = useState(1);
+  const {
+    currentData: recentActivityData,
+    isFetching: isRecentActivityLoading,
+    isError: isRecentActivityError,
+    refetch: refetchRecentActivity,
+  } = useFetchRecentAccountActivityQuery({
+    limit: ACCOUNT_PAGE_SIZE,
+    offset: (recentActivityPage - 1) * ACCOUNT_PAGE_SIZE,
+  }, { skip: !showRecentActivity });
+
+  const recentAccountActivity = recentActivityData?.entries || [];
+  const recentActivityTotal = recentActivityData?.total || 0;
+  const recentActivityPageCount = Math.max(1, Math.ceil(recentActivityTotal / ACCOUNT_PAGE_SIZE));
+  const firstVisibleActivity = recentAccountActivity.length > 0
+    ? (recentActivityPage - 1) * ACCOUNT_PAGE_SIZE + 1 : 0;
+  const lastVisibleActivity = recentAccountActivity.length > 0
+    ? firstVisibleActivity + recentAccountActivity.length - 1 : 0;
+
+  useEffect(() => {
+    if (!showRecentActivity || isRecentActivityLoading || isRecentActivityError || !recentActivityData) return;
+    setRecentActivityPage((page) => Math.min(page, recentActivityPageCount));
+  }, [showRecentActivity, isRecentActivityLoading, isRecentActivityError, recentActivityData, recentActivityPageCount]);
 
   const totalActivityActions = activityByDay.reduce(
     (total, day) => total + day.actions,
@@ -3159,12 +3177,15 @@ const AccountAnalyticsPanel = ({
             Detailed account activity based on your access level.
           </p>
 
-          {isAccountActivityLoading ? (
+          {isRecentActivityLoading ? (
             <div className="mt-[16px]">
               <SkeletonBody headers={["User", "Entry", "Module", "Time", "IP Address", "Logged At"]} rows={5} />
             </div>
-          ) : isAccountAnalyticsError ? (
-            <p role="alert" className="py-[24px] text-center text-sm text-gray-500">Unable to load recent account activity.</p>
+          ) : isRecentActivityError ? (
+            <div role="alert" className="py-[24px] text-center text-sm text-gray-500">
+              <p>Unable to load recent account activity.</p>
+              <button type="button" onClick={() => refetchRecentActivity()} className="mt-[8px] font-semibold underline">Retry</button>
+            </div>
           ) : recentAccountActivity.length > 0 ? (
             <div className="mt-[16px] overflow-x-auto">
               <table className="w-full text-sm">
@@ -3218,6 +3239,18 @@ const AccountAnalyticsPanel = ({
               content={recentActivityEmptyState.content}
             />
           )}
+          <TablePagination
+            page={recentActivityPage}
+            pageCount={recentActivityPageCount}
+            first={firstVisibleActivity}
+            last={lastVisibleActivity}
+            total={recentActivityTotal}
+            itemLabel="activities"
+            isLoading={isRecentActivityLoading}
+            isError={isRecentActivityError}
+            errorMessage="Activity range unavailable"
+            onPageChange={(page) => setRecentActivityPage(Math.max(1, Math.min(recentActivityPageCount, page)))}
+          />
         </div>
       )}
     </div>

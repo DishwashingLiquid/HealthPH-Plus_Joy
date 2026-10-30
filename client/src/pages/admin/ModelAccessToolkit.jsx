@@ -9,7 +9,7 @@ import EmptyState from "../../components/admin/EmptyState";
 import SkeletonBody from "../../components/SkeletonBody";
 import LoadingSkeleton from "../../components/LoadingSkeleton";
 import Regions from "../../assets/data/regions.json";
-import SelfReportPrint from "../../components/admin/SelfReportPrint";
+import DataManagementPrint from "../../components/admin/DataManagementPrint";
 import { loadSelfReportsForPrint } from "../../utils/selfReportPrintHelpers";
 
 import {
@@ -383,17 +383,17 @@ const getRequestErrorMessage = (error, fallback) => {
 const DataManagement = () => {
     const user = useSelector((state) => state.auth.user);
 
-    const selfReportPrintRef = useRef(null);
+    const dataManagementPrintRef = useRef(null);
     const printRequestRef = useRef(null);
     const printMountedRef = useRef(true);
     const printLockRef = useRef(false);
     const pendingPrintRef = useRef(false);
     const [printReport, setPrintReport] = useState(null);
     const [isPreparingPrint, setIsPreparingPrint] = useState(false);
-    const [selfReportPrintError, setSelfReportPrintError] = useState("");
+    const [printError, setPrintError] = useState("");
     const [fetchPrintEntries] = useLazyFetchAnalyticsEntriesQuery();
 
-    const finishSelfReportPrint = () => {
+    const finishDataManagementPrint = () => {
         printLockRef.current = false;
         pendingPrintRef.current = false;
         if (printMountedRef.current) {
@@ -402,18 +402,19 @@ const DataManagement = () => {
         }
     };
 
-    const printSelfReports = useReactToPrint({
-        content: () => selfReportPrintRef.current,
-        documentTitle: "HealthPH+ - Self Reports",
+    const printDataManagement = useReactToPrint({
+        content: () => dataManagementPrintRef.current,
+        documentTitle: printReport?.sourceType === "social_media"
+            ? "HealthPH+ - Social Media Datasets" : "HealthPH+ - Self Reports",
         // Safari can return from window.print before its preview has finished.
         removeAfterPrint: false,
         pageStyle: "@page { size: A4 landscape; margin: 12mm; } @media print { html, body { height: auto !important; overflow: visible !important; margin: 0 !important; } }",
-        onAfterPrint: finishSelfReportPrint,
+        onAfterPrint: finishDataManagementPrint,
         onPrintError: () => {
             if (printMountedRef.current) {
-                setSelfReportPrintError("Unable to open the print dialog. Please try again.");
+                setPrintError("Unable to open the print dialog. Please try again.");
             }
-            finishSelfReportPrint();
+            finishDataManagementPrint();
         },
     });
 
@@ -431,9 +432,9 @@ const DataManagement = () => {
     useEffect(() => {
         if (printReport && pendingPrintRef.current) {
             pendingPrintRef.current = false;
-            printSelfReports();
+            printDataManagement();
         }
-    }, [printReport, printSelfReports]);
+    }, [printReport, printDataManagement]);
 
     /* API HOOKS */
     const [downloadDataset] = useDownloadDatasetMutation();
@@ -1336,38 +1337,52 @@ const DataManagement = () => {
         }
     };
 
-    const handleSelfReportPrint = async () => {
-        if (printLockRef.current || dataSourceView !== "self_report") return;
+    const handleDataManagementPrint = async () => {
+        if (printLockRef.current || !["self_report", "social_media"].includes(dataSourceView)) return;
         printLockRef.current = true;
         setIsPreparingPrint(true);
-        setSelfReportPrintError("");
+        setPrintError("");
 
-        // Capture the filters once, even if the controls change during preparation.
+        // Capture the source and filters once, including all matching table pages.
+        const sourceType = dataSourceView;
+        const isDatasetReport = sourceType === "social_media";
         const filters = {
-            analysisStatus: entryStatusFilter,
+            analysisStatus: isDatasetReport ? datasetStatusFilter : entryStatusFilter,
             datasetId: "all",
-            search: entrySearch.trim(),
+            search: (isDatasetReport ? datasetSearch : entrySearch).trim(),
             language: dataLanguageFilter,
             dateFrom: dataDateFrom,
             dateTo: dataDateTo,
-            region: dataRegionFilter,
+            region: isDatasetReport ? "all" : dataRegionFilter,
         };
 
         try {
-            const entries = await loadSelfReportsForPrint((args) => {
-                if (!printMountedRef.current) throw new Error("Print preparation cancelled.");
-                const request = fetchPrintEntries(args, false);
-                printRequestRef.current = request;
-                return request.unwrap();
-            }, filters);
+            // The dataset endpoint already returns the complete authorized inventory.
+            const entries = isDatasetReport
+                ? filteredDatasets.map((dataset) => ({
+                    id: dataset.id,
+                    filename: dataset.original_filename || dataset.filename,
+                    num_of_rows: dataset.num_of_rows,
+                    languages: [...getDatasetLanguages(dataset)],
+                    created_at: dataset.created_at,
+                    user_name: dataset.user_name,
+                    dataset_status: getDatasetStatus(dataset),
+                }))
+                : await loadSelfReportsForPrint((args) => {
+                    if (!printMountedRef.current) throw new Error("Print preparation cancelled.");
+                    const request = fetchPrintEntries(args, false);
+                    printRequestRef.current = request;
+                    return request.unwrap();
+                }, filters);
 
             if (!printMountedRef.current) return;
             if (entries.length === 0) {
-                throw new Error("No self reports match these filters. Refresh the table and try again.");
+                throw new Error(`No ${isDatasetReport ? "datasets" : "self reports"} match these filters. Refresh the table and try again.`);
             }
 
             pendingPrintRef.current = true;
             setPrintReport({
+                sourceType,
                 entries,
                 filters,
                 generatedAt: new Date().toISOString(),
@@ -1375,12 +1390,12 @@ const DataManagement = () => {
             });
         } catch (error) {
             if (printMountedRef.current) {
-                setSelfReportPrintError(getRequestErrorMessage(
+                setPrintError(getRequestErrorMessage(
                     error,
                     error?.message || "Unable to prepare the report. Please try again."
                 ));
             }
-            finishSelfReportPrint();
+            finishDataManagementPrint();
         }
     };
 
@@ -1426,7 +1441,7 @@ const DataManagement = () => {
                             iconName="Printer"
                             variant="primary"
                             className="self-start md:self-auto"
-                            onClick={handleSelfReportPrint}
+                            onClick={handleDataManagementPrint}
                             disabled={isPreparingPrint || isAnalyticsEntriesFetching || isAnalyticsEntriesError || analyticsEntriesTotal === 0}
                             title="Print all self reports matching the current filters"
                         >
@@ -1436,6 +1451,16 @@ const DataManagement = () => {
 
                     {dataSourceView === "social_media" && (
                         <div className="flex flex-col gap-[10px] sm:flex-row sm:items-center md:justify-end">
+                            <ToolbarButton
+                                iconName="Printer"
+                                variant="primary"
+                                onClick={handleDataManagementPrint}
+                                disabled={isPreparingPrint || isDatasetsByUserFetching || isDatasetsByUserError || filteredDatasets.length === 0}
+                                title="Print all datasets matching the current filters"
+                            >
+                                {isPreparingPrint ? "Preparing..." : "Print"}
+                            </ToolbarButton>
+
                             <ToolbarButton
                                 iconName="Download"
                                 variant="primary"
@@ -1587,9 +1612,9 @@ const DataManagement = () => {
                 )}
             </div>
 
-            {dataSourceView === "self_report" && selfReportPrintError && (
+            {printError && (
                 <p role="alert" className="mb-[16px] rounded-[8px] border border-[#FCA5A5] bg-[#FEF2F2] px-[12px] py-[10px] text-sm text-[#B42318]">
-                    {selfReportPrintError}
+                    {printError}
                 </p>
             )}
 
@@ -1806,7 +1831,7 @@ const DataManagement = () => {
             </div>
         </div>
         <div style={{ display: "none" }}>
-            <SelfReportPrint ref={selfReportPrintRef} report={printReport} />
+            <DataManagementPrint ref={dataManagementPrintRef} report={printReport} />
         </div>
         {bulkActionModalActive && (
             <BulkDatasetActionModal
