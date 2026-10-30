@@ -24,6 +24,7 @@ from helpers.analyticsAccessHelpers import (
     get_analytics_entry_region,
 )
 from helpers.diseaseDetectionHelpers import detect_diseases
+from helpers.analyticsSymptomHelpers import get_entry_symptoms
 from helpers.surveillanceDateHelpers import (
     get_surveillance_window,
     is_within_surveillance_window,
@@ -374,6 +375,8 @@ def fetch_surveillance_summary(
             "metadata.symptom_labels": 1,
             "location": 1,
             "analysis.disease_labels": 1,
+            "analysis.symptoms": 1,
+            "analysis.symptom_extraction": 1,
             "event_time": 1,
         },
     )
@@ -425,23 +428,23 @@ def fetch_surveillance_summary(
 
         processed_entries += 1
 
-        # Structured, submitted symptoms are currently available for self reports.
-        # Count reports, rather than repeated labels or duplicate analytics entries.
-        if entry.get("source_type") == "self_report":
-            metadata = entry.get("metadata")
-            raw_symptoms = metadata.get("symptom_labels") if isinstance(metadata, dict) else []
-            report_id = entry.get("report_id") or entry.get("source_id") or entry.get("_id")
+        source_type = entry.get("source_type")
 
-            if isinstance(raw_symptoms, list) and report_id is not None:
-                for raw_symptom in raw_symptoms:
-                    if not isinstance(raw_symptom, str):
-                        continue
-                    symptom = " ".join(raw_symptom.split())
-                    if not symptom:
-                        continue
-                    key = symptom.casefold()
-                    symptom_labels.setdefault(key, symptom)
-                    symptom_reports[key].add(str(report_id))
+        if source_type == "self_report":
+            report_id = (
+                entry.get("report_id")
+                or entry.get("source_id")
+                or entry["_id"]
+            )
+        else:
+            # each soc med analytics entry represents one dataset row
+            report_id = entry["_id"]
+
+        report_key = (source_type, str(report_id))
+
+        for key, symptom in get_entry_symptoms(entry).items():
+            symptom_labels.setdefault(key, symptom)
+            symptom_reports[key].add(report_key)
 
         if labels:
             disease_positive_entries += 1

@@ -320,9 +320,7 @@ const AISurveillance = () => {
                                     : "border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]"
                             }`}
                         >
-                            <p>{isSummaryFetching
-                                ? <LoadingSkeleton className="h-[14px] w-[260px]" label="Loading surveillance summary..." />
-                                : surveillanceDataStatusMessage}</p>
+                            <p>{surveillanceDataStatusMessage}</p>
 
                             {isSummaryError && (
                                 <button
@@ -375,7 +373,7 @@ const AISurveillance = () => {
                                     Symptom Frequency
                                 </h2>
                                 <p className="mt-[4px] text-xs leading-relaxed text-gray-500">
-                                    Processed self reports matching these filters. Each report counts once per symptom.
+                                    Selected self-report symptoms and extracted symptom mentions from processed reports and social media. Each report counts once per symptom.
                                 </p>
                             </div>
                             <div
@@ -414,7 +412,7 @@ const AISurveillance = () => {
                                 ) : !summaryReady ? (
                                     <p className="py-[20px] text-sm text-gray-500">Symptom frequency is unavailable.</p>
                                 ) : symptomCounts.length === 0 ? (
-                                    <p className="py-[20px] text-sm leading-relaxed text-gray-500">No reported symptoms in the processed self reports matching these filters.</p>
+                                    <p className="py-[20px] text-sm leading-relaxed text-gray-500">No symptoms found in processed self reports or social media matching these filters.</p>
                                 ) : (
                                     <dl className="divide-y divide-[#E5E5E5]">
                                         {symptomCounts.map(({ symptom, report_count }) => (
