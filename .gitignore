@@ -10,3 +10,4 @@ __pycache__/
 hub-*.json
 hub-*.jsonl
 docs/mobile-backend/live/
+/services/xlmr-disease-detection-service/model/
