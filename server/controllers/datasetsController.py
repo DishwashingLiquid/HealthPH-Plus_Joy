@@ -237,6 +237,14 @@ def run_dataset_processing_job(dataset_id: str):
                                 ),
                                 "completed_at": completed_at,
                             },
+                            "analysis.symptoms": disease_prediction["symptoms"],
+                            "analysis.symptom_extraction": {
+                                "status": "completed",
+                                "model_version": (
+                                    disease_prediction["symptom_model_version"]
+                                ),
+                                "completed_at": completed_at,
+                            },
                             "analysis_status": "PROCESSED",
                             "analysis_error": "",
                             "analyzed_at": completed_at,

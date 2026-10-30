@@ -63,7 +63,65 @@ def _validate_scores(scores, field_name):
 
     return validated
 
-def _validate_prediction(prediction):
+def _validate_symptoms(symptoms, text):
+    if not isinstance(symptoms, list):
+        raise DiseaseDetectionServiceError(
+            "Disease service returned invalid symptoms."
+        )
+
+    validated = []
+    previous_end = 0
+
+    for symptom in symptoms:
+        if not isinstance(symptom, dict):
+            raise DiseaseDetectionServiceError(
+                "Disease service returned an invalid symptom."
+            )
+
+        mention = symptom.get("text")
+        normalized = symptom.get("normalized_symptom")
+        start = symptom.get("start_index")
+        end = symptom.get("end_index")
+        confidence = symptom.get("confidence")
+        negated = symptom.get("negated")
+
+        if (
+            not isinstance(mention, str)
+            or not mention.strip()
+            or type(start) is not int
+            or type(end) is not int
+            or not previous_end <= start < end <= len(text)
+            or text[start:end] != mention
+            or (
+                normalized is not None
+                and (
+                    not isinstance(normalized, str)
+                    or not normalized.strip()
+                )
+            )
+            or type(confidence) not in (int, float)
+            or not math.isfinite(confidence)
+            or not 0 <= confidence <= 1
+            or type(negated) is not bool
+        ):
+            raise DiseaseDetectionServiceError(
+                "Disease service returned invalid symptom details or offsets."
+            )
+
+        validated.append({
+            "text": mention,
+            "normalized_symptom": normalized,
+            "start_index": start,
+            "end_index": end,
+            "confidence": float(confidence),
+            "negated": negated,
+        })
+
+        previous_end = end
+
+    return validated
+
+def _validate_prediction(prediction, text):
     if not isinstance(prediction, dict):
         raise DiseaseDetectionServiceError(
             "Disease service returned an invalid prediction."
@@ -71,6 +129,16 @@ def _validate_prediction(prediction):
 
     labels = prediction.get("labels")
     model_version = prediction.get("model_version")
+
+    symptom_model_version = prediction.get("symptom_model_version")
+
+    if (
+        not isinstance(symptom_model_version, str)
+        or not symptom_model_version.strip()
+    ):
+        raise DiseaseDetectionServiceError(
+            "Disease service returned an invalid symptom extractor version."
+        )
 
     if not isinstance(labels, list):
         raise DiseaseDetectionServiceError(
@@ -101,6 +169,11 @@ def _validate_prediction(prediction):
             "thresholds",
         ),
         "model_version": model_version,
+        "symptoms": _validate_symptoms(
+            prediction.get("symptoms"),
+            text,
+        ),
+        "symptom_model_version": symptom_model_version,
     }
 
 def detect_diseases(texts):
@@ -142,8 +215,12 @@ def detect_diseases(texts):
                     )
 
                 predictions.extend(
-                    _validate_prediction(prediction)
-                    for prediction in batch_predictions
+                    _validate_prediction(prediction, text)
+                    for prediction, text in zip(
+                        batch_predictions,
+                        batch,
+                        strict=True,
+                    )
                 )
 
     except httpx.TimeoutException as error:
