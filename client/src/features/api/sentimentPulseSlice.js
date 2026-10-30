@@ -3,6 +3,13 @@ import { trendsRequest } from "../../pages/admin/sentimentPulseTool/sentimentCon
 
 export const sentimentPulseApi = baseAPI.injectEndpoints({
   endpoints: (builder) => ({
+    fetchSentimentPulseRegionalAnalytics: builder.query({
+      query: ({ timeRange, regions, startDate, endDate } = {}) => ({
+        ...trendsRequest({ timeRange, regions, startDate, endDate }),
+        url: "/sentiment-pulse/regional-analytics",
+      }),
+      providesTags: ["SentimentPulseRegionalAnalysis", { type: "SentimentPulseSurveys", id: "SENTIMENT_TRENDS" }],
+    }),
     fetchSentimentPulseTrends: builder.query({
       query: trendsRequest,
       providesTags: [{ type: "SentimentPulseSurveys", id: "SENTIMENT_TRENDS" }],
@@ -117,6 +124,7 @@ export const sentimentPulseApi = baseAPI.injectEndpoints({
 });
 
 export const {
+  useFetchSentimentPulseRegionalAnalyticsQuery,
   useFetchSentimentPulseTrendsQuery,
   useFetchSentimentPulseProcessingQuery,
   useProcessSentimentPulseSurveyMutation,

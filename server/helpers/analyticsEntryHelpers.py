@@ -198,6 +198,7 @@ def build_survey_response_analytics_entries(response_document, survey_document):
                 "source_id": response_id,
                 "survey_id": survey_id,
                 "response_id": response_id,
+                "submission_id": submission_id,
                 "question_id": str(question_id),
                 "question_type": _clean_text_value(question.get("type")),
                 "question_text": _clean_text_value(question.get("title")),

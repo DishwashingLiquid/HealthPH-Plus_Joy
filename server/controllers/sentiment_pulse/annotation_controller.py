@@ -6,12 +6,13 @@ from datetime import timedelta
 from fastapi import BackgroundTasks, Body, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
-from config.database import analytics_entries_collection, surveys_collection
+from config.database import analytics_entries_collection, surveys_collection, survey_responses_collection
 from middleware.requireRole import require_role
 from .annotation_config import (ConfigurationError, load_config, parse_config,
                                 rules_for_survey, validate_survey_rules)
 from .annotation_processing import registry, run_processing
 from .annotation_reporting import report
+from .regional_reporting import regional_report
 from .regional_analysis import get_response_date_range, parse_regions
 from .survey_helpers import get_survey_or_404, get_survey_status
 
@@ -96,3 +97,18 @@ def fetch_trends(_current_user: Admin, timeRange: str = "last-30-days",
             "regions": selected, "surveyId": surveyId,
             "unknownRegionIncluded": not selected},
             **report(analytics_entries_collection, rules, bounds, selected)}
+
+
+def fetch_regional_analytics(_current_user: Admin, timeRange: str = "last-30-days",
+                             regions: Optional[str] = None, startDate: Optional[str] = None,
+                             endDate: Optional[str] = None):
+    bounds = get_response_date_range(timeRange, startDate, endDate)
+    selected = parse_regions(regions)
+    fallback = configuration()
+    rules = {s["id"]: configured_rules(s, fallback) for s in surveys_collection.find({}) if s.get("id")}
+    return {"sources": ["mobile"], "filters": {"timeRange": timeRange,
+            "startDate": bounds.start.date().isoformat(),
+            "endDate": ((bounds.end_exclusive - timedelta(days=1)).date().isoformat()
+                        if bounds.end_exclusive else bounds.cutoff.date().isoformat()),
+            "regions": selected, "surveyId": None, "unknownRegionIncluded": not selected},
+            **regional_report(analytics_entries_collection, survey_responses_collection, rules, bounds, selected)}

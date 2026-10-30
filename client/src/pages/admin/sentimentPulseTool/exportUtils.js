@@ -4,6 +4,7 @@ import {
   normalizeRegionalApiData,
 } from "./RegionalAnalysis";
 import { isCount, isShare, reportingScope, summaryState, surveyCardSentiment } from "./sentimentContract";
+import { regionalAnswerRows, regionalCardRows, regionalRow, regionalAssessment, regionalDisplayLabel, REGIONAL_ANSWER_SCOPE, REGIONAL_SUBMISSION_SCOPE, REGIONAL_SATISFACTION_SCOPE } from "./regionalMetrics";
 
 const metricHeaders = ["Eligible text/choice answers", "Analyzed text/choice answers", "Text/choice answers without results", "Calm answers", "Worried answers", "Worried share (%)", "Satisfied answers", "Valid satisfaction answers", "Satisfaction share (%)", "Dissatisfied answers", "Neutral satisfaction answers"];
 const metricValues = (row = {}) => [row.eligibleAnswers, row.predictedAnswers, row.answersWithoutResults, row.calm, row.worried].map((value) => isCount(value) ? value : "").concat([
@@ -29,6 +30,8 @@ export const buildSentimentPulseCsv = ({
   customEndDate,
   selectedRegions,
   regionalAnalysis,
+  regionalRequestState,
+  showEmptyRegions = false,
   surveys,
   trends,
   surveyFeedback = {},
@@ -68,30 +71,41 @@ export const buildSentimentPulseCsv = ({
     csvContent += "\n" + line(["Survey ID", "Survey title", "Feedback status", "Satisfaction configuration", ...metricHeaders]);
     for (const row of trends.surveys || []) csvContent += line([row.surveyId, surveys?.find((s) => s.id === row.surveyId)?.title || "", summaryState(row), row.satisfactionStatus, ...metricValues(row)]);
   } else if (activeTab === "regional-analysis") {
-    const totals = regionalAnalysis?.filteredTotals || {};
-    csvContent += `Survey Respondents (filtered),${escapeCsvValue(totals.surveyRespondents)}\n`;
-    csvContent += `Total Submissions (filtered),${escapeCsvValue(totals.totalSubmissions)}\n`;
-    csvContent += `Unlinked Submissions (filtered),${escapeCsvValue(totals.unlinkedSubmissions)}\n`;
-    csvContent += "\nRegion,Survey Respondents,Total Submissions,Health Sentiment Score,Sentiment Status\n";
-    const regionalRows = getVisibleRegionalRows(
-      selectedRegions,
-      normalizeRegionalApiData(regionalAnalysis),
-      regionalAnalysis?.unknownRegion,
-    );
-    csvContent += regionalRows
-      .map((region) =>
-        [
-          region.label,
-          region.data.surveyRespondents,
-          region.data.totalSubmissions,
-          "—",
-          "Coming soon",
-        ]
-          .map(escapeCsvValue)
-          .join(",")
-      )
-      .join("\n");
-    csvContent += regionalRows.length > 0 ? "\n" : "";
+    const line = (values) => values.map(escapeCsvValue).join(",") + "\n";
+    const count = (value) => isCount(value) ? value : "";
+    const report = regionalRequestState === "Request failed" ? undefined : regionalAnalysis;
+    csvContent += line(["Submission count definition", REGIONAL_SUBMISSION_SCOPE]);
+    csvContent += line(["Survey and regional scope", REGIONAL_ANSWER_SCOPE]);
+    csvContent += line(["Satisfaction scope and Trends difference", REGIONAL_SATISFACTION_SCOPE]);
+    csvContent += line(["Units", "Class share uses analyzed Calm + Worried answers; ties show both classes. Overall percentages use aggregate counts. Blank means unavailable; zero is valid. Missing predictions have unknown processing status."]);
+    csvContent += line(["Dates (Philippines)", report?.filters ? `${report.filters.startDate} to ${report.filters.endDate}` : "Unavailable"]);
+    csvContent += line(["Survey scope", "All existing surveys; mobile analytics only; Trends survey selector does not apply"]);
+    csvContent += line(["Regional cards", selectedRegions.length ? "Selected regions" : showEmptyRegions ? "All regions" : "Regions with activity"]);
+    csvContent += line(["Analytics request", regionalRequestState || (report ? "Available" : "Unavailable")]);
+    csvContent += line(["Sentiment configuration", report?.sentimentStatus || "Unavailable"]);
+    csvContent += line(["Satisfaction configuration", report?.satisfactionStatus || "Unavailable"]);
+    csvContent += line(["Missing submission links (analyzed answers; all date-filtered regions)", count(report?.linkage?.missingAnalyzedAnswers)]);
+    csvContent += line(["Ambiguous submission links (analyzed answers; all date-filtered regions)", count(report?.linkage?.ambiguousAnalyzedAnswers)]);
+    csvContent += line(["Excluded invalid analytics dates", count(report?.excludedInvalidSubmissionDates)]);
+    csvContent += line(["Region", "Survey responses analyzed", "Linked analyzed submissions", "Submission count status", "Sentiment", "Class share (%)", "Analysis coverage", "Coverage status", "Satisfaction", ...metricHeaders]);
+    const values = (label, row) => {
+      const assessment = regionalAssessment(report, row);
+      return [label, count(row?.analyzedSubmissions), count(row?.linkedAnalyzedSubmissions), row?.submissionCountStatus || "Unavailable",
+        regionalDisplayLabel(assessment.sentiment.label), isShare(assessment.sentiment.share) ? assessment.sentiment.share.toFixed(1) : "",
+        assessment.coverage, assessment.incomplete ? "Incomplete; processing status unknown" : row ? "" : "Unavailable",
+        regionalDisplayLabel(assessment.satisfaction.label), ...metricValues(row ? { ...row,
+          satisfactionShare: assessment.satisfaction.share,
+          ...(report?.satisfactionStatus !== "configured" ? { satisfiedAnswers: null, satisfactionAnswers: null,
+            dissatisfiedAnswers: null, neutralSatisfactionAnswers: null } : {}),
+        } : undefined)];
+    };
+    csvContent += line(values("Overall (filtered)", report?.totals));
+    const answerRows = regionalAnswerRows(report);
+    const rows = getVisibleRegionalRows(selectedRegions, normalizeRegionalApiData(report), answerRows.unknown)
+      .map((row) => ({ ...row, data: regionalRow(report, row.value) }));
+    for (const region of regionalCardRows(rows, selectedRegions.length > 0 || showEmptyRegions)) {
+      csvContent += line(values(region.label, region.data));
+    }
   } else if (activeTab === "mobile-surveys") {
     csvContent += "Units,Classified mobile text/choice answers; not unique respondents. Blank means unavailable.\n";
     csvContent +=

@@ -379,6 +379,22 @@ class EligibilityReportingTests(unittest.TestCase):
         regions = {row["region"]: row["eligibleAnswers"] for row in result["regions"]}
         self.assertEqual(regions, {"III": 1, None: 1})
 
+    def test_regional_totals_weight_answer_counts_and_preserve_zero_and_missing(self):
+        rows = [entry("ncr-good", question_id="rating", question_type="rating", raw_answer=5),
+                *[entry(f"iii-low-{i}", question_id="rating", question_type="rating",
+                        raw_answer=1, location={"region": "Region III"}) for i in range(9)],
+                entry("unprocessed"), entry("unknown", location={})]
+        db.analytics_entries.insert_many(rows)
+        result = report(db.analytics_entries, {"survey": RULES})
+        regional = {row["region"]: row for row in result["regions"]}
+        self.assertEqual(result["totals"]["satisfactionShare"], 10)
+        self.assertEqual(regional["NCR"]["satisfactionShare"], 100)
+        self.assertEqual(regional["III"]["satisfactionShare"], 0)
+        self.assertEqual(regional["III"]["satisfiedAnswers"], 0)
+        self.assertIsNone(regional[None]["satisfactionShare"])
+        self.assertEqual(regional["NCR"]["answersWithoutResults"], 1)
+        self.assertIsNone(result["totals"]["worriedShare"])
+
 
 class RouteTests(unittest.TestCase):
     def setUp(self):
@@ -456,6 +472,41 @@ class RouteTests(unittest.TestCase):
             trends = self.client.get("/trends?timeRange=custom&startDate=2026-10-28&endDate=2026-10-28&surveyId=survey").json()
         self.assertEqual(status["summary"]["totals"], trends["totals"])
         self.assertFalse(status["progressDurable"])
+
+    def test_regional_dashboard_read_scope_is_mobile_all_existing_surveys_and_never_processes(self):
+        db.surveys.update_one({}, {"$set": {"questions": [
+            {"id": "explain", "type": "text"},
+            {"id": "rating", "type": "rating", "rateMin": 1, "rateMax": 5}]}})
+        # No publication flags: answer reporting intentionally retains Trends eligibility.
+        rows = [entry("calm"), entry("worried"), entry("pending"),
+                entry("zero-rating", question_id="rating", question_type="rating", raw_answer=1),
+                entry("website", source_platform="website"), entry("deleted", survey_id="deleted"),
+                entry("previous", event_time="2026-10-27T15:59:59Z"),
+                entry("other-region", location={"region": "Region III"}),
+                entry("unknown", location={})]
+        for row, sentiment in zip(rows[:2], ("calm", "worried")):
+            row["analysis"].update(sentiment=sentiment, sentiment_score=.5, sentiment_model_version=VERSION)
+        db.analytics_entries.insert_many(copy.deepcopy(rows))
+        before = list(db.analytics_entries.find())
+        with patch.object(controller, "configuration", return_value={}), \
+                patch.object(controller, "run_processing") as run, \
+                patch.object(controller.registry, "reserve") as reserve:
+            response = self.client.get("/trends?timeRange=custom&startDate=2026-10-28&endDate=2026-10-28&regions=Region%20NCR")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["sources"], ["mobile"])
+        self.assertIsNone(data["filters"]["surveyId"])
+        self.assertEqual(data["filters"]["regions"], ["NCR"])
+        self.assertFalse(data["filters"]["unknownRegionIncluded"])
+        self.assertEqual(data["totals"]["eligibleAnswers"], 3)
+        self.assertEqual(data["totals"]["predictedAnswers"], 2)
+        self.assertEqual(data["totals"]["answersWithoutResults"], 1)
+        self.assertEqual(data["totals"]["worriedShare"], 50)
+        self.assertEqual(data["totals"]["satisfactionShare"], 0)
+        self.assertEqual(data["regions"][0]["region"], "NCR")
+        self.assertEqual(list(db.analytics_entries.find()), before)
+        run.assert_not_called()
+        reserve.assert_not_called()
 
     def test_background_process_dispatches_and_repeat_is_safe(self):
         db.surveys.update_one({}, {"$set": {"sentimentPulseConfig": {"explanationQuestionIds": ["explain"]}, "endedAt": datetime.now()}})

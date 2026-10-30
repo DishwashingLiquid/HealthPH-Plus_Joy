@@ -523,6 +523,22 @@ test("processing invalidates subscribed status and Trends without changing legac
   } finally { h.store.dispatch(h.api.util.resetApiState()); }
 });
 
+test("regional analytics uses all surveys and processing invalidates its stored report", async () => {
+  const h = apiHarness(() => makeReport());
+  try {
+    await h.store.dispatch(h.api.endpoints.fetchSentimentPulseRegionalAnalytics.initiate({
+      timeRange: "custom", regions: ["NCR"], startDate: "2026-10-01", endDate: "2026-10-28", surveyId: "ignored",
+    }));
+    assert.deepEqual(h.requests[0], { url: "/sentiment-pulse/regional-analytics", params: {
+      timeRange: "custom", regions: "NCR", startDate: "2026-10-01", endDate: "2026-10-28",
+    } });
+    h.requests.length = 0;
+    await h.store.dispatch(h.api.endpoints.processSentimentPulseSurvey.initiate("SUR00001"));
+    await Promise.all(h.store.dispatch(h.api.util.getRunningQueriesThunk()));
+    assert.ok(h.requests.some((r) => r.url === "/sentiment-pulse/regional-analytics"));
+  } finally { h.store.dispatch(h.api.util.resetApiState()); }
+});
+
 test("survey cards use server processing summaries, not legacy neutral defaults", async () => {
   const report = makeReport();
   const h = apiHarness(() => ({ summary: report, surveyId: "SUR00001", state: "configured", job: { jobId: "j", state: "running", stored: 0 }, progressDurable: false }));

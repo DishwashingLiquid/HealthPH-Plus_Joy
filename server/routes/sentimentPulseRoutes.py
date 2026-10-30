@@ -14,13 +14,14 @@ from controllers.sentimentPulseController import (
     update_survey,
 )
 from controllers.sentiment_pulse.annotation_controller import (
-    configure_survey, fetch_trends, process_survey, processing_status,
+    configure_survey, fetch_trends, fetch_regional_analytics, process_survey, processing_status,
 )
 
 
 router = APIRouter()
 
 router.add_api_route("/trends", methods=["GET"], endpoint=fetch_trends)
+router.add_api_route("/regional-analytics", methods=["GET"], endpoint=fetch_regional_analytics)
 router.add_api_route("/surveys/{survey_id}/sentiment-config", methods=["PUT"], endpoint=configure_survey)
 router.add_api_route("/surveys/{survey_id}/process", methods=["POST"], endpoint=process_survey)
 router.add_api_route("/surveys/{survey_id}/processing", methods=["GET"], endpoint=processing_status)

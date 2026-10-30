@@ -13,6 +13,7 @@ SUITES = (
     "test_sentiment_pulse_annotations.py",
     "test_sentiment_pulse_summary.py",
     "test_sentiment_pulse_regional_analysis.py",
+    "test_sentiment_pulse_regional_reporting.py",
     "test_sentiment_pulse_application_ids.py",
     "test_regional_summaries.py",
     "test_dashboard_regions.py",

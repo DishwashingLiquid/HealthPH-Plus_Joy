@@ -36,7 +36,8 @@ def finalize(counts):
             "satisfactionShare": counts["satisfiedAnswers"] / counts["satisfactionAnswers"] * 100 if counts["satisfactionAnswers"] else None}
 
 
-def aggregate_annotations(entries, rules_by_survey, bounds=None, regions=()):
+def aggregate_annotations(entries, rules_by_survey, bounds=None, regions=(), *,
+                          region_for_entry=None, satisfaction_filter=None):
     totals = empty_counts()
     daily = defaultdict(empty_counts)
     regional = defaultdict(empty_counts)
@@ -55,7 +56,8 @@ def aggregate_annotations(entries, rules_by_survey, bounds=None, regions=()):
         if bounds and (when < bounds.start or when > bounds.cutoff
                        or (bounds.end_exclusive and when >= bounds.end_exclusive)):
             continue
-        region = dashboard_region(entry, ("location.region", *EVENT_REGION_PATHS))
+        region = (region_for_entry(entry) if region_for_entry else
+                  dashboard_region(entry, ("location.region", *EVENT_REGION_PATHS)))
         if regions and region not in regions:
             continue
         targets = (totals, daily[when.date().isoformat()], regional[region], surveys[sid])
@@ -70,7 +72,8 @@ def aggregate_annotations(entries, rules_by_survey, bounds=None, regions=()):
             if valid:
                 versions[entry["analysis"]["sentiment_model_version"]] += 1
         scoring = rules.satisfaction.get(entry.get("question_id"))
-        if scoring and entry.get("question_type") in {"rating", "multipleChoice"}:
+        if (scoring and entry.get("question_type") in {"rating", "multipleChoice"}
+                and (satisfaction_filter is None or satisfaction_filter(entry))):
             key = answer_key(entry.get("raw_answer"))
             if key is not None and key in {answer_key(v) for v in scoring["validValues"]}:
                 for counts in targets:

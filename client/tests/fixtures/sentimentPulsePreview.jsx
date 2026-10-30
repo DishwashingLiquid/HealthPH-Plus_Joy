@@ -4,6 +4,7 @@ import { store } from "../../src/features/store";
 import SentimentPulseTool from "../../src/pages/admin/sentimentPulseTool/SentimentPulseTool";
 import "../../src/App.css";
 import { counts, makeReport, results, summary, surveys } from "./sentimentPulseData.mjs";
+import { DASHBOARD_REGIONS } from "../../src/pages/admin/dashboardRegions";
 
 const scenario = new URLSearchParams(location.search).get("scenario");
 let processCalls = 0;
@@ -12,7 +13,8 @@ const requests = [];
 const fixtures = structuredClone(surveys);
 const report = (url) => {
   const empty = { eligibleAnswers: 0, predictedAnswers: 0, answersWithoutResults: 0, calm: 0, worried: 0, worriedShare: null, satisfiedAnswers: 0, satisfactionAnswers: 0, satisfactionShare: null };
-  const totals = scenario === "empty" || scenario === "unconfigured" ? empty : scenario === "unprocessed" ? { ...empty, eligibleAnswers: 8, answersWithoutResults: 8 } : processCalls && processingReads > 1 ? { ...counts, predictedAnswers: 8, answersWithoutResults: 0, calm: 5, worriedShare: 37.5 } : counts;
+  const excludesNcr = url?.searchParams.has("regions") && !url.searchParams.get("regions").split(",").includes("NCR");
+  const totals = excludesNcr || scenario === "empty" || scenario === "unconfigured" ? empty : scenario === "unprocessed" ? { ...empty, eligibleAnswers: 8, answersWithoutResults: 8 } : processCalls && processingReads > 1 ? { ...counts, predictedAnswers: 8, answersWithoutResults: 0, calm: 5, worriedShare: 37.5 } : counts;
   return makeReport({ totals, sentimentStatus: scenario === "unconfigured" ? "not_configured" : "configured",
     satisfactionStatus: scenario === "unconfigured" ? "not_configured" : "configured",
     ...(url ? { filters: { timeRange: url.searchParams.get("timeRange"), startDate: url.searchParams.get("startDate") || "2026-09-29", endDate: url.searchParams.get("endDate") || "2026-10-28", regions: url.searchParams.get("regions")?.split(",") || [], surveyId: url.searchParams.get("surveyId"), unknownRegionIncluded: !url.searchParams.has("regions") } } : {}) });
@@ -26,7 +28,7 @@ window.fetch = async (request, options) => {
   requests.push(`${method} ${path}${url.search}`);
   document.getElementById("fixture-requests").textContent = requests.join("\n");
   const respond = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
-  if (scenario === "error" && (path.endsWith("/trends") || path.endsWith("/processing"))) return respond({ detail: "Fixture service unavailable" }, 503);
+  if (scenario === "error" && (path.endsWith("/trends") || path.endsWith("/processing") || path.endsWith("/regional-analytics"))) return respond({ detail: "Fixture service unavailable" }, 503);
   if (path.endsWith("/process")) { processCalls += 1; processingReads = 0; return respond({ surveyId: "SUR00001", accepted: true, job: { jobId: "fixture-job", state: "scheduled", stored: 0, skipped: 0, failedBatches: 0, failedWrites: 0, error: null } }, 202); }
   if (path.endsWith("/processing")) {
     processingReads += 1;
@@ -37,7 +39,27 @@ window.fetch = async (request, options) => {
   if (path.endsWith("/results")) return respond(results);
   if (path.endsWith("/trends")) return respond(report(url));
   if (path.endsWith("/summary")) return respond(summary);
-  if (path.endsWith("/regional-analysis")) return respond({ regions: [{ region: "NCR", surveyRespondents: 8, totalSubmissions: 14 }], unknownRegion: { region: null, surveyRespondents: 0, totalSubmissions: 0 }, filteredTotals: { surveyRespondents: 8, totalSubmissions: 14, unlinkedSubmissions: 1 }, totals: { surveyRespondents: 8, totalSubmissions: 14, unknownRegionRespondents: 0, unknownRegionSubmissions: 0 } });
+  if (path.endsWith("/regional-analytics")) {
+    if (scenario === "missing-fields") return respond({});
+    const data = report(url);
+    const partial = scenario === "unlinked";
+    const totals = { ...data.totals, analyzedSubmissions: partial ? null : data.totals.predictedAnswers ? 3 : 0,
+      linkedAnalyzedSubmissions: data.totals.predictedAnswers ? partial ? 2 : 3 : 0,
+      submissionCountStatus: partial ? "incomplete" : "exact" };
+    return respond({ ...data, totals, regions: [{ region: "NCR", ...totals }], regionsComplete: true,
+      satisfactionScope: "linked_analyzed_submissions",
+      linkage: { missingAnalyzedAnswers: partial ? 1 : 0, ambiguousAnalyzedAnswers: 0 } });
+  }
+  if (path.endsWith("/regional-analysis")) {
+    const selected = url.searchParams.get("regions")?.split(",") || [];
+    const hasNcr = (!selected.length || selected.includes("NCR")) && scenario !== "empty";
+    return respond({ regions: DASHBOARD_REGIONS.filter(({ value }) => !selected.length || selected.includes(value)).map(({ value }) => ({ region: value,
+      surveyRespondents: value === "NCR" && hasNcr && scenario !== "unlinked" ? 8 : 0, totalSubmissions: value === "NCR" && hasNcr ? 14 : 0 })),
+      unknownRegion: { region: null, surveyRespondents: 0, totalSubmissions: 0 },
+      filteredTotals: { surveyRespondents: hasNcr && scenario !== "unlinked" ? 8 : 0, totalSubmissions: hasNcr ? 14 : 0, unlinkedSubmissions: hasNcr ? scenario === "unlinked" ? 14 : 1 : 0 },
+      totals: { surveyRespondents: scenario === "unlinked" ? 0 : 8, totalSubmissions: 14, unknownRegionRespondents: 0, unknownRegionSubmissions: 0 },
+      filters: { startDate: url.searchParams.get("startDate") || "2026-09-29", endDate: url.searchParams.get("endDate") || "2026-10-28", regions: selected } });
+  }
   if (path.endsWith("/surveys") && method === "GET") return respond(fixtures);
   if (path.endsWith("/end")) { const id = path.split("/").at(-2); fixtures.find((s) => s.id === id).status = "Ended"; return respond({ message: "Fixture ended", analyticsEntryCount: 2 }); }
   return respond({ detail: "Unimplemented fixture request; no network request was sent." }, 400);
