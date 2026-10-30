@@ -6,6 +6,7 @@ from controllers.analyticsEntryController import (
     fetch_self_report_language_summary,
     process_analytics_entries,
     fetch_surveillance_summary,
+    fetch_nlp_entity_summary,
 )
 
 router = APIRouter()
@@ -35,4 +36,11 @@ router.add_api_route(
     "/surveillance-summary",
     methods=["GET"],
     endpoint=fetch_surveillance_summary,
+)
+
+# GET /analytics-entries/nlp-entity-summary
+router.add_api_route(
+    "/nlp-entity-summary",
+    methods=["GET"],
+    endpoint=fetch_nlp_entity_summary,
 )

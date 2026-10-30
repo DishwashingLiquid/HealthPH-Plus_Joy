@@ -12,6 +12,7 @@ REGION_WEATHER_LOCATIONS = {
     "V": ("Legazpi", 13.14125, 123.74073),
     "CAR": ("Baguio City", 16.41639, 120.59306),
     "VI": ("Iloilo City", 10.69694, 122.56444),
+    "NIR": ("Bacolod City", 10.66667, 122.95000),
     "VII": ("Cebu City", 10.31672, 123.89071),
     "VIII": ("Tacloban City", 11.24333, 125.00472),
     "IX": ("Pagadian", 7.82570, 123.43700),

@@ -28,13 +28,23 @@ import {
 const AISurveillance = () => {
     const user = useSelector((state) => state.auth.user);
 
-    const accessibleRegionValues =
-        user?.accessible_regions?.length > 0
-            ? user.accessible_regions
-            : Regions.regions.map((region) => region.value);
+    const assignedRegions = Array.isArray(user?.accessible_regions)
+        ? user.accessible_regions
+        : typeof user?.accessible_regions === "string"
+            ? user.accessible_regions.split(",")
+            : [];
 
-    const accessibleRegions = Regions.regions.filter((region) =>
-        accessibleRegionValues.includes(region.value)
+    const assignedRegionCodes = assignedRegions.map(
+        (value) => String(value).trim().toUpperCase()
+    );
+
+    const canAccessAllRegions =
+        user?.user_type === "SUPERADMIN"
+        || assignedRegionCodes.includes("ALL");
+
+    const accessibleRegions = Regions.regions.filter(
+        (region) => canAccessAllRegions
+            || assignedRegionCodes.includes(region.value)
     );
 
     /* MAP */
@@ -232,6 +242,7 @@ const AISurveillance = () => {
                     <div className="relative h-[720px] flex-none overflow-hidden rounded-[12px] border border-[#E5E5E5]">
                         <SurveillanceMap
                             filters={filters}
+                            highlightRegion={selectedRegion === "all" ? null : selectedRegion}
                             center={getCenter()}
                             points={filteredSurveillancePoints}
                             isPointsLoading={isPointsLoading}

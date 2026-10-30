@@ -24,7 +24,10 @@ import {
 } from "../../features/api/analyticsSlice";
 
 import { useFetchDatasetsByUserQuery } from "../../features/api/datasetsSlice";
-import { useFetchSelfReportLanguageSummaryQuery } from "../../features/api/analyticsEntriesSlice";
+import {
+    useFetchSelfReportLanguageSummaryQuery,
+    useFetchNlpEntitySummaryQuery,
+} from "../../features/api/analyticsEntriesSlice";
 
 import Report from "../../components/admin/Report";
 import LoadingSkeleton, { ChartSkeleton } from "../../components/LoadingSkeleton";
@@ -173,160 +176,106 @@ const NamedEntityRecognition = ({
     isWordCloudError,
     wordcloudOptions,
 }) => {
+    const {
+        currentData: entitySummary,
+        isFetching: isEntityFetching,
+        isError: isEntityError,
+        refetch: refetchEntities,
+    } = useFetchNlpEntitySummaryQuery(undefined, {
+        refetchOnMountOrArgChange: true,
+    });
+
+    const totalReports = entitySummary?.processed_report_count ?? 0;
+
+    const diseaseRows = [
+        ["TB", "Tuberculosis", "#32418C"],
+        ["PN", "Pneumonia", "#2572A5"],
+        ["COVID", "COVID-19", "#9BCC33"],
+        ["AURI", "AURI", "#FBD117"],
+    ].map(([code, entity, color]) => ({
+        entity,
+        color,
+        report_count: entitySummary?.disease_counts?.[code] ?? 0,
+    }));
+
+    const symptomRows = (entitySummary?.symptom_counts ?? []).map(
+        ({ symptom, report_count }) => ({
+            entity: symptom,
+            report_count,
+            color: "#2572A5",
+        })
+    );
+
+    const regionRows = (entitySummary?.region_counts ?? []).map(
+        ({ region, report_count }) => ({
+            entity: region === "UNMAPPED"
+                ? "Region unavailable"
+                : ["NCR", "CAR", "BARMM"].includes(region)
+                    ? region
+                    : `Region ${
+                        region === "IVA"
+                            ? "IV-A"
+                            : region === "IVB"
+                                ? "IV-B"
+                                : region
+                    }`,
+            report_count,
+            color: "#6A8EB5",
+        })
+    );
+
     return (
         <div className="flex flex-col gap-[10px]">
             {/* FIRST ROW */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-[10px]">
-                {/* DISEASES PANEL */}
-                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[260px]">
-                    <h2 className="text-[18px] font-semibold text-gray-800 mb-[12px]">
-                        Diseases
-                    </h2>
+            <p className="text-sm text-gray-500">
+                All dates. Processed self reports and social media in your permitted regions.
+                Counts represent reports, not repeated text mentions.
+                Bars show the share of processed reports.
+            </p>
 
-                    <div className="flex flex-col gap-[12px]">
-                        <EntityFrequencyRow
-                            entity="Tuberculosis"
-                            count="328"
-                            progress="90%"
-                            note="+12% from last week | Primarily NCR"
-                            color="#32418C"
-                        />
-                        <EntityFrequencyRow
-                            entity="Pneumonia"
-                            count="241"
-                            progress="75%"
-                            note="-4% from last week | Region IV-A"
-                            color="#2572A5"
-                        />
-                        <EntityFrequencyRow
-                            entity="COVID-19"
-                            count="187"
-                            progress="60%"
-                            note="+8% from last week | Region III"
-                            color="#9BCC33"
-                        />
-                        <EntityFrequencyRow
-                            entity="AURI"
-                            count="121"
-                            progress="40%"
-                            note="+3% from last week | Multiple regions"
-                            color="#FBD117"
-                        />
-                    </div>
-                </div>
+            <div className="grid grid-cols-1 gap-[10px] xl:grid-cols-3">
+                <EntityFrequencyPanel
+                    title="Diseases"
+                    description="Reports classified with each disease label. One report can have multiple labels."
+                    rows={diseaseRows}
+                    totalReports={totalReports}
+                    isFetching={isEntityFetching}
+                    isError={isEntityError}
+                    onRetry={refetchEntities}
+                    fixedLabels
+                />
 
-                {/* SYMPTOM FREQUENCY PANEL */}
-                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[260px]">
-                    <h2 className="text-[18px] font-semibold text-gray-800 mb-[12px]">
-                        Symptom Frequency    
-                    </h2>
-
-                    <div className="flex flex-col gap-[12px]">
-                        <EntityFrequencyRow 
-                            entity="Fever" 
-                            count="356"
-                            progress="95%"
-                            note="+8% from last week | Primarily in NCR, Region III"
-                            color="#32418C"
-                        />
-                        <EntityFrequencyRow 
-                            entity="Cough" 
-                            count="289"
-                            progress="78%"
-                            note="-3% from last week | Primarily in NCR, Region IV-A"
-                            color="#2572A5"
-                        />
-                        <EntityFrequencyRow 
-                            entity="Headache" 
-                            count="201"
-                            progress="60%"
-                            note="+32% from last week | Region IV-A"
-                            color="#9BCC33"
-                        />
-                        <EntityFrequencyRow 
-                            entity="Rash" 
-                            count="99"
-                            progress="35%"
-                            note="+5% from last week | Multiple regions"
-                            color="#FBD117"
-                        />
-                    </div>
-                </div>
-                
-                {/* LOCATION PANEL */}
-                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[260px]">
-                    <h2 className="text-[18px] font-semibold text-gray-800 mb-[12px]">
-                        Locations
-                    </h2>
-
-                    <div className="flex flex-col gap-[14px]">
-                        <LocationRow 
-                            location="National Capital Region"
-                            mentions="428"
-                            status="High Activity"
-                            color="#32418C"
-                        />
-                        <LocationRow 
-                            location="Region IV-A"
-                            mentions="312"
-                            status="Moderate Activity"
-                            color="#2572A5"
-                        />
-                        <LocationRow 
-                            location="Region III"
-                            mentions="201"
-                            status="Monitoring"
-                            color="#9BCC33"
-                        />
-                        <LocationRow 
-                            location="BARMM"
-                            mentions="97"
-                            status="Low Activity"
-                            color="#FBD117"
-                        />
-                    </div>
-                </div>
+                <EntityFrequencyPanel
+                    title="Symptom Frequency"
+                    description="Selected symptoms and non-negated extracted symptoms. Each report counts once per symptom."
+                    rows={symptomRows}
+                    totalReports={totalReports}
+                    isFetching={isEntityFetching}
+                    isError={isEntityError}
+                    onRetry={refetchEntities}
+                />
+                <EntityFrequencyPanel
+                    title="Locations"
+                    description="Reports grouped by their submitted location's region, not locations mentioned in the text."
+                    rows={regionRows}
+                    totalReports={totalReports}
+                    isFetching={isEntityFetching}
+                    isError={isEntityError}
+                    onRetry={refetchEntities}
+                    emptyMessage="No regional results available."                    
+                />
             </div>
             {/* SECOND ROW */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-[10px]">
-                {/* LEFT - NER DEMO PANEL*/}
-                <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[420px]">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-[16px] mb-[20px]">
-                        <div>
-                            <h2 className="text-[18px] font-semibold text-gray-800">
-                                Named Entity Recognition Demo
-                            </h2>
-                            <p className="text-sm text-gray-500">
-                                Sample entity extraction from health-related text.
-                            </p>
-                        </div>
-                        
-                        <div className="flex flex-wrap gap-[14px] text-sm">
-                            <LegendItem label="Disease" color="#32418C" />
-                            <LegendItem label="Symptom" color="#2572A5" />
-                            <LegendItem label="Location" color="#FBD117" />
-                        </div>
-                    </div>
-                    <div className="flex flex-col gap-[14px]">
-                        <NERPostCard
-                            language="Filipino"
-                            postId="Post ID: 1"
-                        >
-                            Maraming kaso ng {" "}
-                            <EntityHighlight label="dengue" backgroundColor="#32418C30" textColor="#32418C" /> sa aming barangay sa {" "}
-                            <EntityHighlight label="Quezon City" backgroundColor="#FBD11730" textColor="#FBD117" />. May {" "}
-                            <EntityHighlight label="lagnat" backgroundColor="#1ABC9C30" textColor="#1ABC9C" /> at {" "}
-                            <EntityHighlight label="pantal" backgroundColor="#1ABC9C30" textColor="#1ABC9C" /> ang aking anak.
-                        </NERPostCard>
-                        <NERPostCard
-                            language="English"
-                            postId="Post ID: 2"
-                        >
-                            Several people in {" "}
-                            <EntityHighlight label="Cebu City" backgroundColor="#FBD11730" textColor="#FBD117" /> are experiencing severe {" "}
-                            <EntityHighlight label="coughing" backgroundColor="#1ABC9C30" textColor="#1ABC9C" /> and difficulty breathing after the typhoon. 
-                        </NERPostCard>
-                    </div>
+                {/* LEFT - NER DEMO PANEL OR LEFT - ENTITY HIGHLIGHTS */}
+                <div className="flex min-h-[260px] flex-col rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
+                    <h2 className="text-[18px] font-semibold text-gray-800">
+                        Named Entity Recognition Demo
+                    </h2>
+                    <p className="my-auto py-[40px] text-center text-sm text-gray-500">
+                        Named Entity Recognition is not yet available.
+                        Specialist-reviewed annotations are being completed for model training.
+                    </p>
                 </div>
                 {/* RIGHT */}
                 <div className="flex flex-col gap-[10px]">
@@ -812,32 +761,126 @@ const LanguageDetection = ({
     );
 };
 
-const EntityFrequencyRow = ({ entity, count, progress, note, color }) => {
+const EntityFrequencyPanel = ({
+    title,
+    description,
+    rows,
+    totalReports,
+    isFetching,
+    isError,
+    onRetry,
+    fixedLabels = false,
+    emptyMessage = "No matching results available.",
+}) => {
+    const diseaseRowHeight = 60;
+    const bodyHeight = diseaseRowHeight * 4;
+    const rowHeight = fixedLabels ? diseaseRowHeight : 40;
+    const loadingRowCount = bodyHeight / rowHeight;
+
+    const displayedRows = isFetching && !fixedLabels
+        ? Array.from({ length: loadingRowCount }, (_, index) => ({
+            entity: `loading-${index}`,
+        }))
+        : rows;
+
     return (
-        <div>
-            <div className="flex justify-between items-center mb-[8px]">
-                <p className="text-[16px] font-medium text-gray-800">
-                    {entity}
-                </p>
-                <p className="text-[16px] font-semibold text-gray-800">
-                    {count} mentions
+        <section className="row-span-2 grid min-w-0 grid-rows-[subgrid] gap-y-[12px] rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
+            <div>
+                <h2 className="mb-[6px] text-[18px] font-semibold text-gray-800">
+                    {title}
+                </h2>
+
+                <p className="text-sm text-gray-500">
+                    {description}
                 </p>
             </div>
 
-            <div className="h-[12px] bg-gray-100 rounded-full overflow-hidden">
-                <div 
-                    className="h-full rounded-full"
-                    style={{
-                        width: progress,
-                        backgroundColor: color,
-                    }}
-                ></div>
-            </div>
+            <div
+                role="region"
+                aria-label={`${title} report counts`}
+                aria-busy={isFetching}
+                tabIndex={0}
+                className="overflow-y-auto overscroll-contain focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#32418C]"
+                style={{ height: bodyHeight }}
+            >
+                {isError ? (
+                    <div className="flex h-full flex-col items-center justify-center text-sm text-[#B42318]">
+                        <p>Unable to load results.</p>
 
-            <p className="text-sm text-gray-500 mt-[6px]">
-                {note}
-            </p>
-        </div>
+                        <button
+                            type="button"
+                            onClick={onRetry}
+                            className="mt-[8px] underline"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                ) : !isFetching && totalReports === 0 ? (
+                    <p className="py-[12px] text-sm text-gray-500">
+                        No processed reports available.
+                    </p>
+                ) : !isFetching && rows.length === 0 ? (
+                    <p className="py-[12px] text-sm text-gray-500">
+                        {emptyMessage}
+                    </p>
+                ) : (
+                    <div>
+                        {displayedRows.map(({ entity, report_count, color }) => (
+                            <div
+                                key={entity}
+                                className="flex flex-col justify-center"
+                                style={{ height: rowHeight }}
+                            >
+                                <div className="mb-[4px] flex items-center justify-between gap-[12px]">
+                                    {isFetching && !fixedLabels ? (
+                                        <LoadingSkeleton className="h-[16px] w-[45%]" />
+                                    ) : (
+                                        <span
+                                            title={entity}
+                                            className="min-w-0 truncate text-sm font-medium text-gray-800"
+                                        >
+                                            {entity}
+                                        </span>
+                                    )}
+
+                                    <span className="shrink-0 text-sm font-semibold text-gray-800">
+                                        {isFetching ? (
+                                            <LoadingSkeleton className="h-[16px] w-[60px]" />
+                                        ) : (
+                                            `${report_count.toLocaleString()} reports`
+                                        )}
+                                    </span>
+                                </div>
+
+                                {isFetching ? (
+                                    <LoadingSkeleton className="h-[6px] w-full" />
+                                ) : (
+                                    <div
+                                        className="h-[6px] overflow-hidden rounded-full bg-gray-100"
+                                        aria-hidden="true"
+                                    >
+                                        <div
+                                            className="h-full rounded-full"
+                                            style={{
+                                                width: `${
+                                                    totalReports
+                                                        ? Math.min(
+                                                            100,
+                                                            report_count / totalReports * 100
+                                                        )
+                                                        : 0
+                                                }%`,
+                                                backgroundColor: color,
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </section>
     );
 };
 

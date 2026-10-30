@@ -472,6 +472,106 @@ def fetch_surveillance_summary(
         ],
     }
 
+def fetch_nlp_entity_summary(
+    current_user: Annotated[
+        dict,
+        Depends(require_page("NLP Insights")),
+    ],
+):
+    allowed_regions = get_allowed_analytics_regions(current_user)
+
+    entries = analytics_entries_collection.find(
+        {
+            "analysis_status": "PROCESSED",
+            "source_type": {"$in": ["social_media", "self_report"]},
+        },
+        {
+            "_id": 1,
+            "source_type": 1,
+            "report_id": 1,
+            "source_id": 1,
+            "location": 1,
+            "metadata.symptom_labels": 1,
+            "analysis.disease_labels": 1,
+            "analysis.symptoms": 1,
+            "analysis.symptom_extraction": 1,
+        },
+    )
+
+    report_ids = set()
+    region_reports = defaultdict(set)
+    disease_reports = defaultdict(set)
+    symptom_reports = defaultdict(set)
+    symptom_labels = {}
+
+    for entry in entries:
+        entry_region = get_analytics_entry_region(entry)
+
+        if (
+            allowed_regions is not None
+            and entry_region not in allowed_regions
+        ):
+            continue
+
+        source_type = entry["source_type"]
+
+        if source_type == "self_report":
+            report_id = (
+                entry.get("report_id")
+                or entry.get("source_id")
+                or entry["_id"]
+            )
+        else:
+            report_id = entry["_id"]
+
+        report_key = (source_type, str(report_id))
+        report_ids.add(report_key)
+
+        region_reports[entry_region or "UNMAPPED"].add(report_key)
+
+        analysis = entry.get("analysis") or {}
+        labels = analysis.get("disease_labels", [])
+
+        if isinstance(labels, list):
+            for label in labels:
+                if isinstance(label, str):
+                    code = label.strip().upper()
+
+                    if code in MAP_DISEASE_CODES:
+                        disease_reports[code].add(report_key)
+
+        for key, symptom in get_entry_symptoms(entry).items():
+            symptom_labels.setdefault(key, symptom)
+            symptom_reports[key].add(report_key)
+
+    return {
+        "processed_report_count": len(report_ids),
+        "disease_counts": {
+            code: len(disease_reports[code])
+            for code in sorted(MAP_DISEASE_CODES)
+        },
+        "region_counts": [
+            {
+                "region": region,
+                "report_count": len(ids),
+            }
+            for region, ids in sorted(
+                region_reports.items(),
+                key=lambda item: (-len(item[1]), item[0]),
+            )
+        ],
+        "symptom_counts": [
+            {
+                "symptom": symptom_labels[key],
+                "report_count": len(ids),
+            }
+            for key, ids in sorted(
+                symptom_reports.items(),
+                key=lambda item: (-len(item[1]), item[0]),
+            )
+        ],
+    }
+
 PROCESSABLE_SOURCE_TYPES = ["self_report"]
 
 def run_analytics_entry_processing_job(entry_ids: list[str]):

@@ -1,4 +1,8 @@
-from region_normalization import REGIONS, normalize_region
+from region_normalization import (
+    REGIONS,
+    normalize_region,
+    resolve_region,
+)
 
 def get_allowed_analytics_regions(user):
     # None means unrestricted access for SUPERADMIN.
@@ -27,19 +31,8 @@ def get_allowed_analytics_regions(user):
     return allowed
 
 def get_analytics_entry_region(entry):
-    location = entry.get("location") or {}
-
-    if not isinstance(location, dict):
-        return None
-
-    recognized = {
-        region
-        for field in ("region", "regionCode", "regionName")
-        if (region := normalize_region(location.get(field)))
-    }
-
-    # Unknown or conflicting regions cannot establish regional access.
-    if len(recognized) != 1:
-        return None
-
-    return recognized.pop()
+    region, _ = resolve_region(
+        entry.get("location"),
+        allow_raw=True,
+    )
+    return region

@@ -84,6 +84,11 @@
             "label": "Region BARMM",
             "value": "BARMM",
             "order": 16
+        },
+        {
+            "label": "Negros Island Region (NIR)",
+            "value": "NIR",
+            "order": 17
         }
     ]
 }

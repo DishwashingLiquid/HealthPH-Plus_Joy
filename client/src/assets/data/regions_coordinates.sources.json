@@ -1,0 +1,36 @@
+{
+    "updated_regions": [
+        "VI",
+        "VII",
+        "NIR"
+    ],
+    "publisher": "Department of Public Works and Highways (DPWH), GIA/Statistics Division",
+    "source_layer": "https://services1.arcgis.com/IwZZTMxZCmAmFYvF/ArcGIS/rest/services/Regional_Boundary_for_IA_Validation/FeatureServer/0",
+    "source_attribution": "Original source NAMRIA and PSGC, rectified digitally by DPWH GIA Staff; layer metadata cites updates through May 2025.",
+    "retrieved_on": "2026-10-31",
+    "psgc_composition_reference": "https://psa.gov.ph/classification/psgc/provinces/1800000000",
+    "purpose": "Simplified display boundaries for region highlighting and map framing, not survey-grade boundaries.",
+    "source_crs": "WGS 84 (EPSG:4326)",
+    "asset_coordinate_order": "latitude, longitude (Leaflet)",
+    "query": {
+        "maxAllowableOffset": 0.001,
+        "geometryPrecision": 5,
+        "outSR": 4326
+    },
+    "processing": "Repair invalid source polygon rings with make_valid and polygon union; simplify at 0.001 degrees while preserving topology; retain all polygon parts and holes.",
+    "other_regions": "Other region outlines retain their existing geometry.",
+    "nir_center": {
+        "coordinate_system": "WGS 84",
+        "calculation": "Center of NIR outline bounding box",
+        "code": "1800000000",
+        "code_system": "PSGC"
+    },
+    "environmental_reference": {
+        "name": "Bacolod City",
+        "latitude": 10.66667,
+        "longitude": 122.95,
+        "geonames_id": 1729564,
+        "source": "https://geocoding-api.open-meteo.com/v1/search?name=Bacolod&count=5&language=en&format=json&countryCode=PH",
+        "note": "Coordinates only; NIR regional assignment follows PSA PSGC rather than the geocoder's older admin1 label."
+    }
+}

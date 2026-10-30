@@ -2,6 +2,10 @@ import { baseAPI } from "./_baseAPI";
 
 export const analyticsEntriesApi = baseAPI.injectEndpoints({
     endpoints: (builder) => ({
+        fetchNlpEntitySummary: builder.query({
+            query: () => "/analytics-entries/nlp-entity-summary",
+            providesTags: ["AnalyticsEntries"],
+        }),
         fetchSurveillanceSummary: builder.query({
             query: ({
                 region = "all",
@@ -72,4 +76,5 @@ export const {
     useFetchAnalyticsMapPointsQuery,
     useFetchSelfReportLanguageSummaryQuery,
     useProcessAnalyticsEntriesMutation,
+    useFetchNlpEntitySummaryQuery,
 } = analyticsEntriesApi;

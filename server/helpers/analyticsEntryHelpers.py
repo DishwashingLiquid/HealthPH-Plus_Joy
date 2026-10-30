@@ -2,6 +2,8 @@ import pandas as pd
 
 from helpers.miscHelpers import get_ph_datetime
 
+from region_normalization import resolve_region
+
 DEFAULT_ANALYSIS_TASKS = [
     "language_detection",
     "sentiment",
@@ -117,6 +119,13 @@ def build_social_media_analytics_entries(
         if not text:
             continue
 
+        raw_location = _clean_text_value(row.get("location"))
+
+        region, _ = resolve_region(
+            {"raw": raw_location},
+            allow_raw=True,
+        )
+
         entries.append(
             {
                 "source_type": "social_media",
@@ -129,8 +138,8 @@ def build_social_media_analytics_entries(
                 "source_platform": _clean_text_value(row.get("source")),
 
                 "location": {
-                    "raw": _clean_text_value(row.get("location")),
-                    "region": "",
+                    "raw": raw_location,
+                    "region": region or "",
                     "province": "",
                     "city": "",
                     "barangay": "",
@@ -283,6 +292,10 @@ def build_self_report_analytics_entry(report_document):
         return None
 
     location = report_document.get("location") or {}
+    region, _ = resolve_region(
+        location,
+        allow_raw=True,
+    )
     created_at = report_document.get("createdAt") or get_ph_datetime()
 
     return {
@@ -303,8 +316,7 @@ def build_self_report_analytics_entry(report_document):
                 or _clean_text_value(location.get("cityName"))
                 or _clean_text_value(location.get("provinceName"))
                 or _clean_text_value(location.get("regionName")),
-            "region": _clean_text_value(location.get("regionCode"))
-                or _clean_text_value(location.get("regionName")),
+            "region": region or "",
             "province": _clean_text_value(location.get("provinceName")),
             "city": _clean_text_value(location.get("cityName")),
             "barangay": _clean_text_value(location.get("barangayName")),

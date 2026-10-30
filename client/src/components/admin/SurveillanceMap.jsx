@@ -80,6 +80,7 @@ const createPin = (selected) =>
 
     const SurveillanceMap = ({
         filters,
+        highlightRegion = null,
         center = [13, 122],
         points = [],
         isPointsLoading = false,
@@ -243,12 +244,13 @@ const createPin = (selected) =>
                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     />
 
-                    {filters.region.length !== Regions.regions.length &&
-                        RegionsCoordinates.map(({ id, coordinates }) =>
-                            filters.region.some(({ value }) => value === id) ? (
+                    {highlightRegion &&
+                        RegionsCoordinates.map(({ id, coordinates, attribution }) =>
+                            id === highlightRegion ? (
                                 <Polygon
                                     key={id}
                                     positions={coordinates}
+                                    attribution={attribution}
                                     interactive={false}
                                     pathOptions={{
                                         color: "#32418C",
