@@ -5,96 +5,96 @@
 @tailwind utilities;
 
 @layer components {
-  .admin-layout nav {
+  .admin-layout .admin-navbar {
     position: sticky;
     top: 0;
     z-index: 100;
   }
 
-  .admin-layout nav .logo-wrapper {
+  .admin-layout .admin-navbar .logo-wrapper {
     z-index: 3;
   }
 
-  .admin-layout nav .nav-links a {
+  .admin-layout .admin-navbar .nav-links a {
     @apply prod-b2 rounded-[6px] text-center text-gray-700 font-medium py-[6px] px-[12px] me-[4px];
   }
 
-  .admin-layout nav .nav-icons a {
+  .admin-layout .admin-navbar .nav-icons a {
     @apply prod-b2 rounded-[6px] text-center text-gray-700 font-medium py-[6px] px-[12px] me-[4px];
     @apply md:flex md:justify-center md:items-center md:px-0 md:py-0 w-[36px] h-[36px];
   }
 
-  .admin-layout nav .nav-links a:hover:not(.active),
-  .admin-layout nav .nav-icons a:hover:not(.active) {
+  .admin-layout .admin-navbar .nav-links a:hover:not(.active),
+  .admin-layout .admin-navbar .nav-icons a:hover:not(.active) {
     @apply text-gray-900 bg-[#E8E8E8];
   }
 
-  .admin-layout nav .nav-links a.active,
-  .admin-layout nav .nav-icons a.active {
+  .admin-layout .admin-navbar .nav-links a.active,
+  .admin-layout .admin-navbar .nav-icons a.active {
     @apply text-primary-500 bg-primary-100;
   }
 
-  .admin-layout nav .nav-icons a span {
+  .admin-layout .admin-navbar .nav-icons a span {
     @apply block md:hidden;
   }
 
-  .admin-layout nav .nav-links a .icon:not(.icon-stroke) {
+  .admin-layout .admin-navbar .nav-links a .icon:not(.icon-stroke) {
     @apply block md:hidden fill-gray-700 me-[8px];
   }
 
-  .admin-layout nav .nav-icons a .icon:not(.icon-stroke) {
+  .admin-layout .admin-navbar .nav-icons a .icon:not(.icon-stroke) {
     @apply fill-gray-700 me-[8px] md:me-0;
   }
 
-  .admin-layout nav .nav-links a:hover .icon:not(.icon-stroke),
-  .admin-layout nav .nav-icons a:hover .icon:not(.icon-stroke) {
+  .admin-layout .admin-navbar .nav-links a:hover .icon:not(.icon-stroke),
+  .admin-layout .admin-navbar .nav-icons a:hover .icon:not(.icon-stroke) {
     @apply fill-gray-900;
   }
 
-  .admin-layout nav .nav-links a.active .icon:not(.icon-stroke),
-  .admin-layout nav .nav-icons a.active .icon:not(.icon-stroke) {
+  .admin-layout .admin-navbar .nav-links a.active .icon:not(.icon-stroke),
+  .admin-layout .admin-navbar .nav-icons a.active .icon:not(.icon-stroke) {
     @apply fill-primary-500;
   }
 
-  .admin-layout nav .nav-links a .icon.icon-stroke {
+  .admin-layout .admin-navbar .nav-links a .icon.icon-stroke {
     @apply block md:hidden stroke-gray-700 fill-transparent me-[8px];
   }
 
-  .admin-layout nav .nav-icons a .icon.icon-stroke {
+  .admin-layout .admin-navbar .nav-icons a .icon.icon-stroke {
     @apply stroke-gray-700 fill-transparent me-[8px];
   }
 
-  .admin-layout nav .nav-links a:hover .icon.icon-stroke,
-  .admin-layout nav .nav-icons a:hover .icon.icon-stroke {
+  .admin-layout .admin-navbar .nav-links a:hover .icon.icon-stroke,
+  .admin-layout .admin-navbar .nav-icons a:hover .icon.icon-stroke {
     @apply stroke-gray-900;
   }
 
-  .admin-layout nav .nav-links a.active .icon.icon-stroke,
-  .admin-layout nav .nav-icons a.active .icon.icon-stroke {
+  .admin-layout .admin-navbar .nav-links a.active .icon.icon-stroke,
+  .admin-layout .admin-navbar .nav-icons a.active .icon.icon-stroke {
     @apply stroke-primary-500;
   }
 
-  .admin-layout nav .features .icon-wrapper {
+  .admin-layout .admin-navbar .features .icon-wrapper {
     @apply rounded-[6px] hover:bg-[#E8E8E8] md:h-[36px] md:w-[36px] justify-center;
     @apply prod-b2 text-center text-gray-700 font-medium;
   }
 
-  .admin-layout nav .features .icon-wrapper span {
+  .admin-layout .admin-navbar .features .icon-wrapper span {
     @apply block md:hidden;
   }
-  .admin-layout nav .features .icon-wrapper .icon {
+  .admin-layout .admin-navbar .features .icon-wrapper .icon {
     @apply fill-gray-700 me-[8px] md:me-0;
   }
 
-  .admin-layout nav .features .icon-wrapper.active {
+  .admin-layout .admin-navbar .features .icon-wrapper.active {
     @apply bg-primary-100;
   }
 
-  .admin-layout nav .features .icon-wrapper.active .icon {
+  .admin-layout .admin-navbar .features .icon-wrapper.active .icon {
     @apply fill-primary-500;
   }
 
-  .admin-layout nav .features .icon-wrapper:hover:not(.active) .icon {
+  .admin-layout .admin-navbar .features .icon-wrapper:hover:not(.active) .icon {
     @apply fill-gray-900;
   }
 
@@ -160,13 +160,13 @@
 
   /*  */
   @media screen and (max-width: 1024px) {
-    .admin-layout nav .features {
+    .admin-layout .admin-navbar .features {
       @apply relative;
     }
-    .admin-layout nav .nav-icons.dropdown-active {
+    .admin-layout .admin-navbar .nav-icons.dropdown-active {
       @apply flex;
     }
-    .admin-layout nav .nav-icons {
+    .admin-layout .admin-navbar .nav-icons {
       @apply bg-white absolute mt-[12px] px-[6px] py-[6px] rounded-[6px];
       @apply hidden flex-col;
       width: 180px;
@@ -177,14 +177,14 @@
         0px 10px 10px -5px rgba(0, 0, 0, 0.04);
     }
 
-    .admin-layout nav .nav-icons li {
+    .admin-layout .admin-navbar .nav-icons li {
       width: 100%;
     }
-    .admin-layout nav .nav-icons a {
+    .admin-layout .admin-navbar .nav-icons a {
       @apply px-[10px] py-[6px] justify-start;
       width: 100%;
     }
-    .admin-layout nav .nav-icons a span {
+    .admin-layout .admin-navbar .nav-icons a span {
       @apply block ms-[8px];
     }
   }
@@ -211,33 +211,33 @@
       -webkit-animation: slideNavMenuOut 0.4s forwards;
     }
 
-    .admin-layout nav .nav-links li,
-    .admin-layout nav .nav-links li a {
+    .admin-layout .admin-navbar .nav-links li,
+    .admin-layout .admin-navbar .nav-links li a {
       @apply flex flex-row items-center;
       @apply w-full;
     }
 
-    .admin-layout nav .nav-links li {
+    .admin-layout .admin-navbar .nav-links li {
       @apply mb-[16px];
     }
 
-    .admin-layout nav .nav-icons {
+    .admin-layout .admin-navbar .nav-icons {
       @apply w-full relative p-0 m-0 !flex;
       top: unset;
       box-shadow: none;
     }
 
-    .admin-layout nav .nav-icons li,
-    .admin-layout nav .nav-icons li a {
+    .admin-layout .admin-navbar .nav-icons li,
+    .admin-layout .admin-navbar .nav-icons li a {
       @apply flex flex-row items-center;
       @apply w-full;
     }
 
-    .admin-layout nav .nav-icons li {
+    .admin-layout .admin-navbar .nav-icons li {
       @apply mt-[16px];
     }
 
-    .admin-layout nav .features {
+    .admin-layout .admin-navbar .features {
       @apply w-full;
     }
   }

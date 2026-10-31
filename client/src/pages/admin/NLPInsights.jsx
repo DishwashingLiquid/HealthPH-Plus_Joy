@@ -50,6 +50,7 @@ const NLPInsights = () => {
 
     const user = useSelector((state) => state.auth.user);
     const entityReport = useNlpEntityReport(activeTab === "ner");
+    const printing = useSummaryPrint();
 
     const { data: datasets = [], isFetching: isDatasetsFetching, isError: isDatasetsError } =
         useFetchDatasetsByUserQuery(user?.id, {
@@ -89,32 +90,16 @@ const NLPInsights = () => {
     return (
         <div className="flex flex-col gap-[10px]">
             {/* PAGE HEADER */}
-            <div className="flex items-start justify-between gap-[12px]">
-                <div className="min-w-0">
-                    <h1 className="text-[24px] font-semibold text-gray-800">
-                        NLP Insights
-                    </h1>
-                    <p className="text-gray-500 text-[14px]">
-                        Multilingual natural language processing, entity recognitation, sentiment analysis, and language detection.
-                    </p>
-                </div>
-                {activeTab === "ner" && (
-                    <ToolbarButton
-                        iconName="Printer"
-                        variant="primary"
-                        onClick={entityReport.handlePrint}
-                        disabled={entityReport.isEntityFetching || entityReport.isEntityError || !entityReport.entitySummary || entityReport.isPrinting}
-                        className="min-h-[48px] shrink-0 !text-[16px]"
-                    >
-                        {entityReport.isPrinting ? "Preparing..." : "Print"}
-                    </ToolbarButton>
-                )}
+            <div>
+                <h1 className="text-[24px] font-semibold text-gray-800">
+                    NLP Insights
+                </h1>
+                <p className="text-gray-500 text-[14px]">
+                    Multilingual natural language processing, entity recognitation, sentiment analysis, and language detection.
+                </p>
             </div>
-            {activeTab === "ner" && entityReport.printError && (
-                <p role="alert" className="text-sm text-[#B42318]">{entityReport.printError}</p>
-            )}
             <div style={{ display: "none" }}>
-                <SummaryPrintReport ref={entityReport.printRef} report={entityReport.printReport} />
+                <SummaryPrintReport ref={printing.printRef} report={printing.printReport} />
             </div>
 
             {/* SUBTABS */}
@@ -141,6 +126,7 @@ const NLPInsights = () => {
             {activeTab === "ner" && (
                 <NamedEntityRecognition 
                     entityReport={entityReport}
+                    printing={printing}
                     frequentWords={frequentWords}
                     isTopWordsFetching={isTopWordsFetching}
                     isTopWordsError={isTopWordsError}
@@ -153,6 +139,7 @@ const NLPInsights = () => {
             {activeTab === "sentiment" && <SentimentAnalysis />}
             {activeTab === "language" && (
                 <LanguageDetection
+                    printing={printing}
                     datasets={datasets}
                     selfReportLanguageSummary={selfReportLanguageSummary}
                     isLanguageDataError={isDatasetsError || isSelfReportLanguageSummaryError}
@@ -182,27 +169,16 @@ const TabButton = ({ label, active, onClick }) => {
     );
 };
 
-const useNlpEntityReport = (enabled) => {
-    const user = useSelector((state) => state.auth.user);
+const useSummaryPrint = () => {
     const [printReport, setPrintReport] = useState(null);
     const [printError, setPrintError] = useState("");
     const [isPrinting, setIsPrinting] = useState(false);
     const printRef = useRef(null);
     const printPending = useRef(false);
     const printLock = useRef(false);
-    const {
-        currentData: entitySummary,
-        isFetching: isEntityFetching,
-        isError: isEntityError,
-        refetch: refetchEntities,
-    } = useFetchNlpEntitySummaryQuery(undefined, {
-        skip: !enabled,
-        refetchOnMountOrArgChange: true,
-    });
-
     const printSummary = useReactToPrint({
         content: () => printRef.current,
-        documentTitle: "HealthPH+ - NLP Insights Summary",
+        documentTitle: `HealthPH+ - ${printReport?.title || "NLP Insights"}`,
         removeAfterPrint: false,
         pageStyle: "@page { size: A4 portrait; margin: 12mm; } @media print { html, body { height: auto !important; overflow: visible !important; margin: 0 !important; } }",
         onAfterPrint: () => {
@@ -222,6 +198,46 @@ const useNlpEntityReport = (enabled) => {
             printSummary();
         }
     }, [printReport, printSummary]);
+
+    const startPrint = (report) => {
+        if (!report || printLock.current) return;
+        printLock.current = true;
+        printPending.current = true;
+        setIsPrinting(true);
+        setPrintError("");
+        setPrintReport(report);
+    };
+
+    return { startPrint, printReport, printRef, printError, isPrinting };
+};
+
+const SubtabPrintButton = ({ printing, onPrint, disabled, label }) => (
+    <div className="flex flex-col items-end gap-[8px] rounded-[12px] border border-[#E5E5E5] bg-white p-[12px]">
+        <ToolbarButton
+            iconName="Printer"
+            variant="primary"
+            aria-label={`Print ${label}`}
+            onClick={onPrint}
+            disabled={disabled || printing.isPrinting}
+            className="min-h-[44px] shrink-0"
+        >
+            {printing.isPrinting ? "Preparing..." : "Print"}
+        </ToolbarButton>
+        {printing.printError && <p role="alert" className="text-sm text-[#B42318]">{printing.printError}</p>}
+    </div>
+);
+
+const useNlpEntityReport = (enabled) => {
+    const user = useSelector((state) => state.auth.user);
+    const {
+        currentData: entitySummary,
+        isFetching: isEntityFetching,
+        isError: isEntityError,
+        refetch: refetchEntities,
+    } = useFetchNlpEntitySummaryQuery(undefined, {
+        skip: !enabled,
+        refetchOnMountOrArgChange: true,
+    });
 
     const totalReports = entitySummary?.processed_report_count ?? 0;
 
@@ -262,20 +278,16 @@ const useNlpEntityReport = (enabled) => {
         })
     );
 
-    const handlePrint = () => {
-        if (!entitySummary || isEntityFetching || isEntityError || printLock.current) return;
-        printLock.current = true;
-        printPending.current = true;
-        setIsPrinting(true);
-        setPrintError("");
+    const buildPrintReport = () => {
+        if (!entitySummary || isEntityFetching || isEntityError) return null;
 
         const toPrintRows = (rows) => rows.map(({ entity, report_count }) => ({
             label: entity,
             count: report_count,
             share: totalReports ? Number((report_count / totalReports * 100).toFixed(1)) : 0,
         }));
-        setPrintReport({
-            title: "NLP Insights — Report Summary",
+        return {
+            title: "NLP Insights — Named Entity Recognition",
             subtitle: "Diseases, Symptom Frequency and Locations",
             generatedAt: new Date().toISOString(),
             generatedBy: [user?.first_name, user?.last_name].filter(Boolean).join(" ") || "Unavailable",
@@ -294,18 +306,19 @@ const useNlpEntityReport = (enabled) => {
                 { title: "Symptom Frequency", rows: toPrintRows(symptomRows) },
                 { title: "Locations", rows: toPrintRows(regionRows) },
             ],
-        });
+        };
     };
 
     return {
         entitySummary, isEntityFetching, isEntityError, refetchEntities,
         totalReports, diseaseRows, symptomRows, regionRows,
-        handlePrint, printReport, printRef, printError, isPrinting,
+        buildPrintReport,
     };
 };
 
 const NamedEntityRecognition = ({
     entityReport,
+    printing,
     frequentWords,
     isTopWordsFetching,
     isTopWordsError,
@@ -321,6 +334,12 @@ const NamedEntityRecognition = ({
 
     return (
         <div className="flex flex-col gap-[10px]">
+            <SubtabPrintButton
+                label="Named Entity Recognition summary"
+                printing={printing}
+                onPrint={() => printing.startPrint(entityReport.buildPrintReport())}
+                disabled={isEntityFetching || isEntityError || !entityReport.entitySummary}
+            />
             <div className="grid grid-cols-1 gap-[10px] xl:grid-cols-3">
                 <EntityFrequencyPanel
                     title="Diseases"
@@ -656,7 +675,7 @@ const formatLocationLabel = (location) => {
         .join(" ");
 };
 
-const buildRegionLanguageDistribution = (datasets = []) => {
+const buildRegionLanguageDistribution = (datasets = [], limit = 8) => {
     const regionMap = {};
 
     datasets.forEach((dataset) => {
@@ -697,15 +716,17 @@ const buildRegionLanguageDistribution = (datasets = []) => {
             if (b.region === "UNMAPPED") return -1;
             return b.total - a.total;
         })
-        .slice(0, 8);
+        .slice(0, limit ?? undefined);
 };
 
 const LanguageDetection = ({
+    printing,
     datasets = [],
     selfReportLanguageSummary,
     isLanguageDataFetching = false,
     isLanguageDataError = false,
 }) => {
+    const user = useSelector((state) => state.auth.user);
     const languageSources = selfReportLanguageSummary
         ? [...datasets, selfReportLanguageSummary]
         : datasets;
@@ -716,15 +737,64 @@ const LanguageDetection = ({
         0
     );
 
-    const regionLanguageDistribution =
-        buildRegionLanguageDistribution(languageSources);
+    const allRegionLanguageDistribution = buildRegionLanguageDistribution(languageSources, null);
+    const regionLanguageDistribution = allRegionLanguageDistribution.slice(0, 8);
 
     const chartLanguageKeys = languageDistribution.map(
         (language) => language.key
     );
 
+    const handlePrint = () => {
+        if (isLanguageDataFetching || isLanguageDataError) return;
+        printing.startPrint({
+            title: "NLP Insights — Language Detection",
+            subtitle: "Language Distribution and Language Distribution by Region",
+            generatedAt: new Date().toISOString(),
+            generatedBy: [user?.first_name, user?.last_name].filter(Boolean).join(" ") || "Unavailable",
+            totalLabel: "Records with a supported detected language",
+            totalReports: totalLanguageRows,
+            filters: [{ label: "Data sources", value: "Self Reports and Social Media Datasets" }],
+            notes: [
+                "Counts use the same saved language results as the charts. Only English, Filipino, Hiligaynon, Ilocano and Cebuano are included.",
+                "The regional list includes every available region, including those beyond the chart's eight-region preview. Unknown locations are listed as Region unavailable.",
+                "Model evaluation results are unavailable; detection counts and percentages do not measure model accuracy.",
+            ],
+            sections: [
+                {
+                    title: "Language Distribution",
+                    countLabel: "Records",
+                    shareLabel: "Percentage of detected records",
+                    rows: languageDistribution.map(({ name, value }) => ({
+                        label: name,
+                        count: value,
+                        share: totalLanguageRows ? Number((value / totalLanguageRows * 100).toFixed(1)) : 0,
+                    })),
+                },
+                {
+                    title: "Language Distribution by Region",
+                    countLabel: "Records",
+                    showShare: false,
+                    rows: allRegionLanguageDistribution.flatMap((region) => SUPPORTED_LANGUAGES
+                        .filter(({ key }) => region[key] > 0)
+                        .map(({ key, label }) => ({
+                            label: `${region.region === "UNMAPPED" ? "Region unavailable" : region.region} — ${label}`,
+                            count: region[key],
+                        }))),
+                },
+            ],
+        });
+    };
+
     return (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-[10px]">
+            <div className="xl:col-span-2">
+                <SubtabPrintButton
+                    label="Language Detection summary"
+                    printing={printing}
+                    onPrint={handlePrint}
+                    disabled={isLanguageDataFetching || isLanguageDataError}
+                />
+            </div>
             {/* LANGUAGE DISTRIBUTION */}
             <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px] min-h-[360px]">
                 <h2 className="text-[18px] font-semibold text-gray-800">
