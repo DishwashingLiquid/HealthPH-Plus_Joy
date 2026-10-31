@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
+import { useReactToPrint } from "react-to-print";
 
 import SurveillanceMap from "../../components/admin/SurveillanceMap";
 import LoadingSkeleton, { ChartSkeleton } from "../../components/LoadingSkeleton";
+import SummaryPrintReport from "../../components/admin/SummaryPrintReport";
+import { buildSurveillancePrintReport } from "../../utils/surveillancePrintHelpers";
 
 import Regions from "../../assets/data/regions.json";
 import RegionsCenter from "../../assets/data/regions_center.json";
@@ -27,6 +30,35 @@ import {
 
 const AISurveillance = () => {
     const user = useSelector((state) => state.auth.user);
+    const [printReport, setPrintReport] = useState(null);
+    const [printError, setPrintError] = useState("");
+    const [isPrinting, setIsPrinting] = useState(false);
+    const printRef = useRef(null);
+    const printPending = useRef(false);
+    const printLock = useRef(false);
+
+    const printSummary = useReactToPrint({
+        content: () => printRef.current,
+        documentTitle: "HealthPH+ - AI Surveillance",
+        removeAfterPrint: false,
+        pageStyle: "@page { size: A4 portrait; margin: 12mm; } @media print { html, body { height: auto !important; overflow: visible !important; margin: 0 !important; } }",
+        onAfterPrint: () => {
+            printLock.current = false;
+            setIsPrinting(false);
+        },
+        onPrintError: () => {
+            printLock.current = false;
+            setIsPrinting(false);
+            setPrintError("Unable to open the print dialog. Please try again.");
+        },
+    });
+
+    useEffect(() => {
+        if (printReport && printPending.current) {
+            printPending.current = false;
+            printSummary();
+        }
+    }, [printReport, printSummary]);
 
     const assignedRegions = Array.isArray(user?.accessible_regions)
         ? user.accessible_regions
@@ -77,6 +109,7 @@ const AISurveillance = () => {
     const surveillancePoints = points || [];
 
     const handleChangeFilter = (key, value) => {
+        setPrintError("");
         setFilters((filters) => ({
             ...filters,
             [key]: value,
@@ -84,6 +117,7 @@ const AISurveillance = () => {
     };
 
     const handleResetFilters = () => {
+        setPrintError("");
         setFilters({
             region: accessibleRegions,
             dateRange: "24h",
@@ -156,6 +190,26 @@ const AISurveillance = () => {
         !isSummaryError &&
         Boolean(surveillanceSummary);
 
+    const handlePrint = () => {
+        if (!summaryReady || printLock.current) return;
+        const report = buildSurveillancePrintReport({
+            summary: surveillanceSummary,
+            timeLabel: filters.dateRange === "24h" ? "Last 24 Hours" : `Last ${filters.dateRange} Days`,
+            regionLabel: selectedRegion === "all"
+                ? "All permitted regions"
+                : accessibleRegions.find((region) => region.value === selectedRegion)?.label || selectedRegion,
+            diseaseLabel: filters.disease === "all" ? "All Impacts" : {
+                tuberculosis: "Tuberculosis", pneumonia: "Pneumonia", covid: "COVID-19", auri: "AURI",
+            }[filters.disease],
+            user,
+        });
+        printLock.current = true;
+        printPending.current = true;
+        setPrintError("");
+        setIsPrinting(true);
+        setPrintReport(report);
+    };
+
     const formatCount = (value) =>
         typeof value === "number"
             ? value.toLocaleString()
@@ -226,12 +280,18 @@ const AISurveillance = () => {
                 </div>
 
                 <ToolbarButton
-                    iconName="Upload"
+                    iconName="Printer"
                     variant="primary"
+                    onClick={handlePrint}
+                    disabled={!summaryReady || isPrinting}
                     className="min-h-[48px] shrink-0 !text-[16px]"
                 >
-                    Export
+                    {isPrinting ? "Preparing..." : "Print"}
                 </ToolbarButton>
+            </div>
+            {printError && <p role="alert" className="text-sm text-[#B42318]">{printError}</p>}
+            <div style={{ display: "none" }}>
+                <SummaryPrintReport ref={printRef} report={printReport} />
             </div>
 
             {/* MAIN CONTENT */}

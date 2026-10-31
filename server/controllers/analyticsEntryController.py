@@ -364,6 +364,8 @@ def fetch_surveillance_summary(
 
     return {
         "processed_entry_count": processed_entries,
+        "period_start": window_start.isoformat(),
+        "period_end": window_end.isoformat(),
         "disease_positive_entry_count": disease_positive_entries,
         "disease_label_count": sum(disease_counts.values()),
         "disease_counts": {

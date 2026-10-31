@@ -41,20 +41,24 @@ const SummaryPrintReport = forwardRef(function SummaryPrintReport({ report }, re
                     <div key={label}><dt>{label}: </dt><dd>{value}</dd></div>
                 ))}
             </dl>
-            <p><strong>Matching processed reports: {report.totalReports.toLocaleString()}</strong></p>
+            <p><strong>{report.totalLabel || "Matching processed reports"}: {report.totalReports.toLocaleString()}</strong></p>
             {report.notes.map((note) => <p key={note}>{note}</p>)}
-            {report.sections.map(({ title, rows }) => (
+            {report.sections.map(({ title, rows, countLabel = "Reports", shareLabel = "Percentage out of all reports", showShare = true }) => (
                 <section key={title}>
                     <h2>{title}</h2>
                     <table>
-                        <colgroup><col style={{ width: "50%" }} /><col style={{ width: "20%" }} /><col style={{ width: "30%" }} /></colgroup>
+                        <colgroup>
+                            <col style={{ width: showShare ? "50%" : "75%" }} />
+                            <col style={{ width: showShare ? "20%" : "25%" }} />
+                            {showShare && <col style={{ width: "30%" }} />}
+                        </colgroup>
                         <thead>
-                            <tr><th scope="col">Item</th><th scope="col">Reports</th><th scope="col">Share of matching reports</th></tr>
+                            <tr><th scope="col">Item</th><th scope="col">{countLabel}</th>{showShare && <th scope="col">{shareLabel}</th>}</tr>
                         </thead>
                         <tbody>
                             {rows.length ? rows.map(({ label, count, share }) => (
-                                <tr key={label}><td>{label}</td><td>{count.toLocaleString()}</td><td>{share}%</td></tr>
-                            )) : <tr><td colSpan={3}>No matching results.</td></tr>}
+                                <tr key={label}><td>{label}</td><td>{count.toLocaleString()}</td>{showShare && <td>{share}%</td>}</tr>
+                            )) : <tr><td colSpan={showShare ? 3 : 2}>No matching results.</td></tr>}
                         </tbody>
                     </table>
                 </section>

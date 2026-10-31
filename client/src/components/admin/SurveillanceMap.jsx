@@ -122,6 +122,18 @@ const createPin = (selected) =>
         const centerLat = center[0];
         const centerLong = center[1];
 
+        const recenterMap = () => {
+            setSelectedKey(null);
+            if (!map) return;
+
+            map.stop();
+            map.setView(
+                [centerLat, centerLong],
+                6,
+                { animate: true }
+            );
+        };
+
         // Keep Leaflet aware of the fixed windows actual dimes.
         useEffect(() => {
             if (!map) return;
@@ -345,7 +357,7 @@ const createPin = (selected) =>
                                     <button
                                         type="button"
                                         aria-label="Close location details"
-                                        onClick={() => setSelectedKey(null)}
+                                        onClick={recenterMap}
                                         className={`flex shrink-0 items-center justify-center rounded-lg border border-gray-200 text-xl text-gray-600 hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500 ${panelsStacked ? "h-11 w-11" : "h-9 w-9"}`}
                                     >
                                         ×
@@ -454,17 +466,7 @@ const createPin = (selected) =>
                         title="Recenter map"
                         aria-label="Recenter map"
                         disabled={!map}
-                        onClick={() => {
-                            if (!map) return;
-
-                            setSelectedKey(null);
-                            map.stop();
-                            map.setView(
-                                [centerLat, centerLong],
-                                6,
-                                { animate: true }
-                            );
-                        }}
+                        onClick={recenterMap}
                         className="flex h-10 w-10 items-center justify-center border-b border-gray-200 hover:bg-gray-100 disabled:opacity-50"
                     >
                         <Icon
