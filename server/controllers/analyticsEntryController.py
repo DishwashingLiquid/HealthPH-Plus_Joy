@@ -422,9 +422,9 @@ def fetch_nlp_entity_summary(
         ):
             continue
 
-        source_type = entry["source_type"]
+        entry_source_type = entry["source_type"]
 
-        if source_type == "self_report":
+        if entry_source_type == "self_report":
             report_id = (
                 entry.get("report_id")
                 or entry.get("source_id")
@@ -433,7 +433,7 @@ def fetch_nlp_entity_summary(
         else:
             report_id = entry["_id"]
 
-        report_key = (source_type, str(report_id))
+        report_key = (entry_source_type, str(report_id))
         report_ids.add(report_key)
 
         region_reports[entry_region or "UNMAPPED"].add(report_key)

@@ -7,6 +7,7 @@ const Report = ({
   caption,
   filter,
   setFilter,
+  showFilter = true,
   isLoading,
   loadingContent,
   errorMessage = "",
@@ -47,7 +48,7 @@ const Report = ({
           <p className="heading">{heading}</p>
           {caption && <p className="caption">{caption}</p>}
         </div>
-        <div className="w-full max-w-[200px]">
+        {showFilter && <div className="w-full max-w-[200px]">
           <CustomSelect
             options={filterRegions}
             placeholder="Select Region"
@@ -57,7 +58,7 @@ const Report = ({
             additionalClasses="w-full"
             menuMaxHeight="max-h-[300px]"
           />
-        </div>
+        </div>}
       </div>
       {isLoading ? (
         loadingContent || <div className="report-placeholder">

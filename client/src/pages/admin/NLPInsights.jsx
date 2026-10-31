@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
+import { useReactToPrint } from "react-to-print";
 
 import {
     ResponsiveContainer,
@@ -30,10 +31,15 @@ import {
 } from "../../features/api/analyticsEntriesSlice";
 
 import Report from "../../components/admin/Report";
+import EntityFrequencyPanel from "../../components/admin/EntityFrequencyPanel";
+import SummaryPrintReport from "../../components/admin/SummaryPrintReport";
+import { ToolbarButton } from "../../components/ToolbarControls";
 import LoadingSkeleton, { ChartSkeleton } from "../../components/LoadingSkeleton";
 import capitalizeSymptom from "../../hooks/useCapitalizeSymptom";
 import useUrlTab from "../../hooks/useUrlTab";
 import { getRegionFromLocation } from "../../utils/locationRegionMap";
+
+import EmptyState from "../../components/admin/EmptyState";
 
 import ReactWordCloud from "react-wordcloud";
 
@@ -43,6 +49,7 @@ const NLPInsights = () => {
     );
 
     const user = useSelector((state) => state.auth.user);
+    const entityReport = useNlpEntityReport(activeTab === "ner");
 
     const { data: datasets = [], isFetching: isDatasetsFetching, isError: isDatasetsError } =
         useFetchDatasetsByUserQuery(user?.id, {
@@ -58,24 +65,17 @@ const NLPInsights = () => {
     });
 
     /* TOP WORDS */
-    const [topWordsFilter, setTopWordsFilter] = useState(
+    const wordRegion =
         user.user_type == "USER"
             ? user.accessible_regions[0]
-            : "all"
-    );
+            : "all";
 
     const { data: frequentWords, isFetching: isTopWordsFetching, isError: isTopWordsError } =
-        useGenerateFrequentWordsQuery(topWordsFilter);
+        useGenerateFrequentWordsQuery(wordRegion);
 
     /* WORD CLOUD */
-    const [wordCloudFilter, setWordCloudFilter] = useState(
-        user.user_type == "USER"
-            ? user.accessible_regions[0]
-            : "all"
-    );
-
     const { data: wordcloud, isFetching: isWordCloudFetching, isError: isWordCloudError } =
-        useGenerateWordCloudQuery(wordCloudFilter);
+        useGenerateWordCloudQuery(wordRegion);
 
     const wordcloudOptions = {
         colors: ["#171E26", "#F5D76E", "#6A8EB5", "#F78C6B", "#78C6B2"],
@@ -89,13 +89,32 @@ const NLPInsights = () => {
     return (
         <div className="flex flex-col gap-[10px]">
             {/* PAGE HEADER */}
-            <div>
-                <h1 className="text-[24px] font-semibold text-gray-800">
-                    NLP Insights
-                </h1>
-                <p className="text-gray-500 text-[14px]">
-                    Multilingual natural language processing, entity recognitation, sentiment analysis, and language detection.
-                </p>
+            <div className="flex items-start justify-between gap-[12px]">
+                <div className="min-w-0">
+                    <h1 className="text-[24px] font-semibold text-gray-800">
+                        NLP Insights
+                    </h1>
+                    <p className="text-gray-500 text-[14px]">
+                        Multilingual natural language processing, entity recognitation, sentiment analysis, and language detection.
+                    </p>
+                </div>
+                {activeTab === "ner" && (
+                    <ToolbarButton
+                        iconName="Printer"
+                        variant="primary"
+                        onClick={entityReport.handlePrint}
+                        disabled={entityReport.isEntityFetching || entityReport.isEntityError || !entityReport.entitySummary || entityReport.isPrinting}
+                        className="min-h-[48px] shrink-0 !text-[16px]"
+                    >
+                        {entityReport.isPrinting ? "Preparing..." : "Print"}
+                    </ToolbarButton>
+                )}
+            </div>
+            {activeTab === "ner" && entityReport.printError && (
+                <p role="alert" className="text-sm text-[#B42318]">{entityReport.printError}</p>
+            )}
+            <div style={{ display: "none" }}>
+                <SummaryPrintReport ref={entityReport.printRef} report={entityReport.printReport} />
             </div>
 
             {/* SUBTABS */}
@@ -121,13 +140,10 @@ const NLPInsights = () => {
 
             {activeTab === "ner" && (
                 <NamedEntityRecognition 
-                    topWordsFilter={topWordsFilter}
-                    setTopWordsFilter={setTopWordsFilter}
+                    entityReport={entityReport}
                     frequentWords={frequentWords}
                     isTopWordsFetching={isTopWordsFetching}
                     isTopWordsError={isTopWordsError}
-                    wordCloudFilter={wordCloudFilter}
-                    setWordCloudFilter={setWordCloudFilter}
                     wordcloud={wordcloud}
                     isWordCloudFetching={isWordCloudFetching}
                     isWordCloudError={isWordCloudError}
@@ -166,27 +182,46 @@ const TabButton = ({ label, active, onClick }) => {
     );
 };
 
-const NamedEntityRecognition = ({
-    topWordsFilter,
-    setTopWordsFilter,
-    frequentWords,
-    isTopWordsFetching,
-    isTopWordsError,
-    wordCloudFilter,
-    setWordCloudFilter,
-    wordcloud,
-    isWordCloudFetching,
-    isWordCloudError,
-    wordcloudOptions,
-}) => {
+const useNlpEntityReport = (enabled) => {
+    const user = useSelector((state) => state.auth.user);
+    const [printReport, setPrintReport] = useState(null);
+    const [printError, setPrintError] = useState("");
+    const [isPrinting, setIsPrinting] = useState(false);
+    const printRef = useRef(null);
+    const printPending = useRef(false);
+    const printLock = useRef(false);
     const {
         currentData: entitySummary,
         isFetching: isEntityFetching,
         isError: isEntityError,
         refetch: refetchEntities,
     } = useFetchNlpEntitySummaryQuery(undefined, {
+        skip: !enabled,
         refetchOnMountOrArgChange: true,
     });
+
+    const printSummary = useReactToPrint({
+        content: () => printRef.current,
+        documentTitle: "HealthPH+ - NLP Insights Summary",
+        removeAfterPrint: false,
+        pageStyle: "@page { size: A4 portrait; margin: 12mm; } @media print { html, body { height: auto !important; overflow: visible !important; margin: 0 !important; } }",
+        onAfterPrint: () => {
+            printLock.current = false;
+            setIsPrinting(false);
+        },
+        onPrintError: () => {
+            printLock.current = false;
+            setIsPrinting(false);
+            setPrintError("Unable to open the print dialog. Please try again.");
+        },
+    });
+
+    useEffect(() => {
+        if (printReport && printPending.current) {
+            printPending.current = false;
+            printSummary();
+        }
+    }, [printReport, printSummary]);
 
     const totalReports = entitySummary?.processed_report_count ?? 0;
 
@@ -227,15 +262,65 @@ const NamedEntityRecognition = ({
         })
     );
 
+    const handlePrint = () => {
+        if (!entitySummary || isEntityFetching || isEntityError || printLock.current) return;
+        printLock.current = true;
+        printPending.current = true;
+        setIsPrinting(true);
+        setPrintError("");
+
+        const toPrintRows = (rows) => rows.map(({ entity, report_count }) => ({
+            label: entity,
+            count: report_count,
+            share: totalReports ? Number((report_count / totalReports * 100).toFixed(1)) : 0,
+        }));
+        setPrintReport({
+            title: "NLP Insights — Report Summary",
+            subtitle: "Diseases, Symptom Frequency and Locations",
+            generatedAt: new Date().toISOString(),
+            generatedBy: [user?.first_name, user?.last_name].filter(Boolean).join(" ") || "Unavailable",
+            totalReports,
+            filters: [
+                { label: "Data source", value: "Self Reports and Social Media Datasets" },
+                { label: "Region access", value: "Account's permitted regions" },
+            ],
+            notes: [
+                "Includes the complete lists, not only the five-row previews. Counts represent reports, not repeated mentions.",
+                "One report can have multiple disease labels or symptoms; their shares may sum to more than 100%.",
+                "Locations are based on submitted regions.",
+            ],
+            sections: [
+                { title: "Diseases", rows: toPrintRows(diseaseRows) },
+                { title: "Symptom Frequency", rows: toPrintRows(symptomRows) },
+                { title: "Locations", rows: toPrintRows(regionRows) },
+            ],
+        });
+    };
+
+    return {
+        entitySummary, isEntityFetching, isEntityError, refetchEntities,
+        totalReports, diseaseRows, symptomRows, regionRows,
+        handlePrint, printReport, printRef, printError, isPrinting,
+    };
+};
+
+const NamedEntityRecognition = ({
+    entityReport,
+    frequentWords,
+    isTopWordsFetching,
+    isTopWordsError,
+    wordcloud,
+    isWordCloudFetching,
+    isWordCloudError,
+    wordcloudOptions,
+}) => {
+    const {
+        isEntityFetching, isEntityError, refetchEntities,
+        totalReports, diseaseRows, symptomRows, regionRows,
+    } = entityReport;
+
     return (
         <div className="flex flex-col gap-[10px]">
-            {/* FIRST ROW */}
-            <p className="text-sm text-gray-500">
-                All dates. Processed self reports and social media in your permitted regions.
-                Counts represent reports, not repeated text mentions.
-                Bars show the share of processed reports.
-            </p>
-
             <div className="grid grid-cols-1 gap-[10px] xl:grid-cols-3">
                 <EntityFrequencyPanel
                     title="Diseases"
@@ -285,8 +370,7 @@ const NamedEntityRecognition = ({
                     {/* TOP WORDS */}
                     <Report
                         heading="Top Words"
-                        filter={topWordsFilter}
-                        setFilter={setTopWordsFilter}
+                        showFilter={false}
                         isLoading={isTopWordsFetching}
                         loadingContent={<ChartSkeleton height={260} label="Loading top words..." />}
                         errorMessage={isTopWordsError ? "Unable to load top words. Please try again." : ""}
@@ -329,8 +413,7 @@ const NamedEntityRecognition = ({
                     {/* WORD CLOUD */}
                     <Report
                         heading="Word Cloud"
-                        filter={wordCloudFilter}
-                        setFilter={setWordCloudFilter}
+                        showFilter={false}
                         isLoading={isWordCloudFetching}
                         loadingContent={<ChartSkeleton height={260} label="Loading word cloud..." />}
                         errorMessage={isWordCloudError ? "Unable to load the word cloud. Please try again." : ""}
@@ -359,7 +442,24 @@ const NamedEntityRecognition = ({
     );
 };
 
+const SHOW_SENTIMENT_PREVIEW = false;
+
 const SentimentAnalysis = () => {
+    if (!SHOW_SENTIMENT_PREVIEW) {
+        return (
+            <section
+                role="status"
+                className="flex min-h-[360px] items-center justify-center rounded-[12px] border border-[#E5E5E5] bg-white p-[16px] sm:p-[32px]"
+            >
+                <EmptyState
+                    iconName="Information"
+                    heading="Under development"
+                    content="Sentiment analysis is not yet connected to self-reports and social media datasets. Results will be available once the integration is completed."
+                />
+            </section>
+        );
+    }
+
     return (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-[10px]">
             {/* SENTIMENT DISTRIBUTION */}
@@ -631,7 +731,7 @@ const LanguageDetection = ({
                     Language Distribution
                 </h2>
                 <p className="text-sm text-gray-500 mb-[12px]">
-                    Detected languages across social media records and self reports.
+                    Detected languages across self reports and social media records.
                 </p>
 
                 {isLanguageDataFetching ? (
@@ -700,7 +800,7 @@ const LanguageDetection = ({
                     Language Distribution by Region
                 </h2>
                 <p className="text-sm text-gray-500 mb-[12px]">
-                    Regional language patterns detected from public health conversations.
+                    Regional language patterns detected from records.
                 </p>
 
                 {isLanguageDataFetching ? (
@@ -751,139 +851,21 @@ const LanguageDetection = ({
                 <h2 className="text-[18px] font-semibold text-gray-800 mb-[12px]">
                     Language Processing Model Performance
                 </h2>
-
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-[16px]">
-                    <ModelMetricCard label="English" value="94%" />
-                    <ModelMetricCard label="Filipino" value="91%" />
-                    <ModelMetricCard label="Cebuano" value="87%" />
-                    <ModelMetricCard label="Ilocano" value="84%" />
-                    <ModelMetricCard label="Hiligaynon" value="82%" />
+                <div
+                    role="status"
+                    className="flex min-h-[180px] flex-col items-center justify-center gap-[8px] px-[16px] py-[32px] text-center"
+                >
+                    <p className="text-sm font-medium text-gray-700">
+                        Model evaluation results are not yet available.
+                    </p>
+                    <p className="max-w-[720px] text-sm text-gray-500">
+                        Language detection is connected. Verified accuracy requires
+                        comparing the model's predictions with correctly labeled test data.
+                        Requires predictions compared against correctly labeled test data.
+                    </p>
                 </div>
             </div>
         </div>
-    );
-};
-
-const EntityFrequencyPanel = ({
-    title,
-    description,
-    rows,
-    totalReports,
-    isFetching,
-    isError,
-    onRetry,
-    fixedLabels = false,
-    emptyMessage = "No matching results available.",
-}) => {
-    const diseaseRowHeight = 60;
-    const bodyHeight = diseaseRowHeight * 4;
-    const rowHeight = fixedLabels ? diseaseRowHeight : 40;
-    const loadingRowCount = bodyHeight / rowHeight;
-
-    const displayedRows = isFetching && !fixedLabels
-        ? Array.from({ length: loadingRowCount }, (_, index) => ({
-            entity: `loading-${index}`,
-        }))
-        : rows;
-
-    return (
-        <section className="row-span-2 grid min-w-0 grid-rows-[subgrid] gap-y-[12px] rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
-            <div>
-                <h2 className="mb-[6px] text-[18px] font-semibold text-gray-800">
-                    {title}
-                </h2>
-
-                <p className="text-sm text-gray-500">
-                    {description}
-                </p>
-            </div>
-
-            <div
-                role="region"
-                aria-label={`${title} report counts`}
-                aria-busy={isFetching}
-                tabIndex={0}
-                className="overflow-y-auto overscroll-contain focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#32418C]"
-                style={{ height: bodyHeight }}
-            >
-                {isError ? (
-                    <div className="flex h-full flex-col items-center justify-center text-sm text-[#B42318]">
-                        <p>Unable to load results.</p>
-
-                        <button
-                            type="button"
-                            onClick={onRetry}
-                            className="mt-[8px] underline"
-                        >
-                            Retry
-                        </button>
-                    </div>
-                ) : !isFetching && totalReports === 0 ? (
-                    <p className="py-[12px] text-sm text-gray-500">
-                        No processed reports available.
-                    </p>
-                ) : !isFetching && rows.length === 0 ? (
-                    <p className="py-[12px] text-sm text-gray-500">
-                        {emptyMessage}
-                    </p>
-                ) : (
-                    <div>
-                        {displayedRows.map(({ entity, report_count, color }) => (
-                            <div
-                                key={entity}
-                                className="flex flex-col justify-center"
-                                style={{ height: rowHeight }}
-                            >
-                                <div className="mb-[4px] flex items-center justify-between gap-[12px]">
-                                    {isFetching && !fixedLabels ? (
-                                        <LoadingSkeleton className="h-[16px] w-[45%]" />
-                                    ) : (
-                                        <span
-                                            title={entity}
-                                            className="min-w-0 truncate text-sm font-medium text-gray-800"
-                                        >
-                                            {entity}
-                                        </span>
-                                    )}
-
-                                    <span className="shrink-0 text-sm font-semibold text-gray-800">
-                                        {isFetching ? (
-                                            <LoadingSkeleton className="h-[16px] w-[60px]" />
-                                        ) : (
-                                            `${report_count.toLocaleString()} reports`
-                                        )}
-                                    </span>
-                                </div>
-
-                                {isFetching ? (
-                                    <LoadingSkeleton className="h-[6px] w-full" />
-                                ) : (
-                                    <div
-                                        className="h-[6px] overflow-hidden rounded-full bg-gray-100"
-                                        aria-hidden="true"
-                                    >
-                                        <div
-                                            className="h-full rounded-full"
-                                            style={{
-                                                width: `${
-                                                    totalReports
-                                                        ? Math.min(
-                                                            100,
-                                                            report_count / totalReports * 100
-                                                        )
-                                                        : 0
-                                                }%`,
-                                                backgroundColor: color,
-                                            }}
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-        </section>
     );
 };
 
