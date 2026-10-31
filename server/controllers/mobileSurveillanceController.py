@@ -19,6 +19,8 @@ class MobileProcessedMapPin(BaseModel):
     diseaseCodes: list[str]
     diseaseCounts: dict[str, int]
     processedEntryCount: int
+    locationPrecision: Literal["submitted_coordinates", "regional_reference"] = "submitted_coordinates"
+    referenceLocation: str = ""
 
 
 class MobileProcessedMapResponse(BaseModel):
@@ -58,6 +60,8 @@ def fetch_mobile_processed_map_pins(
             continue
 
         location_key = f"{point['region']}:{point['lat']:.6f}:{point['long']:.6f}"
+        if point["location_precision"] == "regional_reference":
+            location_key += ":regional_reference"
         items.append({
             "id": "signal_" + sha256(location_key.encode("utf-8")).hexdigest()[:24],
             "region": point["region"],
@@ -70,6 +74,8 @@ def fetch_mobile_processed_map_pins(
                 for code in sorted(MAP_DISEASE_CODES)
             },
             "processedEntryCount": point["processed_entry_count"],
+            "locationPrecision": point["location_precision"],
+            "referenceLocation": point["reference_location"],
         })
 
     return {

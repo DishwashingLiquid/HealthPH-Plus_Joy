@@ -53,7 +53,7 @@ const createPin = (selected) =>
     const SELECTED_PIN = createPin(true);
 
     const pointKey = (point) =>
-        `${point.region || "unknown"}:${point.lat}:${point.long}`;
+        `${point.region || "unknown"}:${point.lat}:${point.long}:${point.location_precision || "submitted_coordinates"}`;
 
     const regionLabel = (region) =>
         Regions.regions.find(({ value }) => value === region)?.label ||
@@ -333,6 +333,13 @@ const createPin = (selected) =>
                                                 {selectedPoint.province}
                                             </p>
                                         )}
+                                        {selectedPoint.location_precision === "regional_reference" && (
+                                            <p className="mt-1 text-xs leading-5 text-gray-600">
+                                                Regional reference point: {selectedPoint.reference_location}.
+                                                {" "}Social-media reports are grouped by region;
+                                                this pin is not their exact location.
+                                            </p>
+                                        )}
                                     </div>
 
                                     <button
@@ -401,7 +408,9 @@ const createPin = (selected) =>
                                     region={selectedPoint.region}
                                     latitude={Number(selectedPoint.lat)}
                                     longitude={Number(selectedPoint.long)}
-                                    locationLabel={[
+                                    locationLabel={selectedPoint.location_precision === "regional_reference"
+                                        ? `${selectedPoint.reference_location} (regional reference point)`
+                                        : [
                                         selectedPoint.province,
                                         regionLabel(selectedPoint.region),
                                     ].filter(Boolean).join(", ")}

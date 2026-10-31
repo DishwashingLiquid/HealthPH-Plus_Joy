@@ -27,6 +27,7 @@ from middleware.requireRole import require_role
 from schema.datasetSchema import individual_dataset, list_datasets
 from helpers.datasetsHelpers import annotation
 from helpers.miscHelpers import get_ph_datetime
+from helpers.datasetDateHelpers import normalize_dataset_dates
 from helpers.analyticsEntryHelpers import (
     build_social_media_analytics_entries,
     get_valid_analytics_entries,
@@ -55,18 +56,9 @@ def normalize_csv_header(header):
     return str(header).strip().lower().replace(" ", "_")
 
 def is_template_dataset(raw_dataset_df):
-    if len(raw_dataset_df) != 1:
-        return False
-    
-    first_row = raw_dataset_df.iloc[0].fillna("").astype(str).str.strip()
-
-    return (
-        first_row.get("text", "") == "Sample post text about lung-related diseases."
-        and first_row.get("location", "").lower() == "manila"
-        and first_row.get("date_posted", "") == "2026-01-15"
-        and first_row.get("source", "") == "Facebook"
-        and first_row.get("date_collected", "") == "2026-01-16"
-    )
+    return raw_dataset_df["text"].fillna("").astype(str).str.strip().eq(
+        "Sample post text about lung-related diseases."
+    ).any()
 
 def annotate_dataset(
     dataset_data: dict,
@@ -419,8 +411,14 @@ async def upload_dataset(
         os.remove(full_path)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Please replace the sample template row with the real scraped data before uploading.",
+            detail="Please replace all sample template rows with real scraped data before uploading.",
         )
+
+    try:
+        raw_dataset_df = normalize_dataset_dates(raw_dataset_df)
+    except ValueError as error:
+        os.remove(full_path)
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
     # count rows
     num_of_rows = len(raw_dataset_df)

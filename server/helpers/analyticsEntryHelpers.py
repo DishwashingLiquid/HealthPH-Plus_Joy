@@ -1,6 +1,7 @@
 import pandas as pd
 
 from helpers.miscHelpers import get_ph_datetime
+from helpers.surveillanceDateHelpers import normalize_analytics_datetime
 
 from region_normalization import resolve_region
 
@@ -145,8 +146,8 @@ def build_social_media_analytics_entries(
                     "barangay": "",
                 },
 
-                "event_time": _clean_text_value(row.get("date_posted")),
-                "collected_at": _clean_text_value(row.get("date_collected")),
+                "event_time": normalize_analytics_datetime(_clean_text_value(row.get("date_posted"))),
+                "collected_at": normalize_analytics_datetime(_clean_text_value(row.get("date_collected"))),
 
                 "analysis_status": "pending",
                 "analysis_tasks": DEFAULT_ANALYSIS_TASKS,
@@ -232,8 +233,8 @@ def build_survey_response_analytics_entries(response_document, survey_document):
 
                 "user_location": user_location,
 
-                "event_time": str(created_at),
-                "collected_at": str(created_at),
+                "event_time": normalize_analytics_datetime(created_at),
+                "collected_at": normalize_analytics_datetime(created_at),
 
                 "analysis_status": "SUBMITTED",
                 "analysis_tasks": ["sentiment"],
@@ -324,8 +325,8 @@ def build_self_report_analytics_entry(report_document):
             "longitude": location.get("longitude"),
         },
 
-        "event_time": str(created_at),
-        "collected_at": str(report_document.get("syncedAt") or created_at),
+        "event_time": normalize_analytics_datetime(created_at),
+        "collected_at": normalize_analytics_datetime(report_document.get("syncedAt") or created_at),
 
         "analysis_status": "SUBMITTED",
         "analysis_tasks": [

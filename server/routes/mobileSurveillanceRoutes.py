@@ -16,8 +16,11 @@ router.add_api_route(
     description=(
         "Guest-accessible coordinate groups from processed disease-positive analytics. "
         "Returns aggregate disease counts and a separate processed entry count. "
-        "Coordinates are supplied report locations, not verified GPS accuracy; no "
-        "region-center fallback is applied. Excludes reporter identity, text, notes, "
+        "Supplied report coordinates are retained without claiming GPS accuracy. "
+        "Social-media entries without coordinates use the existing PSGC location-to-region "
+        "resolver and a configured reference city for that region. locationPrecision "
+        "and referenceLocation distinguish these regional groups from submitted coordinates. "
+        "Excludes reporter identity, text, notes, "
         "addresses, and internal report IDs. Disease filtering selects matching "
         "groups and retains their co-occurring disease counts."
     ),

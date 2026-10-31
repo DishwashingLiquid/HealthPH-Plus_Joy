@@ -776,41 +776,12 @@ const DataManagement = () => {
     };
 
     const handleDownloadTemplate = () => {
-        const sampleRows = [
-            {
-                id: "0001",
-                text: "Sample post text about lung-related diseases.",
-                location: "Manila",
-                date_posted: "2026-01-15",
-                source: "Facebook",
-                date_collected: "2026-01-16",
-            },  
-        ];
-
-        const headers = RAW_DATASET_REQUIRED_HEADERS;
-        const csvRows = [
-            headers.join(","),
-            ...sampleRows.map((row) =>
-                headers
-                    .map((header) => `"${String(row[header] ?? "").replace(/"/g, '""')}"`)
-                    .join(",")
-            ),
-        ];
-
-        const blob = new Blob([csvRows.join("\n")], {
-            type: "text/csv;charset=utf-8;",
-        });
-
-        const url = window.URL.createObjectURL(blob);
         const link = document.createElement("a");
-
-        link.href = url;
+        link.href = "/assets/dataset-template.csv";
         link.download = "healthph-plus-raw-dataset-template.csv";
         document.body.appendChild(link);
         link.click();
         link.remove();
-
-        window.URL.revokeObjectURL(url);
     };
 
     const handleProcessDataset = async ({ id, filename }) => {
@@ -2745,7 +2716,18 @@ const UploadDatasetModal = ({ data, error, isLoading, onCancel, onConfirm }) => 
                         <span className="font-medium text-gray-800">
                             {RAW_DATASET_REQUIRED_HEADERS.join(", ")}
                         </span>
+                        <p className="mt-2">
+                            For date_posted and date_collected, use YYYY-MM-DD (2026-10-31).
+                            If the time is known, use 2026-10-31T09:30:00+08:00.
+                            Dates and times use Philippine time (UTC+8).
+                        </p>
                     </div>
+
+                    {error && (
+                        <div role="alert" className="mb-[16px] rounded-[8px] border border-[#FCA5A5] bg-[#FEF2F2] px-[12px] py-[10px] text-sm text-[#B42318]">
+                            {error}
+                        </div>
+                    )}
 
                     {hasMissingHeaders && (
                         <div className="mb-[16px] rounded-[8px] border border-[#FCA5A5] bg-[#FEF2F2] px-[12px] py-[10px] text-sm text-[#B42318]">
@@ -2799,7 +2781,7 @@ const UploadDatasetModal = ({ data, error, isLoading, onCancel, onConfirm }) => 
                     <button
                         className={MODAL_PRIMARY_BUTTON_CLASSES}
                         onClick={onConfirm}
-                        disabled={isLoading}
+                        disabled={isLoading || hasMissingHeaders || data.rows === 0}
                     >
                         {isLoading ? "Uploading..." : "Upload"}
                     </button>

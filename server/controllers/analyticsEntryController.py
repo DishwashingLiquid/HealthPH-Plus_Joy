@@ -25,6 +25,7 @@ from helpers.analyticsAccessHelpers import (
 )
 from helpers.diseaseDetectionHelpers import detect_diseases
 from helpers.analyticsSymptomHelpers import get_entry_symptoms
+from helpers.surveillanceMapHelpers import MAP_DISEASE_CODES, build_processed_map_points
 from helpers.surveillanceDateHelpers import (
     get_surveillance_window,
     is_within_surveillance_window,
@@ -32,9 +33,6 @@ from helpers.surveillanceDateHelpers import (
 
 from helpers.miscHelpers import get_ph_datetime
 from region_normalization import REGION_ALIASES, normalize_region
-
-
-MAP_DISEASE_CODES = {"TB", "PN", "COVID", "AURI"}
 
 
 """
@@ -227,101 +225,12 @@ async def fetch_analytics_map_points(
     days: int = Query(7, ge=1, le=365),
     hours: int | None = Query(None, ge=24, le=24, description="Use a rolling 24-hour window instead of calendar days."),
 ):
-    entries = analytics_entries_collection.find(
-        {
-            "analysis_status": "PROCESSED",
-            "location.latitude": {"$ne": None},
-            "location.longitude": {"$ne": None},
-            "analysis.disease_labels.0": {"$exists": True},
-        },
-        {
-            "location": 1,
-            "analysis.disease_labels": 1,
-            "event_time": 1,
-        },
+    return build_processed_map_points(
+        days=days,
+        hours=hours,
+        allowed_regions=get_allowed_analytics_regions(current_user),
     )
 
-    grouped_points = {}
-
-    allowed_regions = get_allowed_analytics_regions(current_user)
-    window_start, window_end = get_surveillance_window(days, hours)
-
-    for entry in entries:
-        region = get_analytics_entry_region(entry)
-
-        if allowed_regions is not None and region not in allowed_regions:
-            continue
-
-        if not is_within_surveillance_window(
-            entry,
-            window_start,
-            window_end,
-        ):
-            continue
-
-        location = entry.get("location") or {}
-
-        try:
-            latitude = float(location.get("latitude"))
-            longitude = float(location.get("longitude"))
-        except (TypeError, ValueError):
-            continue
-
-        if not (4 <= latitude <= 22 and 116 <= longitude <= 128):
-            continue
-
-        labels = {
-            str(label).strip().upper()
-            for label in (entry.get("analysis") or {}).get("disease_labels", [])
-        } & MAP_DISEASE_CODES
-
-        if not labels:
-            continue
-
-        region = region or ""
-        point_key = (region, round(latitude, 6), round(longitude, 6))
-
-        if point_key not in grouped_points:
-            grouped_points[point_key] = {
-                "PH_code": "",
-                "region": region,
-                "province": str(location.get("province") or "").strip(),
-                "lat": latitude,
-                "long": longitude,
-                "report_count": 0,
-                "annotation_counts": Counter(),
-                "keyword_counts": Counter(),
-                "keyword_annotations": defaultdict(set),
-            }
-
-        point = grouped_points[point_key]
-        point["report_count"] += 1
-        point["annotation_counts"].update(labels)
-
-    map_points = []
-
-    for point in grouped_points.values():
-        annotation_counts = dict(point.pop("annotation_counts"))
-        keyword_counts = point.pop("keyword_counts")
-        keyword_annotations = point.pop("keyword_annotations")
-
-        map_points.append(
-            {
-                **point,
-                "annotations": sorted(annotation_counts),
-                "annotations_count": annotation_counts,
-                "keywords": [
-                    {
-                        "key": keyword,
-                        "count": count,
-                        "annotation": sorted(keyword_annotations[keyword]),
-                    }
-                    for keyword, count in keyword_counts.most_common(3)
-                ],
-            }
-        )
-
-    return map_points
 
 def fetch_surveillance_summary(
     current_user: Annotated[
