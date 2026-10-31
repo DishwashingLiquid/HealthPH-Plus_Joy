@@ -32,12 +32,15 @@ import {
 import Report from "../../components/admin/Report";
 import LoadingSkeleton, { ChartSkeleton } from "../../components/LoadingSkeleton";
 import capitalizeSymptom from "../../hooks/useCapitalizeSymptom";
+import useUrlTab from "../../hooks/useUrlTab";
 import { getRegionFromLocation } from "../../utils/locationRegionMap";
 
 import ReactWordCloud from "react-wordcloud";
 
 const NLPInsights = () => {
-    const [activeTab, setActiveTab] = useState("ner");
+    const [activeTab, setActiveTab] = useUrlTab(
+        "tab", ["ner", "sentiment", "language"], "ner"
+    );
 
     const user = useSelector((state) => state.auth.user);
 

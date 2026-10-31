@@ -65,6 +65,7 @@ import {
 
 
 import useDeviceDetect from "../../hooks/useDeviceDetect";
+import useUrlTab from "../../hooks/useUrlTab";
 import { toast } from "react-toastify";
 import { toPng } from "html-to-image";
 
@@ -488,22 +489,11 @@ const UserManagement = () => {
   ), [users, searchQuery]);
 
   const tabs = [
-    { label: "Superadmins", count: currentAdminsData.length },
-    { label: "Users", count: currentUsersData.length },
-    { label: "Organizations & Roles", count: filteredOrganizations.length },
-    { label: "Account Analytics", count: allAccounts.length },
+    { label: "Superadmins", value: "superadmins", count: currentAdminsData.length },
+    { label: "Users", value: "users", count: currentUsersData.length },
+    { label: "Organizations & Roles", value: "organizations", count: filteredOrganizations.length },
+    { label: "Account Analytics", value: "analytics", count: allAccounts.length },
   ];
-
-  const getDefaultTab = () => {
-    if (isSuperadmin) return "Superadmins";
-    if (canViewUsers) return "Users";
-    return "Account Analytics";
-  };
-
-  const [currentTableTab, setCurrentTableTab] = useState(getDefaultTab);
-
-  const [currentOrganizationSubtab, setCurrentOrganizationSubtab] =
-    useState("Organizations");
 
   const visibleTabs = isSuperadmin
     ? tabs
@@ -511,11 +501,23 @@ const UserManagement = () => {
     ? tabs.filter((tab) => tab.label !== "Superadmins")
     : tabs.filter((tab) => tab.label === "Account Analytics");
 
-  useEffect(() => {
-    if (!visibleTabs.some((tab) => tab.label === currentTableTab)) {
-      setCurrentTableTab(getDefaultTab());
-    }
-  }, [visibleTabs, currentTableTab]);
+  const [tableTab, setTableTab] = useUrlTab(
+    "tab",
+    visibleTabs.map(({ value }) => value),
+    visibleTabs[0].value,
+  );
+  const currentTableTab = visibleTabs.find(({ value }) => value === tableTab).label;
+  const setCurrentTableTab = (label) => {
+    const tab = visibleTabs.find((item) => item.label === label);
+    if (tab) setTableTab(tab.value);
+  };
+
+  const [organizationSection, setOrganizationSection] = useUrlTab(
+    "section", ["organizations", "roles"], "organizations"
+  );
+  const currentOrganizationSubtab = organizationSection === "roles"
+    ? "Roles"
+    : "Organizations";
 
   const addButtonLabel = currentTableTab == "Superadmins" ? "Add Superadmin" : "Add User";
 
@@ -899,7 +901,7 @@ const UserManagement = () => {
                   label="Organizations"
                   active={currentOrganizationSubtab === "Organizations"}
                   onClick={() => {
-                    setCurrentOrganizationSubtab("Organizations");
+                    setOrganizationSection("organizations");
                     setSearchQuery("");
                   }}
                 />
@@ -907,7 +909,7 @@ const UserManagement = () => {
                   label="Roles"
                   active={currentOrganizationSubtab === "Roles"}
                   onClick={() => {
-                    setCurrentOrganizationSubtab("Roles");
+                    setOrganizationSection("roles");
                     setSearchQuery("");
                   }}
                 />

@@ -11,6 +11,7 @@ import LoadingSkeleton from "../../components/LoadingSkeleton";
 import Regions from "../../assets/data/regions.json";
 import DataManagementPrint from "../../components/admin/DataManagementPrint";
 import { loadSelfReportsForPrint } from "../../utils/selfReportPrintHelpers";
+import useUrlTab from "../../hooks/useUrlTab";
 
 import {
     useFetchDatasetsByUserQuery,
@@ -49,7 +50,9 @@ import { popup } from "leaflet";
 import { current } from "@reduxjs/toolkit";
 
 const ModelAccessToolkit = () => {
-    const [activeTab, setActiveTab] = useState("comparison");
+    const [activeTab, setActiveTab] = useUrlTab(
+        "tab", ["comparison", "data", "logs"], "comparison"
+    );
 
     return (
         <div className="flex flex-col gap-[10px]">
@@ -474,7 +477,9 @@ const DataManagement = () => {
     const [datasetPage, setDatasetPage] = useState(1);
     const [selectedDatasetIds, setSelectedDatasetIds] = useState([]);
 
-    const [dataSourceView, setDataSourceView] = useState("self_report");
+    const [dataSourceView, setDataSourceView] = useUrlTab(
+        "source", ["self_report", "social_media"], "self_report"
+    );
 
     const [selectedEntryIds, setSelectedEntryIds] = useState([]);
 
