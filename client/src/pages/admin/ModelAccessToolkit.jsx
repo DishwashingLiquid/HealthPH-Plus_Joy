@@ -359,6 +359,19 @@ const PROCESSABLE_ANALYTICS_STATUSES = ["SUBMITTED", "FAILED"];
 const normalizeCsvHeader = (header) =>
     String(header || "").trim().toLowerCase().replace(/\s+/g, "_");    
 
+const formatDatasetHeader = (header) =>
+    String(header || "")
+        .trim()
+        .replace(/_/g, " ")
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((word) =>
+            word.toLowerCase() === "id"
+                ? "ID"
+                : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        )
+        .join(" ");
+
 const formatBytes = (size = 0) => {
     if (size < 1024) return `${size} B`;
 
@@ -739,7 +752,9 @@ const DataManagement = () => {
 
         if (uploadPreviewData.missingHeaders.length > 0) {
             setUploadError(
-                `Missing required columns: ${uploadPreviewData.missingHeaders.join(", ")}`
+                `Missing columns: ${uploadPreviewData.missingHeaders
+                    .map(formatDatasetHeader)
+                    .join(", ")}`
             );
             return;
         }
@@ -1688,15 +1703,14 @@ const DataManagement = () => {
                                                     <div className="flex max-w-[320px] flex-wrap gap-[6px]">
                                                         {languages.length > 0 ? (
                                                             languages.map((language) => (
-                                                                <span
+                                                                <LanguagePill
                                                                     key={language}
-                                                                    className="rounded-full border border-[#E5E5E5] bg-white px-[8px] py-[3px] text-xs font-medium text-gray-600"
-                                                                >
-                                                                    {language}
-                                                                </span>
+                                                                    language={language}
+                                                                    status={dataset.dataset_status}
+                                                                />
                                                             ))
                                                         ) : (
-                                                            <span className="text-gray-400">-</span>
+                                                            <LanguagePill status={dataset.dataset_status} />
                                                         )}
                                                     </div>
                                                 </td>
@@ -1907,6 +1921,56 @@ const getSelfReportReporterLabel = (entry) => {
     return "Unavailable";
 };
 
+const LanguagePill = ({ language, status, detectionStatus}) => {
+    const code = String(language || "").trim();
+    const normalizedStatus = String(status || "").toUpperCase();
+
+    const isUnsupported = detectionStatus === "unsupported";
+    const isFailed = normalizedStatus === "FAILED";
+
+    const placeholder = isUnsupported
+        ? "unsupported"
+        : isFailed
+            ? "Failed"
+            : normalizedStatus === "PROCESSED"
+                ? "unknown"
+                : "unprocessed";
+
+    const colorClasses =
+        isUnsupported || isFailed
+            ? "border-[#FECACA] bg-[#FEE2E2] text-[#B91C1C]"
+            : code
+                ? "border-[#A7F3D0] bg-[#D1FAE5] text-[#047857]"
+                : "border-[#E5E5E5] bg-transparent text-gray-600";
+
+    const description = isUnsupported
+        ? "The detected language is not supported."
+        : isFailed
+            ? "Processing failed. Please retry."
+            : code
+                ? `Detected language: ${code}`
+                : normalizedStatus === "PROCESSED"
+                    ? "No language result is available."
+                    : "Language detection has not finished yet.";
+
+    return (
+        <span
+            className={`inline-flex whitespace-nowrap rounded-full border px-[8px] py-[3px] text-xs font-medium ${colorClasses}`}
+            title={description}
+        >
+            {code || placeholder}
+        </span>
+    );
+};
+
+const EntryLanguagePill = ({ entry }) => (
+    <LanguagePill
+        language={entry.language}
+        status={entry.analysis_status}
+        detectionStatus={entry.analysis?.language_detection?.status}
+    />
+);
+
 const AnalyticsEntriesPanel = ({
     sourceType,
     entries = [],
@@ -2102,8 +2166,8 @@ const AnalyticsEntriesPanel = ({
                                                 <td className="max-w-[150px] truncate py-[14px] px-[10px] font-medium text-gray-800">
                                                     {entry.sourcePublicId || entry.source_id || entry.report_id || entry.id || "Unavailable"}
                                                 </td>
-                                                <td className="py-[14px] px-[10px] text-gray-600">
-                                                    {entry.language || "Unavailable"}
+                                                <td className="whitespace-nowrap py-[14px] px-[10px]">
+                                                    <EntryLanguagePill entry={entry} />
                                                 </td>
                                                 <td className="max-w-[420px] truncate py-[14px] px-[10px] text-gray-800">
                                                     {entry.text || "Unavailable"}
@@ -2543,7 +2607,7 @@ const DatasetPreviewModal = ({
                                                 key={column}
                                                 className="py-[12px] px-[10px] font-medium capitalize"
                                             >
-                                                {column}
+                                                {formatDatasetHeader(column)}
                                             </th>
                                         ))}
                                     </tr>
@@ -2714,12 +2778,11 @@ const UploadDatasetModal = ({ data, error, isLoading, onCancel, onConfirm }) => 
                     <div className="mb-[8px] rounded-[8px] border border-[#E5E5E5] bg-[#F8F9FA] px-[12px] py-[10px] text-sm text-gray-600">
                         Required columns:{" "}
                         <span className="font-medium text-gray-800">
-                            {RAW_DATASET_REQUIRED_HEADERS.join(", ")}
+                            {RAW_DATASET_REQUIRED_HEADERS.map(formatDatasetHeader).join(", ")}
                         </span>
                         <p className="mt-2">
-                            For date_posted and date_collected, use YYYY-MM-DD (2026-10-31).
-                            If the time is known, use 2026-10-31T09:30:00+08:00.
-                            Dates and times use Philippine time (UTC+8).
+                            Enter dates as year-month-day, for example 2026-10-31.
+                            Time is optional. If included, use 2026-10-31 09:30
                         </p>
                     </div>
 
@@ -2731,7 +2794,7 @@ const UploadDatasetModal = ({ data, error, isLoading, onCancel, onConfirm }) => 
 
                     {hasMissingHeaders && (
                         <div className="mb-[16px] rounded-[8px] border border-[#FCA5A5] bg-[#FEF2F2] px-[12px] py-[10px] text-sm text-[#B42318]">
-                            Missing required columns: {data.missingHeaders.join(", ")}
+                            Missing required columns: {data.missingHeaders.map(formatDatasetHeader).join(", ")}
                         </div>
                     )}
 
@@ -2744,7 +2807,7 @@ const UploadDatasetModal = ({ data, error, isLoading, onCancel, onConfirm }) => 
                                             key={column}
                                             className="py-[12px] px-[10px] font-medium"
                                         >
-                                            {column}
+                                            {formatDatasetHeader(column)}
                                         </th>
                                     ))}
                                 </tr>
