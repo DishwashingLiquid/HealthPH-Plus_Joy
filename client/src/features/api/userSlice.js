@@ -37,7 +37,7 @@ export const userSlice = baseAPI.injectEndpoints({
     }),
     createUser: builder.mutation({
       query: (formData) => ({
-        url: `/users/`,
+        url: "/users",
         method: "POST",
         body: formData,
       }),
