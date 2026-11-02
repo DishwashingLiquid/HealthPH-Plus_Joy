@@ -3,6 +3,7 @@ from controllers.activityLogController import (
     create_activity_log,
     fetch_account_analytics,
     fetch_recent_account_activity,
+    fetch_recent_activity_accounts,
     fetch_activity_logs,
     delete_all_activity_logs,
 )
@@ -17,6 +18,7 @@ router.add_api_route("/account-analytics", methods=["GET"], endpoint=fetch_accou
 
 # GET       /activity-logs/recent
 router.add_api_route("/recent", methods=["GET"], endpoint=fetch_recent_account_activity)
+router.add_api_route("/recent/accounts", methods=["GET"], endpoint=fetch_recent_activity_accounts)
     
 # POST      /activity-logs/
 router.add_api_route("", methods=["POST"], endpoint=create_activity_log)

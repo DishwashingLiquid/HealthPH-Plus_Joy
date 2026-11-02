@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from bson import ObjectId
 import pymongo
 from typing_extensions import Annotated
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 import re
 
 from config.database import activity_logs_collection, role_label_collection, user_collection
@@ -161,10 +161,71 @@ def get_recent_activity_query(user_data):
     return None
 
 
+def build_recent_activity_filters(scope, account_id="all", date_from=None, date_to=None, search=""):
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(status_code=400, detail="From date cannot be after To date.")
+    # Every filter is ANDed with the original authorization scope.
+    conditions = [scope]
+    if account_id and account_id != "all":
+        conditions.append({"user_id": account_id})
+    period = {}
+    # Activity logs use the application's naive Philippine-local timestamp convention.
+    if date_from:
+        period["$gte"] = datetime.combine(date_from, time.min)
+    if date_to:
+        period["$lte"] = datetime.combine(date_to, time.max)
+    if period:
+        conditions.append({"created_at": period})
+    if search.strip():
+        pattern = {"$regex": re.escape(search.strip()), "$options": "i"}
+        conditions.append({"$or": [
+            {field: pattern} for field in ("user_name", "entry", "module", "role_label", "user_type", "ip_address", "ip")
+        ]})
+    return {"$and": conditions}
+
+
+async def fetch_recent_activity_accounts(
+    user_id: Annotated[str, Depends(require_auth)],
+    search: str = Query("", max_length=100),
+    limit: int = Query(50, ge=1, le=100),
+):
+    user_data = user_collection.find_one({"_id": ObjectId(user_id)})
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Not Authorized")
+    scope = get_recent_activity_query(user_data)
+    if scope is None:
+        raise HTTPException(status_code=403, detail="You do not have access to recent account activity.")
+    # Use recorded account IDs/names so activity from deleted accounts remains filterable.
+    pipeline = [
+        {"$match": {"$and": [scope, {"user_id": {"$type": "string", "$ne": ""}}]}},
+        {"$sort": {"created_at": -1, "_id": -1}},
+        {"$group": {
+            "_id": "$user_id", "name": {"$first": "$user_name"},
+            "user_type": {"$first": "$user_type"}, "role_label": {"$first": "$role_label"},
+        }},
+    ]
+    if search.strip():
+        pipeline.append({"$match": {"name": {"$regex": re.escape(search.strip()), "$options": "i"}}})
+    pipeline.extend([{"$sort": {"name": 1, "_id": 1}}, {"$limit": limit + 1}])
+    accounts = list(activity_logs_collection.aggregate(pipeline))
+    return {
+        "accounts": [{
+            "value": str(account["_id"]),
+            "label": str(account.get("name") or "Unknown account"),
+            "description": f"{'SUPERADMIN' if account.get('user_type') == 'SUPERADMIN' else account.get('role_label') or account.get('user_type') or 'Account'} · ID ending {str(account['_id'])[-6:]}",
+        } for account in accounts[:limit]],
+        "has_more": len(accounts) > limit,
+    }
+
+
 async def fetch_recent_account_activity(
     user_id: Annotated[str, Depends(require_auth)],
     limit: int = Query(25, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    account_id: str = Query("all", max_length=128),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    search: str = Query("", max_length=200),
 ):
     user_data = user_collection.find_one({"_id": ObjectId(user_id)})
     if not user_data:
@@ -174,6 +235,7 @@ async def fetch_recent_account_activity(
     if query is None:
         raise HTTPException(status_code=403, detail="You do not have access to recent account activity.")
 
+    query = build_recent_activity_filters(query, account_id, date_from, date_to, search)
     total = activity_logs_collection.count_documents(query)
     entries = activity_logs_collection.find(query).sort([
         ("created_at", pymongo.DESCENDING),

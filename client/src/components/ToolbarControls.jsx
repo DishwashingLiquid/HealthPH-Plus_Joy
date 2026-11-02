@@ -6,6 +6,7 @@ export const ToolbarSearch = ({
     value,
     onChange,
     className = "",
+    ...inputProps
 }) => {
     return (
         <div className={`relative w-full xl:w-[320px] ${className}`}>
@@ -18,6 +19,7 @@ export const ToolbarSearch = ({
                 className="absolute left-[12px] top-1/2 -translate-y-1/2"
             />
             <input
+                {...inputProps}
                 type="text"
                 placeholder={placeholder}
                 value={value}

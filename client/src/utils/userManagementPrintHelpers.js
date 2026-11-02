@@ -6,12 +6,12 @@ const number = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
 const column = (key, label, width, align = "left") => ({ key, label, width, align });
 
 // Use the protected, paginated activity endpoint. Never print just the visible page.
-export const loadRecentActivityForPrint = async (fetchPage) => {
+export const loadRecentActivityForPrint = async (fetchPage, filters = {}) => {
     const entries = [];
     const seen = new Set();
     let expectedTotal;
     do {
-        const page = await fetchPage({ limit: 100, offset: entries.length });
+        const page = await fetchPage({ ...filters, limit: 100, offset: entries.length });
         if (!Array.isArray(page?.entries) || !Number.isSafeInteger(page.total) || page.total < 0) {
             throw new Error("Unable to prepare account activity: an invalid response was received.");
         }
@@ -36,6 +36,7 @@ export const buildUserManagementPrintReport = ({
     view, user, accounts = [], organizations = [], roles = [], analytics = {},
     recentActivity = [], includeRecentActivity = false, includeSuperadmins = false,
     search = "", regionLabel = text, generatedAt = new Date().toISOString(),
+    activityFilters = {},
 }) => {
     const report = {
         title: `User Management — ${view}`,
@@ -125,11 +126,20 @@ export const buildUserManagementPrintReport = ({
             ? "Account totals, daily activity, regional role distribution and permitted account activity"
             : "Account totals, daily activity and regional role distribution";
         report.filters = [{ label: "Activity chart period (PHT)", value: days.length ? `${days[0].key} to ${days[days.length - 1].key}` : "Unavailable" }];
+        if (allowRecentActivity) {
+            report.filters.push(
+                { label: "Activity list — Account", value: activityFilters.accountLabel || "All Accounts" },
+                { label: "Activity list — From date (PHT)", value: activityFilters.dateFrom || "Any start date" },
+                { label: "Activity list — To date (PHT)", value: activityFilters.dateTo || "Any end date" },
+                { label: "Activity list — Search", value: activityFilters.search?.trim() || "None" },
+                { label: "Matching activity entries", value: recentActivity.length.toLocaleString() },
+            );
+        }
         report.notes = [
             "The daily activity table covers the dashboard's last seven calendar days. Regional distribution includes nonzero counts for active roles shown by the chart. Counts are USER accounts; superadmins are excluded from user-account totals.",
             "Dates and times use Philippine time (UTC+8). All available chart rows are included.",
             allowRecentActivity
-                ? (user?.user_type === "SUPERADMIN" ? "Detailed activity includes all available activity-log pages permitted to superadmins, across all dates." : "Detailed activity includes all available activity-log pages for USER accounts in your organization, across all dates.")
+                ? (user?.user_type === "SUPERADMIN" ? "The activity list includes all matching pages permitted to superadmins, using the account, date and search filters above. Date boundaries include the entire selected Philippine calendar day." : "The activity list includes all matching pages for USER accounts in your organization, using the account, date and search filters above. Date boundaries include the entire selected Philippine calendar day.")
                 : "Detailed recent account activity is not available to this account's access level and is excluded from this report.",
         ];
         report.sections = [
@@ -146,7 +156,7 @@ export const buildUserManagementPrintReport = ({
         ];
         if (allowRecentActivity) {
             report.sections.push({
-                title: "Recent Account Activity — All Permitted Entries",
+                title: "Recent Account Activity — Matching Entries",
                 columns: [column("name", "User", 15), column("role", "Account Type / Role", 12), column("entry", "Entry", 30), column("module", "Module", 13), column("ip", "IP Address", 12), column("logged", "Logged At (PHT)", 18)],
                 rows: recentActivity.map((log) => ({
                     id: log.id, name: text(log.user_name), role: log.user_type === "SUPERADMIN" ? "SUPERADMIN" : text(log.role_label || log.user_type),

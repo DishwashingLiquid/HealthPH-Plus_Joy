@@ -14,6 +14,7 @@ import UsersTable from "../../components/admin/UsersTable";
 import { buildUserManagementPrintReport, loadRecentActivityForPrint } from "../../utils/userManagementPrintHelpers";
 import FieldGroup from "../../components/FieldGroup";
 import CustomSelect from "../../components/CustomSelect";
+import SearchableSelect from "../../components/SearchableSelect";
 import MultiSelect from "../../components/MultiSelect";
 import Snackbar from "../../components/Snackbar";
 import { ToolbarSearch } from "../../components/ToolbarControls";
@@ -59,6 +60,7 @@ import {
   useCreateAccountActivityMutation,
   useFetchAccountAnalyticsQuery,
   useFetchRecentAccountActivityQuery,
+  useFetchRecentActivityAccountsQuery,
   useLazyFetchRecentAccountActivityQuery,
 } from "../../features/api/accountActivitySlice";
 
@@ -90,6 +92,7 @@ const ROLE_COLORS = [
 
 const HEALTHPH_PLUS_MODULE_COVERAGE = Object.values(ROLE_PAGES);
 const ACCOUNT_PAGE_SIZE = 25;
+const DEFAULT_ACTIVITY_FILTERS = { accountId: "all", accountLabel: "All Accounts", dateFrom: "", dateTo: "", search: "" };
 
 const filterAccountRows = (accounts, search, fields) => {
   const terms = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -178,6 +181,16 @@ const UserManagement = () => {
     useState(false);
   const [roleLabelFormMode, setRoleLabelFormMode] = useState("create");
   const [selectedRoleLabel, setSelectedRoleLabel] = useState(null);
+
+  const [activityFilters, setActivityFilters] = useState(DEFAULT_ACTIVITY_FILTERS);
+  const [recentActivityPage, setRecentActivityPage] = useState(1);
+  const activityFilterError = activityFilters.dateFrom && activityFilters.dateTo && activityFilters.dateFrom > activityFilters.dateTo
+    ? "From date cannot be after To date." : "";
+  const changeActivityFilters = (changes) => {
+    setActivityFilters((current) => ({ ...current, ...changes }));
+    setRecentActivityPage(1);
+    setPrintError("");
+  };
 
   const [searchQuery, setSearchValue] = useState("");
   const [accountPages, setAccountPages] = useState({ Superadmins: 1, Users: 1 });
@@ -645,7 +658,7 @@ const UserManagement = () => {
     ? isAccountAnalyticsLoading || isOrganizationsLoading || isRoleLabelsLoading
     : isCurrentTableLoading;
   const isCurrentPrintError = isAnalyticsTab
-    ? isAccountAnalyticsError || isOrganizationsError || isRoleLabelsError
+    ? isAccountAnalyticsError || isOrganizationsError || isRoleLabelsError || (canManageUsers && accountAnalytics.show_recent_activity === true && Boolean(activityFilterError))
     : isCurrentTableError;
 
   const handlePrint = async () => {
@@ -665,6 +678,7 @@ const UserManagement = () => {
       includeSuperadmins: isSuperadmin,
       includeRecentActivity: isAnalyticsTab && canManageUsers && accountAnalytics.show_recent_activity === true,
       search: searchQuery,
+      activityFilters: { ...activityFilters },
       regionLabel: getRegionLabel,
     };
     try {
@@ -673,7 +687,7 @@ const UserManagement = () => {
             const request = fetchPrintActivity(params);
             printRequest.current = request;
             return request.unwrap();
-          })
+          }, options.activityFilters)
         : [];
       if (!printMounted.current) return;
       const report = buildUserManagementPrintReport({ ...options, recentActivity });
@@ -1085,6 +1099,12 @@ const UserManagement = () => {
               )
             ) : (
               <AccountAnalyticsPanel
+                activityFilters={activityFilters}
+                activityFilterError={activityFilterError}
+                onActivityFilterChange={changeActivityFilters}
+                recentActivityPage={recentActivityPage}
+                setRecentActivityPage={setRecentActivityPage}
+                isPreparingPrint={isPrinting}
                 accountAnalytics={accountAnalytics}
                 organizations={organizationList}
                 isAccountAnalyticsLoading={isAccountAnalyticsLoading}
@@ -2754,6 +2774,12 @@ const OrganizationsPanel = ({
 };
 
 const AccountAnalyticsPanel = ({
+  activityFilters,
+  activityFilterError,
+  onActivityFilterChange,
+  recentActivityPage,
+  setRecentActivityPage,
+  isPreparingPrint,
   accountAnalytics = {},
   organizations = [],
   isAccountAnalyticsLoading,
@@ -2778,16 +2804,32 @@ const AccountAnalyticsPanel = ({
   const showRecentActivity = accountAnalytics.show_recent_activity === true;
   const isAccountActivityLoading = isAccountAnalyticsLoading;
 
-  const [recentActivityPage, setRecentActivityPage] = useState(1);
+  const [accountLookupOpen, setAccountLookupOpen] = useState(false);
+  const [accountLookupSearch, setAccountLookupSearch] = useState("");
+  const [debouncedAccountSearch, setDebouncedAccountSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedAccountSearch(accountLookupSearch), 250);
+    return () => clearTimeout(timer);
+  }, [accountLookupSearch]);
+  const {
+    currentData: accountChoices,
+    isFetching: isAccountChoicesLoading,
+    isError: isAccountChoicesError,
+    refetch: refetchAccountChoices,
+  } = useFetchRecentActivityAccountsQuery({ search: debouncedAccountSearch }, {
+    skip: !showRecentActivity || !accountLookupOpen,
+  });
+  const hasActivityFilters = activityFilters.accountId !== "all" || activityFilters.dateFrom || activityFilters.dateTo || activityFilters.search.trim();
   const {
     currentData: recentActivityData,
     isFetching: isRecentActivityLoading,
     isError: isRecentActivityError,
     refetch: refetchRecentActivity,
   } = useFetchRecentAccountActivityQuery({
+    ...activityFilters,
     limit: ACCOUNT_PAGE_SIZE,
     offset: (recentActivityPage - 1) * ACCOUNT_PAGE_SIZE,
-  }, { skip: !showRecentActivity });
+  }, { skip: !showRecentActivity || Boolean(activityFilterError) });
 
   const recentAccountActivity = recentActivityData?.entries || [];
   const recentActivityTotal = recentActivityData?.total || 0;
@@ -2800,7 +2842,7 @@ const AccountAnalyticsPanel = ({
   useEffect(() => {
     if (!showRecentActivity || isRecentActivityLoading || isRecentActivityError || !recentActivityData) return;
     setRecentActivityPage((page) => Math.min(page, recentActivityPageCount));
-  }, [showRecentActivity, isRecentActivityLoading, isRecentActivityError, recentActivityData, recentActivityPageCount]);
+  }, [showRecentActivity, isRecentActivityLoading, isRecentActivityError, recentActivityData, recentActivityPageCount, setRecentActivityPage]);
 
   const totalActivityActions = activityByDay.reduce(
     (total, day) => total + day.actions,
@@ -2996,14 +3038,51 @@ const AccountAnalyticsPanel = ({
 
       {showRecentActivity && (
         <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
-          <h2 className="text-[18px] font-semibold text-gray-800">
-            Recent Account Activity
-          </h2>
-          <p className="text-sm text-gray-500">
-            Detailed account activity based on your access level.
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-[12px]">
+            <div>
+              <h2 className="text-[18px] font-semibold text-gray-800">Recent Account Activity</h2>
+              <p className="text-sm text-gray-500">Filter the activity list and its printed entries. Dates use Philippine time.</p>
+            </div>
+            <button type="button" disabled={isPreparingPrint}
+              onClick={() => onActivityFilterChange(DEFAULT_ACTIVITY_FILTERS)}
+              className="rounded-[8px] border border-[#E5E5E5] px-[10px] py-[6px] text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60">
+              Reset filters
+            </button>
+          </div>
+          <div className="mt-[16px] flex flex-wrap items-end justify-between gap-x-[20px] gap-y-[14px]">
+            <div className="flex w-full flex-col gap-[6px] sm:w-[280px]">
+              <label htmlFor="activity-search" className="text-sm text-gray-600">Search activity</label>
+              <ToolbarSearch id="activity-search" className="!w-full" placeholder="Search names, entries, modules or IP..."
+                value={activityFilters.search} maxLength={200} disabled={isPreparingPrint}
+                onChange={(event) => onActivityFilterChange({ search: event.target.value })} />
+            </div>
+            <div className="ml-auto flex max-w-full flex-wrap items-end gap-[10px]">
+              <div className="flex w-[240px] max-w-full flex-col gap-[6px]">
+                <label htmlFor="activity-account" className="text-sm text-gray-600">Account</label>
+                <SearchableSelect id="activity-account" value={activityFilters.accountId}
+                  selectedLabel={activityFilters.accountLabel} options={accountChoices?.accounts || []}
+                  search={accountLookupSearch} onSearchChange={setAccountLookupSearch}
+                  onOpenChange={setAccountLookupOpen} disabled={isPreparingPrint}
+                  onChange={(choice) => onActivityFilterChange({ accountId: choice.value, accountLabel: choice.label })}
+                  isLoading={isAccountChoicesLoading || accountLookupSearch !== debouncedAccountSearch}
+                  isError={isAccountChoicesError} onRetry={refetchAccountChoices} hasMore={accountChoices?.has_more} />
+              </div>
+              <label className="flex w-[145px] max-w-full flex-col gap-[6px] text-sm text-gray-600">
+                <span>From date</span>
+                <input type="date" value={activityFilters.dateFrom} max={activityFilters.dateTo || undefined}
+                  disabled={isPreparingPrint} onChange={(event) => onActivityFilterChange({ dateFrom: event.target.value })}
+                  className="h-[42px] w-full min-w-0 rounded-[10px] border border-[#E5E5E5] bg-white px-[12px] py-[10px] text-sm text-gray-800" />
+              </label>
+              <label className="flex w-[145px] max-w-full flex-col gap-[6px] text-sm text-gray-600">
+                <span>To date</span>
+                <input type="date" value={activityFilters.dateTo} min={activityFilters.dateFrom || undefined}
+                  disabled={isPreparingPrint} onChange={(event) => onActivityFilterChange({ dateTo: event.target.value })}
+                  className="h-[42px] w-full min-w-0 rounded-[10px] border border-[#E5E5E5] bg-white px-[12px] py-[10px] text-sm text-gray-800" />
+              </label>
+            </div>
+          </div>
 
-          {isRecentActivityLoading ? (
+          {activityFilterError ? <p role="alert" className="py-[24px] text-center text-sm text-[#B42318]">{activityFilterError}</p> : isRecentActivityLoading ? (
             <div className="mt-[16px]">
               <SkeletonBody headers={["User", "Entry", "Module", "Time", "IP Address", "Logged At"]} rows={5} />
             </div>
@@ -3061,8 +3140,8 @@ const AccountAnalyticsPanel = ({
           ) : (
             <EmptyState
               iconName="ActivityLog"
-              heading={recentActivityEmptyState.heading}
-              content={recentActivityEmptyState.content}
+              heading={hasActivityFilters ? "No Matching Activity" : recentActivityEmptyState.heading}
+              content={hasActivityFilters ? "No activity matches the selected account, dates and search. Try adjusting or resetting the filters." : recentActivityEmptyState.content}
             />
           )}
           <TablePagination
@@ -3073,7 +3152,7 @@ const AccountAnalyticsPanel = ({
             total={recentActivityTotal}
             itemLabel="activities"
             isLoading={isRecentActivityLoading}
-            isError={isRecentActivityError}
+            isError={isRecentActivityError || Boolean(activityFilterError)}
             errorMessage="Activity range unavailable"
             onPageChange={(page) => setRecentActivityPage(Math.max(1, Math.min(recentActivityPageCount, page)))}
           />
