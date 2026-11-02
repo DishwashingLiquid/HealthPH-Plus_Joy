@@ -359,6 +359,22 @@ const PROCESSABLE_ANALYTICS_STATUSES = ["SUBMITTED", "FAILED"];
 const normalizeCsvHeader = (header) =>
     String(header || "").trim().toLowerCase().replace(/\s+/g, "_");    
 
+const getDatasetRowError = (rows, headerLookup) => {
+    for (const [index, row] of rows.entries()) {
+        const value = (column) => String(row?.[headerLookup[column]] ?? "").trim();
+
+        if (RAW_DATASET_REQUIRED_HEADERS.every((column) => !value(column))) continue;
+
+        if (!value("text")) {
+            return `Row ${index + 2}: Text is missing. Add the post text or remove this row.`;
+        }
+        if (!value("id")) {
+            return `Row ${index + 2}: ID is missing. Add an ID or remove this row.`;
+        }
+    }
+    return "";
+};
+
 const formatDatasetHeader = (header) =>
     String(header || "")
         .trim()
@@ -651,6 +667,7 @@ const DataManagement = () => {
         headers: [],
         data: [],
         missingHeaders: [],
+        rowError: "",
     });
 
     /* DELETE MODAL STATE */
@@ -693,6 +710,7 @@ const DataManagement = () => {
             headers: [],
             data: [],
             missingHeaders: [],
+            rowError: "",
         });
 
         if (inputFile.current) {
@@ -731,6 +749,12 @@ const DataManagement = () => {
             })
         );
 
+        const rowError = missingHeaders.length > 0
+            ? ""
+            : validRows.length === 0
+                ? "CSV file has no data rows."
+                : getDatasetRowError(data, headerLookup);
+
         setSelectedFile(originalFile);
         setUploadPreviewData({
             filename: fileInfo.name,
@@ -739,8 +763,9 @@ const DataManagement = () => {
             headers,
             data: validRows.slice(0, 10),
             missingHeaders,
+            rowError,
         });
-        setUploadError("");
+        setUploadError(rowError);
         setUploadModalActive(true);
     };
 
@@ -756,6 +781,11 @@ const DataManagement = () => {
                     .map(formatDatasetHeader)
                     .join(", ")}`
             );
+            return;
+        }
+
+        if (uploadPreviewData.rowError) {
+            setUploadError(uploadPreviewData.rowError);
             return;
         }
 
@@ -1469,7 +1499,7 @@ const DataManagement = () => {
                             </ToolbarButton>
 
                             <CSVReader
-                                parserOptions={{ header: true }}
+                                parserOptions={{ header: true, skipEmptyLines: true }}
                                 onFileLoaded={onFileSelect}
                                 ref={inputFile}
                                 cssInputClass="hidden"
@@ -2784,6 +2814,9 @@ const UploadDatasetModal = ({ data, error, isLoading, onCancel, onConfirm }) => 
                             Enter dates as year-month-day, for example 2026-10-31.
                             Time is optional. If included, use 2026-10-31 09:30
                         </p>
+                        <p className="mt-2">
+                            Each row needs an ID and post text. Completely blank rows are ignored.
+                        </p>
                     </div>
 
                     {error && (
@@ -2844,7 +2877,7 @@ const UploadDatasetModal = ({ data, error, isLoading, onCancel, onConfirm }) => 
                     <button
                         className={MODAL_PRIMARY_BUTTON_CLASSES}
                         onClick={onConfirm}
-                        disabled={isLoading || hasMissingHeaders || data.rows === 0}
+                        disabled={isLoading || hasMissingHeaders || Boolean(data.rowError) || data.rows === 0}
                     >
                         {isLoading ? "Uploading..." : "Upload"}
                     </button>

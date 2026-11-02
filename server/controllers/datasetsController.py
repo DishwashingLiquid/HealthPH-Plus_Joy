@@ -28,6 +28,7 @@ from schema.datasetSchema import individual_dataset, list_datasets
 from helpers.datasetsHelpers import annotation
 from helpers.miscHelpers import get_ph_datetime
 from helpers.datasetDateHelpers import normalize_dataset_dates
+from helpers.datasetValidationHelpers import validate_dataset_required_values
 from helpers.analyticsEntryHelpers import (
     build_social_media_analytics_entries,
     get_valid_analytics_entries,
@@ -415,6 +416,7 @@ async def upload_dataset(
         )
 
     try:
+        validate_dataset_required_values(raw_dataset_df)
         raw_dataset_df = normalize_dataset_dates(raw_dataset_df)
     except ValueError as error:
         os.remove(full_path)
