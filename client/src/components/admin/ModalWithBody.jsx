@@ -8,6 +8,7 @@ const ModalWithBody = ({
   cancelButtonStyle,
   onCancel,
   onBackdrop,
+  closeOnBackdrop = true,
   onLoading,
   onLoadingLabel,
   heading,
@@ -21,7 +22,7 @@ const ModalWithBody = ({
     <div className={`modal ${additionalClasses}`}>
       <div
         className="modal-backdrop"
-        onClick={onLoading ? null : onBackdrop ?? onCancel}
+        onClick={onLoading || !closeOnBackdrop ? undefined : onBackdrop ?? onCancel}
       ></div>
       <div className="modal-container">
         <div className="modal-body !p-0">

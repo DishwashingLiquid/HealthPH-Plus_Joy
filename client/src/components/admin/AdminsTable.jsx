@@ -552,6 +552,7 @@ const AdminsTable = ({
 
             {bulkActionModalActive && (
                 <Modal
+                    closeOnBackdrop={false}
                     onLoading={isModalLoading}
                     onLoadingLabel={
                         bulkActionType === "delete"
@@ -591,6 +592,7 @@ const AdminsTable = ({
 
             {updateModalActive && (
                 <ModalWithBody
+                    closeOnBackdrop={false}
                     onLoading={isModalLoading || isResendingInvitation}
                     onLoadingLabel={isResendingInvitation ? "Please wait..." : "Updating"}
                     onConfirm={handleUpdateAdmin}

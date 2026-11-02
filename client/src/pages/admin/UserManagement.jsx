@@ -1184,6 +1184,7 @@ const UserManagement = () => {
 
         {organizationDeleteModalActive && selectedOrganization && (
           <Modal
+            closeOnBackdrop={false}
             onLoading={isDeleteOrganizationLoading}
             onLoadingLabel="Deleting"
             onConfirm={handleDeleteOrganization}
@@ -1468,13 +1469,7 @@ const UserAccountModal = ({
 
   return (
     <div className="fixed inset-x-0 bottom-0 top-[49px] z-50 flex items-center justify-center px-[20px] py-[32px]">
-      <button
-        type="button"
-        className="absolute inset-0 bg-[#34405499] backdrop-blur-sm"
-        onClick={onClose}
-        aria-label="Close add user modal"
-        disabled={isLoading}
-      />
+      <div aria-hidden="true" className="absolute inset-0 bg-[#34405499] backdrop-blur-sm" />
 
       <form
         method="post"
@@ -1872,13 +1867,7 @@ const OrganizationFormModal = ({
 
   return (
     <div className="fixed inset-x-0 bottom-0 top-[49px] z-50 flex items-center justify-center px-[20px] py-[32px]">
-      <button
-        type="button"
-        className="absolute inset-0 bg-[#34405499] backdrop-blur-sm"
-        onClick={onClose}
-        aria-label="Close organization modal"
-        disabled={isLoading}
-      />
+      <div aria-hidden="true" className="absolute inset-0 bg-[#34405499] backdrop-blur-sm" />
 
       <form
         method="post"
@@ -2139,13 +2128,7 @@ const RoleLabelFormModal = ({
 
   return (
     <div className="fixed inset-x-0 bottom-0 top-[49px] z-50 flex items-center justify-center px-[20px] py-[32px]">
-      <button
-        type="button"
-        className="absolute inset-0 bg-[#34405499] backdrop-blur-sm"
-        onClick={onClose}
-        aria-label="Close role modal"
-        disabled={isLoading}
-      />
+      <div aria-hidden="true" className="absolute inset-0 bg-[#34405499] backdrop-blur-sm" />
 
       <form
         method="post"
@@ -2546,12 +2529,7 @@ const OrganizationDetailsModal = ({
 
   return (
     <div className="fixed inset-x-0 bottom-0 top-[49px] z-50 flex items-center justify-center px-[20px] py-[32px]">
-      <button
-        type="button"
-        className="absolute inset-0 bg-[#34405499] backdrop-blur-sm"
-        onClick={onClose}
-        aria-label="Close organization details modal"
-      />
+      <div aria-hidden="true" className="absolute inset-0 bg-[#34405499] backdrop-blur-sm" />
 
       <div className="relative flex max-h-[calc(100vh-113px)] w-full max-w-[900px] flex-col overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-white shadow-xl">
         <div className="border-b border-[#E5E5E5] px-[20px] py-[16px]">

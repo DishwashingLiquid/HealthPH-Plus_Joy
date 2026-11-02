@@ -649,6 +649,7 @@ const UsersTable = ({
       {/* MODALS */}
       {bulkActionModalActive && (
         <Modal
+          closeOnBackdrop={false}
           onLoading={isModalLoading}
           onLoadingLabel={
             bulkActionType === "delete"
@@ -688,6 +689,7 @@ const UsersTable = ({
 
       {updateModalActive && (
         <ModalWithBody
+          closeOnBackdrop={false}
           onLoading={isModalLoading || isResendingInvitation}
           onLoadingLabel={isResendingInvitation ? "Please wait..." : "Updating"}
           onConfirm={handleUpdateUser}
