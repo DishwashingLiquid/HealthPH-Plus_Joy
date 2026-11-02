@@ -25,6 +25,7 @@ from helpers.analyticsAccessHelpers import (
 )
 from helpers.diseaseDetectionHelpers import detect_diseases
 from helpers.analyticsSymptomHelpers import get_entry_symptoms
+from helpers.analyticsWordHelpers import summarize_word_frequencies
 from helpers.surveillanceMapHelpers import MAP_DISEASE_CODES, build_processed_map_points
 from helpers.surveillanceDateHelpers import (
     get_surveillance_window,
@@ -481,6 +482,88 @@ def fetch_nlp_entity_summary(
                 key=lambda item: (-len(item[1]), item[0]),
             )
         ],
+    }
+
+def fetch_nlp_word_summary(
+    current_user: Annotated[
+        dict,
+        Depends(require_page("NLP Insights")),
+    ],
+):
+    allowed_regions = get_allowed_analytics_regions(current_user)
+
+    entries = analytics_entries_collection.find(
+        {
+            "analysis_status": "PROCESSED",
+            "source_type": {
+                "$in": ["self_report", "social_media"],
+            },
+        },
+        {
+            "_id": 1,
+            "source_type": 1,
+            "report_id": 1,
+            "source_id": 1,
+            "text": 1,
+            "location": 1,
+        },
+    ).sort([
+        ("updated_at", -1),
+        ("_id", -1),
+    ])
+
+    seen_reports = set()
+    source_counts = {
+        "self_report": 0,
+        "social_media": 0,
+    }
+
+    def permitted_texts():
+        for entry in entries:
+            region = get_analytics_entry_region(entry)
+
+            if (
+                allowed_regions is not None
+                and region not in allowed_regions
+            ):
+                continue
+
+            text = entry.get("text")
+
+            if not isinstance(text, str) or not text.strip():
+                continue
+
+            source_type = entry["source_type"]
+
+            if source_type == "self_report":
+                report_id = (
+                    entry.get("report_id")
+                    or entry.get("source_id")
+                    or entry["_id"]
+                )
+            else:
+                report_id = entry["_id"]
+
+            report_key = (source_type, str(report_id))
+
+            # count a reports text once if duplicate entries exist
+            if report_key in seen_reports:
+                continue
+
+            seen_reports.add(report_key)
+            source_counts[source_type] += 1
+
+            yield text
+
+    word_summary = summarize_word_frequencies(
+        permitted_texts(),
+        limit=30,
+    )
+
+    return {
+        "processed_report_count": len(seen_reports),
+        "source_report_counts": source_counts,
+        **word_summary,
     }
 
 PROCESSABLE_SOURCE_TYPES = ["self_report"]

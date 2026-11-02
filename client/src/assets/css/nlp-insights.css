@@ -1,0 +1,32 @@
+.nlp-word-card .heading {
+    color: #333e4a;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.nlp-word-card .caption {
+    margin-top: 4px;
+    color: #687582;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.tippy-box[data-theme~="nlp-word-cloud"] {
+    background-color: #171e26;
+    color: #ffffff;
+    border: 1px solid #465360;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(23, 30, 38, 0.24);
+    font-family: Inter, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.tippy-box[data-theme~="nlp-word-cloud"] > .tippy-content {
+    padding: 9px 12px;
+}
+
+.tippy-box[data-theme~="nlp-word-cloud"] > .tippy-arrow {
+    color: #171e26;
+}

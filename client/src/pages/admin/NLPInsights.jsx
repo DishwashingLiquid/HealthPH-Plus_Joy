@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { useReactToPrint } from "react-to-print";
 
@@ -11,7 +11,6 @@ import {
     CartesianGrid,
     Tooltip,
     Legend,
-    LabelList,
     PieChart,
     Pie,
     Cell,
@@ -19,15 +18,12 @@ import {
     Line,
 } from "recharts";
 
-import {
-    useGenerateFrequentWordsQuery,
-    useGenerateWordCloudQuery,
-} from "../../features/api/analyticsSlice";
 
 import { useFetchDatasetsByUserQuery } from "../../features/api/datasetsSlice";
 import {
     useFetchSelfReportLanguageSummaryQuery,
     useFetchNlpEntitySummaryQuery,
+    useFetchNlpWordSummaryQuery,
 } from "../../features/api/analyticsEntriesSlice";
 
 import Report from "../../components/admin/Report";
@@ -35,13 +31,50 @@ import EntityFrequencyPanel from "../../components/admin/EntityFrequencyPanel";
 import SummaryPrintReport from "../../components/admin/SummaryPrintReport";
 import { ToolbarButton } from "../../components/ToolbarControls";
 import LoadingSkeleton, { ChartSkeleton } from "../../components/LoadingSkeleton";
-import capitalizeSymptom from "../../hooks/useCapitalizeSymptom";
 import useUrlTab from "../../hooks/useUrlTab";
 import { getRegionFromLocation } from "../../utils/locationRegionMap";
 
 import EmptyState from "../../components/admin/EmptyState";
 
 import ReactWordCloud from "react-wordcloud";
+import "tippy.js/dist/tippy.css";
+import "tippy.js/animations/scale.css";
+import "../../assets/css/nlp-insights.css";
+
+const WORD_CLOUD_MIN_SIZE = [160, 220];
+const WORD_CLOUD_OPTIONS = {
+    colors: ["#32418C", "#2572A5", "#0064D1", "#465360", "#007F7A"],
+    rotations: 0,
+    deterministic: true,
+    randomSeed: "healthph-nlp-words",
+    padding: 3,
+    fontFamily: "Inter, sans-serif",
+    fontWeight: "500",
+    fontSizes: [16, 52],
+    scale: "sqrt",
+    spiral: "archimedean",
+    transitionDuration: 250,
+    enableTooltip: true,
+    tooltipOptions: {
+        theme: "nlp-word-cloud",
+        appendTo: () => document.body,
+        popperOptions: { strategy: "fixed" },
+        animation: "scale",
+        allowHTML: false,
+        arrow: true,
+        placement: "top",
+        offset: [0, 10],
+        maxWidth: 260,
+        zIndex: 2000,
+        hideOnClick: false,
+        delay: [80, 0],
+        duration: [120, 80],
+    },
+};
+const WORD_CLOUD_CALLBACKS = {
+    getWordTooltip: ({ text, value }) =>
+        `${text} — ${Number(value).toLocaleString()} ${Number(value) === 1 ? "occurrence" : "occurrences"}`,
+};
 
 const NLPInsights = () => {
     const [activeTab, setActiveTab] = useUrlTab(
@@ -65,27 +98,32 @@ const NLPInsights = () => {
         skip: activeTab !== "language" || !user?.id,
     });
 
-    /* TOP WORDS */
-    const wordRegion =
-        user.user_type == "USER"
-            ? user.accessible_regions[0]
-            : "all";
+    const {
+        currentData: wordSummary,
+        isFetching: isWordSummaryFetching,
+        isError: isWordSummaryError,
+        refetch: refetchWordSummary,
+    } = useFetchNlpWordSummaryQuery(undefined, {
+        skip: activeTab !== "ner" || !user?.id,
+        refetchOnMountOrArgChange: true,
+        refetchOnFocus: true,
+    });
 
-    const { data: frequentWords, isFetching: isTopWordsFetching, isError: isTopWordsError } =
-        useGenerateFrequentWordsQuery(wordRegion);
+    const rankedWords = Array.isArray(wordSummary?.words)
+        ? wordSummary.words
+        : [];
 
-    /* WORD CLOUD */
-    const { data: wordcloud, isFetching: isWordCloudFetching, isError: isWordCloudError } =
-        useGenerateWordCloudQuery(wordRegion);
+    const topWords = rankedWords.slice(0, 10);
 
-    const wordcloudOptions = {
-        colors: ["#171E26", "#F5D76E", "#6A8EB5", "#F78C6B", "#78C6B2"],
-        rotations: 0,
-        deterministic: true,
-        padding: 20,
-        fontSizes: [20, 50],
-        scale: "linear",
-    };
+    const wordCloudWords = useMemo(
+        () => Array.isArray(wordSummary?.words)
+            ? wordSummary.words.map(({ word, frequency }) => ({
+                text: word,
+                value: frequency,
+            }))
+            : [],
+        [wordSummary]
+    );
 
     return (
         <div className="flex flex-col gap-[10px]">
@@ -124,16 +162,14 @@ const NLPInsights = () => {
             </div>
 
             {activeTab === "ner" && (
-                <NamedEntityRecognition 
+                <NamedEntityRecognition
                     entityReport={entityReport}
                     printing={printing}
-                    frequentWords={frequentWords}
-                    isTopWordsFetching={isTopWordsFetching}
-                    isTopWordsError={isTopWordsError}
-                    wordcloud={wordcloud}
-                    isWordCloudFetching={isWordCloudFetching}
-                    isWordCloudError={isWordCloudError}
-                    wordcloudOptions={wordcloudOptions}
+                    topWords={topWords}
+                    wordCloudWords={wordCloudWords}
+                    isWordSummaryFetching={isWordSummaryFetching}
+                    isWordSummaryError={isWordSummaryError}
+                    onRetryWords={refetchWordSummary}
                 />
             )}
             {activeTab === "sentiment" && <SentimentAnalysis />}
@@ -316,16 +352,143 @@ const useNlpEntityReport = (enabled) => {
     };
 };
 
+const NlpWordCloud = ({ words }) => {
+    const cloudRef = useRef(null);
+    const tooltipInstances = useRef(new Set());
+    const options = useMemo(() => ({
+        ...WORD_CLOUD_OPTIONS,
+        tooltipOptions: {
+            ...WORD_CLOUD_OPTIONS.tooltipOptions,
+            onCreate: (instance) => tooltipInstances.current.add(instance),
+            onDestroy: (instance) => tooltipInstances.current.delete(instance),
+        },
+    }), []);
+
+    useEffect(() => {
+        const instances = tooltipInstances.current;
+        return () => {
+            [...instances].forEach((instance) => instance.destroy());
+            instances.clear();
+        };
+    }, [words]);
+
+    useEffect(() => {
+        const container = cloudRef.current;
+        if (!container) return;
+
+        let settleTimer;
+        let frame;
+
+        const fitWords = () => {
+            const svg = container.querySelector("svg");
+            if (!svg?.querySelector("text")) return;
+
+            const bounds = svg.getBBox();
+            if (bounds.width <= 0 || bounds.height <= 0) return;
+
+            svg.setAttribute("viewBox", `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`);
+            svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+        };
+
+        const scheduleFit = () => {
+            clearTimeout(settleTimer);
+            cancelAnimationFrame(frame);
+            // Measure after the cloud's positioning and font transitions settle.
+            settleTimer = setTimeout(() => {
+                frame = requestAnimationFrame(fitWords);
+            }, 80);
+        };
+
+        const observer = new MutationObserver(scheduleFit);
+        observer.observe(container, {
+            subtree: true,
+            childList: true,
+            characterData: true,
+            attributes: true,
+            attributeFilter: ["transform", "font-size", "width", "height"],
+        });
+        const resizeObserver = new ResizeObserver(scheduleFit);
+        resizeObserver.observe(container);
+        scheduleFit();
+
+        return () => {
+            observer.disconnect();
+            resizeObserver.disconnect();
+            clearTimeout(settleTimer);
+            cancelAnimationFrame(frame);
+        };
+    }, [words]);
+
+    return (
+        <div ref={cloudRef} className="h-full min-w-0 w-full">
+            <ReactWordCloud
+                words={words}
+                options={options}
+                callbacks={WORD_CLOUD_CALLBACKS}
+                minSize={WORD_CLOUD_MIN_SIZE}
+                maxWords={30}
+            />
+        </div>
+    );
+};
+
+const TopWordRows = ({ words, isLoading = false }) => {
+    const maximum = Math.max(1, ...words.map(({ frequency }) => frequency));
+    const countWidth = Math.max(3, ...words.map(({ frequency }) => frequency.toLocaleString().length));
+    const labelWidth = isLoading
+        ? 10
+        : Math.min(18, Math.max(6, ...words.map(({ word }) => Array.from(word).length)));
+    const rows = isLoading
+        ? Array.from({ length: 10 }, (_, index) => ({ word: `loading-${index}` }))
+        : words;
+
+    return (
+        <ul aria-label="Top words by occurrence" aria-busy={isLoading} className="mx-auto w-full max-w-[480px] space-y-[4px]">
+            {rows.map(({ word, frequency }) => (
+                <li
+                    key={word}
+                    className="grid min-h-[32px] items-center gap-[12px]"
+                    style={{ gridTemplateColumns: `minmax(0, ${labelWidth}ch) minmax(40px, 1fr) max-content` }}
+                >
+                    {isLoading ? (
+                        <LoadingSkeleton className="ml-auto h-[16px] w-[80%]" />
+                    ) : (
+                        <span title={word} className="min-w-0 truncate text-right text-sm font-medium text-gray-800">
+                            {word}
+                        </span>
+                    )}
+                    {isLoading ? (
+                        <LoadingSkeleton className="h-[8px] w-full" />
+                    ) : (
+                        <div aria-hidden="true" className="h-[8px] overflow-hidden rounded-full bg-[#E9EFF5]">
+                            <div
+                                className="h-full rounded-full bg-[#2572A5]"
+                                style={{ width: `${Math.min(100, frequency / maximum * 100)}%` }}
+                            />
+                        </div>
+                    )}
+                    <span
+                        className="min-w-[32px] text-right text-sm font-semibold tabular-nums text-[#32418C]"
+                        style={{ width: `${countWidth}ch` }}
+                    >
+                        {isLoading ? <LoadingSkeleton className="h-[16px] w-[32px]" /> : (
+                            <>{frequency.toLocaleString()}<span className="sr-only"> occurrences</span></>
+                        )}
+                    </span>
+                </li>
+            ))}
+        </ul>
+    );
+};
+
 const NamedEntityRecognition = ({
     entityReport,
     printing,
-    frequentWords,
-    isTopWordsFetching,
-    isTopWordsError,
-    wordcloud,
-    isWordCloudFetching,
-    isWordCloudError,
-    wordcloudOptions,
+    topWords,
+    wordCloudWords,
+    isWordSummaryFetching,
+    isWordSummaryError,
+    onRetryWords,
 }) => {
     const {
         isEntityFetching, isEntityError, refetchEntities,
@@ -372,91 +535,92 @@ const NamedEntityRecognition = ({
                     emptyMessage="No regional results available."                    
                 />
             </div>
-            {/* SECOND ROW */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-[10px]">
-                {/* LEFT - NER DEMO PANEL OR LEFT - ENTITY HIGHLIGHTS */}
-                <div className="flex min-h-[260px] flex-col rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
-                    <h2 className="text-[18px] font-semibold text-gray-800">
-                        Named Entity Recognition Demo
-                    </h2>
-                    <p className="my-auto py-[40px] text-center text-sm text-gray-500">
-                        Named Entity Recognition is not yet available.
-                        Specialist-reviewed annotations are being completed for model training.
-                    </p>
-                </div>
-                {/* RIGHT */}
-                <div className="flex flex-col gap-[10px]">
-                    {/* TOP WORDS */}
-                    <Report
-                        heading="Top Words"
-                        showFilter={false}
-                        isLoading={isTopWordsFetching}
-                        loadingContent={<ChartSkeleton height={260} label="Loading top words..." />}
-                        errorMessage={isTopWordsError ? "Unable to load top words. Please try again." : ""}
+            {/* WORD ANALYSIS */}
+            <div className="grid grid-cols-1 items-stretch gap-[10px] xl:grid-cols-2">
+                {isWordSummaryError && (
+                    <div
+                        role="alert"
+                        className="flex items-center justify-between gap-[12px] rounded-[12px] border border-[#FECACA] bg-[#FEF2F2] p-[14px] text-sm text-[#B42318] xl:col-span-2"
                     >
-                        <ResponsiveContainer width="100%" height={260}>
-                            {frequentWords && frequentWords["frequent_words"]?.length > 0 ? (
-                                <BarChart
-                                    data={frequentWords["frequent_words"]}
-                                    layout="vertical"
-                                    margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis type="number" padding={{ left: 20, right: 20 }} tickLine={false} />
-                                    <YAxis hide={true} dataKey="word" type="category" tickLine={false} axisLine={false} />
-                                    <Tooltip />
-                                    <Legend verticalAlign="top" align="left" iconSize={20} height={40} />
-                                    <Bar dataKey="frequency" fill="#B5A8DE" maxBarSize={18} radius={[0, 8, 8, 0]}>
-                                        <LabelList
-                                            dataKey="word"
-                                            content={({ x, y, value}) => (
-                                                <text
-                                                    x={x}
-                                                    y={y - 5}
-                                                    className="recharts-text recharts-cartesian-axis-tick-value text-[14px]" fill="#666"  
-                                                >
-                                                    <tspan>{capitalizeSymptom(value)}</tspan>
-                                                </text>
-                                            )}
-                                        />
-                                    </Bar>
-                                </BarChart>
-                            ) : (
-                                <div className="flex items-center justify-center h-[220px] text-gray-400">
-                                    No top words data available
-                                </div>
-                            )}
-                        </ResponsiveContainer>
-                    </Report>
-                    
-                    {/* WORD CLOUD */}
-                    <Report
-                        heading="Word Cloud"
-                        showFilter={false}
-                        isLoading={isWordCloudFetching}
-                        loadingContent={<ChartSkeleton height={260} label="Loading word cloud..." />}
-                        errorMessage={isWordCloudError ? "Unable to load the word cloud. Please try again." : ""}
-                    >
-                        <ResponsiveContainer width="100%" height={260}>
-                            {wordcloud && wordcloud !== "No datasets" ? (
-                                <ReactWordCloud 
-                                    className="dynamic-wordcloud"
-                                    style={{
-                                        height: "100%",
-                                        width: "100%",
-                                    }}
-                                    words={wordcloud}
-                                    options={wordcloudOptions}
-                                />
-                            ) : (
-                                <div className="flex items-center justify-center h-[220px] text-gray-400">
-                                    No word cloud data available
-                                </div>
-                            )}
-                        </ResponsiveContainer>
-                    </Report>
-                </div>
+                        <p>Unable to load word analysis.</p>
+                        <button
+                            type="button"
+                            onClick={onRetryWords}
+                            className="shrink-0 font-semibold underline"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                )}
+
+                <Report
+                    heading="Top Words"
+                    caption="Most frequent words in processed self reports and social media texts."
+                    additionalClasses="nlp-word-card min-w-0"
+                    showFilter={false}
+                    isLoading={isWordSummaryFetching}
+                    loadingContent={
+                        <TopWordRows words={[]} isLoading />
+                    }
+                    errorMessage={
+                        isWordSummaryError
+                            ? "Word counts are unavailable."
+                            : ""
+                    }
+                >
+                    {topWords.length > 0 ? (
+                        <TopWordRows words={topWords} />
+                    ) : (
+                        <p
+                            role="status"
+                            className="flex h-[260px] items-center justify-center text-center text-sm text-gray-500"
+                        >
+                            No words available from processed reports.
+                        </p>
+                    )}
+                </Report>
+
+                <Report
+                    heading="Word Cloud"
+                    caption="Larger words appear more often. Hover over a word to see its count."
+                    additionalClasses="nlp-word-card flex min-w-0 flex-col"
+                    showFilter={false}
+                    isLoading={isWordSummaryFetching}
+                    loadingContent={
+                        <ChartSkeleton
+                            height={240}
+                            label="Loading word cloud..."
+                        />
+                    }
+                    errorMessage={
+                        isWordSummaryError
+                            ? "Word cloud is unavailable."
+                            : ""
+                    }
+                >
+                    {wordCloudWords.length > 0 ? (
+                        <div className="min-h-[240px] min-w-0 w-full flex-1 overflow-hidden rounded-[10px] bg-[#F7F9FC]">
+                            <NlpWordCloud words={wordCloudWords} />
+                        </div>
+                    ) : (
+                        <p
+                            role="status"
+                            className="flex min-h-[240px] flex-1 items-center justify-center text-center text-sm text-gray-500"
+                        >
+                            No words available from processed reports.
+                        </p>
+                    )}
+                </Report>
             </div>
+            <section className="flex min-h-[180px] flex-col rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
+                <h2 className="text-[18px] font-semibold text-gray-800">
+                    Named Entity Recognition Demo
+                </h2>
+                <p role="status" className="my-auto py-[24px] text-center text-sm text-gray-500">
+                    Named Entity Recognition is not yet available.
+                    Specialist-reviewed annotations are being completed for model training.
+                </p>
+            </section>
         </div>
     );
 };
