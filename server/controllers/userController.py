@@ -435,7 +435,7 @@ async def delete_user(id: str, user_id: Annotated[str, Depends(require_auth)]):
             detail="Error deleting account...",
         )
 
-    result = mail_delete_account(user_data["email"])
+    result = mail_delete_account(user_data["email"], user_data)
 
     if not result:
         print("error mail")
@@ -721,7 +721,7 @@ async def delete_users(
             detail="Failed to delete user.",
         )
 
-    result = mail_delete_account(deleted_user["email"])
+    result = mail_delete_account(deleted_user["email"], deleted_user)
 
     if not result:
         print("error mail")
@@ -796,7 +796,7 @@ async def delete_admin(
             detail="Failed to delete superadmin.",
         )
 
-    result = mail_delete_account(deleted_user["email"])
+    result = mail_delete_account(deleted_user["email"], deleted_user)
 
     if not result:
         print("error mail")
@@ -898,12 +898,12 @@ async def set_disable_status(
         )
 
     if data.disable_status:
-        result = mail_disabled(new_user["email"])
+        result = mail_disabled(new_user["email"], new_user)
 
         if not result:
             print("error mail")
     else:
-        result = mail_enabled(new_user["email"])
+        result = mail_enabled(new_user["email"], new_user)
 
         if not result:
             print("error mail")

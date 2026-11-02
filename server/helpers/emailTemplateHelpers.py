@@ -1,5 +1,5 @@
 from html import escape
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 import os
 
 
@@ -9,6 +9,8 @@ def render_email(
     details=(),
     action_label=None,
     action_url=None,
+    *,
+    verification_code=None,
 ):
     paragraphs = [str(paragraph) for paragraph in paragraphs]
     details = [
@@ -44,6 +46,9 @@ def render_email(
         *paragraphs,
     ]
 
+    if verification_code is not None:
+        plain_parts.append(f"Verification Code: {verification_code}")
+
     plain_parts.extend(
         f"{label}: {value}"
         for label, value in details
@@ -65,6 +70,23 @@ def render_email(
         + "</p>"
         for paragraph in paragraphs
     )
+
+    code_html = ""
+    if verification_code is not None:
+        code_html = f"""
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+               style="margin:8px 0 20px;">
+            <tr>
+                <td align="center" bgcolor="#F5F5F5"
+                    style="padding:20px 12px;border:1px solid #E5E5E5;border-radius:8px;">
+                    <p style="margin:0 0 8px;font-size:13px;color:#687582;">Verification Code</p>
+                    <p style="margin:0;font-family:Consolas,'Courier New',monospace;
+                              font-size:32px;line-height:1.3;letter-spacing:6px;
+                              font-weight:bold;color:#32418C;">{escape(str(verification_code))}</p>
+                </td>
+            </tr>
+        </table>
+        """
 
     details_html = ""
 
@@ -112,7 +134,25 @@ def render_email(
                 {escape(str(action_label))}
             </a>
         </p>
+        <p style="margin:0 0 8px;font-size:12px;line-height:1.6;color:#687582;">
+            If the button does not work, copy and paste this link into your browser:
+        </p>
+        <p style="margin:0 0 24px;font-size:12px;line-height:1.6;
+                  word-break:break-all;overflow-wrap:anywhere;">
+            <a href="{escape(action_url, quote=True)}"
+               style="color:#32418C;text-decoration:underline;word-break:break-all;">
+                {escape(action_url)}
+            </a>
+        </p>
         """
+
+    support_html = (
+        'Need help? Contact '
+        f'<a href="mailto:{escape(quote(support_email, safe="@.+-_"), quote=True)}" '
+        f'style="color:#32418C;text-decoration:underline;">{escape(support_email)}</a>.'
+        if support_email
+        else escape(support_text)
+    )
     
     html = f"""<!DOCTYPE html>
     <html lang="en">
@@ -144,6 +184,7 @@ def render_email(
                                     {escape(str(title))}
                                 </h1>
                                 {paragraphs_html}
+                                {code_html}
                                 {details_html}
                                 {action_html}
                             </td>
@@ -154,7 +195,7 @@ def render_email(
                                     color:#687582;font-size:12px;
                                     line-height:1.6;">
                                 <p style="margin:0 0 8px;">
-                                    {escape(support_text)}
+                                    {support_html}
                                 </p>
                                 <p style="margin:0;">
                                     This is an automated message from HealthPH+.

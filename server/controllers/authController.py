@@ -93,7 +93,7 @@ def authenticate_user(
 
     # Send OTP code to User via email
     result = mail_verification_code(
-        user.email, {"otp_code": otp.otp_code, "otp_expiry": otp.otp_expiry}
+        user.email, {"first_name": user.first_name, "otp_code": otp.otp_code, "otp_expiry": otp.otp_expiry}
     )
 
     if not result:
@@ -244,7 +244,7 @@ async def resend_otp_code(email: str = Body(...)):
 
     # Send OTP code to User via email
     result = mail_verification_code(
-        user.email, {"otp_code": otp.otp_code, "otp_expiry": otp.otp_expiry}
+        user.email, {"first_name": user.first_name, "otp_code": otp.otp_code, "otp_expiry": otp.otp_expiry}
     )
 
     if not result:
