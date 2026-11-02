@@ -165,6 +165,7 @@ const NLPInsights = () => {
                 <NamedEntityRecognition
                     entityReport={entityReport}
                     printing={printing}
+                    wordSummary={wordSummary}
                     topWords={topWords}
                     wordCloudWords={wordCloudWords}
                     isWordSummaryFetching={isWordSummaryFetching}
@@ -314,8 +315,8 @@ const useNlpEntityReport = (enabled) => {
         })
     );
 
-    const buildPrintReport = () => {
-        if (!entitySummary || isEntityFetching || isEntityError) return null;
+    const buildPrintReport = (wordSummary) => {
+        if (!entitySummary || isEntityFetching || isEntityError || !Array.isArray(wordSummary?.words)) return null;
 
         const toPrintRows = (rows) => rows.map(({ entity, report_count }) => ({
             label: entity,
@@ -324,7 +325,7 @@ const useNlpEntityReport = (enabled) => {
         }));
         return {
             title: "NLP Insights — Named Entity Recognition",
-            subtitle: "Diseases, Symptom Frequency and Locations",
+            subtitle: "Diseases, Symptom Frequency, Locations and Word Frequency",
             generatedAt: new Date().toISOString(),
             generatedBy: [user?.first_name, user?.last_name].filter(Boolean).join(" ") || "Unavailable",
             totalReports,
@@ -333,14 +334,25 @@ const useNlpEntityReport = (enabled) => {
                 { label: "Region access", value: "Account's permitted regions" },
             ],
             notes: [
-                "Includes the complete lists, not only the five-row previews. Counts represent reports, not repeated mentions.",
+                "Disease, symptom and location counts represent reports, not repeated mentions. Their complete lists are included, beyond the five-row previews.",
                 "One report can have multiple disease labels or symptoms; their shares may sum to more than 100%.",
                 "Locations are based on submitted regions.",
+                "Word Frequency includes up to 30 words used by Top Words and Word Cloud. Occurrences count repeated words within report text separately, after stopword removal; they are not report counts.",
             ],
             sections: [
                 { title: "Diseases", rows: toPrintRows(diseaseRows) },
                 { title: "Symptom Frequency", rows: toPrintRows(symptomRows) },
                 { title: "Locations", rows: toPrintRows(regionRows) },
+                {
+                    title: "Word Frequency",
+                    itemLabel: "Word",
+                    countLabel: "Occurrences",
+                    showShare: false,
+                    rows: wordSummary.words.map(({ word, frequency }) => ({
+                        label: word,
+                        count: frequency,
+                    })),
+                },
             ],
         };
     };
@@ -484,6 +496,7 @@ const TopWordRows = ({ words, isLoading = false }) => {
 const NamedEntityRecognition = ({
     entityReport,
     printing,
+    wordSummary,
     topWords,
     wordCloudWords,
     isWordSummaryFetching,
@@ -500,8 +513,8 @@ const NamedEntityRecognition = ({
             <SubtabPrintButton
                 label="Named Entity Recognition summary"
                 printing={printing}
-                onPrint={() => printing.startPrint(entityReport.buildPrintReport())}
-                disabled={isEntityFetching || isEntityError || !entityReport.entitySummary}
+                onPrint={() => printing.startPrint(entityReport.buildPrintReport(wordSummary))}
+                disabled={isEntityFetching || isEntityError || !entityReport.entitySummary || isWordSummaryFetching || isWordSummaryError || !Array.isArray(wordSummary?.words)}
             />
             <div className="grid grid-cols-1 gap-[10px] xl:grid-cols-3">
                 <EntityFrequencyPanel

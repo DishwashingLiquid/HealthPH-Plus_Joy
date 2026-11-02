@@ -43,26 +43,37 @@ const SummaryPrintReport = forwardRef(function SummaryPrintReport({ report }, re
             </dl>
             <p><strong>{report.totalLabel || "Matching processed reports"}: {report.totalReports.toLocaleString()}</strong></p>
             {report.notes.map((note) => <p key={note}>{note}</p>)}
-            {report.sections.map(({ title, rows, countLabel = "Reports", shareLabel = "Percentage out of all reports", showShare = true }) => (
+            {report.sections.map(({ title, rows, columns, itemLabel = "Item", countLabel = "Reports", shareLabel = "Percentage out of all reports", showShare = true }) => {
+                const tableColumns = columns || [
+                    { key: "label", label: itemLabel, width: showShare ? 50 : 75, align: "left" },
+                    { key: "count", label: countLabel, width: showShare ? 20 : 25, align: "right" },
+                    ...(showShare ? [{ key: "share", label: shareLabel, width: 30, align: "right", suffix: "%" }] : []),
+                ];
+                const totalWidth = tableColumns.reduce((sum, column) => sum + (column.width || 0), 0);
+                return (
                 <section key={title}>
                     <h2>{title}</h2>
                     <table>
                         <colgroup>
-                            <col style={{ width: showShare ? "50%" : "75%" }} />
-                            <col style={{ width: showShare ? "20%" : "25%" }} />
-                            {showShare && <col style={{ width: "30%" }} />}
+                            {tableColumns.map((column) => <col key={column.key} style={column.width ? { width: `${column.width / totalWidth * 100}%` } : undefined} />)}
                         </colgroup>
                         <thead>
-                            <tr><th scope="col">Item</th><th scope="col">{countLabel}</th>{showShare && <th scope="col">{shareLabel}</th>}</tr>
+                            <tr>{tableColumns.map((column) => <th key={column.key} scope="col" style={{ textAlign: column.align || "left" }}>{column.label}</th>)}</tr>
                         </thead>
                         <tbody>
-                            {rows.length ? rows.map(({ label, count, share }) => (
-                                <tr key={label}><td>{label}</td><td>{count.toLocaleString()}</td>{showShare && <td>{share}%</td>}</tr>
-                            )) : <tr><td colSpan={showShare ? 3 : 2}>No matching results.</td></tr>}
+                            {rows.length ? rows.map((row, index) => (
+                                <tr key={row.id || row.label || index}>
+                                    {tableColumns.map((column) => {
+                                        const value = row[column.key];
+                                        return <td key={column.key} style={{ textAlign: column.align || "left" }}>{typeof value === "number" ? value.toLocaleString() : value ?? "Unavailable"}{column.suffix || ""}</td>;
+                                    })}
+                                </tr>
+                            )) : <tr><td colSpan={tableColumns.length}>No matching results.</td></tr>}
                         </tbody>
                     </table>
                 </section>
-            ))}
+                );
+            })}
         </article>
     );
 });

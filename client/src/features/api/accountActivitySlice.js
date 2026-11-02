@@ -27,5 +27,6 @@ export const accountActivityApi = baseAPI.injectEndpoints({
 export const {
   useFetchAccountAnalyticsQuery,
   useFetchRecentAccountActivityQuery,
+  useLazyFetchRecentAccountActivityQuery,
   useCreateAccountActivityMutation
 } = accountActivityApi;

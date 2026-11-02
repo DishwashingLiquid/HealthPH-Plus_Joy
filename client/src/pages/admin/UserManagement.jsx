@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { useReactToPrint } from "react-to-print";
 
@@ -9,10 +8,10 @@ import LoadingSkeleton, { ChartSkeleton } from "../../components/LoadingSkeleton
 import TablePagination from "../../components/TablePagination";
 import Icon from "../../components/Icon";
 import Input from "../../components/Input";
-import PrintComponent from "../../components/admin/PrintComponent";
+import SummaryPrintReport from "../../components/admin/SummaryPrintReport";
 import AdminsTable from "../../components/admin/AdminsTable";
 import UsersTable from "../../components/admin/UsersTable";
-import { accountStatusLabel } from "../../utils/accountStatus";
+import { buildUserManagementPrintReport, loadRecentActivityForPrint } from "../../utils/userManagementPrintHelpers";
 import FieldGroup from "../../components/FieldGroup";
 import CustomSelect from "../../components/CustomSelect";
 import MultiSelect from "../../components/MultiSelect";
@@ -60,13 +59,12 @@ import {
   useCreateAccountActivityMutation,
   useFetchAccountAnalyticsQuery,
   useFetchRecentAccountActivityQuery,
+  useLazyFetchRecentAccountActivityQuery,
 } from "../../features/api/accountActivitySlice";
 
 
-import useDeviceDetect from "../../hooks/useDeviceDetect";
 import useUrlTab from "../../hooks/useUrlTab";
 import { toast } from "react-toastify";
-import { toPng } from "html-to-image";
 
 const ADMIN_ROLE_LABEL = "Admin";
 
@@ -189,102 +187,59 @@ const UserManagement = () => {
     setAccountPages({ Superadmins: 1, Users: 1 });
   };
 
-  const printRef = useRef();
-
-  const { deviceType } = useDeviceDetect();
-
-  const [showPrint, setShowPrint] = useState(false);
-
-  const navigate = useNavigate();
-
+  const printRef = useRef(null);
+  const printLock = useRef(false);
+  const printPending = useRef(false);
+  const printMounted = useRef(true);
+  const printRequest = useRef(null);
+  const [printReport, setPrintReport] = useState(null);
+  const [printError, setPrintError] = useState("");
   const [isPrinting, setIsPrinting] = useState(false);
+  const [fetchPrintActivity] = useLazyFetchRecentAccountActivityQuery();
 
   const [addUserModalActive, setAddUserModalActive] = useState(false);
   const [addUserMode, setAddUserMode] = useState("USER");
 
-  const handlePrint = () => {
-    setIsPrinting(true);
-
-    if (["mobile", "tablet"].includes(deviceType)) {
-      setShowPrint(true);
-      setTimeout(handleExportUserManagement, 1000);
-    } else {
-      setTimeout(handlePrintUserManagement, 1000);
-    }
+  const finishPrint = () => {
+    printLock.current = false;
+    if (printMounted.current) setIsPrinting(false);
   };
 
-  const handlePrintUserManagement = useReactToPrint({
+  const printUserManagement = useReactToPrint({
     content: () => printRef.current,
-    documentTitle: "HealthPH+ - User Management",
-    pageStyle:
-      "@page { size: A4;  margin: 0mm; } @media print { body { -webkit-print-color-adjust: exact; } }",
+    documentTitle: `HealthPH+ - ${printReport?.title || "User Management"}`,
+    removeAfterPrint: false,
+    pageStyle: "@page { size: A4 landscape; margin: 12mm; } @media print { html, body { height: auto !important; overflow: visible !important; margin: 0 !important; } }",
     onAfterPrint: () => {
-      setIsPrinting(false);
-      document.getElementById("printWindow")?.remove();
-
+      finishPrint();
       log_activity({
         user_id: user.id,
-        entry: `Generated ${currentTableTab} report`,
+        entry: `Opened ${printReport?.title || "User Management report"} for printing`,
         module: "User Management",
       });
     },
+    onPrintError: () => {
+      finishPrint();
+      if (printMounted.current) setPrintError("Unable to open the print dialog. Please try again.");
+    },
   });
 
-  const handleExportUserManagement = async () => {
-    try {
-      const pages = document.querySelectorAll(".print-container .page");
+  useEffect(() => {
+    printMounted.current = true;
+    return () => {
+      printMounted.current = false;
+      printPending.current = false;
+      printLock.current = false;
+      printRequest.current?.abort();
+    };
+  }, []);
 
-      let imageList = [];
-
-      for (let i = 0; i < pages.length; i++) {
-        const page = pages[i];
-
-        const imageData = await toPng(page, {
-          canvasWidth: page.offsetWidth * 2,
-          canvasHeight: page.offsetHeight * 2,
-          quality: 1,
-          pixelRatio: 1,
-        });
-
-        imageList.push(imageData);
-      }
-
-      setIsPrinting(false);
-
-      navigate("/print", {
-        state: {
-          data: {
-            documentTitle: "HealthPH+ - User Management",
-            imageType: "list",
-            imageData: imageList,
-            log_activity: {
-              user_id: user.id,
-              entry: `Generated ${currentTableTab} report`,
-              module: "User Management",
-            },
-          },
-        },
-      });
-    } catch (error) {
-      toast(
-        <Snackbar
-          iconName="Error"
-          size="snackbar-sm"
-          color="destructive"
-          message={"Failed to generate report. Please try again."}
-        />,
-        {
-          closeButton: ({ closeToast }) => (
-            <Icon
-              iconName="Close"
-              className="close-icon close-icon-sm close-destructive"
-              onClick={closeToast}
-            />
-          ),
-        }
-      );
+  useEffect(() => {
+    if (printReport && printPending.current) {
+      printPending.current = false;
+      printUserManagement();
     }
-  };
+  }, [printReport, printUserManagement]);
 
   const getRegionLabel = (region) =>
     Regions.regions.find(({ value }) => value == region)?.label || region || "Unavailable";
@@ -304,6 +259,7 @@ const UserManagement = () => {
           superadmins: 0,
           users: 0,
           activeAccounts: 0,
+          pendingAccounts: 0,
           disabledAccounts: 0,
           regions: new Set(),
         };
@@ -323,7 +279,9 @@ const UserManagement = () => {
 
       if (account.is_disabled) {
         organization.disabledAccounts += 1;
-      } else if (!account.activation_pending) {
+      } else if (account.activation_pending) {
+        organization.pendingAccounts += 1;
+      } else {
         organization.activeAccounts += 1;
       }
 
@@ -357,6 +315,7 @@ const UserManagement = () => {
         superadmins: accountStats?.superadmins || 0,
         users: accountStats?.users || 0,
         activeAccounts: accountStats?.activeAccounts || 0,
+        pendingAccounts: accountStats?.pendingAccounts || 0,
         disabledAccounts: accountStats?.disabledAccounts || 0,
         regions:
           accountStats?.regions?.length > 0
@@ -443,6 +402,7 @@ const UserManagement = () => {
         totalUsers: roleUsers.length,
         activeUsers: roleUsers.filter((account) => !account.is_disabled && !account.activation_pending).length,
         disabledUsers: roleUsers.filter((account) => account.is_disabled).length,
+        pendingUsers: roleUsers.filter((account) => !account.is_disabled && account.activation_pending).length,
         moduleCoverage: Array.isArray(roleLabel.accessible_pages)
           ? roleLabel.accessible_pages
           : HEALTHPH_PLUS_MODULE_COVERAGE,
@@ -537,40 +497,7 @@ const UserManagement = () => {
   const firstVisibleAccount = visibleAccountRows.length > 0 ? accountPageOffset + 1 : 0;
   const lastVisibleAccount = visibleAccountRows.length > 0 ? accountPageOffset + visibleAccountRows.length : 0;
 
-  const canPrintCurrentView = isAccountTableTab || isOrganizationsSubtab;
-
-  const printTableName = isOrganizationsSubtab
-    ? "Organizations"
-    : currentTableTab;
-
-  const printData = currentTableTab == "Superadmins"
-    ? currentAdminsData
-    : isOrganizationsSubtab
-    ? filteredOrganizations
-    : currentUsersData;
-
-  const printColumns = currentTableTab == "Superadmins"
-    ? ["FULL NAME", "EMAIL", "ACCOUNT TYPE", "STATUS", "DATE CREATED"]
-    : isOrganizationsSubtab
-    ? [
-        "ORGANIZATION",
-        "MAIN REGION",
-        "REGION COVERAGE",
-        "USERS",
-        ...(isSuperadmin ? ["SUPERADMINS"] : []),
-        "ACTIVE",
-        "DISABLED",
-        "STATUS",
-      ]
-    : [
-        "FULL NAME",
-        "EMAIL",
-        "REGIONAL OFFICE",
-        "ROLE",
-        "ORGANIZATION",
-        "STATUS",
-        "DATE CREATED",
-      ];
+  const canPrintCurrentView = isAccountTableTab || isOrganizationsRoleTab || currentTableTab === "Account Analytics";
 
   const isAnalyticsTab = currentTableTab == "Account Analytics";
 
@@ -604,9 +531,9 @@ const UserManagement = () => {
     : `Total ${currentTableTab.toLowerCase()}`;
 
   const accountAnalyticsSubtitle =
-    user?.type === "SUPERADMIN"
+    isSuperadmin
       ? "Graphs show all user activity and role distribution. Recent Activity includes superadmins, admins, and users."
-      : user?.type === "Admin"
+      : isAdminRole
       ? "Graphs show all user activity and role distribution. Recent activity is limited to users in your organization."
       : "Graphs show all user activity and role distribution. Detailed recent activity is hidden for user accounts.";
 
@@ -713,6 +640,55 @@ const UserManagement = () => {
       : isOrganizationsRoleTab
         ? isAccountAnalyticsError || (isOrganizationsSubtab ? isOrganizationsError : isRoleLabelsError) || (canManageSuperadmins && isAdminsError) || (canViewUsers && isUsersError)
         : isAccountAnalyticsError;
+
+  const isCurrentPrintLoading = isAnalyticsTab
+    ? isAccountAnalyticsLoading || isOrganizationsLoading || isRoleLabelsLoading
+    : isCurrentTableLoading;
+  const isCurrentPrintError = isAnalyticsTab
+    ? isAccountAnalyticsError || isOrganizationsError || isRoleLabelsError
+    : isCurrentTableError;
+
+  const handlePrint = async () => {
+    if (printLock.current || !canPrintCurrentView || isCurrentPrintLoading || isCurrentPrintError) return;
+    printLock.current = true;
+    setIsPrinting(true);
+    setPrintError("");
+    // Capture this view before fetching extra activity pages, so later tab/search
+    // changes cannot mix data from another view into the report being prepared.
+    const options = {
+      view: isOrganizationsRoleTab ? currentOrganizationSubtab : currentTableTab,
+      user,
+      accounts: currentTableTab === "Superadmins" ? currentAdminsData : currentUsersData,
+      organizations: isAnalyticsTab ? organizationList : filteredOrganizations,
+      roles: isAnalyticsTab ? roleSummaries : filteredRoleSummaries,
+      analytics: accountAnalytics,
+      includeSuperadmins: isSuperadmin,
+      includeRecentActivity: isAnalyticsTab && canManageUsers && accountAnalytics.show_recent_activity === true,
+      search: searchQuery,
+      regionLabel: getRegionLabel,
+    };
+    try {
+      const recentActivity = options.includeRecentActivity
+        ? await loadRecentActivityForPrint((params) => {
+            const request = fetchPrintActivity(params);
+            printRequest.current = request;
+            return request.unwrap();
+          })
+        : [];
+      if (!printMounted.current) return;
+      const report = buildUserManagementPrintReport({ ...options, recentActivity });
+      printPending.current = true;
+      setPrintReport(report);
+    } catch (error) {
+      if (printMounted.current) {
+        const detail = error?.data?.detail;
+        setPrintError(typeof detail === "string" ? detail : error?.message || "Unable to prepare this report. Please try again.");
+      }
+      finishPrint();
+    } finally {
+      printRequest.current = null;
+    }
+  };
 
   useEffect(() => {
     if (!isAccountTableTab || isCurrentTableLoading || isCurrentTableError) return;
@@ -867,6 +843,11 @@ const UserManagement = () => {
           </p>
         </div>
 
+        {printError && <p role="alert" className="text-sm text-[#B42318]">{printError}</p>}
+        <div style={{ display: "none" }}>
+          <SummaryPrintReport ref={printRef} report={printReport} />
+        </div>
+
         {/* SUBTABS */}
         <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[12px]">
           <div
@@ -967,7 +948,8 @@ const UserManagement = () => {
                 type="button"
                 className="flex items-center gap-[8px] rounded-[10px] border border-[#E5E5E5] bg-[#F8F9FA] px-[16px] py-[10px] text-sm text-gray-800"
                 onClick={handlePrint}
-                disabled={isPrinting || !canPrintCurrentView || isCurrentTableLoading || isCurrentTableError}
+                disabled={isPrinting || !canPrintCurrentView || isCurrentPrintLoading || isCurrentPrintError}
+                aria-label={`Print ${isOrganizationsRoleTab ? currentOrganizationSubtab : currentTableTab}`}
               >
                 <Icon
                   iconName="Printer"
@@ -976,7 +958,7 @@ const UserManagement = () => {
                   fill="none"
                   stroke="#465360"
                 />
-                <span>{isPrinting ? "Printing..." : "Print"}</span>
+                <span>{isPrinting ? "Preparing..." : "Print"}</span>
               </button>
 
               {canManageUsers && isAccountTableTab && !isRolesSubtab && (
@@ -1033,70 +1015,7 @@ const UserManagement = () => {
                 </button>
               )}
 
-              <PrintComponent
-                showPrint={showPrint}
-                ref={printRef}
-                pageName="User Management"
-                tableName={printTableName}
-                data={printData}
-                columns={printColumns}
-                rowsPerPage={25}
-                dateTable={format(new Date(), "MMMM dd, yyyy | hh:mm a")}
-                displayFunc={(value) => {
-                  if (isOrganizationsSubtab) {
-                    return [
-                      value.name || "-",
-                      getRegionLabel(value.main_region),
-                      value.regions?.length ? value.regions.join(", ") : "-",
-                      value.users ?? 0,
-                      ...(isSuperadmin ? [value.superadmins ?? 0] : []),
-                      value.activeAccounts ?? 0,
-                      value.disabledAccounts ?? 0,
-                      value.partnership_status === "INACTIVE" ? "Inactive" : "Active",
-                    ];
-                  }
 
-                  let full_name = `${value.first_name} ${value.last_name}`;
-
-                  let data = [full_name, value.email];
-
-                  if (currentTableTab == "Superadmins") {
-                    data.push("SUPERADMIN");
-                    data.push(accountStatusLabel(value));
-                  } else {
-                    const regions = {
-                      NCR: "National Capital Region",
-                      I: "Region I",
-                      II: "Region II",
-                      III: "Region III",
-                      CAR: "Cordillera Administrative Region (CAR)",
-                      IVA: "Region IV-A (CALABARZON)",
-                      IVB: "Region IV-B (MIMAROPA)",
-                      V: "Region V",
-                      VI: "Region VI",
-                      VII: "Region VII",
-                      VIII: "Region VIII",
-                      IX: "Region IX",
-                      X: "Region X",
-                      XI: "Region XI",
-                      XII: "Region XII",
-                      XIII: "Region XIII",
-                      BARMM: "Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)",
-                    };
-
-                    data.push(regions[value.region] || value.region || "-");
-                    data.push(value.role_label || "-");
-                    data.push(value.organization || "-");
-                    data.push(accountStatusLabel(value));
-                  }
-
-                  data.push(
-                    format(new Date(value.created_at), "MMM dd, yyyy hh:mm a")
-                  );
-
-                  return data;
-                }}
-              />
             </div>
           </div>
 
