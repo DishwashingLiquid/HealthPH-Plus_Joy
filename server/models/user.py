@@ -32,7 +32,6 @@ class CreateUserRequest(BaseModel):
     first_name: str
     last_name: str
     email: str
-    password: str
     is_disabled: bool | None = False
     user_type: str | None = "USER"
     role_label: str | None = ""

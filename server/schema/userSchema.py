@@ -42,6 +42,8 @@ def individual_user(user, accessible_pages=None) -> dict:
         "first_name": user["first_name"] or "",
         "last_name": user["last_name"] or "",
         "is_disabled": user["is_disabled"],
+        "activation_pending": user.get("activation_pending", False),
+        "invitation_email_sent": user.get("invitation_email_sent"),
         "user_type": user["user_type"],
         "role_label": user.get("role_label", ""),
         "accessible_pages": (

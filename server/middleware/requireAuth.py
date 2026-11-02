@@ -37,11 +37,14 @@ def require_auth(
 
     user = user_collection.find_one(
         {"_id": ObjectId(user_id)},
-        {"is_disabled": 1},
+        {"is_disabled": 1, "activation_pending": 1},
     )
 
     if not user:
         raise credentials_error
+
+    if user.get("activation_pending"):
+        raise HTTPException(status_code=403, detail="Activate your account using your invitation email before signing in.")
 
     if user.get("is_disabled", False):
         raise HTTPException(

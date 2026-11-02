@@ -16,6 +16,7 @@ import ArticlePage from "./pages/ArticlePage";
 
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
+import ActivateAccount from "./pages/auth/ActivateAccount";
 
 import AISurveillance from "./pages/admin/AISurveillance";
 import NLPInsights from "./pages/admin/NLPInsights";
@@ -93,6 +94,9 @@ function App() {
     <>
       <Routes>
         <Route path="/test" element={<Test />}></Route>
+        <Route element={<AuthLayout />}>
+          <Route path="/activate-account" element={<><HelmetTitle title="HealthPH+ | Activate Account" /><ActivateAccount /></>} />
+        </Route>
         <Route path="/" element={<AuthMiddleware />}>
           <Route
             index

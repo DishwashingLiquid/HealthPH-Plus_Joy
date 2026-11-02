@@ -12,10 +12,9 @@ import Input from "../../components/Input";
 import PrintComponent from "../../components/admin/PrintComponent";
 import AdminsTable from "../../components/admin/AdminsTable";
 import UsersTable from "../../components/admin/UsersTable";
+import { accountStatusLabel } from "../../utils/accountStatus";
 import FieldGroup from "../../components/FieldGroup";
 import CustomSelect from "../../components/CustomSelect";
-import InputPassword from "../../components/InputPassword";
-import PasswordRequirements from "../../components/auth/PasswordRequirements";
 import MultiSelect from "../../components/MultiSelect";
 import Snackbar from "../../components/Snackbar";
 import { ToolbarSearch } from "../../components/ToolbarControls";
@@ -324,7 +323,7 @@ const UserManagement = () => {
 
       if (account.is_disabled) {
         organization.disabledAccounts += 1;
-      } else {
+      } else if (!account.activation_pending) {
         organization.activeAccounts += 1;
       }
 
@@ -442,7 +441,7 @@ const UserManagement = () => {
         isActive: roleLabel.is_active !== false,
         isSystem: roleLabel.is_system === true,
         totalUsers: roleUsers.length,
-        activeUsers: roleUsers.filter((account) => !account.is_disabled).length,
+        activeUsers: roleUsers.filter((account) => !account.is_disabled && !account.activation_pending).length,
         disabledUsers: roleUsers.filter((account) => account.is_disabled).length,
         moduleCoverage: Array.isArray(roleLabel.accessible_pages)
           ? roleLabel.accessible_pages
@@ -1063,7 +1062,7 @@ const UserManagement = () => {
 
                   if (currentTableTab == "Superadmins") {
                     data.push("SUPERADMIN");
-                    data.push(value.is_disabled ? "Disabled" : "Active");
+                    data.push(accountStatusLabel(value));
                   } else {
                     const regions = {
                       NCR: "National Capital Region",
@@ -1088,7 +1087,7 @@ const UserManagement = () => {
                     data.push(regions[value.region] || value.region || "-");
                     data.push(value.role_label || "-");
                     data.push(value.organization || "-");
-                    data.push(value.is_disabled ? "Disabled" : "Active");
+                    data.push(accountStatusLabel(value));
                   }
 
                   data.push(
@@ -1292,7 +1291,6 @@ const UserAccountModal = ({
     first_name: "",
     last_name: "",
     email: "",
-    password: "",
   };
 
   const [formData, setFormData] = useState(initialFormData);
@@ -1306,15 +1304,6 @@ const UserAccountModal = ({
     first_name: "",
     last_name: "",
     email: "",
-    password: "",
-  });
-
-  const [pwdFlags, setPWDFlags] = useState({
-    length: "",
-    lowercase: "",
-    uppercase: "",
-    number: "",
-    character: "",
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -1339,12 +1328,7 @@ const UserAccountModal = ({
     : "mb-[16px]";
 
   const emailFieldClass = isSuperadminMode
-    ? "mb-[16px] md:col-span-3"
-    : "mb-[16px]";
-
-  const passwordWrapperClass = isSuperadminMode
-    ? "md:col-span-3"
-    : "md:col-span-1";
+    ? "mb-[16px] md:col-span-6" : "mb-[16px] md:col-span-2";
 
   const disabledAccountTypeHint = "Account type is fixed for this form.";
 
@@ -1373,36 +1357,6 @@ const UserAccountModal = ({
     resetFieldError("accessible_regions");
   };
 
-  const generatePassword = () => {
-    let pwd = "";
-    const length = 10;
-
-    let charset = "";
-    charset += "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    charset += "abcdefghijklmnopqrstuvwxyz";
-    charset += "01234567890";
-    charset += "!@#$%^&*-_";
-
-    const specialChars = /^.*[!@#$%^&*_-]+.*$/;
-
-    while (
-      /\s/.test(pwd) ||
-      !/[a-z]/.test(pwd) ||
-      !/[A-Z]/.test(pwd) ||
-      !/\d/.test(pwd) ||
-      !specialChars.test(pwd)
-    ) {
-      pwd = "";
-
-      for (let i = 0; i < length; i++) {
-        pwd += charset.charAt(Math.floor(Math.random() * charset.length));
-      }
-    }
-
-    setFormData((data) => ({ ...data, password: pwd }));
-    resetFieldError("password");
-  };
-
   const checkError = () => {
     let hasError = false;
 
@@ -1415,7 +1369,6 @@ const UserAccountModal = ({
       first_name: "",
       last_name: "",
       email: "",
-      password: "",
     };
 
     if (!formData.user_type) {
@@ -1452,23 +1405,10 @@ const UserAccountModal = ({
     if (!formData.email || formData.email.trim().length == 0) {
       nextErrors.email = "Must enter email address.";
       hasError = true;
-    } else if (!validEmail.test(formData.email)) {
+    } else if (!validEmail.test(formData.email.trim().toLowerCase())) {
       nextErrors.email = "Must enter valid email address.";
       hasError = true;
     }
-    if (!formData.password || formData.password.trim().length == 0) {
-      nextErrors.password = "Must enter password.";
-      hasError = true;
-    }
-
-    for (const key in pwdFlags) {
-      if (pwdFlags[key] != "success") {
-        nextErrors.password = "Must follow the password requirements.";
-        hasError = true;
-        break;
-      }
-    }
-
     setFormErrors(nextErrors);
     return hasError;
   };
@@ -1482,6 +1422,7 @@ const UserAccountModal = ({
 
     const payload = {
       ...formData,
+      email: formData.email.trim().toLowerCase(),
       role_label: isSuperadminMode ? "" : formData.role_label,
     };
 
@@ -1556,10 +1497,10 @@ const UserAccountModal = ({
 
     toast(
       <Snackbar
-        iconName="CheckCircle"
+        iconName={response.data.invitation_sent ? "CheckCircle" : "Error"}
         size="snackbar-sm"
-        color="success"
-        message={`${isSuperadminMode ? "Superadmin" : "User"} added successfully`}
+        color={response.data.invitation_sent ? "success" : "destructive"}
+        message={response.data.message}
       />,
       {
         closeButton: ({ closeToast }) => (
@@ -1852,45 +1793,9 @@ const UserAccountModal = ({
               />
             </FieldGroup>
 
-            <div className={passwordWrapperClass}>
-              <FieldGroup
-                label="Password"
-                labelFor="password"
-                additionalClasses="mb-[12px]"
-                caption={formErrors.password}
-                state={formErrors.password ? "error" : ""}
-              >
-                <div className="mt-[8px] flex flex-col gap-[10px] sm:flex-row">
-                  <InputPassword
-                    size="input-md"
-                    id="password"
-                    additionalClasses="w-full"
-                    placeholder="Enter password"
-                    value={formData.password}
-                    defaultShow={true}
-                    onChange={(e) => {
-                      setFormData({ ...formData, password: e.target.value });
-                      resetFieldError("password");
-                    }}
-                    state={formErrors.password ? "error" : ""}
-                  />
-                  <button
-                    type="button"
-                    className="rounded-[8px] border border-[#D0D5DD] bg-white px-[14px] py-[9px] text-sm text-gray-700"
-                    onClick={generatePassword}
-                    disabled={isLoading}
-                  >
-                    Generate
-                  </button>
-                </div>
-              </FieldGroup>
-
-              <PasswordRequirements
-                password={formData.password}
-                pwdFlags={pwdFlags}
-                handleChange={setPWDFlags}
-              />
-            </div>
+            <p className="mb-[12px] text-sm text-[#687582] md:col-span-full">
+              An activation link will be emailed to this person. They will create their own password before signing in.
+            </p>
           </div>
         </div>
         
@@ -1908,7 +1813,7 @@ const UserAccountModal = ({
             className="rounded-[8px] bg-[#32418C] px-[14px] py-[9px] text-sm text-white disabled:cursor-not-allowed disabled:bg-[#98A2B3]"
             disabled={isLoading || !hasOrganizationOptions || !hasAvailableRoleOptions}
           >
-            {isLoading ? "Saving..." : "Save"}
+            {isLoading ? "Creating..." : "Send Invitation"}
           </button>
         </div>
       </form>

@@ -2,6 +2,10 @@ import { baseAPI } from "./_baseAPI";
 
 export const userSlice = baseAPI.injectEndpoints({
   endpoints: (builder) => ({
+    resendInvitation: builder.mutation({
+      query: (id) => ({ url: `/users/${id}/resend-invitation`, method: "POST", timeout: 30000 }),
+      invalidatesTags: ["Users", "Admins"],
+    }),
     updatePersonalInfo: builder.mutation({
       query: (formData) => ({
         url: "/users/update-personal-information",
@@ -40,6 +44,7 @@ export const userSlice = baseAPI.injectEndpoints({
         url: "/users",
         method: "POST",
         body: formData,
+        timeout: 30000,
       }),
       invalidatesTags: ["Users", "Admins", "AccountAnalytics"],
     }),
@@ -90,6 +95,7 @@ export const userSlice = baseAPI.injectEndpoints({
 });
 
 export const {
+  useResendInvitationMutation,
   useUpdatePersonalInfoMutation,
   useUpdateEmailMutation,
   useUpdatePasswordMutation,

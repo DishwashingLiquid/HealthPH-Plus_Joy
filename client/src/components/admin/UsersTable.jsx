@@ -1,3 +1,4 @@
+import AccountStatus, { ResendInvitationButton } from "./AccountStatus";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
@@ -55,27 +56,7 @@ const UsersTable = ({
   }, [page, searchQuery]);
 
   const displayRegion = (region) => {
-    const regions = {
-      NCR: "National Capital Region",
-      I: "Region I",
-      II: "Region II",
-      III: "Region III",
-      CAR: "Cordillera Administrative Region (CAR)",
-      IVA: "Region IV-A (CALABARZON)",
-      IVB: "Region IV-B (MIMAROPA)",
-      V: "Region V",
-      VI: "Region VI",
-      VII: "Region VII",
-      VIII: "Region VIII",
-      IX: "Region IX",
-      X: "Region X",
-      XI: "Region XI",
-      XII: "Region XII",
-      XIII: "Region XIII",
-      BARMM: "Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)",
-    };
-
-    return regions[region];
+    return Regions.regions.find((item) => item.value === region)?.label || region;
   };
 
   const getRolePillClass = (roleLabel) => {
@@ -156,6 +137,8 @@ const UsersTable = ({
       first_name: row.first_name || "",
       last_name: row.last_name || "",
       email: row.email || "",
+      original_email: row.email || "",
+      activation_pending: row.activation_pending || false,
       region: row.region || "",
       organization: normalizeOrganizationValue(row.organization || ""),
       role_label: row.role_label || "",
@@ -185,6 +168,7 @@ const UsersTable = ({
     setBulkActionModalActive(false);
   };
 
+  const [isResendingInvitation, setIsResendingInvitation] = useState(false);
   const [updateModalActive, setUpdateModalActive] = useState(false);
 
   const emptyUpdateModalData = {
@@ -552,6 +536,8 @@ const UsersTable = ({
                     role_label,
                     created_at,
                     is_disabled,
+                    activation_pending,
+                    invitation_email_sent,
                   }) => {
                     const fullName = `${first_name} ${last_name}`;
 
@@ -572,7 +558,8 @@ const UsersTable = ({
                             organization,
                             role_label,
                             created_at,
-                            is_disabled
+                            is_disabled,
+                            activation_pending
                           })
                         }
                       >
@@ -627,15 +614,7 @@ const UsersTable = ({
                           {format(new Date(created_at), "MMM dd, yyyy hh:mm a")}
                         </td>
                         <td className="px-[10px] py-[14px]">
-                          <span
-                            className={`rounded-full px-[8px] py-[4px] text-xs font-medium ${
-                              is_disabled
-                                ? "bg-[#FEF2F2] text-[#B42318]"
-                                : "bg-[#ECFDF3] text-[#027A48]"
-                            }`}
-                          >
-                            {is_disabled ? "Disabled" : "Active"}
-                          </span>
+                          <AccountStatus account={{ id, is_disabled, activation_pending, invitation_email_sent, user_type: "USER", role_label }} />
                         </td>
                       </tr>
                     );
@@ -709,10 +688,22 @@ const UsersTable = ({
 
       {updateModalActive && (
         <ModalWithBody
-          onLoading={isModalLoading}
-          onLoadingLabel="Updating"
+          onLoading={isModalLoading || isResendingInvitation}
+          onLoadingLabel={isResendingInvitation ? "Please wait..." : "Updating"}
           onConfirm={handleUpdateUser}
           onConfirmLabel="Update"
+          onCancelLabel="Close"
+          headerActions={
+            <>
+              <AccountStatus account={updateModalData} showDeliveryNote={false} />
+              <ResendInvitationButton
+                account={updateModalData}
+                disabled={isModalLoading}
+                emailChanged={updateModalData.email.trim().toLowerCase() !== updateModalData.original_email?.trim().toLowerCase()}
+                onLoadingChange={setIsResendingInvitation}
+              />
+            </>
+          }
           onConfirmDisabled={!hasOrganizationOptions}
           onCancel={() => {
             setUpdateModalData(emptyUpdateModalData);

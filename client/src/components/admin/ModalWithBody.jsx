@@ -14,6 +14,7 @@ const ModalWithBody = ({
   color,
   additionalClasses,
   leadingActions,
+  headerActions,
   children,
 }) => {
   return (
@@ -24,9 +25,16 @@ const ModalWithBody = ({
       ></div>
       <div className="modal-container">
         <div className="modal-body !p-0">
-          <p className="modal-heading !p-[20px] border-b-2 border-gray-50">
-            {heading}
-          </p>
+          {headerActions ? (
+            <div className="flex items-start justify-between gap-[12px] border-b-2 border-gray-50 p-[20px]">
+              <p className="modal-heading min-w-0 !mb-0">{heading}</p>
+              <div className="ml-auto flex shrink-0 flex-col items-end gap-[6px]">
+                {headerActions}
+              </div>
+            </div>
+          ) : (
+            <p className="modal-heading !p-[20px] border-b-2 border-gray-50">{heading}</p>
+          )}
           {children}
         </div>
         <div className="modal-actions">

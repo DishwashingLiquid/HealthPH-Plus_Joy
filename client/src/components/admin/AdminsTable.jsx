@@ -1,3 +1,4 @@
+import AccountStatus, { ResendInvitationButton } from "./AccountStatus";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
@@ -62,6 +63,7 @@ const AdminsTable = ({
         organization: "",
     };
 
+    const [isResendingInvitation, setIsResendingInvitation] = useState(false);
     const [updateModalActive, setUpdateModalActive] = useState(false);
     const [updateModalData, setUpdateModalData] = useState(emptyUpdateModalData);
     const [updateModalErrors, setUpdateModalErrors] = useState(emptyUpdateModalErrors);
@@ -159,6 +161,8 @@ const AdminsTable = ({
             first_name: row.first_name || "",
             last_name: row.last_name || "",
             email: row.email || "",
+            original_email: row.email || "",
+            activation_pending: row.activation_pending || false,
             user_type: "SUPERADMIN",
             role_label: "",
             region: row.region || "ALL",
@@ -430,6 +434,8 @@ const AdminsTable = ({
                                         user_type,
                                         role_label,
                                         is_disabled,
+                                        activation_pending,
+                                        invitation_email_sent,
                                     }) => {
                                         const fullName = `${first_name} ${last_name}`;
                                         const isCurrentUser = user.id == id;
@@ -462,6 +468,7 @@ const AdminsTable = ({
                                                         user_type,
                                                         role_label,
                                                         is_disabled,
+                                                        activation_pending,
                                                     });
                                                 }}
                                             >
@@ -511,15 +518,7 @@ const AdminsTable = ({
                                                     </div>
                                                 </td>
                                                 <td className="px-[10px] py-[14px]">
-                                                    <span
-                                                        className={`rounded-full px-[8px] py-[4px] text-xs font-medium ${
-                                                            is_disabled
-                                                                ? "bg-[#FEF2F2] text-[#B42318]"
-                                                                : "bg-[#ECFDF3] text-[#027A48]"
-                                                        }`}
-                                                    >
-                                                        {is_disabled ? "Disabled" : "Active"}
-                                                    </span>
+                                                    <AccountStatus account={{ id, is_disabled, activation_pending, invitation_email_sent, user_type, role_label }} />
                                                 </td>
                                             </tr>
                                         );
@@ -592,10 +591,22 @@ const AdminsTable = ({
 
             {updateModalActive && (
                 <ModalWithBody
-                    onLoading={isModalLoading}
-                    onLoadingLabel="Updating"
+                    onLoading={isModalLoading || isResendingInvitation}
+                    onLoadingLabel={isResendingInvitation ? "Please wait..." : "Updating"}
                     onConfirm={handleUpdateAdmin}
                     onConfirmLabel="Update"
+                    onCancelLabel="Close"
+                    headerActions={
+                        <>
+                            <AccountStatus account={updateModalData} showDeliveryNote={false} />
+                            <ResendInvitationButton
+                                account={updateModalData}
+                                disabled={isModalLoading}
+                                emailChanged={updateModalData.email.trim().toLowerCase() !== updateModalData.original_email?.trim().toLowerCase()}
+                                onLoadingChange={setIsResendingInvitation}
+                            />
+                        </>
+                    }
                     onConfirmDisabled={!hasOrganizationOptions}
                     onCancel={() => {
                         setUpdateModalData(emptyUpdateModalData);

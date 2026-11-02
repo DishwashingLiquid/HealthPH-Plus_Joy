@@ -34,9 +34,9 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
 
     if expires_delta:
-        expire = get_ph_datetime() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = get_ph_datetime() + timedelta(minutes=15)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
 
     to_encode.update({"exp": expire})
 
@@ -52,7 +52,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
 # For resetting password
 def create_reset_password_token(email: str):
     return jwt.encode(
-        {"sub": email, "exp": get_ph_datetime() + timedelta(minutes=10)},
+        {"sub": email, "exp": datetime.now(timezone.utc) + timedelta(minutes=10)},
         key=os.getenv("FORGOT_PWD_SECRET_KEY"),
         algorithm=os.getenv("ALGORITHM"),
     )

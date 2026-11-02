@@ -6,12 +6,11 @@ from pymongo import ReturnDocument
 from typing_extensions import Annotated
 
 from helpers.authHelpers import verify_password, generate_hashed_password
+from helpers.accountInvitationHelpers import send_account_invitation
+from region_normalization import REGIONS
 from helpers.sendMail import (
     mail_disabled,
     mail_enabled,
-    mail_add_user,
-    mail_add_admin,
-    mail_add_superadmin,
     mail_delete_account,
 )
 from config.database import user_collection
@@ -500,6 +499,10 @@ async def create_user(
     current_user: Annotated[dict, Depends(require_role([ADMIN_ROLE_LABEL, "SUPERADMIN"]))],
 ):
     errors = []
+    user.email = user.email.strip().lower()
+    user.first_name = user.first_name.strip()
+    user.last_name = user.last_name.strip()
+    user.organization = user.organization.strip()
 
     # Check if user is an admin or superadmin
     #commented this - moved to a centralized checking of user which is the code current_user
@@ -524,7 +527,6 @@ async def create_user(
         or not user.first_name
         or not user.last_name
         or not user.email
-        or not user.password
     ):
         if not user.region:
             errors.append({"field": "region", "error": "Must choose region"})
@@ -551,9 +553,6 @@ async def create_user(
 
         if not user.email:
             errors.append({"field": "email", "error": "Must enter email address"})
-
-        if not user.password:
-            errors.append({"field": "password", "error": "Must enter password"})
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -584,28 +583,17 @@ async def create_user(
         errors.append({"field": "role_label", "error": "Invalid selected role"})
 
     # Check if region is valid
-    regions = [
-        "NCR",
-        "I",
-        "II",
-        "III",
-        "CAR",
-        "IVA",
-        "IVB",
-        "V",
-        "VI",
-        "VII",
-        "VIII",
-        "IX",
-        "X",
-        "XI",
-        "XII",
-        "XIII",
-        "BARMM",
-        "ALL",
-    ]
+    regions = [*REGIONS, "ALL"]
     if not user.region in regions:
         errors.append({"field": "region", "error": "Invalid selected region"})
+
+    assigned_regions = [part.strip() for part in user.accessible_regions.split(",") if part.strip()]
+    if not assigned_regions or any(code not in regions for code in assigned_regions):
+        errors.append({"field": "accessible_regions", "error": "Invalid accessible regions"})
+    user.accessible_regions = ",".join(dict.fromkeys(assigned_regions))
+    if is_superadmin_request:
+        user.region = "ALL"
+        user.accessible_regions = ",".join(REGIONS)
 
     # Check if email address is valid
     email_regex = r"^([a-z0-9]+[a-z0-9!#$%&'*+/=?^_`{|}~-]?(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)$"
@@ -633,8 +621,9 @@ async def create_user(
     to_encode.update({"role_label": "" if is_superadmin_request else role_label})
     # Set is_disabled status to False
     to_encode.update({"is_disabled": False})
-    # Generate hashed password
-    to_encode.update({"password": generate_hashed_password(to_encode["password"])})
+    # A pending account has no password until the recipient activates it.
+    to_encode.update({"activation_pending": True, "invitation_email_sent": False})
+    to_encode.update({"created_at": get_ph_datetime(), "updated_at": get_ph_datetime()})
     # Set id of admin who adds the user
     to_encode.update({"user_who_added": str(current_user["_id"])})
 
@@ -646,56 +635,23 @@ async def create_user(
             detail="Error creating admin...",
         )
 
-    # Send mail based on assigned account type and role label
-    if is_superadmin_request:
-        result = mail_add_superadmin(
-            user.email, {"email": user.email, "password": user.password}
-        )
-    elif role_label != ADMIN_ROLE_LABEL:
-        regions = {
-            "NCR": "National Capital Region",
-            "I": "Region I",
-            "II": "Region II",
-            "III": "Region III",
-            "CAR": "Cordillera Administrative Region (CAR)",
-            "IVA": "Region IV-A (CALABARZON)",
-            "IVB": "Region IV-B (MIMAROPA)",
-            "V": "Region V",
-            "VI": "Region VI",
-            "VII": "Region VII",
-            "VIII": "Region VIII",
-            "IX": "Region IX",
-            "X": "Region X",
-            "XI": "Region XI",
-            "XII": "Region XII",
-            "XIII": "Region XIII",
-            "BARMM": "Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)",
-        }
-        result = mail_add_user(
-            user.email,
-            {
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "region": regions[user.region],
-                "organization": user.organization,
-                "accessible_regions": ",".join(
-                    list(map(lambda x: regions[x], user.accessible_regions.split(",")))
-                ),
-                "email": user.email,
-                "password": user.password,
-            },
-        )
-    else:
-        result = mail_add_admin(
-            user.email, {"email": user.email, "password": user.password}
-        )
-
-    if not result:
-        print("Failed. Email not sent.")
+    to_encode["_id"] = new_user.inserted_id
+    try:
+        sent = send_account_invitation(user_collection, to_encode)
+    except (ValueError, HTTPException):
+        sent = False
 
     return JSONResponse(
-        status_code=status.HTTP_200_OK,
-        content={"message": "User created successfully"},
+        status_code=status.HTTP_201_CREATED,
+        content={
+            "message": (
+                "Account created. An activation invitation was sent by email."
+                if sent else
+                "Account created, but the invitation could not be sent. The account remains pending. Use Resend Invitation to try again."
+            ),
+            "invitation_sent": sent,
+            "activation_pending": True,
+        },
     )
 
 
@@ -1051,26 +1007,7 @@ async def update_user(
             }
         )
 
-    valid_regions = [
-        "NCR",
-        "I",
-        "II",
-        "III",
-        "CAR",
-        "IVA",
-        "IVB",
-        "V",
-        "VI",
-        "VII",
-        "VIII",
-        "IX",
-        "X",
-        "XI",
-        "XII",
-        "XIII",
-        "BARMM",
-        "ALL",
-    ]
+    valid_regions = [*REGIONS, "ALL"]
 
     if region and region not in valid_regions:
         errors.append({"field": "region", "error": "Invalid selected region"})
@@ -1125,6 +1062,13 @@ async def update_user(
             detail=errors,
         )
     
+    invitation_update = {}
+    if user_data.get("activation_pending") and email != user_data.get("email"):
+        invitation_update = {"$unset": {
+            "invitation_token_hash": "", "invitation_expires_at": "", "invitation_requested_at": "",
+        }}
+        invitation_update["$set"] = {"invitation_email_sent": False}
+
     updated_user = user_collection.find_one_and_update(
         {"_id": ObjectId(id)},
         {
@@ -1137,7 +1081,9 @@ async def update_user(
                 "accessible_regions": accessible_regions,
                 "role_label": role_label,
                 "updated_at": get_ph_datetime(),
-            }
+                **invitation_update.get("$set", {}),
+            },
+            **{key: value for key, value in invitation_update.items() if key != "$set"},
         },
         return_document=ReturnDocument.AFTER,
     )

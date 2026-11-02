@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from controllers.accountInvitationController import activate_account, verify_account_invitation
 from controllers.authController import (
     authenticate_user,
     forgot_password,
@@ -9,6 +10,8 @@ from controllers.authController import (
 )
 
 router = APIRouter()
+router.add_api_route("/verify-invitation", methods=["POST"], endpoint=verify_account_invitation)
+router.add_api_route("/activate-account", methods=["POST"], endpoint=activate_account)
 
 # POST      /auth/authenticate
 router.add_api_route("/authenticate", methods=["POST"], endpoint=authenticate_user)

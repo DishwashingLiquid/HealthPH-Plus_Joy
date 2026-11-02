@@ -2,6 +2,13 @@ import { baseAPI } from "./_baseAPI";
 
 export const authApi = baseAPI.injectEndpoints({
   endpoints: (builder) => ({
+    verifyInvitation: builder.mutation({
+      query: (token) => ({ url: "/auth/verify-invitation", method: "POST", body: { token }, timeout: 15000 }),
+    }),
+    activateAccount: builder.mutation({
+      query: (body) => ({ url: "/auth/activate-account", method: "POST", body, timeout: 15000 }),
+      invalidatesTags: ["Users", "Admins", "AccountAnalytics"],
+    }),
     authenticate: builder.mutation({
       query: (loginData) => ({
         url: `/auth/authenticate`,
@@ -62,6 +69,8 @@ export const authApi = baseAPI.injectEndpoints({
 });
 
 export const {
+  useVerifyInvitationMutation,
+  useActivateAccountMutation,
   useAuthenticateMutation,
   useVerifyCodeMutation,
   useResendCodeMutation,

@@ -2,10 +2,11 @@ import smtplib
 from smtplib import SMTPException
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from email.mime.image import MIMEImage
-import base64
 from dotenv import dotenv_values
 import os
+from datetime import datetime, timedelta, timezone
+from helpers.emailTemplateHelpers import render_email
+from region_normalization import REGION_NAMES
 
 config = dotenv_values()
 
@@ -41,993 +42,107 @@ def mail_send(receiver, message):
             )
 
         return True
-    except (SMTPException, OSError) as error:
+    except (SMTPException, OSError, ValueError, TypeError) as error:
         print(f"Email delivery failed: {type(error).__name__}")
         return False
 
 
-def get_styles():
-    return """\
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        .body {
-            max-width: 600px;
-            width: 100%;
-            margin: auto;
-        }
+def _send_template(receiver, title, paragraphs, details=(), action_label=None, action_url=None):
+    plain, html = render_email(title, paragraphs, details, action_label, action_url)
+    message = mail_setup(receiver, f"HealthPH+ | {title}")
+    message.attach(MIMEText(plain, "plain", "utf-8"))
+    message.attach(MIMEText(html, "html", "utf-8"))
+    return mail_send(receiver, message)
 
-        .body .header {
-            width: 100%;
-        }
 
-        .body .header .img {
-            height: 100%;
-            width: 100%;
-            object-fit: contain;
-        }
+def _ph_time(value):
+    if not value:
+        return "See the instructions above"
+    if isinstance(value, str):
+        value = datetime.fromisoformat(value)
+    # Existing OTP/reset timestamps are naive Philippine local time.
+    if value.tzinfo is not None:
+        value = value.astimezone(timezone(timedelta(hours=8)))
+    return value.strftime("%B %d, %Y at %I:%M %p PHT")
 
-        .body .main {
-            margin-top: 32px;
-            padding: 16px;
-            padding-top: 0px;
-        }
-        .body .p {
-            color: #171e26;
-            font-family: Inter, Roboto, sans-serif;
-            font-size: 16px;
-            font-style: normal;
-            font-weight: 400;
-            line-height: 24px;
-            margin: 0;
-        }
-        
-        .body .p.big-text {
-            font-size: 48px;
-        }
 
-        .body .semibold {
-            font-weight: 600;
-        }
-
-        .body .bold {
-            font-weight: 700;
-        }
-
-        .body .red {
-            color: #D82727;
-        }
-
-        .body .green {
-            color: #35CA3B
-        }
-        
-        .body .link {
-            color: #288dd7;
-            font-size: 16px;
-            font-style: normal;
-            font-weight: 500;
-            line-height: 24px;
-            text-decoration: none;
-        }
-
-        .body .indent {
-            margin-left: 40px;
-        }
-        
-        .body .spacer {
-            height: 16px;
-        }
-        
-        .body .list {
-            list-style-type: none;
-            padding-inline-start: 0;
-        }
-
-        .body .list .list-indent {
-            padding-inline-start: 20px;
-        }
-        
-        .body .center-container {
-            width: 100%;
-            display: block;
-        }
-        
-        .body .center-container .center-item {
-            margin: 0 auto;
-            text-align: center;
-        }
-    </style>     
-    """
+def _sign_in_url():
+    url = os.getenv("CLIENT_URL", "").strip().rstrip("/")
+    return f"{url}/login" if url else None
 
 
 def mail_contact_us(receiver, data: dict):
-    name, email, subject, message_body = data.values()
-    
-    message = mail_setup(receiver, subject)
-    
-    plain_text = f"""\
-    Hello, HealthPH+!
-    
-    This is {name}.
-    
-    {message_body}
-    
-    Regards,
-    {name}
-    {email}
-    
-    """
-    
-    html = f"""\
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>HealthPH+</title>
-    </head>
-    <head>
-        {get_styles()}
-    </head>
-    <body class="body">
-        <div class="main">
-          <p class="p">
-            Hello, HealthPH+!
-          </p>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <p class="p">
-            This is <span class="semibold">{name}</span>.
-          </p>
-          <div class="spacer"></div>
-          <p class="p">
-            {message_body}
-          </p>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <p class="p">
-            Regards,
-          </p>
-          <p class="p">
-            {name}
-          </p>
-          <p class="p">
-            {email}
-          </p>
-        </div>
-    </body>
-    </html>
-    """
-    
-    part1 = MIMEText(plain_text, "plain")
-    part2 = MIMEText(html, "html")
-    message.attach(part1)
-    message.attach(part2)
-
-    return mail_send(receiver=receiver, message=message)
+    return _send_template(receiver, "New contact-form message", [data.get("message_body", "")], [
+        ("Name", data.get("name", "")), ("Email", data.get("email", "")),
+        ("Subject", data.get("subject", "")),
+    ])
 
 
 def mail_verification_code(receiver, data: dict):
-    message = mail_setup(receiver, "Verification Code")
-
-    otp_code, otp_expiry = data.values()
-
-    plain_text = f"""\
-    This email contains a temporary 6-digit verification code for two-factor authentication which will expire in 10 minutes. Use the code below to verify in HealthPH+.
-    
-    {otp_code}
-    
-    If you need further assistance, please visit or email the HealthPH+ at:
-    
-    Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
-    healthph@national-u.edu.ph
-    
-    Regards,
-    HealthPH+
-    """
-
-    html = f"""\
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>HealthPH+</title>
-    </head>
-    <head>
-        {get_styles()}
-    </head>
-    <body class="body">
-        <div class="header">
-          <img class="img" src="cid:Header" alt="" />
-        </div>
-        <div class="main">
-          <p class="p">
-            This email contains a temporary 6-digit verification code for two-factor authentication which will expire in 10 minutes. Use the code below to verify in HealthPH+.
-          </p>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="center-container">
-          <p class="p big-text center-item">
-            {otp_code}
-          </p>
-          </div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <p class="p">
-            If you need further assistance, please visit or email the HealthPH+ Office at:
-          </p>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="indent">
-            <p class="p">Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
-            <div class="spacer"></div>
-            <p class="p">healthph@national-u.edu.ph</p>
-          </div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <p class="p">Regards</p>
-          <div class="spacer"></div>
-          <p class="p">HealthPH+</p>
-        </div>
-    </body>
-    </html>
-    """
-
-    part1 = MIMEText(plain_text, "plain")
-    part2 = MIMEText(html, "html")
-    message.attach(part1)
-    message.attach(part2)
-
-    fp = open("assets/images/mail-header.png", "rb")
-    header = MIMEImage(fp.read())
-    fp.close()
-
-    header.add_header("Content-ID", "<Header>")
-    message.attach(header)
-
-    return mail_send(receiver=receiver, message=message)
+    return _send_template(receiver, "Your sign-in verification code", [
+        "Use this code to finish signing in to HealthPH+.",
+        "Do not share this code. If you did not request it, you can ignore this email.",
+    ], [("Verification Code", data["otp_code"]), ("Expires", _ph_time(data["otp_expiry"]))])
 
 
 def mail_forgot_password(receiver, data: dict):
-    message = mail_setup(receiver, "Forgot Password")
-
-    first_name, reset_pwd_link = data.values()
-
-    plain_text = f"""\
-    This email contains that you requested a RESET PASSWORD LINK to access your account and continue using HealthPH+. Please securely open this link:
-    
-    Reset Password Link: {reset_pwd_link}
-    
-    May we remind you that you only have 10 minutes to reset your password by using the link above.
-    If you did not reset your password within that duration, you will be required to send your email again at Sign In > Forgot Password.
-    
-    If you need further assistance, please visit or email the HealthPH+ Office at:
-    
-    Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
-    healthph@national-u.edu.ph
-    
-    Regards,
-    HealthPH+
-    """
-
-    encoded = base64.b64encode(
-        open("assets/images/mail-header.png", "rb").read()
-    ).decode()
-
-    html = f"""\
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>HealthPH+</title>
-    </head>
-    <head>
-        {get_styles()}
-    </head>
-    <body class="body">
-        <div class="header">
-          <img class="img" src="cid:Header" alt="" />
-        </div>
-        <div class="main">
-          <p class="p">
-            This email contains that you requested a{" "}
-            <span class="semibold">RESET PASSWORD LINK</span> to access your
-            account and continue using HealthPH+. Please securely open this link:
-          </p>
-          <div class="spacer"></div>
-          <p class="p">
-            <span class="bold">Reset Password Link</span>:{" "}
-            <a class="link" href="{reset_pwd_link}">Password Link</a>
-          </p>
-          <div class="spacer"></div>
-          <p class="p">
-            May we remind you that you only have{" "}
-            <span class="bold red">10 minutes</span> to reset your password
-            by using the link above. If you did not reset your password within
-            that duration, you will be required send your email again at{" "}
-            <span class="bold"> Sign In &gt; Forgot Password.</span>
-          </p>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <p class="p">
-            If you need further assistance, please visit or email the HealthPH+ Office at:
-          </p>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="indent">
-            <p class="p">Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
-            <div class="spacer"></div>
-            <p class="p">healthph@national-u.edu.ph</p>
-          </div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <p class="p">Regards</p>
-          <div class="spacer"></div>
-          <p class="p">HealthPH+</p>
-        </div>
-    </body>
-    </html>
-    """
-
-    part1 = MIMEText(plain_text, "plain")
-    part2 = MIMEText(html, "html")
-    message.attach(part1)
-    message.attach(part2)
-
-    fp = open("assets/images/mail-header.png", "rb")
-    header = MIMEImage(fp.read())
-    fp.close()
-
-    header.add_header("Content-ID", "<Header>")
-    message.attach(header)
-
-    return mail_send(receiver=receiver, message=message)
+    return _send_template(receiver, "Reset your password", [
+        f"Hello, {data.get('first_name') or 'HealthPH+ user'}.",
+        "Use the button below to create a new password. This link expires in 10 minutes.",
+        "If you did not request a password reset, you can ignore this email.",
+    ], action_label="Reset Password", action_url=data["reset_pwd_link"])
 
 
+def mail_account_invitation(receiver, data: dict):
+    name = " ".join(str(data.get(field) or "").strip() for field in ("first_name", "last_name")).strip()
+    regions = data.get("accessible_regions") or ""
+    if isinstance(regions, str):
+        regions = regions.split(",")
+    is_superadmin = data.get("user_type") == "SUPERADMIN"
+    region_text = "All Regions" if is_superadmin else ", ".join(REGION_NAMES.get(code.strip(), code.strip()) for code in regions)
+    return _send_template(receiver, "Activate your HealthPH+ account", [
+        f"Hello, {name or 'HealthPH+ user'}.",
+        "Your administrator has invited you to HealthPH+. Set your own password to activate your account.",
+        "Your available pages and data depend on your assigned permissions.",
+        "This link can be used once. If it expires, ask your administrator to resend your invitation. Only the latest invitation link will work.",
+    ], [
+        ("Email", receiver), ("Account Type", data.get("user_type", "USER")),
+        ("Role", "Superadmin" if is_superadmin else data.get("role_label", "")),
+        ("Organization", data.get("organization", "")), ("Accessible Regions", region_text),
+        ("Invitation Expires", _ph_time(data["expires_at"])),
+    ], "Set Password & Activate", data["activation_url"])
+
+
+# Preserve older import names while sharing the invitation template. Passwords are never emailed.
 def mail_add_user(receiver, data: dict):
-    message = mail_setup(receiver, "User Account Created")
-
-    first_name = data.get("first_name", "")
-    last_name = data.get("last_name", "")
-    region = data.get("region", "")
-    organization = data.get("organization", "")
-    accessible_regions = data.get("accessible_regions", "")
-    email = data.get("email", "")
-    password = data.get("password", "")
-
-    plain_text = f"""\
-    This email contains your credentials to access HealthPH+. 
-    While working with us, you will be using these credentials to Protect Filipinos, One Disease At A Time.
-    Please securely keep this information:
-    
-    User Type: USER
-    HealthPH+ Email: {email}
-    HealthPH+ Password: {password}
-    
-    Last Name: {last_name}
-    First Name: {first_name}
-    Regional Office: {region}
-    Accessible Regions: {accessible_regions}
-    Organization: {organization}
-    
-    You will be using the same password to all these systems. The system created this during the account activation process. 
-    To allow you to change your password, sign in to HealthPH+ and go to the Settings > Edit Password. 
-    If you have forgotten your password, navigate to Sign In > Forgot Password.
-    
-    As a USER at HealthPH+, you can access the HealthPH+ modules available to your role label, including AI Surveillance, NLP Insights, Misinformation Tracker, User Management, Model Access and Toolkit, Disease Watch Feed, Health Literacy Hub, Sentiment Pulse Tool, and Settings.
-    
-    If you need further assistance, please visit or email the DOH Systems Office at:
-    
-    Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
-    healthph@national-u.edu.ph
-    
-    Regards,
-    HealthPH+
-    """
-
-    html = f"""\
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>HealthPH+</title>
-    </head>
-    <head>
-        {get_styles()}
-    </head>
-    <body class="body">
-        <div class="header">
-          <img class="img" src="cid:Header" alt="" />
-        </div>
-        <div class="main">
-            <p class="p">
-                This email contains your credentials to access HealthPH+. While working with us, you will be 
-                using these credentials to Protect Filipinos, One Disease At A Time. Please securely keep 
-                this information:
-            </p>
-            <div class="spacer"></div>
-            <p class="p">
-                <span class="bold">User Type</span>:{" "}
-                <span class="green">USER</span>
-            </p>
-            <div class="spacer"></div>
-            <p class="p">
-                <span class="bold">HealthPH+ Email</span>:{" "}
-                <span class="link">{email}</span>
-            </p>
-            <div class="spacer"></div>
-            <p class="p">
-                <span class="bold">HealthPH+ Password</span>:{" "}
-                <span class="link">{password}</span>
-            </p>
-            <div class="spacer"></div>
-            <div class="spacer"></div>
-            <p class="p">
-                <span class="bold">Last Name</span>:{" "}
-                <span class="link">{last_name}</span>
-            </p>
-            <div class="spacer"></div>
-            <p class="p">
-                <span class="bold">First Name</span>:{" "}
-                <span class="link">{first_name}</span>
-            </p>
-            <div class="spacer"></div>
-            <p class="p">
-                <span class="bold">Regional Office</span>:{" "}
-                <span class="link">{region}</span>
-            </p>
-            <div class="spacer"></div>
-            <p class="p">
-                <span class="bold">Accessible Regions</span>:{" "}
-                <span class="link">{accessible_regions}</span>
-            </p>
-            <div class="spacer"></div>
-            <p class="p">
-                <span class="bold">Organization</span>:{" "}
-                <span class="link">{organization }</span>
-            </p>
-            <div class="spacer"></div>
-            <p class="p">
-                You will be using the same password to all these systems. The system created this during the account activation process. 
-                To allow you to change your password, sign in to HealthPH+ and go to the{" "}
-                <span class="semibold">Settings &gt; Edit Password</span>. 
-                If you have forgotten your password, navigate to 
-                <span class="semibold">Sign In &gt; Forgot Password</span>
-            </p>
-            <div class="spacer"></div>
-            <p class="p">
-                As a <span class="green semibold">USER</span> at HealthPH+, you can access the HealthPH+ modules available to your role label, including AI Surveillance, NLP Insights, Misinformation Tracker, User Management, Model Access and Toolkit, Disease Watch Feed, Health Literacy Hub, Sentiment Pulse Tool, and Settings.
-            </p>
-            <div class="spacer"></div>
-            <div class="spacer"></div>
-            <div class="spacer"></div>
-            <p class="p">
-                If you need further assistance, please visit or email the HealthPH+ Office at:
-            </p>
-            <div class="spacer"></div>
-            <div class="spacer"></div>
-            <div class="spacer"></div>
-            <div class="indent">
-                <p class="p">Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
-                <div class="spacer"></div>
-                <p class="p">healthph@national-u.edu.ph</p>
-            </div>
-            <div class="spacer"></div>
-            <div class="spacer"></div>
-            <div class="spacer"></div>
-            <p class="p">Regards</p>
-            <div class="spacer"></div>
-            <p class="p">HealthPH+</p>
-        </div>
-    </body>
-    </html>
-    """
-
-    part1 = MIMEText(plain_text, "plain")
-    part2 = MIMEText(html, "html")
-    message.attach(part1)
-    message.attach(part2)
-
-    fp = open("assets/images/mail-header.png", "rb")
-    header = MIMEImage(fp.read())
-    fp.close()
-
-    header.add_header("Content-ID", "<Header>")
-    message.attach(header)
-
-    return mail_send(receiver=receiver, message=message)
+    return mail_account_invitation(receiver, data)
 
 
 def mail_add_admin(receiver, data: dict):
-    message = mail_setup(receiver, "Admin Role Account Created")
-
-    email, password = data.values()
-
-    plain_text = f"""\
-    This email contains your credentials to access HealthPH+. 
-    While working with us, you will be using these credentials to Protect Filipinos, One Disease At A Time.
-    Please securely keep this information:
-    
-    User Type: USER
-    Role: Admin
-    HealthPH+ Email: {email}
-    HealthPH+ Password: {password}
-    
-    You will be using the same password to all these systems. The system created this during the account activation process. 
-    To allow you to change your password, sign in to HealthPH+ and go to the Settings > Edit Password. 
-    If you have forgotten your password, navigate to Sign In > Forgot Password.
-    
-    As a USER with the Admin role at HealthPH+, you can access HealthPH+ modules and manage USER accounts within your organization. Detailed access limits may apply based on organization and role.
-    
-    If you need further assistance, please visit or email the HealthPH+ Office at:
-    
-    Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
-    healthph@national-u.edu.ph
-    
-    Regards,
-    HealthPH+
-    """
-
-    html = f"""\
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>HealthPH+</title>
-    </head>
-    <head>
-        {get_styles()}
-    </head>
-    <body class="body">
-        <div class="header">
-          <img class="img" src="cid:Header" alt="" />
-        </div>
-        <div class="main">
-            <p class="p">
-                This email contains your credentials to access HealthPH+. While working with us, you will be 
-                using these credentials to Protect Filipinos, One Disease At A Time. Please securely keep 
-                this information:
-            </p>
-            <div class="spacer"></div>
-            <p class="p">
-                <span class="bold">User Type</span>:{" "}
-                <span class="green">USER</span>
-            </p>
-            <div class="spacer"></div>
-            <p class="p">
-                <span class="bold">Role</span>:{" "}
-                <span class="green">Admin</span>
-            </p>
-            <div class="spacer"></div>
-            <p class="p">
-                <span class="bold">HealthPH+ Email</span>:{" "}
-                <span class="link">{email}</span>
-            </p>
-            <div class="spacer"></div>
-            <p class="p">
-                <span class="bold">HealthPH+ Password</span>:{" "}
-                <span class="link">{password}</span>
-            </p>
-            <div class="spacer"></div>
-            <p class="p">
-                You will be using the same password to all these systems. The system created this during the account activation process. 
-                To allow you to change your password, sign in to HealthPH+ and go to the{" "}
-                <span class="semibold">Settings &gt; Edit Password</span>. 
-                If you have forgotten your password, navigate to 
-                <span class="semibold">Sign In &gt; Forgot Password</span>
-            </p>
-            <div class="spacer"></div>
-            <p class="p">
-                As a <span class="green semibold">USER with the Admin role</span> at HealthPH+, you can access HealthPH+ modules and manage USER accounts within your organization. Detailed access limits may apply based on organization and role.
-            </p>
-            <div class="spacer"></div>
-            <div class="spacer"></div>
-            <div class="spacer"></div>
-            <p class="p">
-                If you need further assistance, please visit or email the HealthPH+ Office at:
-            </p>
-            <div class="spacer"></div>
-            <div class="spacer"></div>
-            <div class="spacer"></div>
-            <div class="indent">
-                <p class="p">Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
-                <div class="spacer"></div>
-                <p class="p">healthph@national-u.edu.ph</p>
-            </div>
-            <div class="spacer"></div>
-            <div class="spacer"></div>
-            <div class="spacer"></div>
-            <p class="p">Regards</p>
-            <div class="spacer"></div>
-            <p class="p">HealthPH+</p>
-        </div>
-    </body>
-    </html>
-    """
-
-    part1 = MIMEText(plain_text, "plain")
-    part2 = MIMEText(html, "html")
-    message.attach(part1)
-    message.attach(part2)
-
-    fp = open("assets/images/mail-header.png", "rb")
-    header = MIMEImage(fp.read())
-    fp.close()
-
-    header.add_header("Content-ID", "<Header>")
-    message.attach(header)
-
-    return mail_send(receiver=receiver, message=message)
+    return mail_account_invitation(receiver, {**data, "role_label": "Admin"})
 
 
 def mail_add_superadmin(receiver, data: dict):
-    message = mail_setup(receiver, "SUPERADMIN Account Created")
-
-    email, password = data.values()
-
-    plain_text = f"""\
-    This email contains your credentials to access HealthPH+. 
-    While working with us, you will be using these credentials to Protect Filipinos, One Disease At A Time.
-    Please securely keep this information:
-    
-    User Type: SUPERADMIN
-    HealthPH+ Email: {email}
-    HealthPH+ Password: {password}
-    
-    You will be using the same password to all these systems. The system created this during the account activation process. 
-    To allow you to change your password, sign in to HealthPH+ and go to the Settings > Edit Password. 
-    If you have forgotten your password, navigate to Sign In > Forgot Password.
-    
-    As a SUPERADMIN at HealthPH+, you have full access to HealthPH+ modules, including account management for SUPERADMIN and USER accounts, organizations, account analytics, and system data tools.
-    
-    If you need further assistance, please visit or email the HealthPH+ Office at:
-    
-    Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
-    healthph@national-u.edu.ph
-    
-    Regards,
-    HealthPH+
-    """
-
-    html = f"""\
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>HealthPH+</title>
-    </head>
-    <head>
-        {get_styles()}
-    </head>
-    <body class="body">
-        <div class="header">
-          <img class="img" src="cid:Header" alt="" />
-        </div>
-        <div class="main">
-            <p class="p">
-                This email contains your credentials to access HealthPH+. While working with us, you will be 
-                using these credentials to Protect Filipinos, One Disease At A Time. Please securely keep 
-                this information:
-            </p>
-            <div class="spacer"></div>
-            <p class="p">
-                <span class="bold">User Type</span>:{" "}
-                <span class="green">SUPERADMIN</span>
-            </p>
-            <div class="spacer"></div>
-            <p class="p">
-                <span class="bold">HealthPH+ Email</span>:{" "}
-                <span class="link">{email}</span>
-            </p>
-            <div class="spacer"></div>
-            <p class="p">
-                <span class="bold">HealthPH+ Password</span>:{" "}
-                <span class="link">{password }</span>
-            </p>
-            <div class="spacer"></div>
-            <p class="p">
-                You will be using the same password to all these systems. The system created this during the account activation process. 
-                To allow you to change your password, sign in to HealthPH+ and go to the{" "}
-                <span class="semibold">Settings &gt; Edit Password</span>. 
-                If you have forgotten your password, navigate to 
-                <span class="semibold">Sign In &gt; Forgot Password</span>
-            </p>
-            <div class="spacer"></div>
-            <p class="p">
-                As a <span class="green semibold">SUPERADMIN</span> at HealthPH+, you have full access to HealthPH+ modules, including account management for SUPERADMIN and USER accounts, organizations, account analytics, and system data tools.
-            </p>
-            <div class="spacer"></div>
-            <div class="spacer"></div>
-            <div class="spacer"></div>
-            <p class="p">
-                If you need further assistance, please visit or email the HealthPH+ Office at:
-            </p>
-            <div class="spacer"></div>
-            <div class="spacer"></div>
-            <div class="spacer"></div>
-            <div class="indent">
-                <p class="p">Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
-                <div class="spacer"></div>
-                <p class="p">healthph@national-u.edu.ph</p>
-            </div>
-            <div class="spacer"></div>
-            <div class="spacer"></div>
-            <div class="spacer"></div>
-            <p class="p">Regards</p>
-            <div class="spacer"></div>
-            <p class="p">HealthPH+</p>
-        </div>
-    </body>
-    </html>
-    """
-
-    part1 = MIMEText(plain_text, "plain")
-    part2 = MIMEText(html, "html")
-    message.attach(part1)
-    message.attach(part2)
-
-    fp = open("assets/images/mail-header.png", "rb")
-    header = MIMEImage(fp.read())
-    fp.close()
-
-    header.add_header("Content-ID", "<Header>")
-    message.attach(header)
-
-    return mail_send(receiver=receiver, message=message)
+    return mail_account_invitation(receiver, {**data, "user_type": "SUPERADMIN"})
 
 
 def mail_enabled(receiver):
-    message = mail_setup(receiver, "Account Enabled")
-
-    plain_text = f"""\
-    This email contains that your account has been ENABLED. You will now be able to sign in to HealthPH+ and fully utilize HealthPH+ and its modules. 
-    
-    If you need further assistance, please visit or email the HealthPH+ Office at:
-    
-    Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
-    healthph@national-u.edu.ph
-    
-    Regards,
-    HealthPH+
-    """
-
-    html = f"""\
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>HealthPH+</title>
-    </head>
-    <head>
-        {get_styles()}
-    </head>
-    <body class="body">
-        <div class="header">
-          <img class="img" src="cid:Header" alt="" />
-        </div>
-        <div class="main">
-          <p class="p">
-            This email contains that your account has been{" "}
-            <span class="semibold green">ENABLED </span>. You will now be able to sign in to 
-            HealthPH+ and fully utilize HealthPH+ and its modules.
-          </p>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <p class="p">
-            If you need further assistance, please visit or email the HealthPH+ Office at:
-          </p>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="indent">
-            <p class="p">Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
-            <div class="spacer"></div>
-            <p class="p">healthph@national-u.edu.ph</p>
-          </div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <p class="p">Regards</p>
-          <div class="spacer"></div>
-          <p class="p">HealthPH+</p>
-        </div>
-    </body>
-    </html>
-    """
-
-    part1 = MIMEText(plain_text, "plain")
-    part2 = MIMEText(html, "html")
-    message.attach(part1)
-    message.attach(part2)
-
-    fp = open("assets/images/mail-header.png", "rb")
-    header = MIMEImage(fp.read())
-    fp.close()
-
-    header.add_header("Content-ID", "<Header>")
-    message.attach(header)
-
-    return mail_send(receiver=receiver, message=message)
+    url = _sign_in_url()
+    return _send_template(receiver, "Your account has been enabled", [
+        "Your administrator has enabled your HealthPH+ account.",
+        "You can sign in using your existing password. If you have not activated your account yet, complete your invitation first.",
+    ], action_label="Sign In" if url else None, action_url=url)
 
 
 def mail_disabled(receiver):
-    message = mail_setup(receiver, "Account Disabled")
-
-    plain_text = f"""\
-    This email contains that your account has been DISABLED. You will be unable to sign in to HealthPH+ and lose access to its modules. 
-    
-    If you think this is not the case, please contact us.
-    
-    If you need further assistance, please visit or email the HealthPH+ Office at:
-    
-    Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
-    healthph@national-u.edu.ph
-    
-    Regards,
-    HealthPH+
-    """
-
-    html = f"""\
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>HealthPH+</title>
-    </head>
-    <head>
-        {get_styles()}
-    </head>
-    <body class="body">
-        <div class="header">
-          <img class="img" src="cid:Header" alt="" />
-        </div>
-        <div class="main">
-          <p class="p">
-            This email contains that your account has been{" "}
-            <span class="semibold red">DISABLED</span>. You will be unable to sign in to 
-            HealthPH+ and lose access to its modules.
-          </p>
-          <div class="spacer"></div>
-          <p class="p">
-            If you think this is not the case, please contact us.
-          </p>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <p class="p">
-            If you need further assistance, please visit or email the HealthPH+ Office at:
-          </p>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="indent">
-            <p class="p">Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
-            <div class="spacer"></div>
-            <p class="p">healthph@national-u.edu.ph</p>
-          </div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <p class="p">Regards</p>
-          <div class="spacer"></div>
-          <p class="p">HealthPH+</p>
-        </div>
-    </body>
-    </html>
-    """
-
-    part1 = MIMEText(plain_text, "plain")
-    part2 = MIMEText(html, "html")
-    message.attach(part1)
-    message.attach(part2)
-
-    fp = open("assets/images/mail-header.png", "rb")
-    header = MIMEImage(fp.read())
-    fp.close()
-
-    header.add_header("Content-ID", "<Header>")
-    message.attach(header)
-
-    return mail_send(receiver=receiver, message=message)
+    return _send_template(receiver, "Your account has been disabled", [
+        "Your administrator has disabled your HealthPH+ account. You cannot sign in while it is disabled.",
+        "Contact your administrator if you need access restored or believe this was a mistake.",
+    ])
 
 
 def mail_delete_account(receiver):
-    message = mail_setup(receiver, "Account Deleted")
-
-    plain_text = f"""\
-    This email contains that your account has been DELETED. You are still allowed to request another account if you want to use HealthPH+ in another time.
-    
-    If you need further assistance, please visit or email the HealthPH+ Office at:
-    
-    Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila
-    healthph@national-u.edu.ph
-    
-    Regards,
-    HealthPH+
-    """
-
-    html = f"""\
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>HealthPH+</title>
-    </head>
-    <head>
-        {get_styles()}
-    </head>
-    <body class="body">
-        <div class="header">
-          <img class="img" src="cid:Header" alt="" />
-        </div>
-        <div class="main">
-          <p>
-            This email contains that your account has been 
-            <span class="bold red">DELETED</span>. 
-            You are still allowed to request another account if you want to use HealthPH+ again in the future.
-          </p>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <p class="p">
-            If you need further assistance, please visit or email the HealthPH+ Office at:
-          </p>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="indent">
-            <p class="p">Room 512, HealthPH+ Research Laboratory, Sampaloc, Manila, 1008 Metro Manila</p>
-            <div class="spacer"></div>
-            <p class="p">healthph@national-u.edu.ph</p>
-          </div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <div class="spacer"></div>
-          <p class="p">Regards</p>
-          <div class="spacer"></div>
-          <p class="p">HealthPH+</p>
-        </div>
-    </body>
-    </html>
-    """
-
-    part1 = MIMEText(plain_text, "plain")
-    part2 = MIMEText(html, "html")
-    message.attach(part1)
-    message.attach(part2)
-
-    fp = open("assets/images/mail-header.png", "rb")
-    header = MIMEImage(fp.read())
-    fp.close()
-
-    header.add_header("Content-ID", "<Header>")
-    message.attach(header)
-
-    return mail_send(receiver=receiver, message=message)
+    return _send_template(receiver, "Your account has been deleted", [
+        "Your HealthPH+ account has been deleted and can no longer be used to sign in.",
+        "Contact your administrator if you have questions or believe this was a mistake.",
+    ])
