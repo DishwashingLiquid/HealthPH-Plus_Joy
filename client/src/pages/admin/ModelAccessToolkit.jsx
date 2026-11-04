@@ -2814,9 +2814,6 @@ const UploadDatasetModal = ({ data, error, isLoading, onCancel, onConfirm }) => 
                             Enter dates as year-month-day, for example 2026-10-31.
                             Time is optional. If included, use 2026-10-31 09:30
                         </p>
-                        <p className="mt-2">
-                            Each row needs an ID and post text. Completely blank rows are ignored.
-                        </p>
                     </div>
 
                     {error && (
