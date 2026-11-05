@@ -73,8 +73,7 @@ html { scroll-behavior: smooth; }
   .preview-track { display: flex; width: 100%; height: 100%; transition: transform .55s ease-in-out; }
   .preview-track--instant { transition: none; }
   .preview-slide { flex: 0 0 100%; min-width: 0; height: 100%; overflow: hidden; }
-  .preview-slide img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; transform: scale(1.06, 1.04); user-select: none; }
-  .preview-slide:first-child img, .preview-slide:last-child img { object-position: 65% center; transform: scale(1.035, 1.055); }
+  .preview-slide img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; user-select: none; }
   .preview-next { position: absolute; z-index: 1; inset: 0; width: 100%; border: 0; background: transparent; cursor: pointer; }
   .public-site .preview-next:focus-visible { outline: none; }
   .preview-hint { color: #465360; font-size: 13px; font-weight: 600; letter-spacing: .02em; }

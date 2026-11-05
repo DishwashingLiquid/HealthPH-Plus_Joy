@@ -21,6 +21,6 @@ export const getRunEvaluationControlState = (settings, isRunning = false) => {
     enabled,
     disabled: !enabled || isRunning,
     intervalMinutes: normalizeAlertAutomationInterval(settings?.intervalMinutes),
-    helperText: enabled ? "" : "Enable automation in Alert Settings to run an evaluation.",
+    helperText: enabled ? "" : "Turn on automatic alerts in Set Up Alerts before checking reports.",
   };
 };

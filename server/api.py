@@ -29,6 +29,7 @@ from routes.healthLiteracyHubRoutes import (
     router as healthLiteracyHubRouter,
 )
 from routes.sentimentPulseRoutes import router as sentimentPulseRouter
+from routes.mobileSentimentPulseRoutes import router as mobileSentimentPulseRouter
 from routes.diseaseWatchFeedRoutes import (
     mobile_self_reports_router as mobileSelfReportsRouter,
 )
@@ -133,6 +134,7 @@ api_app.include_router(
     prefix="/health-literacy",
 )
 api_app.include_router(router=sentimentPulseRouter, tags=["Sentiment Pulse"], prefix="/sentiment-pulse")
+api_app.include_router(router=mobileSentimentPulseRouter, tags=["Sentiment Pulse"], prefix="/mobile/sentiment-pulse")
 api_app.include_router(
     router=mobileSelfReportsRouter,
     tags=["Disease Watch Feed"],

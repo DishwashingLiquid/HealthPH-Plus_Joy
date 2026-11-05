@@ -13,6 +13,8 @@ export default function SentimentPulseFilters({
   onCustomStartDateChange,
   onCustomEndDateChange,
   maxDate,
+  children,
+  trailingAction,
 }) {
   const [showRegionDropdown, setShowRegionDropdown] = useState(false);
   const regionDropdownRef = useRef(null);
@@ -36,10 +38,11 @@ export default function SentimentPulseFilters({
 
   return (
     <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
-      <div className="flex flex-col gap-[12px] sm:flex-row">
+      <div className={children || trailingAction ? "flex flex-col gap-[12px] sm:flex-row sm:flex-wrap sm:items-center" : "flex flex-col gap-[12px] sm:flex-row"}>
         <div className="w-full sm:w-[140px]">
           <select
             value={timeRange}
+            aria-label="Reporting time range"
             onChange={(event) => onTimeRangeChange(event.target.value)}
             className="min-h-[40px] w-full rounded-[10px] border border-[#E5E5E5] bg-white px-[14px] py-[10px] text-sm text-gray-800 outline-none focus:border-[#32418C] focus:ring-2 focus:ring-[#D9E3F2]"
           >
@@ -54,6 +57,9 @@ export default function SentimentPulseFilters({
           <div className="relative" ref={regionDropdownRef}>
             <button
               type="button"
+              aria-expanded={showRegionDropdown}
+              aria-label="Select reporting regions"
+              onKeyDown={(event) => { if (event.key === "Escape") setShowRegionDropdown(false); }}
               onClick={() => setShowRegionDropdown(!showRegionDropdown)}
               className="flex min-h-[40px] w-full items-center justify-between gap-[12px] rounded-[10px] border border-[#E5E5E5] bg-white px-[14px] py-[10px] text-left text-sm text-gray-800 outline-none transition hover:bg-[#F8F9FA] focus:border-[#32418C] focus:ring-2 focus:ring-[#D9E3F2]"
             >
@@ -66,7 +72,7 @@ export default function SentimentPulseFilters({
             </button>
 
             {showRegionDropdown && (
-              <div className="absolute left-0 right-0 top-full z-20 mt-[8px] max-h-[260px] overflow-y-auto rounded-[12px] border border-[#E5E5E5] bg-white shadow-lg">
+              <div onKeyDown={(event) => { if (event.key === "Escape") { setShowRegionDropdown(false); regionDropdownRef.current?.querySelector("button")?.focus(); } }} className="absolute left-0 right-0 top-full z-20 mt-[8px] max-h-[260px] overflow-y-auto rounded-[12px] border border-[#E5E5E5] bg-white shadow-lg">
                 <div className="border-b border-[#E5E5E5] px-[14px] py-[10px]">
                   <label className="flex cursor-pointer items-center">
                     <input
@@ -103,6 +109,8 @@ export default function SentimentPulseFilters({
             )}
           </div>
         </div>
+        {children}
+        {trailingAction && <div className="w-full sm:ml-auto sm:w-auto">{trailingAction}</div>}
       </div>
 
       {timeRange === "custom" && onCustomStartDateChange && (
@@ -146,6 +154,7 @@ export default function SentimentPulseFilters({
                 {getRegionLabel(region)}
                 <button
                   type="button"
+                  aria-label={`Remove ${getRegionLabel(region)} filter`}
                   onClick={() => onRegionChange(region)}
                   className="text-[#32418C] hover:text-[#27346F]"
                 >

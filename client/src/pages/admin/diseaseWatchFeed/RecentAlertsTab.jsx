@@ -20,14 +20,52 @@ SelfReportCard.propTypes = { alert: PropTypes.object.isRequired };
 function SummaryPreview({ preview }) {
   if (!preview) return null;
   const symptoms = (preview.symptomCounts || []).map((item) => `${item.symptom} (${Number(item.count || 0).toLocaleString()})`).join(", ");
-  return <section aria-label="Regional summary preview" className="mt-3 rounded-[8px] border border-[#D5E3F0] bg-[#F8FBFF] p-3 text-xs leading-5 text-gray-700"><p className="font-semibold text-gray-800">Regional summary preview</p><p>{Number(preview.reportCount || 0).toLocaleString()} eligible self-reports in this alert batch.</p>{symptoms && <p>Reported symptoms: {symptoms}</p>}{preview.windowStart && preview.windowEnd && <p>Reporting window: {exactDate(preview.windowStart)} – {exactDate(preview.windowEnd)}</p>}<p className="mt-1 text-gray-500">This preview is removed after recipient preparation completes.</p></section>;
+  return <section aria-label="Reports counted for this alert" className="mt-3 rounded-[8px] border border-[#D5E3F0] bg-[#F8FBFF] p-3 text-xs leading-5 text-gray-700"><p className="font-semibold text-gray-800">Reports counted for this alert</p><p>{Number(preview.reportCount || 0).toLocaleString()} reports counted.</p>{symptoms && <p>Reported symptoms: {symptoms}</p>}{preview.windowStart && preview.windowEnd && <p>Reports from: {exactDate(preview.windowStart)} – {exactDate(preview.windowEnd)}</p>}<p className="mt-1 text-gray-500">This list goes away once the alert is prepared for users.</p></section>;
 }
 SummaryPreview.propTypes = { preview: PropTypes.shape({ reportCount: PropTypes.number, symptomCounts: PropTypes.arrayOf(PropTypes.shape({ symptom: PropTypes.string, count: PropTypes.number })), windowStart: PropTypes.string, windowEnd: PropTypes.string }) };
 SummaryPreview.defaultProps = { preview: null };
 
+const AUTOMATIC_STATUS_LABELS = {
+  Preparing: "Being prepared",
+  Published: "Prepared",
+  "Preparation failed": "Could not prepare",
+};
+
 function AlertCards({ alerts, onCancel, cancellingId }) {
-  if (!alerts.length) return <p className="text-sm text-gray-500">No alert history yet.</p>;
-  return <div className="grid grid-cols-1 gap-[12px]">{alerts.map((alert) => <article key={alert.id} className="rounded-[12px] border border-[#E5E5E5] bg-white p-[16px]"><div className="flex gap-3"><span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FFF3CD] text-lg text-[#856404]">!</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-[16px] font-semibold text-gray-800">{alert.title}</h3><div className="flex gap-2">{alert.automated && <span className="rounded-full bg-[#F3E8FF] px-2 py-1 text-xs font-semibold text-[#7E22CE]">Automated</span>}<span className="rounded-full bg-[#EFF8FF] px-2 py-1 text-xs font-semibold text-[#175CD3]">{alert.status}</span></div></div><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-700">{alert.message}</p><div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-gray-500"><span>Region: {alert.region}</span>{alert.automated ? <><span>Generated {relativeDate(alert.generatedAt)}</span><span>Triggering count: {Number(alert.reportCount || 0).toLocaleString()}</span><span>Window: {alert.intervalMinutes} minutes</span><span className="font-medium text-gray-700">Prepared recipient records: {Number(alert.recipientCount || 0).toLocaleString()}</span></> : <><span>{alert.status === "Sent" ? `Sent ${relativeDate(alert.sentAt)}` : alert.status === "Cancelled" ? `Cancelled ${exactDate(alert.cancelledAt)}` : `Scheduled for ${exactDate(alert.scheduledAt)}`}</span><span className="font-medium text-gray-700">Sent to {Number(alert.recipientCount || 0).toLocaleString()} users</span></>}</div><SummaryPreview preview={alert.summaryPreview} />{alert.deliveryError && <p role="alert" className="mt-2 text-xs text-[#B42318]">Preparation note: {alert.deliveryError}</p>}{!alert.automated && alert.status === "Scheduled" && <button type="button" onClick={() => onCancel(alert.id)} disabled={cancellingId === alert.id} className="mt-3 rounded-[6px] border border-[#F04438] px-3 py-1.5 text-xs font-medium text-[#B42318] disabled:opacity-60">{cancellingId === alert.id ? "Cancelling..." : "Cancel alert"}</button>}</div></div></article>)}</div>;
+  if (!alerts.length) return <p className="text-sm text-gray-500">No alerts to show yet.</p>;
+  return <div className="grid grid-cols-1 gap-[12px]">{alerts.map((alert) => {
+    const intervalLabel = ALERT_AUTOMATION_INTERVALS.find(({ minutes }) => minutes === Number(alert.intervalMinutes))?.label || `${alert.intervalMinutes} minutes`;
+    return <article key={alert.id} className="rounded-[12px] border border-[#E5E5E5] bg-white p-[16px]">
+      <div className="flex gap-3">
+        <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FFF3CD] text-lg text-[#856404]">!</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-[16px] font-semibold text-gray-800">{alert.title}</h3>
+            <div className="flex gap-2">
+              {alert.automated && <span className="rounded-full bg-[#F3E8FF] px-2 py-1 text-xs font-semibold text-[#7E22CE]">Made automatically</span>}
+              <span className="rounded-full bg-[#EFF8FF] px-2 py-1 text-xs font-semibold text-[#175CD3]">{alert.automated ? AUTOMATIC_STATUS_LABELS[alert.status] || alert.status : alert.status}</span>
+            </div>
+          </div>
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-700">{alert.message}</p>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-gray-500">
+            <span>Region: {alert.region}</span>
+            {alert.automated ? <>
+              <span>Made {relativeDate(alert.generatedAt)}</span>
+              <span>Reports counted: {Number(alert.reportCount || 0).toLocaleString()}</span>
+              <span>Reports from the last {intervalLabel}</span>
+              <span className="font-medium text-gray-700">{alert.status === "Preparing" ? "Getting the alert ready for app users." : `Prepared for ${Number(alert.recipientCount || 0).toLocaleString()} app users.`} This does not mean they received it.</span>
+            </> : <>
+              <span>{alert.status === "Sent" ? `Marked as sent ${relativeDate(alert.sentAt)}` : alert.status === "Cancelled" ? `Cancelled ${exactDate(alert.cancelledAt)}` : `Scheduled for ${exactDate(alert.scheduledAt)}`}</span>
+              <span className="font-medium text-gray-700">Marked as sent to {Number(alert.recipientCount || 0).toLocaleString()} users</span>
+            </>}
+          </div>
+          <SummaryPreview preview={alert.summaryPreview} />
+          {alert.deliveryError && <p role="alert" className="mt-2 text-xs text-[#B42318]">Problem getting the alert ready: {alert.deliveryError}</p>}
+          {!alert.automated && alert.status === "Scheduled" && <button type="button" onClick={() => onCancel(alert.id)} disabled={cancellingId === alert.id} className="mt-3 rounded-[6px] border border-[#F04438] px-3 py-1.5 text-xs font-medium text-[#B42318] disabled:opacity-60">{cancellingId === alert.id ? "Cancelling..." : "Cancel alert"}</button>}
+        </div>
+      </div>
+    </article>;
+  })}</div>;
 }
 AlertCards.propTypes = { alerts: PropTypes.arrayOf(PropTypes.object).isRequired, onCancel: PropTypes.func.isRequired, cancellingId: PropTypes.string.isRequired };
 
@@ -52,7 +90,7 @@ export default function RecentAlertsTab({ alerts, summaries, sentAlerts, canSend
           </div>
           {canSendAlert && (
             <button type="button" onClick={onSendAlert} className="prod-btn-base prod-btn-primary send-alert-button whitespace-nowrap" style={{ backgroundColor: "#27346f" }}>
-              Alert Settings
+              Set Up Alerts
             </button>
           )}
         </div>
@@ -76,8 +114,8 @@ export default function RecentAlertsTab({ alerts, summaries, sentAlerts, canSend
       <section className="rounded-[12px] border border-[#E5E5E5] bg-[#FCFCFD] p-[16px]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-gray-800">Sent Alerts</h2>
-            <p className="mt-1 text-sm text-gray-500">Legacy sent history plus automated alert preparation. Automated records are not delivery evidence.</p>
+            <h2 className="text-lg font-semibold text-gray-800">Alert History</h2>
+            <p className="mt-1 text-sm text-gray-500">See past alerts and alerts being prepared. A prepared alert may not have reached anyone yet.</p>
           </div>
           {canSendAlert && (
             <div className="flex flex-wrap items-center gap-2">
@@ -86,7 +124,7 @@ export default function RecentAlertsTab({ alerts, summaries, sentAlerts, canSend
                 {ALERT_AUTOMATION_INTERVALS.map(({ minutes, label }) => <option key={minutes} value={minutes}>{label}</option>)}
               </select>
               <button type="button" onClick={() => onRunEvaluation(Number(evaluationInterval))} disabled={evaluationControl.disabled} className="prod-btn-base prod-btn-primary whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60" style={{ backgroundColor: "#27346f" }}>
-                {isEvaluationRunning ? "Running..." : "Run Evaluation Now"}
+                {isEvaluationRunning ? "Checking reports..." : "Check reports now"}
               </button>
             </div>
           )}

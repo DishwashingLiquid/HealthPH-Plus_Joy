@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useCreateSentimentPulseSurveyMutation,
   useDeleteSentimentPulseSurveyMutation,
-  useFetchSentimentPulseRegionalAnalysisQuery,
+  useFetchSentimentPulseRegionalAnalyticsQuery,
   useFetchSentimentPulseSurveysQuery,
   useFetchSentimentPulseSummaryQuery,
+  useFetchSentimentPulseTrendsQuery,
   useScheduleSentimentPulseSurveyMutation,
   useUpdateSentimentPulseSurveyMutation,
 } from "../../../features/api/sentimentPulseSlice";
@@ -24,12 +25,14 @@ import MobileSurveys, {
 import RegionalAnalysis, { REGIONS } from "./RegionalAnalysis";
 import SentimentPulseFilters from "./SentimentPulseFilters";
 import SentimentTrends from "./SentimentTrends";
+import SentimentTrendsToolbar from "./SentimentTrendsToolbar";
 import StaticContainers from "./StaticContainers";
 import {
   exportSentimentPulseCsv,
   showSentimentPulsePdfExportNotice,
 } from "./exportUtils";
 import { SENTIMENT_PULSE_TABS } from "./tabs";
+import { dateRangeError, getPhilippineDateInput } from "./sentimentContract";
 
 const freezeSnapshot = (value) => {
   if (!value || typeof value !== "object" || Object.isFrozen(value)) {
@@ -69,16 +72,12 @@ const SURVEY_REFRESH_OPTIONS = {
   refetchOnFocus: true,
 };
 
-const getPhilippineDateInput = (dayOffset = 0) => {
-  const philippinesNow = new Date(Date.now() + 8 * 60 * 60 * 1000);
-  philippinesNow.setUTCDate(philippinesNow.getUTCDate() + dayOffset);
-  return philippinesNow.toISOString().slice(0, 10);
-};
-
 export default function SentimentPulseTool() {
   const [activeTab, setActiveTab] = useState("sentiment-trends");
   const [selectedRegions, setSelectedRegions] = useState([]);
+  const [showEmptyRegions, setShowEmptyRegions] = useState(false);
   const [timeRange, setTimeRange] = useState("last-30-days");
+  const [selectedSurveyId, setSelectedSurveyId] = useState("");
   const [customStartDate, setCustomStartDate] = useState(() =>
     getPhilippineDateInput(-29)
   );
@@ -97,18 +96,21 @@ export default function SentimentPulseTool() {
   const [scheduleItems, setScheduleItems] = useState([]);
   const [scheduleError, setScheduleError] = useState("");
   const isConfirmingSurveyRef = useRef(false);
+  const trendFilters = { timeRange, regions: selectedRegions, startDate: customStartDate, endDate: customEndDate, surveyId: selectedSurveyId };
+  const filterError = dateRangeError(trendFilters);
+  const { currentData: trends, isFetching: isTrendsFetching, isError: isTrendsError, isUninitialized: isTrendsUninitialized, refetch: refetchTrends } =
+    useFetchSentimentPulseTrendsQuery(trendFilters, { ...SURVEY_REFRESH_OPTIONS, skip: Boolean(filterError) });
+  // Regional reporting covers all surveys, independently of the Trends selector.
+  const regionalFilters = { timeRange, regions: selectedRegions, startDate: customStartDate, endDate: customEndDate };
   const {
-    data: regionalAnalysisData,
+    currentData: regionalAnalysisData,
     isLoading: isRegionalAnalysisLoading,
     isError: isRegionalAnalysisError,
     isFetching: isRegionalAnalysisFetching,
     refetch: refetchRegionalAnalysis,
-  } = useFetchSentimentPulseRegionalAnalysisQuery({
-      timeRange,
-      regions: selectedRegions,
-      startDate: customStartDate,
-      endDate: customEndDate,
-    }, SURVEY_REFRESH_OPTIONS);
+    isUninitialized: isRegionalAnalysisUninitialized,
+  } = useFetchSentimentPulseRegionalAnalyticsQuery(regionalFilters,
+    { ...SURVEY_REFRESH_OPTIONS, skip: Boolean(filterError) || activeTab !== "regional-analysis" });
   const {
     data: surveysData = [],
     isLoading: isSurveysLoading,
@@ -128,7 +130,7 @@ export default function SentimentPulseTool() {
     const refresh = () => {
       refetchSummary();
       refetchSurveys();
-      refetchRegionalAnalysis();
+      if (!isRegionalAnalysisUninitialized) refetchRegionalAnalysis();
     };
     const boundary = Date.parse(summary?.nextReportingPeriod);
     let timer;
@@ -153,6 +155,7 @@ export default function SentimentPulseTool() {
     refetchRegionalAnalysis,
     refetchSummary,
     refetchSurveys,
+    isRegionalAnalysisUninitialized,
   ]);
   const [createSentimentPulseSurvey, { isLoading: isCreatingSurvey }] =
     useCreateSentimentPulseSurveyMutation();
@@ -166,6 +169,19 @@ export default function SentimentPulseTool() {
     () => (Array.isArray(surveysData) ? surveysData : surveysData?.surveys ?? []),
     [surveysData]
   );
+  useEffect(() => {
+    if (selectedSurveyId && !isSurveysLoading && !isSurveysError && !surveys.some((survey) => survey.id === selectedSurveyId)) {
+      setSelectedSurveyId("");
+    }
+  }, [selectedSurveyId, isSurveysLoading, isSurveysError, surveys]);
+  const [surveyFeedback, setSurveyFeedback] = useState({});
+  const handleFeedbackSnapshot = useCallback((surveyId, snapshot) => {
+    setSurveyFeedback((current) => ({ ...current, [surveyId]: snapshot }));
+  }, []);
+  const mobileExportUnavailable = isSurveysLoading || isSurveysError || surveys.some((survey) => {
+    const snapshot = surveyFeedback[survey.id];
+    return (survey.status === "Ended" || snapshot) && (!snapshot?.data || snapshot.isError || snapshot.isFetching);
+  });
   const draftSurveys = useMemo(
     () => surveys.filter((survey) => survey.status === "Draft"),
     [surveys]
@@ -614,15 +630,20 @@ export default function SentimentPulseTool() {
                   customStartDate,
                   customEndDate,
                   selectedRegions,
-                  regionalAnalysis: regionalAnalysisData,
+                  regionalAnalysis: isRegionalAnalysisError ? undefined : regionalAnalysisData,
+                  regionalRequestState: isRegionalAnalysisError ? "Request failed" : undefined,
+                  showEmptyRegions,
                   surveys,
+                  trends,
+                  surveyFeedback,
                 })
               }
               variant="primary"
               className="sm:w-auto"
               disabled={
-                activeTab === "regional-analysis" &&
-                (isRegionalAnalysisLoading || isRegionalAnalysisError)
+                (activeTab === "regional-analysis" && (isRegionalAnalysisFetching || isRegionalAnalysisError || Boolean(filterError) || !regionalAnalysisData)) ||
+                (activeTab === "sentiment-trends" && (!trends || isTrendsFetching || isTrendsError || Boolean(filterError))) ||
+                (activeTab === "mobile-surveys" && mobileExportUnavailable)
               }
             >
               Export as CSV
@@ -639,11 +660,14 @@ export default function SentimentPulseTool() {
         </div>
       </div>
 
-      <StaticContainers
+      {activeTab !== "regional-analysis" && <StaticContainers
         summary={summary}
         isLoading={isSummaryLoading}
         isError={isSummaryError}
-      />
+        sentimentReport={filterError ? undefined : trends}
+        isSentimentLoading={!filterError && !trends && isTrendsFetching}
+        isSentimentError={Boolean(filterError) || isTrendsError}
+      />}
 
       <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[12px]">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-[8px] bg-[#F5F5F5] rounded-[10px] p-[6px]">
@@ -666,14 +690,26 @@ export default function SentimentPulseTool() {
 
       {activeTab === "sentiment-trends" && (
         <>
-          <SentimentPulseFilters
+          <SentimentTrendsToolbar
             timeRange={timeRange}
             onTimeRangeChange={setTimeRange}
             selectedRegions={selectedRegions}
             onRegionChange={handleRegionChange}
             onSelectAllRegions={handleSelectAllRegions}
+            customStartDate={customStartDate}
+            customEndDate={customEndDate}
+            onCustomStartDateChange={setCustomStartDate}
+            onCustomEndDateChange={setCustomEndDate}
+            maxDate={getPhilippineDateInput()}
+            surveys={surveys}
+            surveyId={selectedSurveyId}
+            onSurveyChange={setSelectedSurveyId}
+            onRefresh={refetchTrends}
+            isFetching={isTrendsFetching}
+            isUninitialized={isTrendsUninitialized}
+            filterError={filterError}
           />
-          <SentimentTrends />
+          <SentimentTrends report={trends} surveys={surveys} isLoading={!trends && isTrendsFetching} isFetching={isTrendsFetching} isError={isTrendsError} filterError={filterError} onRefresh={refetchTrends} />
         </>
       )}
 
@@ -690,13 +726,22 @@ export default function SentimentPulseTool() {
             onCustomStartDateChange={setCustomStartDate}
             onCustomEndDateChange={setCustomEndDate}
             maxDate={getPhilippineDateInput()}
+            trailingAction={
+              <ToolbarButton type="button" className="w-full justify-center sm:w-auto" onClick={() => refetchRegionalAnalysis()}
+                disabled={Boolean(filterError) || isRegionalAnalysisUninitialized || isRegionalAnalysisFetching}>
+                {isRegionalAnalysisFetching ? "Refreshing..." : "Refresh Results"}
+              </ToolbarButton>
+            }
           />
           <RegionalAnalysis
             selectedRegions={selectedRegions}
-            regionalAnalysis={regionalAnalysisData}
-            isLoading={isRegionalAnalysisLoading}
+            regionalAnalysis={isRegionalAnalysisError ? undefined : regionalAnalysisData}
+            isLoading={isRegionalAnalysisLoading || (!regionalAnalysisData && isRegionalAnalysisFetching)}
             isError={isRegionalAnalysisError}
             isFetching={isRegionalAnalysisFetching}
+            filterError={filterError}
+            showEmptyRegions={showEmptyRegions}
+            onShowEmptyRegionsChange={setShowEmptyRegions}
           />
         </>
       )}
@@ -746,6 +791,7 @@ export default function SentimentPulseTool() {
               isLoading={isSurveysLoading}
               isError={isSurveysError}
               onEdit={handleEditSurvey}
+              onFeedbackSnapshot={handleFeedbackSnapshot}
             />
           </div>
         </div>

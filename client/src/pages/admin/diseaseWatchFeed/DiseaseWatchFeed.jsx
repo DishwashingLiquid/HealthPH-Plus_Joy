@@ -240,15 +240,15 @@ export default function DiseaseWatchFeed() {
   const handleRunEvaluation = async (intervalMinutes) => {
     setEvaluationFeedback(null);
     try {
-      const result = await runRegionalAlertEvaluation({ intervalMinutes }).unwrap();
+      await runRegionalAlertEvaluation({ intervalMinutes }).unwrap();
       setEvaluationFeedback({
         type: "success",
-        message: result.message || "Evaluation completed. Settings and alert history have been refreshed.",
+        message: "Reports checked. Alert history is up to date.",
       });
     } catch (requestError) {
       setEvaluationFeedback({
         type: "error",
-        message: getErrorMessage(requestError, "The evaluation could not be completed. Please try again."),
+        message: getErrorMessage(requestError, "Could not check reports. Please try again."),
       });
     } finally {
       await refreshRegionalAlertData();

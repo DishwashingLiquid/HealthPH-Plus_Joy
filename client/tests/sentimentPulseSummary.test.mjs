@@ -8,6 +8,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import { createApi } from "@reduxjs/toolkit/query/react";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { makeReport } from "./fixtures/sentimentPulseData.mjs";
 
 const filename = fileURLToPath(new URL("../src/pages/admin/sentimentPulseTool/StaticContainers.jsx", import.meta.url));
 const result = buildSync({ entryPoints: [filename], bundle: true, write: false, platform: "node", format: "cjs", jsx: "automatic", packages: "external" });
@@ -25,17 +26,53 @@ const summary = {
 };
 
 test("cards display a complete summary with publication-month labels and Philippine dates", () => {
-  const html = render({ summary });
+  const html = render({ summary, sentimentReport: makeReport() });
+  assert.match(html, /Sentiment Score/);
+  assert.match(html, /Calm \/ Worried/);
+  assert.match(html, /50\.0% each/);
+  assert.match(html, /6 analyzed answers/);
+  assert.match(html, /2 without results/);
+  assert.match(html, /Current Trends filters/);
+  assert.match(html, /title="Mobile answers · 2026-09-29 to 2026-10-28/);
   assert.match(html, /120/);
   assert.match(html, /50\.0%/);
-  assert.match(html, /Surveys published in Sep 2026/);
-  assert.match(html, /vs surveys published in Aug 2026 \(80 responses\)/);
+  assert.match(html, /Published surveys: Sep 2026/);
+  assert.match(html, /vs Aug 2026 · 80 responses/);
   assert.match(html, /3\/17/);
-  assert.match(html, /Across the latest 5 published surveys/);
+  assert.match(html, /Latest 5 published surveys/);
   assert.match(html, /Sep 1, 2026/);
-  assert.match(html, /Next reporting period/);
+  assert.match(html, /Latest Response/);
+  assert.match(html, /Next month/);
   assert.match(html, /Oct 1, 2026/);
   assert.doesNotMatch(html, /Next update|from last update/);
+});
+
+test("Sentiment Score shows the dominant category's share and keeps missing results distinct", () => {
+  const report = makeReport();
+  const card = (props) => {
+    const html = render({ summary, sentimentReport: report, ...props });
+    return html.slice(0, html.indexOf(">Survey Responses</h3>"));
+  };
+  report.totals = { ...report.totals, calm: 4, worried: 2, worriedShare: 2 / 6 * 100 };
+  assert.match(card(), /<span>Calm<\/span>/);
+  assert.match(card(), /66\.7%/);
+  assert.doesNotMatch(card(), /33\.3%/);
+  report.totals = { ...report.totals, calm: 1, worried: 5, worriedShare: 5 / 6 * 100 };
+  assert.match(card(), /<span>Worried<\/span>/);
+  assert.match(card(), /83\.3%/);
+  assert.match(card(), /2 without results/);
+  report.totals = { ...report.totals, calm: 6, worried: 0, worriedShare: 0 };
+  assert.match(card(), /<span>Calm<\/span>/);
+  assert.match(card(), /100\.0%/);
+  assert.doesNotMatch(card({ isSentimentLoading: true }), /<span>Calm|100\.0%/);
+  assert.doesNotMatch(card({ isSentimentError: true }), /<span>Calm|100\.0%/);
+  report.totals = { ...report.totals, predictedAnswers: 0, calm: 0, worried: 0, worriedShare: null, answersWithoutResults: 8 };
+  assert.match(card(), /No results yet/);
+  assert.doesNotMatch(card(), /0\.0%/);
+  report.totals = { ...report.totals, eligibleAnswers: 0, answersWithoutResults: 0 };
+  assert.match(card(), /No answers to analyze/);
+  report.sentimentStatus = "not_configured";
+  assert.match(card(), /Not available/);
 });
 
 test("loading and failed requests have no mock summary values", () => {
@@ -51,15 +88,15 @@ test("empty data and a zero previous total never display a response percentage",
     previousMonthResponses: 0, responseChangePercent: null, responseCutoff: null };
   const html = render({ summary: empty });
   assert.match(html, /No responses yet/);
-  assert.match(html, /No published surveys yet/);
-  assert.match(html, /No responses in either group/);
-  assert.match(render({ summary: { ...empty, surveyResponses: 1 } }), /No previous-month responses/);
+  assert.match(html, /No published surveys/);
+  assert.match(html, /No comparison yet|No responses yet/);
+  assert.match(render({ summary: { ...empty, surveyResponses: 1 } }), /No comparison yet/);
   assert.doesNotMatch(html, /NaN|Infinity|50\.0%/);
 });
 
 test("a refresh error preserves the whole prior summary and marks it stale", () => {
   const html = render({ summary, isError: true });
-  assert.match(html, /Showing the last loaded values/);
+  assert.match(html, /Showing previous values/);
   assert.match(html, /120/);
   assert.match(html, /3\/17/);
   assert.match(html, /Sep 1, 2026/);
@@ -68,7 +105,7 @@ test("a refresh error preserves the whole prior summary and marks it stale", () 
 test("unknown-region responses are reported separately from active regions", () => {
   const html = render({ summary: { ...summary, unknownRegionResponses: 7 } });
   assert.match(html, /3\/17/);
-  assert.match(html, /7 responses have an unknown region in these surveys/);
+  assert.match(html, /7 responses · region unknown/);
   assert.match(html, /120/);
 });
 
@@ -77,7 +114,7 @@ test("month rollover replaces values even when the response cutoff does not chan
     responseChangePercent: -100, currentPublicationMonth: "2026-10", previousPublicationMonth: "2026-09",
     nextReportingPeriod: "2026-11-01T00:00:00+08:00" } });
   assert.match(html, /100\.0%/);
-  assert.match(html, /Surveys published in Oct 2026/);
+  assert.match(html, /Published surveys: Oct 2026/);
   assert.match(html, /Sep 1, 2026/);
   assert.match(html, /Nov 1, 2026/);
 });

@@ -13,6 +13,8 @@ import {
   useFetchSentimentPulseSurveyResultsQuery,
 } from "../../../features/api/sentimentPulseSlice";
 
+import SurveyFeedback, { SurveySentiment } from "./SurveyFeedback";
+
 export const QUESTION_TYPES = [
   { value: "text", label: "Text" },
   { value: "multipleChoice", label: "Multiple Choice" },
@@ -1058,9 +1060,11 @@ export default function MobileSurveys({
   isLoading,
   isError,
   onEdit = () => {},
+  onFeedbackSnapshot,
 }) {
   const [selectedResultsSurveyId, setSelectedResultsSurveyId] = useState("");
   const [surveyToEnd, setSurveyToEnd] = useState(null);
+  const [endedSurveyIds, setEndedSurveyIds] = useState([]);
   const [endSurveyError, setEndSurveyError] = useState("");
   const [endSurvey, { isLoading: isEndingSurvey }] =
     useEndSentimentPulseSurveyMutation();
@@ -1086,6 +1090,7 @@ export default function MobileSurveys({
     setEndSurveyError("");
     try {
       await endSurvey(surveyToEnd.id).unwrap();
+      setEndedSurveyIds((ids) => [...new Set([...ids, surveyToEnd.id])]);
       setSurveyToEnd(null);
     } catch (error) {
       setEndSurveyError(
@@ -1122,7 +1127,8 @@ export default function MobileSurveys({
   return (
     <>
       <div className="flex flex-col gap-[10px]">
-        {surveys.map((survey) => {
+        {surveys.map((record) => {
+          const survey = endedSurveyIds.includes(record.id) ? { ...record, status: "Ended" } : record;
           const responses = Number(survey.responses || 0);
           const target = Number(survey.target || 0);
           const responsePercentage =
@@ -1134,10 +1140,6 @@ export default function MobileSurveys({
               : `${formatNumber(Math.abs(responseDifference))} ${
                   responseDifference > 0 ? "over" : "short"
                 }`;
-          const dominantSentiment = survey.dominantSentiment || "Neutral";
-          const dominantColor = sentimentColors[dominantSentiment] || "#9CA3AF";
-          const sentimentScore =
-            survey.sentimentBreakdown?.[dominantSentiment.toLowerCase()] ?? 0;
           const scheduledAtLabel = formatSurveyDate(survey.scheduledAt);
           const publishedAtLabel = formatSurveyDate(survey.publishedAt);
           const statusClass =
@@ -1220,23 +1222,7 @@ export default function MobileSurveys({
                   </div>
                 </div>
 
-                <div className="w-fit self-center text-center lg:shrink-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Sentiment
-                  </p>
-                  <p
-                    className="mt-[6px] text-[28px] font-semibold leading-none"
-                    style={{ color: dominantColor }}
-                  >
-                    {sentimentScore}%
-                  </p>
-                  <p
-                    className="mt-[4px] text-sm font-semibold"
-                    style={{ color: dominantColor }}
-                  >
-                    {dominantSentiment}
-                  </p>
-                </div>
+                <SurveySentiment surveyId={survey.id} ended={survey.status === "Ended"} />
 
                 <div className="grid w-full grid-cols-3 gap-[8px] lg:w-[280px] lg:shrink-0">
                   <button
@@ -1255,13 +1241,7 @@ export default function MobileSurveys({
                     Edit
                   </button>
                   {survey.status === "Ended" ? (
-                    <button
-                      type="button"
-                      disabled
-                      className="min-h-[40px] rounded-[10px] bg-[#32418C] px-[12px] py-[10px] text-sm font-medium text-white opacity-50"
-                    >
-                      Process
-                    </button>
+                    <SurveyFeedback surveyId={survey.id} ended buttonOnly onSnapshot={onFeedbackSnapshot} />
                   ) : (
                     <button
                       type="button"
