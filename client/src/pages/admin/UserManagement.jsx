@@ -912,7 +912,7 @@ const UserManagement = () => {
           )}
 
           {isOrganizationsRoleTab && (
-            <div className="mb-[16px]">
+            <div className="mb-[8px]">
               <h2 className="text-[20px] font-semibold text-gray-800">
                 {organizationRoleSectionTitle}
               </h2>
@@ -922,7 +922,7 @@ const UserManagement = () => {
             </div>
           )}
 
-          <div className="mb-[20px] flex flex-col gap-[16px] xl:flex-row xl:items-center xl:justify-between">
+          <div className="mb-[20px] flex flex-col gap-x-[16px] gap-y-[8px] xl:flex-row xl:items-center xl:justify-between">
             <div className="flex flex-wrap gap-[12px]">
               {isAnalyticsTab && (
                 <div>
@@ -3016,7 +3016,7 @@ const AccountAnalyticsPanel = ({
 
       {showRecentActivity && (
         <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
-          <div className="flex flex-wrap items-start justify-between gap-[12px]">
+          <div className="flex flex-wrap items-end justify-between gap-x-[12px] gap-y-[8px]">
             <div>
               <h2 className="text-[18px] font-semibold text-gray-800">Recent Account Activity</h2>
               <p className="text-sm text-gray-500">Filter the activity list and its printed entries. Dates use Philippine time.</p>
@@ -3027,7 +3027,7 @@ const AccountAnalyticsPanel = ({
               Reset filters
             </button>
           </div>
-          <div className="mt-[16px] flex flex-wrap items-end justify-between gap-x-[20px] gap-y-[14px]">
+          <div className="mt-[8px] flex flex-wrap items-end justify-between gap-x-[20px] gap-y-[8px]">
             <div className="flex w-full flex-col gap-[6px] sm:w-[280px]">
               <label htmlFor="activity-search" className="text-sm text-gray-600">Search activity</label>
               <ToolbarSearch id="activity-search" className="!w-full" placeholder="Search names, entries, modules or IP..."

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Children, useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import { format } from "date-fns";
 import { useReactToPrint } from "react-to-print";
@@ -10,7 +10,18 @@ import SkeletonBody from "../../components/SkeletonBody";
 import LoadingSkeleton from "../../components/LoadingSkeleton";
 import Regions from "../../assets/data/regions.json";
 import DataManagementPrint from "../../components/admin/DataManagementPrint";
+import SummaryPrintReport from "../../components/admin/SummaryPrintReport";
+import ModelEvaluationUpload from "../../components/admin/ModelEvaluationUpload";
 import { loadSelfReportsForPrint } from "../../utils/selfReportPrintHelpers";
+import { useFetchModelEvaluationsQuery } from "../../features/api/modelEvaluationsSlice";
+import {
+    EVALUATION_LANGUAGE_NAMES,
+    buildModelEvaluationPrintReport,
+    buildEvaluationLanguageRows,
+    formatEvaluationDate,
+    getComparisonIssue,
+    getLanguageComparisonIssue,
+} from "../../utils/modelEvaluationHelpers";
 import useUrlTab from "../../hooks/useUrlTab";
 
 import {
@@ -110,237 +121,441 @@ const TabButton = ({ label, active, onClick }) => {
 };
 
 /* SUBTAB 1 = MODEL COMPARISON */
-const ModelComparison = () => {
-    return (
-        <div className="flex flex-col gap-[10px]">
-            {/* FILTERS */}
-            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[10px]">
-                <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-[16px]">
-                    <div className="flex flex-wrap gap-[12px]">
-                        <select className="border border-[#E5E5E5] rounded-[10px] px-[14px] py-[10px] text-sm">
-                            <option value="">All Models</option>
-                        </select>
-                        <select className="border border-[#E5E5E5] rounded-[10px] px-[14px] py-[10px] text-sm">
-                            <option value="">F1 Score</option>
-                        </select>
-                    </div>
-                    <ToolbarSearch placeholder="Search models by name or description..." />
-                </div>
-            </div>
+const DISEASE_MODEL_EVALUATIONS = [
+    {
+        id: "electra",
+        name: "ELECTRA",
+        modelVersion: null,
+        evaluationSet: null,
+        sampleCount: null,
+        macroF1: null, 
+        microF1: null,
+        precisionMacro: null,
+        recallMacro: null,
+        hammingLoss: null,
+    },
+    {
+        id: "xlmr",
+        name: "XLM-RoBERTa",
+        modelVersion: null,
+        evaluationSet: null,
+        sampleCount: null,
+        macroF1: null,
+        microF1: null,
+        precisionMacro: null,
+        recallMacro: null,
+        hammingLoss: null,
+    },
+];
 
-            {/* PERFORMANCE CHART */}
-            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
-                <h2 className="text-[18px] font-semibold text-gray-800">
-                    Model Performance Comparison
-                </h2>
-                <p className="text-sm text-gray-500 mb-[12px]">
-                    Comparative analysis of model metrics across different tasks and languages.
-                </p>
+const hasEvaluationScore = (value) =>
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    value <= 1;
 
-                <ResponsiveContainer width="100%" height={360}>
-                    <BarChart
-                        data={[
-                            { model: "mBERT", f1: 87, precision: 91, recall: 89, accuracy: 92 },
-                            { model: "XLM-RoBERTa", f1: 92, precision: 93, recall: 91, accuracy: 95 },
-                            { model: "GPT-based", f1: 94, precision: 95, recall: 92, accuracy: 96 },
-                            { model: "LSTM", f1: 84, precision: 88, recall: 82, accuracy: 90 },
-                            { model: "XGBoost", f1: 89, precision: 91, recall: 87, accuracy: 93 },
-                        ]}
-                        margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
+const formatEvaluationScore = (value) =>
+    hasEvaluationScore(value)
+        ? `${(value * 100).toFixed(2)}%`
+        : "Unavailable";
+
+const toEvaluationPercent = (value) =>
+    hasEvaluationScore(value) ? value * 100 : null;
+
+const MODEL_CHART_SERIES = [
+    { key: "electra", name: "ELECTRA", color: "#32418C" },
+    { key: "xlmr", name: "XLM-RoBERTa", color: "#20C997" },
+];
+
+const COMPARISON_METRICS = [
+    { 
+        key: "macroF1", 
+        label: "Macro F1", 
+        color: "#32418C" },
+    {
+        key: "precisionMacro",
+        label: "Macro Precision",
+        color: "#2572A5",
+    },
+    {
+        key: "recallMacro",
+        label: "Macro Recall",
+        color: "#9BCC33",
+    },
+];
+
+const EvaluationChartPanel = ({
+    title,
+    description,
+    available,
+    unavailableMessage = "Recorded evaluation results have not been added.",
+    children,
+}) => (
+    <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
+        <h2 className="text-[18px] font-semibold text-gray-800">
+            {title}
+        </h2>
+
+        <p className="text-sm text-gray-500 mb-[12px]">
+            {description}
+        </p>
+
+        <div className="relative h-[360px]">
+            {children}
+
+            {!available && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                    <div
+                        role="status"
+                        className="rounded-[10px] border border-gray-200 bg-white/95 px-5 py-4 text-center shadow-sm"
                     >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="model" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend
-                            verticalAlign="bottom"
-                            align="center"
-                            iconType="circle"
-                            wrapperStyle={{
-                                paddingTop: "20px",
-                                lineHeight: "28px",
-                            }}
-                        />
-                        <Bar dataKey="f1" name="F1 Score" fill="#32418C" />
-                        <Bar dataKey="precision" name="Precision" fill="#2572A5" />
-                        <Bar dataKey="recall" name="Recall" fill="#9BCC33" />
-                        <Bar dataKey="accuracy" name="Accuracy" fill="#FBD117" />
-                    </BarChart>
-                </ResponsiveContainer>
-            </div>
-
-            {/* MODEL CARDS */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-[10px]">
-                <ModelCard
-                    name="mBERT"
-                    description="Pretrained multilingual BERT model fine-tuned for disease entity recognition."
-                    score="87%"
-                    hammingLoss="0.15"
-                    precision="85%"
-                    recall="89%"
-                    tag="Multilingual BERT"
-                    languages={["English", "Filipino", "Cebuano", "Ilocano", "Hiligaynon"]}
-                    lastUpdated="3/15/2026"
-                />
-                <ModelCard
-                    name="XLM-RoBERTa"
-                    description="XLM-RoBERTa model adapted for health terminology extraction and classification."
-                    score="92%"
-                    hammingLoss="0.09"
-                    precision="93%"
-                    recall="91%"
-                    tag="Cross-lingual RoBERTa"
-                    languages={["English", "Filipino", "Cebuano", "Ilocano", "Hiligaynon"]}
-                    lastUpdated="4/2/2026"
-                />
-                <ModelCard
-                    name="GPT-based"
-                    description="Local fine-tuned GPT model for healthcare content analysis and summarization."
-                    score="94%"
-                    hammingLoss="0.07"
-                    precision="95%"
-                    recall="93%"
-                    tag="Transformer LLM"
-                    languages={["English", "Filipino"]}
-                    lastUpdated="4/14/2026"
-                />
-                <ModelCard
-                    name="LSTM Model"
-                    description="LSTM-based model for time-series disease trend forecasting."
-                    score="82%"
-                    hammingLoss="0.22"
-                    precision="84%"
-                    recall="80%"
-                    tag="Recurrent Neural Network"
-                    languages={["English"]}
-                    lastUpdated="4/27/2026"
-                />
-                <ModelCard
-                    name="XGBoost"
-                    description="XGBoost ensemble model for regional outbreak prediction."
-                    score="85%"
-                    hammingLoss="0.18"
-                    precision="86%"
-                    recall="84%"
-                    tag="Gradient Boosting"
-                    languages={["All"]}
-                    lastUpdated="4/29/2026"
-                />
-            </div>
-
-            {/* MULTILINGUAL PERFORMANCE */}
-            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-[12px]">
-                    <div>
-                        <h2 className="text-[18px] font-semibold text-gray-800">
-                            Multilingual Performance
-                        </h2>
-                        <p className="text-sm text-gray-500 mb-[12px]">
-                            Model accuracy across different Philippine languages. 
+                        <p className="text-sm font-medium text-gray-700">
+                            Evaluation unavailable
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                            {unavailableMessage}
                         </p>
                     </div>
-                    <ToolbarButton iconName="Upload" variant="primary">
-                        Export
-                    </ToolbarButton>
                 </div>
-
-                <ResponsiveContainer width="100%" height={320}>
-                    <BarChart
-                        data={[
-                            { language: "English", mbert: 87, xlm: 93, gpt: 95 },
-                            { language: "Filipino", mbert: 85, xlm: 91, gpt: 92 },
-                            { language: "Cebuano", mbert: 82, xlm: 88, gpt: 0 },
-                            { language: "Ilocano", mbert: 80, xlm: 86, gpt: 0 },
-                            { language: "Hiligaynon", mbert: 79, xlm: 85, gpt: 0 },
-                        ]}
-                        margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
-                    >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="language" />
-                        <YAxis domain={[0, 100]} />
-                        <Tooltip />
-                        <Legend
-                            verticalAlign="bottom"
-                            align="center"
-                            iconType="square"
-                            wrapperStyle={{
-                                paddingTop: "20px",
-                                lineHeight: "28px"
-                            }}
-                        />
-
-                        <Bar dataKey="mbert" name="mBERT" fill="#32418C" />
-                        <Bar dataKey="xlm" name="XLM-R" fill="#20C997" />
-                        <Bar dataKey="gpt" name="GPT" fill="#FBD117" />
-                    </BarChart>
-                </ResponsiveContainer>
-                <p className="text-sm text-gray-500 mt-[12px]">
-                    Based on evaluation with standardized test sets.
-                </p>
-            </div>
-
-            {/* TASK PERFORMANCE RADAR */}
-            <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
-                <div>
-                    <h2 className="text-[18px] font-semibold text-gray-800">
-                        Task Performance Radar
-                    </h2>
-                    <p className="text-sm text-gray-500">
-                        Model capabilities across different NLP tasks.
-                    </p>
-                </div>
-
-                <ResponsiveContainer width="100%" height={360}>
-                    <RadarChart
-                        cx="50%"
-                        cy="50%"
-                        outerRadius="70%"
-                        data={[
-                            { task: "NER", mbert: 87, xlm: 92, gpt: 94 },
-                            { task: "Sentiment", mbert: 82, xlm: 88, gpt: 91 },
-                            { task: "Classification", mbert: 84, xlm: 89, gpt: 93 },
-                            { task: "QA", mbert: 78, xlm: 84, gpt: 92 },
-                            { task: "Summarization", mbert: 72, xlm: 80, gpt: 95 },
-                        ]}
-                    >
-                        <PolarGrid />
-                        <PolarAngleAxis dataKey="task" />
-                        <PolarRadiusAxis angle={30} domain={[0, 100]} />
-                        <Radar
-                            name="mBERT"
-                            dataKey="mbert"
-                            stroke="#32418C"
-                            fill="#32418C"
-                            fillOpacity={0.25}
-                        />
-                        <Radar
-                            name="XLM-R"
-                            dataKey="xlm"
-                            stroke="#20C997"
-                            fill="#20C997"
-                            fillOpacity={0.25}
-                        />
-                        <Radar
-                            name="GPT"
-                            dataKey="gpt"
-                            stroke="#FBD117"
-                            fill="#FBD117"
-                            fillOpacity={0.25}
-                        />
-                        <Legend
-                            verticalAlign="bottom"
-                            align="center"
-                            wrapperStyle={{
-                                paddingTop: "20px"
-                            }}
-                        />
-                        <Tooltip />
-                    </RadarChart>
-                </ResponsiveContainer>
-            </div>
+            )}
         </div>
-    ); 
+    </div>
+);
+
+const ModelComparison = () => {
+    const user = useSelector((state) => state.auth.user);
+    const [search, setSearch] = useState("");
+    const [selectedModel, setSelectedModel] = useState("all");
+    const [selectedMetric, setSelectedMetric] = useState("all");
+    const [modelPrintReport, setModelPrintReport] = useState(null);
+    const [modelPrintError, setModelPrintError] = useState("");
+    const [isModelPrinting, setIsModelPrinting] = useState(false);
+    const modelPrintRef = useRef(null);
+    const modelPrintPending = useRef(false);
+    const modelPrintLock = useRef(false);
+    const printModels = useReactToPrint({
+        content: () => modelPrintRef.current,
+        documentTitle: "HealthPH+ - Model Comparison",
+        removeAfterPrint: false,
+        pageStyle: "@page { size: A4 landscape; margin: 12mm; } @media print { html, body { height: auto !important; overflow: visible !important; margin: 0 !important; } }",
+        onAfterPrint: () => { modelPrintLock.current = false; setIsModelPrinting(false); },
+        onPrintError: () => {
+            modelPrintLock.current = false;
+            setIsModelPrinting(false);
+            setModelPrintError("Unable to open the print dialog. Please try again.");
+        },
+    });
+    useEffect(() => {
+        if (modelPrintReport && modelPrintPending.current) {
+            modelPrintPending.current = false;
+            printModels();
+        }
+    }, [modelPrintReport, printModels]);
+    const {
+        currentData: evaluationData,
+        isFetching: isEvaluationFetching,
+        isError: isEvaluationError,
+        refetch: refetchEvaluations,
+    } = useFetchModelEvaluationsQuery(undefined, {
+        refetchOnMountOrArgChange: true,
+        refetchOnFocus: true,
+    });
+
+    const savedModels = DISEASE_MODEL_EVALUATIONS.map((model) => ({
+        ...model,
+        ...evaluationData?.models?.find((record) => record.id === model.id),
+    }));
+    const models = savedModels.filter((model) => {
+        const matchesModel =
+            selectedModel === "all" || model.id === selectedModel;
+
+        const matchesSearch = model.name
+            .toLowerCase()
+            .includes(search.trim().toLowerCase());
+
+        return matchesModel && matchesSearch;
+    });
+    const comparisonIssue = getComparisonIssue(models);
+    const languageComparisonIssue = comparisonIssue || getLanguageComparisonIssue(models);
+    const languageEvaluations = languageComparisonIssue ? [] : buildEvaluationLanguageRows(models);
+
+    const metrics = COMPARISON_METRICS.filter(
+        (metric) =>
+            selectedMetric === "all" || metric.key === selectedMetric
+    );
+
+    const series = MODEL_CHART_SERIES.filter((item) =>
+        models.some((model) => model.id === item.key)
+    );
+
+    const comparisonData = comparisonIssue ? [] : models.map((model) => ({
+        model: model.name,
+        ...Object.fromEntries(
+            COMPARISON_METRICS.map(({ key }) => [
+                key,
+                toEvaluationPercent(model[key]),
+            ])
+        ),
+    }));
+
+    const radarData = COMPARISON_METRICS.map(({ key, label }) => ({
+        metric: label,
+        ...Object.fromEntries(
+            models.map((model) => [
+                model.id,
+                toEvaluationPercent(model[key]),
+            ])
+        ),
+    }));
+
+    const hasComparisonData = !comparisonIssue && models.some((model) =>
+        metrics.some(({ key }) => hasEvaluationScore(model[key]))
+    );
+
+    const radarSeries = comparisonIssue ? [] : series.filter(({ key }) => {
+        const model = models.find((item) => item.id === key);
+
+        return COMPARISON_METRICS.every((metric) =>
+            hasEvaluationScore(model[metric.key])
+        );
+    });
+
+    const hasLanguageData = languageEvaluations.some((row) =>
+        series.some(({ key }) =>
+            typeof row[key] === "number" &&
+            Number.isFinite(row[key]) &&
+            row[key] >= 0 &&
+            row[key] <= 100
+        )
+    );
+
+    const recordedModelCount = models.filter((model) => model.modelVersion).length;
+    const handlePrintModels = () => {
+        if (isEvaluationFetching || isEvaluationError || !recordedModelCount || modelPrintLock.current) return;
+        const report = buildModelEvaluationPrintReport({ models: savedModels, selectedModel, selectedMetric, search, user });
+        if (!report) return;
+        modelPrintLock.current = true;
+        modelPrintPending.current = true;
+        setIsModelPrinting(true);
+        setModelPrintError("");
+        setModelPrintReport(report);
+    };
+
+    return (
+        <div className="flex flex-col gap-[16px] rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
+            <div>
+                <ModelEvaluationUpload
+                    canUpload={evaluationData?.canUpload === true && !isEvaluationError}
+                    onPrint={handlePrintModels}
+                    printDisabled={isEvaluationFetching || isEvaluationError || recordedModelCount === 0}
+                    isPrinting={isModelPrinting}
+                    printError={modelPrintError}
+                >
+                    <div className="flex flex-wrap items-start justify-between gap-x-[20px] gap-y-[8px]">
+                        <div className="w-full sm:w-[280px] sm:shrink-0">
+                            <ToolbarSearch id="model-comparison-search" aria-label="Search models" className="!w-full"
+                                value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search models..." />
+                        </div>
+                        <div className="ml-auto flex max-w-full flex-col gap-[6px]">
+                            <div className="flex h-[30px] items-center justify-end">
+                                <button type="button" onClick={() => {
+                                    setSearch(""); setSelectedModel("all"); setSelectedMetric("all"); setModelPrintError("");
+                                }} className="rounded-[8px] border border-[#E5E5E5] px-[10px] py-[6px] text-xs font-medium text-gray-600 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500">
+                                    Reset filters
+                                </button>
+                            </div>
+                            <div className="flex max-w-full flex-wrap items-end justify-end gap-[10px]">
+                                <label className="block min-w-0 max-w-full">
+                                    <span className="sr-only">Model</span>
+                                    <ToolbarSelect value={selectedModel} onChange={(event) => setSelectedModel(event.target.value)} className="h-[42px] w-auto max-w-full">
+                                        <option value="all">All Models</option>
+                                        {DISEASE_MODEL_EVALUATIONS.map((model) => <option key={model.id} value={model.id}>{model.name}</option>)}
+                                    </ToolbarSelect>
+                                </label>
+                                <label className="block min-w-0 max-w-full">
+                                    <span className="sr-only">Metric</span>
+                                    <ToolbarSelect value={selectedMetric} onChange={(event) => setSelectedMetric(event.target.value)} className="h-[42px] w-auto max-w-full">
+                                        <option value="all">All Metrics</option>
+                                        {COMPARISON_METRICS.map((metric) => <option key={metric.key} value={metric.key}>{metric.label}</option>)}
+                                    </ToolbarSelect>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </ModelEvaluationUpload>
+            </div>
+            <div style={{ display: "none" }}>
+                <SummaryPrintReport ref={modelPrintRef} report={modelPrintReport} />
+            </div>
+
+            {isEvaluationFetching ? (
+                <div role="status" aria-label="Loading model evaluations" className="grid gap-[10px] xl:grid-cols-2">
+                    {[0, 1].map((key) => <div key={key} className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
+                        <LoadingSkeleton className="mb-[16px] h-[20px] w-[180px]" />
+                        <LoadingSkeleton className="h-[240px] w-full" />
+                    </div>)}
+                </div>
+            ) : isEvaluationError ? (
+                <EmptyState iconName="Error" heading="Unable to Load Evaluation Records" content="Please try again.">
+                    <button type="button" onClick={() => refetchEvaluations()} className="prod-btn-base prod-btn-secondary">Retry</button>
+                </EmptyState>
+            ) : models.length === 0 ? (
+                <div className="rounded-[12px] border border-gray-200 bg-white p-5 text-sm text-gray-500">
+                    No models match your filters.
+                </div>
+            ) : (
+                <>
+                    {/* PERFORMANCE BAR CHART */}
+                    <EvaluationChartPanel
+                        title="Model Performance Comparison"
+                        description="Recorded disease-classification metrics. Compare results from the same labeled evaluation set, split and evaluation protocol."
+                        available={hasComparisonData}
+                        unavailableMessage={comparisonIssue || undefined}
+                    >
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart
+                                data={comparisonData}
+                                margin={{
+                                    top: 20,
+                                    right: 20,
+                                    left: 0,
+                                    bottom: 20,
+                                }}
+                            >
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="model" />
+                                <YAxis domain={[0, 100]} unit="%" />
+                                <Tooltip
+                                    formatter={(value) =>
+                                        typeof value === "number"
+                                            ? `${value.toFixed(2)}%`
+                                            : "Unavailable"
+                                    }
+                                />
+                                <Legend
+                                    verticalAlign="bottom"
+                                    iconType="circle"
+                                />
+
+                                {metrics.map((metric) => (
+                                    <Bar
+                                        key={metric.key}
+                                        dataKey={metric.key}
+                                        name={metric.label}
+                                        fill={metric.color}
+                                    />
+                                ))}
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </EvaluationChartPanel>
+
+                    {/* MODEL CARDS */}
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-[10px]">
+                        {models.map((model) => (
+                            <ModelCard
+                                key={model.id}
+                                name={model.name}
+                                description={`Disease classification. Evaluation dataset: ${
+                                    model.evaluationSet || "Unavailable"
+                                }`}
+                                score={formatEvaluationScore(model.macroF1)}
+                                hammingLoss={
+                                    hasEvaluationScore(model.hammingLoss)
+                                        ? model.hammingLoss.toFixed(4)
+                                        : "Unavailable"
+                                }
+                                precision={formatEvaluationScore(
+                                    model.precisionMacro
+                                )}
+                                recall={formatEvaluationScore(
+                                    model.recallMacro
+                                )}
+                                tag="Disease Classification"
+                                languages={(model.languages || []).map((code) => EVALUATION_LANGUAGE_NAMES[code] || code)}
+                                lastUpdated={formatEvaluationDate(model.evaluatedAt)}
+                                modelVersion={model.modelVersion}
+                                evaluationSplit={model.split}
+                                sampleCount={model.sampleCount}
+                            />
+                        ))}
+                    </div>
+
+                    {/* MULTILINGUAL BAR CHART */}
+                    <EvaluationChartPanel
+                        title="Multilingual Performance"
+                        description="Macro F1 by test language. Missing language evaluations are unavailable, not zero."
+                        available={hasLanguageData}
+                        unavailableMessage={languageComparisonIssue || undefined}
+                    >
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={languageEvaluations}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="language" />
+                                <YAxis domain={[0, 100]} unit="%" />
+                                <Tooltip
+                                    formatter={(value) =>
+                                        typeof value === "number"
+                                            ? `${value.toFixed(2)}%`
+                                            : "Unavailable"
+                                    }
+                                />
+                                <Legend iconType="square" />
+
+                                {series.map((item) => (
+                                    <Bar
+                                        key={item.key}
+                                        dataKey={item.key}
+                                        name={item.name}
+                                        fill={item.color}
+                                    />
+                                ))}
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </EvaluationChartPanel>
+
+                    {/* RADAR DESIGN */}
+                    <EvaluationChartPanel
+                        title="Classification Performance Radar"
+                        description="Macro F1, precision, and recall for disease classification. Complete metrics are required to draw a model."
+                        available={radarSeries.length > 0}
+                        unavailableMessage={comparisonIssue || undefined}
+                    >
+                        <ResponsiveContainer width="100%" height="100%">
+                            <RadarChart
+                                data={radarData}
+                                cx="50%"
+                                cy="50%"
+                                outerRadius="70%"
+                            >
+                                <PolarGrid />
+                                <PolarAngleAxis dataKey="metric" />
+                                <PolarRadiusAxis
+                                    angle={30}
+                                    domain={[0, 100]}
+                                />
+
+                                {radarSeries.map((item) => (
+                                    <Radar
+                                        key={item.key}
+                                        name={item.name}
+                                        dataKey={item.key}
+                                        stroke={item.color}
+                                        fill={item.color}
+                                        fillOpacity={0.25}
+                                    />
+                                ))}
+
+                                <Tooltip />
+                                <Legend />
+                            </RadarChart>
+                        </ResponsiveContainer>
+                    </EvaluationChartPanel>
+                </>
+            )}
+        </div>
+    );
 };
+
 
 const RAW_DATASET_REQUIRED_HEADERS = [
     "id",
@@ -1446,8 +1661,8 @@ const DataManagement = () => {
                 </div>
             </div>
 
-            <div className="mb-[20px] flex flex-col gap-[14px]">
-                <div className="flex flex-col gap-[12px] md:flex-row md:items-start md:justify-between">
+            <div className="mb-[20px] flex flex-col gap-[8px]">
+                <div className="flex flex-col gap-[8px] md:flex-row md:items-end md:justify-between">
                     <div className="flex flex-col gap-[4px]">
                         <h2 className="text-[20px] font-semibold text-gray-800">
                             {activeDataSourceDetails.title}
@@ -1508,18 +1723,8 @@ const DataManagement = () => {
                     )}
                 </div>
 
-                <div className="flex flex-wrap items-end justify-between gap-x-[20px] gap-y-[14px]">
-                    <div className="flex w-full flex-col gap-[6px] sm:w-[280px] sm:shrink-0">
-                        <p className="flex h-[30px] items-center gap-[4px] text-sm text-gray-500">
-                            {activeDataSourceDetails.totalLabel}:{" "}
-                            <span className="font-semibold text-gray-800">
-                                {(dataSourceView === "social_media" ? isDatasetsByUserLoading : isAnalyticsEntriesLoading)
-                                    ? <LoadingSkeleton className="h-[14px] w-[48px]" />
-                                    : (dataSourceView === "social_media" ? isDatasetsByUserError : isAnalyticsEntriesError)
-                                        ? "Unavailable"
-                                        : Number(activeDataSourceTotal || 0).toLocaleString()}
-                            </span>
-                        </p>
+                <div className="flex flex-wrap items-start justify-between gap-x-[20px] gap-y-[8px]">
+                    <div className="flex w-full flex-col gap-[4px] sm:w-[280px] sm:shrink-0">
                         <ToolbarSearch
                             className="!w-full"
                             placeholder={dataSourceView === "social_media"
@@ -1531,6 +1736,16 @@ const DataManagement = () => {
                                 event.target.value
                             )}
                         />
+                        <p className="flex items-center gap-[4px] text-sm text-gray-500">
+                            {activeDataSourceDetails.totalLabel}:{" "}
+                            <span className="font-semibold text-gray-800">
+                                {(dataSourceView === "social_media" ? isDatasetsByUserLoading : isAnalyticsEntriesLoading)
+                                    ? <LoadingSkeleton className="h-[14px] w-[48px]" />
+                                    : (dataSourceView === "social_media" ? isDatasetsByUserError : isAnalyticsEntriesError)
+                                        ? "Unavailable"
+                                        : Number(activeDataSourceTotal || 0).toLocaleString()}
+                            </span>
+                        </p>
                     </div>
 
                     <div className="ml-auto flex max-w-full flex-wrap items-end justify-end gap-[10px]">
@@ -3021,6 +3236,9 @@ const ModelCard = ({
     tag,
     languages = [],
     lastUpdated,
+    modelVersion,
+    evaluationSplit,
+    sampleCount,
 }) => {
     return (
         <div className="bg-white rounded-[12px] border border-[#E5E5E5] overflow-hidden">
@@ -3041,29 +3259,38 @@ const ModelCard = ({
 
                 <div className="mb-[10px]">
                     <div className="flex justify-between text-sm mb-[6px]">
-                        <span className="text-gray-500">F1 Score</span>
+                        <span className="text-gray-500">Macro F1</span>
                         <span className="font-semibold text-gray-800">{score}</span>
                     </div>
                     <div className="h-[10px] bg-gray-100 rounded-full overflow-hidden">
-                        <div 
-                            className="h-full bg-[#32418C] rounded-full" 
-                            style={{ width: score }}
-                        />
+                        {Number.isFinite(parseFloat(score)) && (
+                            <div
+                                className="h-full bg-[#32418C] rounded-full"
+                                style={{
+                                    width: `${Math.min(100, Math.max(0, parseFloat(score)))}%`,
+                                }}
+                            />
+                        )}
                     </div>
                 </div>
 
                 <div className="mb-[10px]">
                     <div className="flex justify-between text-sm mb-[6px]">
                         <span className="text-gray-500">Hamming Loss</span>
-                        <span className="font-semibold text-gray-800">{score}</span>
+                        <span className="font-semibold text-gray-800">{hammingLoss}</span>
                     </div>
                     <div className="h-[8px] bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                            className="h-full bg-[#32418C] rounded-full"
-                            style={{
-                                width: `${Math.max(10, 100 - Number(hammingLoss) * 100)}%`,
-                            }}
-                        />
+                        {Number.isFinite(parseFloat(hammingLoss)) && (
+                            <div
+                                className="h-full bg-[#20C997] rounded-full"
+                                style={{
+                                    width: `${Math.min(
+                                        100,
+                                        Math.max(0, parseFloat(hammingLoss) * 100)
+                                    )}`,
+                                }}
+                            />
+                        )}
                     </div> 
                 </div>
 
@@ -3083,11 +3310,16 @@ const ModelCard = ({
                     </div>
                 </div>
 
+                <div className="mb-[12px] space-y-[4px] break-words text-xs text-gray-500">
+                    <p>Checkpoint: {modelVersion || "Unavailable"}</p>
+                    <p>Evaluation split: {evaluationSplit || "Unavailable"} · Samples: {Number.isInteger(sampleCount) ? sampleCount.toLocaleString() : "Unavailable"}</p>
+                    <p>Hamming loss: lower values indicate fewer label errors.</p>
+                </div>
                 <div className="flex flex-wrap gap-[6px]">
                     {languages.map((language) => (
                         <span
                             key={language}
-                            className="bg-primary-50 text-primary-700 rounded-full px-[10px] py-[3px] text-xs"
+                            className="rounded-full bg-[#EFF6FF] px-[10px] py-[3px] text-xs text-[#1D4ED8]"
                         >
                             {language}
                         </span>
@@ -3097,15 +3329,23 @@ const ModelCard = ({
 
             <div className="border-t border-[#E5E5E5] px-[20px] py-[14px] flex items-center justify-between">
                 <p className="text-sm text-gray-500">
-                    Last updated: {lastUpdated}
+                    Evaluated: {lastUpdated}
                 </p>
 
                 <div className="flex gap-[8px]">
-                    <button className="border border-[#E5E5E5] rounded-[8px] px-[12px] py-[8px] text-sm">
+                    <button
+                        title="Unavailable"
+                        className="border border-[#E5E5E5] rounded-[8px] px-[12px] py-[8px] text-sm" 
+                        disabled
+                    >
                         Details
                     </button>
 
-                    <button className="bg-[#32418C] text-white rounded-[8px] px-[12px] py-[8px] text-sm">
+                    <button
+                        title="Unavailable"
+                        className="bg-[#32418C] text-white rounded-[8px] px-[12px] py-[8px] text-sm"
+                        disabled
+                    >
                         Compare
                     </button>
                 </div>

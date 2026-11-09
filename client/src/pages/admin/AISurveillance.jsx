@@ -268,7 +268,7 @@ const AISurveillance = () => {
     return (
         <div className="flex flex-col gap-[10px]">
             {/* PAGE HEADER */}
-            <div className="flex items-start justify-between gap-[12px]">
+            <div className="flex items-end justify-between gap-[12px]">
                 <div className="min-w-0">
                     <h1 className="text-[24px] font-semibold text-gray-800">
                         AI Surveillance
@@ -315,7 +315,7 @@ const AISurveillance = () => {
                 {/* RIGHT PANELS */}
                 <div className="flex min-h-0 flex-col gap-[10px] xl:[contain:size]">
                     {/* FILTERS AND STATUS */}
-                    <div className="flex flex-col gap-[12px] rounded-[12px] border border-[#E5E5E5] bg-white p-[14px]">
+                    <div className="flex flex-col gap-[8px] rounded-[12px] border border-[#E5E5E5] bg-white p-[14px]">
                         <div className="flex justify-end">
                             <button
                                 type="button"
