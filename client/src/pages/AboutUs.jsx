@@ -13,14 +13,15 @@ const featureCards = [
 ];
 
 const AboutUs = ({ embedded = false }) => {
+  const Heading = embedded ? "h2" : "h1";
   useEffect(() => {
     if (!embedded) window.scrollTo(0, 0);
   }, [embedded]);
 
   const content = (
-    <section id={embedded ? "about" : undefined} className={embedded ? "public-section public-content-section section-about" : "mt-[56px]"}>
+    <section className={embedded ? "public-section public-content-section section-about" : "mt-[56px]"}>
       <div className={embedded ? "public-shell" : "about-container mb-[112px]"}>
-        <p className={embedded ? "public-section-heading" : "section-title"}>About the Project</p>
+        <Heading id={embedded ? "about" : undefined} className={embedded ? "public-section-heading public-scroll-target" : "section-title"}>About the Project</Heading>
         <div className="project-grid">
           <div className="project-summary">
             <p><strong>HealthPH+ is Phase 2 of the HealthPH Initiative.</strong> It expands the original HealthPH: Intelligent Disease Surveillance using Social Media project into a responsive, data-driven public health intelligence system.</p>

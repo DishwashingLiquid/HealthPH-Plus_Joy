@@ -1,6 +1,7 @@
 html { scroll-behavior: smooth; }
 
   .public-site {
+    --public-nav-offset: 96px;
     min-height: 100vh;
     background: #f2f2f2;
     color: #171e26;
@@ -54,7 +55,7 @@ html { scroll-behavior: smooth; }
   .public-menu-button { display: none; }
 
   .public-shell { width: min(1190px, calc(100% - 48px)); margin: 0 auto; }
-  .public-section { scroll-margin-top: 116px; }
+  .public-site :is(.public-scroll-target, #home) { scroll-margin-top: var(--public-nav-offset); }
   .public-hero { min-height: 750px; display: flex; align-items: center; padding: 72px 0 84px; }
   .public-hero-grid { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(350px, .88fr); align-items: center; gap: 72px; }
   .public-eyebrow { margin-bottom: 16px; color: #465360; font-size: 15px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; }
@@ -317,6 +318,7 @@ html { scroll-behavior: smooth; }
   }
 
   @media (max-width: 760px) {
+    .public-site { --public-nav-offset: 75px; }
     .public-header { padding: 12px 16px 0; }
     .public-nav { min-height: 63px; border-radius: 18px; padding: 9px 14px 9px 18px; }
     .public-logo img { width: 154px; height: 35px; }

@@ -21,6 +21,7 @@ import {
 import ArticlesList from "../assets/data/articles.json";
 
 const Articles = ({ embedded = false }) => {
+  const Heading = embedded ? "h2" : "h1";
   const location = useLocation();
 
   const [articlePage, setArticlePage] = useState(location.state ?? 1);
@@ -84,7 +85,7 @@ const Articles = ({ embedded = false }) => {
   const maxArticlePage = Math.ceil(articles.length / numOfArticlesPerPage);
 
   const content = (
-    <section id={embedded ? "articles" : undefined} className={embedded ? "public-section public-content-section section-articles" : "mt-[56px]"}>
+    <section className={embedded ? "public-section public-content-section section-articles" : "mt-[56px]"}>
       <div className={embedded ? "public-shell" : "about-container mb-[112px]"}>
           <div className="w-full max-w-[1144px]">
             {/* <div className="flex justify-start items-center mb-[24px]">
@@ -101,8 +102,8 @@ const Articles = ({ embedded = false }) => {
                 <span className="ms-[8px]">Go Back</span>
               </Link>
             </div> */}
+            <Heading id={embedded ? "articles" : undefined} className={embedded ? "public-section-heading public-scroll-target" : "section-title"}>Articles</Heading>
             {embedded && <p className="public-section-intro">Research-informed resources, updates, and public-health learning materials from HealthPH+.</p>}
-            <p className={embedded ? "public-section-heading" : "section-title"}>Articles</p>
             {isWebsiteContentError && (
               <p className="article-status">
                 Dashboard resources could not be loaded. Showing saved articles.

@@ -10,17 +10,20 @@ const ResearchTeam = ({ embedded = false }) => {
   const researchTeam = TestimonialsList["research-team"];
 
   const content = (
-    <section id={embedded ? "research-team" : undefined} className={embedded ? "public-section public-content-section section-team" : "mt-[56px]"}>
+    <section className={embedded ? "public-section public-content-section section-team" : "mt-[56px]"}>
       <div className={embedded ? "public-shell" : "about-container"}>
           <div className="w-full max-w-[360px] md:max-w-[762px] lg:max-w-[1144px] mx-auto">
-            {embedded && <p className="public-section-intro">Meet the DOST-PCHRD officials and researchers guiding HealthPH+.</p>}
-            <p className="section-title">DOST-PCHRD Officials</p>
+            {embedded && <>
+              <h2 id="research-team" className="public-section-heading public-scroll-target">Research Team</h2>
+              <p className="public-section-intro">Meet the DOST-PCHRD officials and researchers guiding HealthPH+.</p>
+            </>}
+            <h3 className="section-title">DOST-PCHRD Officials</h3>
             <div className="testimonials mb-[112px]">
               {dostPCHRD.map((v, i) => {
                 return <TestimonialItem {...v} key={i} />;
               })}
             </div>
-            <p className="section-title">Research Team</p>
+            <h3 className="section-title">Research Team</h3>
             <div className="testimonials">
               {researchTeam.map((v, i) => {
                 return <TestimonialItem {...v} key={i} />;

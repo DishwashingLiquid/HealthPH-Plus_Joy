@@ -10,6 +10,7 @@ import Input from "../components/Input";
 import { useSendContactUsMutation } from "../features/api/miscSlice";
 
 const ContactUs = ({ embedded = false }) => {
+  const Heading = embedded ? "h2" : "h1";
   const contactDetails = [
     {
       icon: "Mail",
@@ -148,11 +149,11 @@ const ContactUs = ({ embedded = false }) => {
   };
 
   const content = (
-    <section id={embedded ? "contact" : undefined} className={embedded ? "public-section public-content-section" : ""}>
+    <section className={embedded ? "public-section public-content-section" : ""}>
       <div className="contact-us-container flex-grow">
         <div className="contact-us-wrapper">
+          <Heading id={embedded ? "contact" : undefined} className={embedded ? "heading public-scroll-target" : "heading"}>Contact Us</Heading>
           {embedded && <p className="public-section-intro">Reach the HealthPH+ team, send a message, or find us on the map.</p>}
-          <p className="heading">Contact Us</p>
 
           {/* CONTACT US GRID */}
           <div className="contact-us-grid">

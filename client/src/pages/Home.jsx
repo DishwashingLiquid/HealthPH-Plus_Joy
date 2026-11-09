@@ -131,14 +131,10 @@ const MobilePreviewCarousel = () => {
 
 const Home = () => {
   useEffect(() => {
-    const scrollToHash = () => {
-      const id = window.location.hash.slice(1);
-      if (id) document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-    };
-
-    scrollToHash();
-    window.addEventListener("hashchange", scrollToHash);
-    return () => window.removeEventListener("hashchange", scrollToHash);
+    // The lazy homepage may mount after the browser first resolves the hash.
+    // Later anchor clicks and history navigation use native fragment scrolling.
+    const id = window.location.hash.slice(1);
+    if (id) document.getElementById(id)?.scrollIntoView({ behavior: "instant", block: "start" });
   }, []);
 
   return (

@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import WebLogo from "../assets/images/website-logo.svg";
 import NULogoLgAlt from "../assets/images/nu-logo-lg-alt.png";
@@ -31,51 +31,55 @@ const announceComingSoon = () => {
 const HomeNavbar = ({ trackSections = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeSection, setActiveSection] = useState(null);
+  const headerRef = useRef(null);
   const closeMenu = () => setIsOpen(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!trackSections) return undefined;
 
-    const header = document.querySelector(".public-header");
+    const header = headerRef.current;
+    const site = header?.closest(".public-site");
     const sections = sectionIds.map((id) => document.getElementById(id)).filter(Boolean);
-    if (!header || sections.length !== sectionIds.length) return undefined;
+    if (!site || sections.length !== sectionIds.length) return undefined;
 
-    let observer;
-    const getProbeOffset = () => {
-      const anchorOffset = parseFloat(window.getComputedStyle(sections[0]).scrollMarginTop) || 0;
-      return Math.min(
-        Math.max(Math.ceil(header.getBoundingClientRect().bottom), anchorOffset) + 1,
-        window.innerHeight - 1
-      );
-    };
+    let frame;
+    let offset;
     const updateActiveSection = () => {
-      const probeOffset = getProbeOffset();
+      frame = undefined;
+      // The header includes the inset above the sticky navigation bar.
+      offset = Math.ceil(header.getBoundingClientRect().bottom);
+      site.style.setProperty("--public-nav-offset", `${offset}px`);
       let current = null;
       for (const section of sections) {
-        if (section.getBoundingClientRect().top <= probeOffset) current = section.id;
+        if (section.getBoundingClientRect().top <= offset + 1) current = section.id;
       }
+      // A short final section may reach the page end before its heading can align.
+      const last = sections[sections.length - 1];
+      if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 1 &&
+          last.getBoundingClientRect().top < window.innerHeight) current = last.id;
       setActiveSection(current === "home" ? null : current);
     };
-    const observeSections = () => {
-      observer?.disconnect();
-      const probeOffset = getProbeOffset();
-      observer = new IntersectionObserver(updateActiveSection, {
-        rootMargin: `-${probeOffset}px 0px -${window.innerHeight - probeOffset - 1}px 0px`,
-      });
-      sections.forEach((section) => observer.observe(section));
-      updateActiveSection();
+    const scheduleUpdate = () => {
+      if (frame === undefined) frame = window.requestAnimationFrame(updateActiveSection);
     };
 
-    observeSections();
-    window.addEventListener("resize", observeSections);
+    updateActiveSection();
+    const observer = new ResizeObserver(scheduleUpdate);
+    observer.observe(header);
+    observer.observe(site);
+    window.addEventListener("scroll", scheduleUpdate, { passive: true });
+    window.addEventListener("resize", scheduleUpdate);
     return () => {
-      observer?.disconnect();
-      window.removeEventListener("resize", observeSections);
+      observer.disconnect();
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
+      site.style.removeProperty("--public-nav-offset");
     };
   }, [trackSections]);
 
   return (
-    <header className="public-header">
+    <header ref={headerRef} className="public-header">
       <nav className="public-nav" aria-label="Public navigation">
         <a href="/#home" className="public-logo" aria-label="HealthPH+ home" onClick={() => { setActiveSection(null); closeMenu(); }}>
           <img src={WebLogo} alt="HealthPH+" />
@@ -101,7 +105,7 @@ const HomeNavbar = ({ trackSections = false }) => {
                   <a
                     href={href}
                     aria-current={trackSections && activeSection === href.slice(2) ? "location" : undefined}
-                    onClick={() => { if (trackSections) setActiveSection(href.slice(2)); closeMenu(); }}
+                    onClick={closeMenu}
                   >
                     {label}
                   </a>
