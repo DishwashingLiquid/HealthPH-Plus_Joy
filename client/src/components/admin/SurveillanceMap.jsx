@@ -345,6 +345,12 @@ const createPin = (selected) =>
                                                 {selectedPoint.province}
                                             </p>
                                         )}
+                                        {selectedPoint.location_precision === "city_reference" && (
+                                            <p className="mt-1 text-xs leading-5 text-gray-600">
+                                                Estimated city location: {selectedPoint.reference_location}.
+                                                {" "}This is a city reference point, not the reporter’s exact position.
+                                            </p>
+                                        )}
                                         {selectedPoint.location_precision === "regional_reference" && (
                                             <p className="mt-1 text-xs leading-5 text-gray-600">
                                                 Regional reference point: {selectedPoint.reference_location}.

@@ -49,13 +49,14 @@ def get_analytics_map_location(entry):
     if not (4 <= latitude <= 22 and 116 <= longitude <= 128):
         return None
 
+    city_estimate = location.get("pinAccuracy") == "city_estimate"
     return {
         "region": region or "",
         "province": str(location.get("province") or "").strip(),
         "lat": latitude,
         "long": longitude,
-        "location_precision": "submitted_coordinates",
-        "reference_location": "",
+        "location_precision": "city_reference" if city_estimate else "submitted_coordinates",
+        "reference_location": (location.get("referenceLocation") or location.get("geocodedAddress") or "") if city_estimate else "",
     }
 
 

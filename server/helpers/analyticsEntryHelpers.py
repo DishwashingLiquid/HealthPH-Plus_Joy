@@ -1,5 +1,6 @@
 import pandas as pd
 
+from helpers.selfReportLocationHelpers import analytics_location_fields
 from helpers.miscHelpers import get_ph_datetime
 from helpers.surveillanceDateHelpers import normalize_analytics_datetime
 
@@ -322,8 +323,7 @@ def build_self_report_analytics_entry(report_document):
             "province": _clean_text_value(location.get("provinceName")),
             "city": _clean_text_value(location.get("cityName")),
             "barangay": _clean_text_value(location.get("barangayName")),
-            "latitude": location.get("latitude"),
-            "longitude": location.get("longitude"),
+            **analytics_location_fields(location),
         },
 
         "event_time": normalize_analytics_datetime(created_at),

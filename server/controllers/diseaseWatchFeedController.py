@@ -1,3 +1,4 @@
+import asyncio
 import csv
 import hashlib
 import json
@@ -24,6 +25,7 @@ from config.database import (
     user_collection,
 )
 
+from helpers.selfReportLocationHelpers import populate_self_report_location
 from helpers.analyticsEntryHelpers import (
     build_self_report_analytics_entry,
     validate_analytics_entry,
@@ -85,7 +87,7 @@ SELF_REPORT_MAP_SOURCE = "selfReport"
 SELF_REPORT_CATEGORY = "Self-reported respiratory symptoms"
 SELF_REPORT_STATUSES = {"submitted", "for_review", "verified", "rejected"}
 SELF_REPORT_REPORTER_TYPES = {"guest", "registered"}
-SELF_REPORT_PIN_ACCURACY = {"geocoded", "region_estimate"}
+SELF_REPORT_PIN_ACCURACY = {"geocoded", "region_estimate", "city_estimate"}
 SELF_REPORT_ROLE_ID_TO_LABEL = {
     "guest": "Guest Tester",
     "user": "User",
@@ -1753,6 +1755,9 @@ async def create_mobile_self_report(
         )
 
     document = _build_self_report_document(payload, authenticated_mobile_user)
+    document["location"] = await asyncio.to_thread(
+        populate_self_report_location, document["location"]
+    )
     from config.database import report_id_counters_collection
 
     try:
