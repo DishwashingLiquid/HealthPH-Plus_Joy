@@ -7,12 +7,17 @@ import Icon from "../components/Icon";
 import HomeNavbar from "../components/HomeNavbar";
 import HomeFooter from "../components/HomeFooter";
 import PublicFullscreenModal from "../components/PublicFullscreenModal";
+import ArticleMedia, {
+  ArticleMediaProvider,
+} from "../components/about-us/ArticleMedia";
+import { useArticleMediaResource } from "../utils/articleMediaState";
 import ArticleItem, {
   ArticleItemSkeleton,
 } from "../components/about-us/ArticleItem";
 import { useFetchWebsiteHealthLiteracyContentQuery } from "../features/api/healthLiteracyHubSlice";
 import {
   getResourceImageSource,
+  getResourcePosterSource,
   normalizeStaticArticle,
   normalizeWebsiteContent,
   sortNewestFirst,
@@ -20,7 +25,7 @@ import {
 
 import ArticlesList from "../assets/data/articles.json";
 
-const Articles = ({ embedded = false }) => {
+const ArticlesContent = ({ embedded = false }) => {
   const Heading = embedded ? "h2" : "h1";
   const location = useLocation();
 
@@ -76,6 +81,7 @@ const Articles = ({ embedded = false }) => {
   };
 
   const previewMediaSource = getResourceImageSource(previewContent);
+  const previewResource = useArticleMediaResource(previewMediaSource);
   const previewMediaType = previewContent?.media?.contentType ?? "";
   const isPreviewVideo =
     previewContent?.resourceType === "video" ||
@@ -179,29 +185,27 @@ const Articles = ({ embedded = false }) => {
       panelClassName="public-media-modal"
     >
             <div className="public-media-modal__media">
-              {previewMediaSource && isPreviewVideo ? (
-                <video src={previewMediaSource} controls autoPlay />
-              ) : previewMediaSource ? (
-                <img
-                  src={previewMediaSource}
-                  alt={previewContent.articleTitle}
-                />
-              ) : (
-                <div className="article-preview-empty">
-                  <Icon
-                    iconName="Document"
-                    height="48px"
-                    width="48px"
-                    fill="#32418C"
-                  />
-                  <p>Preview is unavailable.</p>
-                </div>
-              )}
+              <ArticleMedia
+                src={previewMediaSource}
+                alt={previewContent.articleTitle}
+                video={isPreviewVideo}
+                controls
+                autoPlay
+                poster={isPreviewVideo ? getResourcePosterSource(previewContent) : undefined}
+              />
             </div>
             <div className="public-media-modal__caption">
               <p>{previewContent.articleTitle}</p>
               {previewContent.resourceType === "infographic" &&
-                previewMediaSource && (
+                previewMediaSource && (previewResource.failed ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="prod-btn-lg prod-btn-secondary article-preview-download"
+                  >
+                    Download
+                  </button>
+                ) : (
                   <a
                     href={previewMediaSource}
                     download={previewFilename}
@@ -215,7 +219,7 @@ const Articles = ({ embedded = false }) => {
                       fill="#8693A0"
                     />
                   </a>
-                )}
+                ))}
             </div>
     </PublicFullscreenModal>
   );
@@ -226,5 +230,9 @@ const Articles = ({ embedded = false }) => {
 
   return <div className="article-layout"><HomeNavbar />{content}<HomeFooter />{previewModal}</div>;
 };
+
+const Articles = (props) => (
+  <ArticleMediaProvider><ArticlesContent {...props} /></ArticleMediaProvider>
+);
 
 export default Articles;

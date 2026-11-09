@@ -16,8 +16,12 @@ import {
 
 import ArticlesList from "../assets/data/articles.json";
 import ArticleItem from "../components/about-us/ArticleItem";
+import ArticleMedia, {
+  ArticleHeroMedia,
+  ArticleMediaProvider,
+} from "../components/about-us/ArticleMedia";
 
-const ArticlePage = () => {
+const ArticlePageContent = () => {
   const { slug } = useParams();
   const location = useLocation();
   const [imageModalActive, setImageModalActive] = useState(false);
@@ -117,15 +121,7 @@ const ArticlePage = () => {
   return (
     <div className="article-page-layout">
       <HomeNavbar background="solid" />
-      <section
-        className="article-hero-wrapper"
-        style={{
-          backgroundImage: heroImageSource ? `url('${heroImageSource}')` : undefined,
-          backgroundRepeat: "no-repeat",
-        }}
-      >
-        <div className="article-hero-overlay"></div>
-        <div className="article-hero ">
+      <ArticleHeroMedia src={heroImageSource} alt={articleTitle}>
           <div className="flex justify-start items-center mb-[24px]">
             <Link
               to="/articles"
@@ -148,8 +144,7 @@ const ArticlePage = () => {
             )}
             <p className="article-content">{articlePreview}</p>
           </div>
-        </div>
-      </section>
+      </ArticleHeroMedia>
       <section className="article-container">
         <div className="article-wrapper mt-[56px] ">
           <div className="article-body">
@@ -177,17 +172,18 @@ const ArticlePage = () => {
                   "/assets/articles/gallery/" + galleryFolder + "/";
                 return (
                   <div className="gallery-item" key={i}>
-                    <div
-                      className="image-wrapper"
-                      onClick={() => {
-                        setModalData({
-                          src: imagePath + filename,
-                          caption: caption,
-                        });
-                        setImageModalActive(true);
-                      }}
-                    >
-                      <img src={imagePath + filename} alt={caption} />
+                    <div className="image-wrapper">
+                      <ArticleMedia
+                        src={imagePath + filename}
+                        alt={caption}
+                        onPreviewClick={() => {
+                          setModalData({
+                            src: imagePath + filename,
+                            caption: caption,
+                          });
+                          setImageModalActive(true);
+                        }}
+                      />
                     </div>
                     <p className="gallery-caption article-caption">{caption}</p>
                   </div>
@@ -243,7 +239,7 @@ const ArticlePage = () => {
           ></div>
           <div className="image-modal-container">
             <div className="image-wrapper">
-              <img src={modalData.src} alt={modalData.caption} />
+              <ArticleMedia src={modalData.src} alt={modalData.caption} />
             </div>
             <p className="image-caption">{modalData.caption}</p>
             <div
@@ -266,4 +262,7 @@ const ArticlePage = () => {
     </div>
   );
 };
+const ArticlePage = () => (
+  <ArticleMediaProvider><ArticlePageContent /></ArticleMediaProvider>
+);
 export default ArticlePage;

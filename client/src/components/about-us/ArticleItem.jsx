@@ -1,9 +1,12 @@
 /* eslint-disable react/prop-types */
 import { Link } from "react-router-dom";
 import Icon from "../Icon";
+import ArticleMedia from "./ArticleMedia";
+import { useArticleMediaResource } from "../../utils/articleMediaState";
 import {
   formatContentDate,
   getResourceImageSource,
+  getResourcePosterSource,
 } from "../../utils/healthLiteracyWebsiteContent";
 
 const ArticleItem = ({ article, articlePage, isLoading, onPreviewClick }) => {
@@ -17,6 +20,7 @@ const ArticleItem = ({ article, articlePage, isLoading, onPreviewClick }) => {
     resourceType,
   } = article;
   const mediaSource = getResourceImageSource(article);
+  const mediaResource = useArticleMediaResource(mediaSource);
   const isVideo = resourceType === "video";
   const isPreviewContent = ["video", "infographic"].includes(resourceType);
   const displayDate = formatContentDate(datePublished);
@@ -36,20 +40,12 @@ const ArticleItem = ({ article, articlePage, isLoading, onPreviewClick }) => {
   return (
     <div className="article-item">
       <div className="article-image">
-        {mediaSource && isVideo ? (
-          <video src={mediaSource} muted playsInline />
-        ) : mediaSource ? (
-          <img src={mediaSource} alt={articleImageCaption || articleTitle} />
-        ) : (
-          <div className="article-image-placeholder">
-            <Icon
-              iconName="Document"
-              height="48px"
-              width="48px"
-              fill="#32418C"
-            />
-          </div>
-        )}
+        <ArticleMedia
+          src={mediaSource}
+          alt={articleImageCaption || articleTitle}
+          video={isVideo}
+          poster={isVideo ? getResourcePosterSource(article) : undefined}
+        />
       </div>
       <div className="article-body">
         <div className="article-meta">
@@ -61,6 +57,7 @@ const ArticleItem = ({ article, articlePage, isLoading, onPreviewClick }) => {
         {isPreviewContent ? (
           <button
             type="button"
+            disabled={mediaResource.failed}
             onClick={() => onPreviewClick?.(article)}
             className="prod-btn-lg prod-btn-secondary article-action"
           >

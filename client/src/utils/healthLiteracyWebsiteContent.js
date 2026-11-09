@@ -15,17 +15,7 @@ export const getDashboardContentSlug = (item) => {
   return `${titleSlug}-${item?.id}`;
 };
 
-export const getContentMediaSource = (media) => {
-  const mediaSource = media?.url || "";
-
-  if (!mediaSource || mediaSource.startsWith("data:")) return mediaSource;
-
-  try {
-    return new URL(mediaSource, import.meta.env.VITE_API_URL).href;
-  } catch {
-    return mediaSource;
-  }
-};
+export const getContentMediaSource = (media) => media?.url || "";
 
 export const getStaticArticleImageSource = (article) =>
   article?.articleImage ? `/assets/articles/preview/${article.articleImage}` : "";
@@ -56,7 +46,7 @@ export const getResourceImageSource = (article) => {
     if (uploadedMediaSource) return uploadedMediaSource;
 
     if (article?.resourceType === "video") {
-      return getTrimmedUrl(article.mediaUrl) || getTrimmedUrl(article.imageUrl);
+      return getTrimmedUrl(article.mediaUrl);
     }
 
     if (article?.resourceType === "infographic") {
@@ -68,6 +58,9 @@ export const getResourceImageSource = (article) => {
 
   return getStaticArticleImageSource(article);
 };
+
+export const getResourcePosterSource = (article) =>
+  getContentMediaSource(article?.thumbnail) || getTrimmedUrl(article?.imageUrl);
 
 const getReadDuration = (text) => {
   const words = String(text ?? "")
