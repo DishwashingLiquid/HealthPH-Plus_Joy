@@ -46,7 +46,7 @@ test("overview and cards use analyzed submissions with answer denominators and e
   assert.match(html, /Survey responses analyzed/);
   assert.match(html, /Distinct survey submissions/);
   assert.match(html, /Anonymous and repeated submissions included/);
-  assert.match(html, /grid-cols-1[^\"]*md:grid-cols-2 xl:grid-cols-4/);
+  assert.match(html, /grid-cols-1[^"]*md:grid-cols-2 xl:grid-cols-4/);
   assert.match(html, /text-\[28px\]/);
   assert.match(html, /color:#2572A5">Calm/);
   assert.match(html, /color:#B45309">Worried/);
@@ -86,7 +86,7 @@ test("unknown regions remain separate and selected regions keep stable colors", 
   assert.match(cards.at(-1), /Unknown region[\s\S]*Calm/);
   const filtered = render({ regionalAnalysis: data, selectedRegions: ["NCR"] });
   assert.doesNotMatch(filtered, /<h4[^>]*>Unknown region/);
-  assert.match(filtered, /Region filters apply after submission assignment/);
+  assert.match(filtered, /Unknown region, which is excluded when you select specific regions/);
   assert.ok(filtered.includes(`background-color:${regionalModule.getRegionAccent("NCR")}`));
   assert.equal(regionalModule.normalizeRegionalApiData({ regions: [{ region: "Region IV-A" }] }).IVA.region, "Region IV-A");
 });

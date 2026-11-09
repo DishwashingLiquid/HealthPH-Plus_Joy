@@ -1,5 +1,20 @@
 # Sentiment Pulse backend handoff
 
+## Mobile reporting update — 2026-11-04
+
+The mobile reporting contract in the historical sections below is superseded by
+[`MOBILE_SENTIMENT_PULSE_OVERVIEW_TRENDS_AI_HANDOFF.md`](MOBILE_SENTIMENT_PULSE_OVERVIEW_TRENDS_AI_HANDOFF.md).
+The existing `GET /api/mobile/sentiment-pulse/trends` retains its original fields
+and adds `asOf`, `sentimentTrends` (previous-period Overview and per-survey
+Calm/Worried comparisons), and `regional` (dashboard Regional aggregates for the
+selected/profile region). The optional `regionalRegion` query selects the app's
+region independently of Overview/Trends `regions` and `surveyId`. No new URL or
+admin-role access change is introduced. Historical exclusions of survey breakdowns
+and Regional integration no longer describe the current mobile response. The
+baseline is a recomputed previous calendar period, not a persisted report snapshot.
+Deployment remains unverified; use the linked handoff for the receiving mobile AI
+agent's implementation and validation instructions.
+
 Updated 2026-10-28 (Asia/Manila). This records the implemented backend contract,
 local checks, and limitations. Frontend work and the requested Mobile Surveys UI
 rollback happened after the original backend milestone. Tests do not certify full
