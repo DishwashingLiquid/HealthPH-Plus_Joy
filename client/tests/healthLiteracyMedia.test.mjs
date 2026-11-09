@@ -81,3 +81,68 @@ test("video edit uploads a separate poster without sending generated GridFS URLs
   assert.equal(data.get("imageUrl"), "");
   assert.equal(data.get("mediaUrl"), "");
 });
+
+const mediaBehavior = load("../src/utils/healthLiteracyMedia.js");
+
+test("attachments distinguish absence, real MIME types, providers and unsupported data", () => {
+  const kind = mediaBehavior.attachmentKind;
+  assert.equal(kind(""), "missing");
+  assert.equal(kind(url, "application/pdf"), "pdf");
+  assert.equal(kind(url, "image/png"), "image");
+  assert.equal(kind(url, "video/mp4"), "video");
+  assert.equal(kind("https://www.youtube.com/watch?v=abc", "video/mp4"), "provider");
+  assert.equal(kind("https://vimeo.com/123", "video/mp4"), "provider");
+  assert.equal(kind("javascript:alert(1)"), "unsupported");
+  assert.equal(kind(url, "application/zip"), "unsupported");
+});
+
+const previewHarness = () => {
+  let sequence = 0;
+  const tasks = new Map();
+  const video = { src: "", pauses: 0, loads: 0, plays: 0, muted: false,
+    pause() { this.pauses++; }, load() { this.loads++; },
+    removeAttribute() { this.src = ""; }, async play() { this.plays++; } };
+  const visible = [];
+  let allowed = true;
+  const controller = mediaBehavior.createHoverPreview({ video, src: url,
+    allowed: () => allowed, show: (value) => visible.push(value),
+    delay: (fn, ms) => { const id = ++sequence; tasks.set(id, { fn, ms }); return id; }, cancel: (id) => tasks.delete(id),
+  });
+  return { video, visible, controller, tasks, disallow: () => { allowed = false; },
+    tick: async (ms) => { for (const [id, task] of [...tasks]) if (task.ms === ms) { tasks.delete(id); await task.fn(); } } };
+};
+
+test("hover loads on demand after 500ms, stops after six seconds and releases the source", async () => {
+  const h = previewHarness();
+  h.controller.start();
+  assert.equal(h.video.src, ""); assert.equal(h.video.plays, 0);
+  await h.tick(500);
+  assert.equal(h.video.src, url); assert.equal(h.video.muted, true); assert.equal(h.video.plays, 1);
+  await h.tick(6000);
+  assert.equal(h.video.src, ""); assert.equal(h.visible.at(-1), false);
+  h.controller.start(); h.controller.stop(); await h.tick(500);
+  assert.equal(h.video.plays, 1); // Pointer exit cancels intent timer.
+});
+
+test("only one preview runs and visibility/reduced-motion gating prevents playback", async () => {
+  const first = previewHarness(), second = previewHarness();
+  first.controller.start(); await first.tick(500);
+  second.controller.start();
+  assert.equal(first.video.src, "");
+  await second.tick(500); assert.equal(second.video.plays, 1);
+  mediaBehavior.stopCardPreviews(); assert.equal(second.video.src, "");
+  second.disallow(); second.controller.start(); await second.tick(500);
+  assert.equal(second.video.plays, 1);
+});
+
+test("blocked and late preview playback retain the poster without reviving an exited card", async () => {
+  const h = previewHarness();
+  h.video.play = () => Promise.reject(new Error("blocked"));
+  h.controller.start(); await h.tick(500);
+  assert.equal(h.video.src, ""); assert.equal(h.visible.at(-1), false);
+  let resolve;
+  h.video.play = () => new Promise((done) => { resolve = done; });
+  h.controller.start(); const pending = h.tick(500);
+  h.controller.stop(); resolve(); await pending;
+  assert.equal(h.visible.at(-1), false);
+});

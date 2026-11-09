@@ -109,6 +109,16 @@ class HubMediaTests(unittest.TestCase):
         self.assertEqual(preview.content, PNG)
         self.assertEqual(preview.headers["cache-control"], "private, no-store")
 
+    def test_public_discussion_routes_do_not_shadow_media_or_dashboard_content(self):
+        item = self.create(data={"publishToWebsite": "true"}).json()["content"]
+        response = self.client.get("/api/health-literacy-hub/comments", params={
+            "contentId": item["id"], "contentType": "infographics", "contentOrigin": "api"})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json(), {"items": [], "nextCursor": None})
+        self.assertEqual(self.client.get(self.media_path(item)).status_code, 200)
+        self.assertEqual(self.client.get("/api/health-literacy-hub/infographics").status_code, 401)
+        self.assertEqual(self.client.get("/api/health-literacy-hub/comments/moderation/queue").status_code, 401)
+
     def test_upload_requires_admin_and_valid_fields_before_storage(self):
         self.assertEqual(self.create(auth=False).status_code, 401)
         self.assertEqual(self.create(data={"language": "unsupported"}).status_code, 400)

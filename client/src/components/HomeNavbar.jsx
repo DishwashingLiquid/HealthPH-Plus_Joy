@@ -86,7 +86,7 @@ const HomeNavbar = ({ trackSections = false }) => {
         </a>
         <button
           type="button"
-          className="public-menu-button"
+          className="public-button public-button--icon public-menu-button"
           aria-label="Toggle navigation menu"
           aria-expanded={isOpen}
           onClick={() => setIsOpen((open) => !open)}
@@ -98,7 +98,7 @@ const HomeNavbar = ({ trackSections = false }) => {
             {navigation.map(({ href, label, download }) => (
               <li key={label}>
                 {download ? (
-                  <button type="button" className="public-download-button" onClick={() => { announceComingSoon(); closeMenu(); }}>
+                  <button type="button" className="public-button public-download-button" onClick={() => { announceComingSoon(); closeMenu(); }}>
                     {label}
                   </button>
                 ) : (

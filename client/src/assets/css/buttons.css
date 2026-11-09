@@ -52,126 +52,119 @@
 
   /* COLORS */
 
-  .prod-btn-primary:focus-visible,
-  .prod-btn-secondary:focus-visible,
-  .prod-btn-destructive:focus-visible {
+  :where(.internal-buttons, .test-layout) .prod-btn-primary:focus-visible,
+  :where(.internal-buttons, .test-layout) .prod-btn-secondary:focus-visible,
+  :where(.internal-buttons, .test-layout) .prod-btn-destructive:focus-visible {
     outline: none;
   }
 
   /* PRIMARY */
-  .prod-btn-primary {
+  :where(.internal-buttons, .test-layout) .prod-btn-primary {
     @apply bg-primary-500 hover:bg-primary-600 active:bg-primary-500 disabled:bg-primary-300 text-white disabled:text-primary-50;
     background-color: #32418c;
     color: #ffffff;
     box-shadow: 0px 0px 0px 1px #007aff, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
-  .prod-btn-primary:hover {
+  :where(.internal-buttons, .test-layout) .prod-btn-primary:hover {
     background-color: #27346f;
     color: #ffffff;
     box-shadow: 0px 0px 0px 1px #0064d1, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
   /* Disease Watch Feed keeps its alert action at the primary hover tone. */
-  .send-alert-button,
-  .send-alert-button:hover {
+  :where(.internal-buttons, .test-layout) .send-alert-button,
+  :where(.internal-buttons, .test-layout) .send-alert-button:hover {
     background-color: #27346f;
     color: #ffffff;
     box-shadow: 0px 0px 0px 1px #0064d1, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
-  .prod-btn-primary:active,
-  .prod-btn-primary:focus-visible {
+  :where(.internal-buttons, .test-layout) .prod-btn-primary:active,
+  :where(.internal-buttons, .test-layout) .prod-btn-primary:focus-visible {
     background-color: #32418c;
     color: #ffffff;
     box-shadow: 0px 0px 0px 4px rgba(0, 122, 255, 0.4), 0px 0px 0px 1px #007aff,
       0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
-  .prod-btn-primary:active {
-    background-color: #32418c;
-    color: #ffffff;
-    box-shadow: 0px 0px 0px 4px rgba(0, 122, 255, 0.4), 0px 0px 0px 1px #007aff,
-      0px 1px 1px 0px rgba(0, 0, 0, 0.1);
-  }
-
-  .prod-btn-primary:disabled {
+  :where(.internal-buttons, .test-layout) .prod-btn-primary:disabled {
     background-color: #98a2c7;
     color: #f8fafc;
     box-shadow: 0px 0px 0px 1px #5daaff, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
   /* SECONDARY */
-  .prod-btn-secondary {
+  :where(.internal-buttons, .test-layout) .prod-btn-secondary {
     @apply bg-white text-gray-700 hover:text-gray-900 active:text-gray-700 disabled:text-gray-400;
     box-shadow: 0px 0px 0px 1px rgba(70, 83, 96, 0.16),
       0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
-  .prod-btn-secondary:hover {
+  :where(.internal-buttons, .test-layout) .prod-btn-secondary:hover {
     box-shadow: 0px 0px 0px 1px rgba(70, 83, 96, 0.32),
       0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
-  .prod-btn-secondary:active,
-  .prod-btn-secondary:focus-visible {
+  :where(.internal-buttons, .test-layout) .prod-btn-secondary:active,
+  :where(.internal-buttons, .test-layout) .prod-btn-secondary:focus-visible {
     box-shadow: 0px 0px 0px 4px rgba(0, 122, 255, 0.4),
       0px 0px 0px 1px rgba(70, 83, 96, 0.32), 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
-  .prod-btn-secondary:disabled {
+  :where(.internal-buttons, .test-layout) .prod-btn-secondary:disabled {
     box-shadow: 0px 0px 0px 1px rgba(70, 83, 96, 0.2);
     @apply bg-gray-100;
   }
 
   /* DESTRUCTIVE */
-  .prod-btn-destructive {
+  :where(.internal-buttons, .test-layout) .prod-btn-destructive {
     @apply bg-destructive-500 hover:bg-destructive-600 active:bg-destructive-500 disabled:bg-destructive-300 text-white disabled:text-destructive-50;
     background-color: #dc2626;
     color: #ffffff;
     box-shadow: 0px 0px 0px 1px #d82727, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
-  .prod-btn-destructive:hover {
+  :where(.internal-buttons, .test-layout) .prod-btn-destructive:hover {
     background-color: #b91c1c;
     color: #ffffff;
     box-shadow: 0px 0px 0px 1px #ad1f1f, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
-  .prod-btn-destructive:active,
-  .prod-btn-destructive:focus-visible {
+  :where(.internal-buttons, .test-layout) .prod-btn-destructive:active,
+  :where(.internal-buttons, .test-layout) .prod-btn-destructive:focus-visible {
     background-color: #dc2626;
     color: #ffffff;
     box-shadow: 0px 0px 0px 4px rgba(0, 122, 255, 0.4), 0px 0px 0px 1px #d82727,
       0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
-  .prod-btn-destructive:disabled {
+  :where(.internal-buttons, .test-layout) .prod-btn-destructive:disabled {
     background-color: #e87d7d;
     color: #fbe9e9;
     box-shadow: 0px 0px 0px 1px #e87d7d, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
   /* WHITE */
-  .prod-btn-white {
+  :where(.internal-buttons, .test-layout) .prod-btn-white {
     @apply text-primary-50 bg-transparent hover:bg-[rgba(247,_249,_252,_0.2)];
   }
 
-  .prod-btn-white.active {
+  :where(.internal-buttons, .test-layout) .prod-btn-white.active {
     @apply text-white;
   }
 
   /* GHOST */
-  .prod-btn-ghost {
+  :where(.internal-buttons, .test-layout) .prod-btn-ghost {
     @apply bg-transparent text-gray-500 hover:text-gray-700 disabled:text-gray-400;
   }
 
-  .prod-btn-ghost:active {
+  :where(.internal-buttons, .test-layout) .prod-btn-ghost:active {
     box-shadow: 0px 0px 0px 4px rgba(0, 122, 255, 0.4),
       0px 0px 0px 1px rgba(70, 83, 96, 0.32), 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
-  .prod-btn-ghost.active {
+  :where(.internal-buttons, .test-layout) .prod-btn-ghost.active {
     @apply text-gray-900;
   }
 }

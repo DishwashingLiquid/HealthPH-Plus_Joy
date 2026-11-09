@@ -53,7 +53,7 @@ export const getResourceImageSource = (article) => {
       return getTrimmedUrl(article.imageUrl) || getTrimmedUrl(article.mediaUrl);
     }
 
-    return getTrimmedUrl(article.imageUrl);
+    return getTrimmedUrl(article.imageUrl) || getTrimmedUrl(article.mediaUrl);
   }
 
   return getStaticArticleImageSource(article);

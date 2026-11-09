@@ -11,6 +11,9 @@ export const articleMediaReducer = (resources, { type, source, attempt }) => {
   if (type === "fail" && !current.failed) {
     return { ...resources, [source]: { ...current, failed: true } };
   }
+  if (type === "loaded" && !current.loaded) {
+    return { ...resources, [source]: { ...current, loaded: true } };
+  }
   if (type === "retry" && current.failed && current.attempt < MAX_MEDIA_RETRIES) {
     return {
       ...resources,
@@ -22,12 +25,15 @@ export const articleMediaReducer = (resources, { type, source, attempt }) => {
 
 export const useArticleMediaResource = (source) => {
   const [resources, dispatch] = useContext(ArticleMediaContext);
-  const { failed = !source, attempt = 0 } = resources[source] ?? {};
+  const { failed = false, attempt = 0, loaded = false } = resources[source] ?? {};
   return {
+    missing: !source,
+    loading: Boolean(source) && !loaded && !failed,
     failed,
     attempt,
     canRetry: Boolean(source) && failed && attempt < MAX_MEDIA_RETRIES,
     onError: () => dispatch({ type: "fail", source, attempt }),
+    onLoad: () => dispatch({ type: "loaded", source, attempt }),
     retry: () => dispatch({ type: "retry", source, attempt }),
   };
 };

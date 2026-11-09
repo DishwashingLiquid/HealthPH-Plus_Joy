@@ -22,12 +22,13 @@ const previewSlides = [
 ];
 
 const MobilePreviewCarousel = () => {
-  const [slideIndex, setSlideIndex] = useState(0);
+  // A clone at each end allows previous/next to wrap in either direction.
+  const [slideIndex, setSlideIndex] = useState(1);
   const [isPaused, setIsPaused] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   const [hasTransition, setHasTransition] = useState(true);
   const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-  const isRotating = !isPaused && !isHovered;
+  const isRotating = !isPaused;
+  const isLoopBoundary = slideIndex === 0 || slideIndex === previewSlides.length + 1;
 
   useEffect(() => {
     const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -37,12 +38,12 @@ const MobilePreviewCarousel = () => {
   }, []);
 
   useEffect(() => {
-    if (!isRotating || slideIndex === previewSlides.length) return undefined;
+    if (!isRotating || isLoopBoundary) return undefined;
     const timer = window.setTimeout(() => {
-      setSlideIndex((index) => reducedMotion ? (index + 1) % previewSlides.length : index + 1);
+      setSlideIndex((index) => reducedMotion ? index % previewSlides.length + 1 : index + 1);
     }, 5000);
     return () => window.clearTimeout(timer);
-  }, [isRotating, slideIndex, reducedMotion]);
+  }, [isRotating, slideIndex, reducedMotion, isLoopBoundary]);
 
   useEffect(() => {
     if (hasTransition) return undefined;
@@ -51,21 +52,25 @@ const MobilePreviewCarousel = () => {
   }, [hasTransition]);
 
   useEffect(() => {
-    if (reducedMotion && slideIndex === previewSlides.length) {
+    if (reducedMotion && isLoopBoundary) {
       setHasTransition(false);
-      setSlideIndex(0);
+      setSlideIndex(slideIndex === 0 ? previewSlides.length : 1);
     }
-  }, [reducedMotion, slideIndex]);
+  }, [reducedMotion, slideIndex, isLoopBoundary]);
 
-  const advanceSlide = () => {
-    if (slideIndex === previewSlides.length) return;
-    setSlideIndex((index) => reducedMotion ? (index + 1) % previewSlides.length : index + 1);
+  const moveSlide = (direction) => {
+    setSlideIndex((index) => {
+      if (index === 0 || index === previewSlides.length + 1) return index;
+      return reducedMotion
+        ? (index - 1 + direction + previewSlides.length) % previewSlides.length + 1
+        : index + direction;
+    });
   };
 
-  const resetAfterLastSlide = (event) => {
-    if (event.target !== event.currentTarget || event.propertyName !== "transform" || slideIndex !== previewSlides.length) return;
+  const resetAfterLoop = (event) => {
+    if (event.target !== event.currentTarget || event.propertyName !== "transform" || !isLoopBoundary) return;
     setHasTransition(false);
-    setSlideIndex(0);
+    setSlideIndex(slideIndex === 0 ? previewSlides.length : 1);
   };
 
   return (
@@ -78,52 +83,40 @@ const MobilePreviewCarousel = () => {
         if (!event.currentTarget.contains(event.relatedTarget) && event.target.matches(":focus-visible")) setIsPaused(true);
       }}
     >
-      <div
-        className="mobile-preview"
-        onPointerEnter={(event) => { if (event.pointerType !== "touch") setIsHovered(true); }}
-        onPointerLeave={(event) => { if (event.pointerType !== "touch") setIsHovered(false); }}
-      >
-        <button
-          type="button"
-          className="preview-rotation"
-          aria-label={isPaused ? "Play slide rotation" : "Pause slide rotation"}
-          onClick={() => setIsPaused((paused) => !paused)}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            {isPaused ? (
-              <path d="M8 5.5 18 12 8 18.5Z" />
-            ) : (
-              <>
-                <rect x="6" y="5" width="4" height="14" rx="1" />
-                <rect x="14" y="5" width="4" height="14" rx="1" />
-              </>
-            )}
-          </svg>
-        </button>
+      <div className="mobile-preview">
         <div className="preview-viewport">
           <div
             className={`preview-track${hasTransition ? "" : " preview-track--instant"}`}
             style={{ transform: `translateX(-${slideIndex * 100}%)` }}
             aria-live={isRotating ? "off" : "polite"}
             aria-atomic="false"
-            onTransitionEnd={resetAfterLastSlide}
+            onTransitionEnd={resetAfterLoop}
           >
-            {[...previewSlides, previewSlides[0]].map((slide, index) => (
+            {[previewSlides[previewSlides.length - 1], ...previewSlides, previewSlides[0]].map((slide, index) => (
               <div
                 key={index}
                 className="preview-slide"
                 role="group"
                 aria-roledescription="slide"
-                aria-label={`${slide.name}, ${(index % previewSlides.length) + 1} of ${previewSlides.length}`}
+                aria-label={`${slide.name}, ${(index - 1 + previewSlides.length) % previewSlides.length + 1} of ${previewSlides.length}`}
                 aria-hidden={index !== slideIndex}
               >
                 <img src={slide.image} alt="" draggable="false" />
               </div>
             ))}
           </div>
-          <button type="button" className="preview-next" aria-label="Show next mobile app screen" onClick={advanceSlide} />
+          <div className="preview-controls" role="group" aria-label="Screenshot controls"
+            onKeyDown={(event) => {
+              if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                event.preventDefault();
+                moveSlide(event.key === "ArrowLeft" ? -1 : 1);
+              }
+            }}>
+            <button type="button" className="preview-zone preview-zone--previous" aria-label="Show previous mobile app screen" disabled={isLoopBoundary} onClick={() => moveSlide(-1)} />
+            <button type="button" className="preview-zone preview-zone--toggle" aria-label={isPaused ? "Play slide rotation" : "Pause slide rotation"} onClick={() => setIsPaused((paused) => !paused)} />
+            <button type="button" className="preview-zone preview-zone--next" aria-label="Show next mobile app screen" disabled={isLoopBoundary} onClick={() => moveSlide(1)} />
+          </div>
         </div>
-        <span className="preview-hint" aria-hidden="true">Tap to explore</span>
       </div>
     </div>
   );
@@ -138,7 +131,7 @@ const Home = () => {
   }, []);
 
   return (
-    <div className="public-site">
+    <div className="public-site public-buttons">
       <HomeNavbar trackSections />
       <main>
         <section id="home" className="public-section public-hero">
@@ -148,7 +141,7 @@ const Home = () => {
               <h1>HealthPH+</h1>
               <p className="public-hero-title">Machine Learning and Multilingual NLP for Intelligent Public Health Surveillance</p>
               <p className="public-hero-subtitle">Innovating AI Solutions for Better Public Health</p>
-              <button type="button" className="public-primary-button" onClick={announceComingSoon}>Download the app</button>
+              <button type="button" className="public-button public-button--large public-primary-button" onClick={announceComingSoon}>Download the app</button>
             </div>
             <MobilePreviewCarousel />
           </div>

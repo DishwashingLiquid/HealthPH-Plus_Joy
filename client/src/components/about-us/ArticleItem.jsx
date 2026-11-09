@@ -2,7 +2,8 @@
 import { Link } from "react-router-dom";
 import Icon from "../Icon";
 import ArticleMedia from "./ArticleMedia";
-import { useArticleMediaResource } from "../../utils/articleMediaState";
+import VideoCardPreview from "../health-literacy/VideoCardPreview";
+import { attachmentKind, GENERIC_ARTICLE_THUMBNAIL } from "../../utils/healthLiteracyMedia";
 import {
   formatContentDate,
   getResourceImageSource,
@@ -20,7 +21,7 @@ const ArticleItem = ({ article, articlePage, isLoading, onPreviewClick }) => {
     resourceType,
   } = article;
   const mediaSource = getResourceImageSource(article);
-  const mediaResource = useArticleMediaResource(mediaSource);
+  const kind = attachmentKind(mediaSource, article.media?.contentType || "", resourceType);
   const isVideo = resourceType === "video";
   const isPreviewContent = ["video", "infographic"].includes(resourceType);
   const displayDate = formatContentDate(datePublished);
@@ -40,47 +41,49 @@ const ArticleItem = ({ article, articlePage, isLoading, onPreviewClick }) => {
   return (
     <div className="article-item">
       <div className="article-image">
-        <ArticleMedia
-          src={mediaSource}
-          alt={articleImageCaption || articleTitle}
-          video={isVideo}
-          poster={isVideo ? getResourcePosterSource(article) : undefined}
-        />
+        {isVideo ? <VideoCardPreview src={mediaSource} poster={getResourcePosterSource(article)} mime={article.media?.contentType}
+          title={articleTitle} onOpen={() => onPreviewClick?.(article)} />
+          : isPreviewContent ? <button type="button" className="article-media-preview" aria-label={`View Infographic: ${articleTitle}`} onClick={() => onPreviewClick?.(article)}>
+            <ArticleMedia src={kind === "image" ? mediaSource : GENERIC_ARTICLE_THUMBNAIL} alt={articleImageCaption || articleTitle} />
+          </button> : <Link to={"/articles/" + articleSlug} state={articlePage} aria-label={`Read article: ${articleTitle}`}>
+            <ArticleMedia src={kind === "image" ? mediaSource : GENERIC_ARTICLE_THUMBNAIL} alt={articleImageCaption || articleTitle} />
+          </Link>}
+
       </div>
       <div className="article-body">
         <div className="article-meta">
           {contentTypeLabel && <span className="article-type">{contentTypeLabel}</span>}
           {displayDate && <p className="date">{displayDate}</p>}
         </div>
-        <p className="article-title">{articleTitle}</p>
+        <h3 className="article-title">{articleTitle}</h3>
         <p className="article-preview">{articlePreview}</p>
         {isPreviewContent ? (
           <button
             type="button"
-            disabled={mediaResource.failed}
+            disabled={false}
             onClick={() => onPreviewClick?.(article)}
-            className="prod-btn-lg prod-btn-secondary article-action"
+            className="public-button article-action"
           >
             <span>{isVideo ? "Watch Video" : "View Infographic"}</span>
             <Icon
               iconName="ArrowUpRight"
               height="24px"
               width="24px"
-              stroke="#8693A0"
+              stroke="currentColor"
             />
           </button>
         ) : (
           <Link
             state={articlePage}
             to={"/articles/" + articleSlug}
-            className="prod-btn-lg prod-btn-secondary article-action"
+            className="public-button article-action"
           >
             <span>Read More</span>
             <Icon
               iconName="ArrowUpRight"
               height="24px"
               width="24px"
-              stroke="#8693A0"
+              stroke="currentColor"
             />
           </Link>
         )}

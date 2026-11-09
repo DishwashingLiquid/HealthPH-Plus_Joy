@@ -42,7 +42,7 @@ const AdminLayout = () => {
         )}
       </div> */}
     <div
-      className="admin-layout flex flex-col max-h-screen h-screen bg-[#F5F5F5] overflow-y-hidden"
+      className="admin-layout internal-buttons flex flex-col max-h-screen h-screen bg-[#F5F5F5] overflow-y-hidden"
       style={{
         "--admin-sidebar-width": sidebarOpen ? "270px" : "72px",
       }}

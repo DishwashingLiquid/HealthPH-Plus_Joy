@@ -6,18 +6,16 @@ import "../assets/css/about.css";
 import Icon from "../components/Icon";
 import HomeNavbar from "../components/HomeNavbar";
 import HomeFooter from "../components/HomeFooter";
-import PublicFullscreenModal from "../components/PublicFullscreenModal";
-import ArticleMedia, {
+import MediaViewer from "../components/health-literacy/MediaViewers";
+import "../assets/css/health-literacy.css";
+import {
   ArticleMediaProvider,
 } from "../components/about-us/ArticleMedia";
-import { useArticleMediaResource } from "../utils/articleMediaState";
 import ArticleItem, {
   ArticleItemSkeleton,
 } from "../components/about-us/ArticleItem";
 import { useFetchWebsiteHealthLiteracyContentQuery } from "../features/api/healthLiteracyHubSlice";
 import {
-  getResourceImageSource,
-  getResourcePosterSource,
   normalizeStaticArticle,
   normalizeWebsiteContent,
   sortNewestFirst,
@@ -80,14 +78,6 @@ const ArticlesContent = ({ embedded = false }) => {
     return articlesPerPage.slice(startIndex - numOfArticlesPerPage, startIndex);
   };
 
-  const previewMediaSource = getResourceImageSource(previewContent);
-  const previewResource = useArticleMediaResource(previewMediaSource);
-  const previewMediaType = previewContent?.media?.contentType ?? "";
-  const isPreviewVideo =
-    previewContent?.resourceType === "video" ||
-    previewMediaType.startsWith("video/");
-  const previewFilename =
-    previewContent?.media?.filename || `${previewContent?.articleTitle ?? "infographic"}`;
   const maxArticlePage = Math.ceil(articles.length / numOfArticlesPerPage);
 
   const content = (
@@ -97,13 +87,13 @@ const ArticlesContent = ({ embedded = false }) => {
             {/* <div className="flex justify-start items-center mb-[24px]">
               <Link
                 to="/about-us"
-                className="prod-btn-lg prod-btn-secondary flex items-center"
+                className="public-button flex items-center"
               >
                 <Icon
                   iconName="ArrowLeft"
                   height="24px"
                   width="24px"
-                  fill="#8693A0"
+                  fill="currentColor"
                 />
                 <span className="ms-[8px]">Go Back</span>
               </Link>
@@ -140,7 +130,8 @@ const ArticlesContent = ({ embedded = false }) => {
               articles.length > numOfArticlesPerPage && (
               <div className="w-full flex justify-end">
                 <button
-                  className="prod-btn-lg prod-btn-secondary flex items-center justify-center me-[20px] h-[48px]"
+                  className="public-button public-button--icon flex items-center justify-center me-[20px] h-[48px]"
+                  aria-label="Previous articles"
                   disabled={!(articlePage > 1)}
                   onClick={() => {
                     if (articlePage > 1) {
@@ -152,11 +143,12 @@ const ArticlesContent = ({ embedded = false }) => {
                     iconName="ArrowLeft"
                     height="24px"
                     width="24px"
-                    fill="#8693A0"
+                    fill="currentColor"
                   />
                 </button>
                 <button
-                  className="prod-btn-lg prod-btn-secondary flex items-center justify-center h-[48px]"
+                  className="public-button public-button--icon flex items-center justify-center h-[48px]"
+                  aria-label="Next articles"
                   disabled={!(articlePage < maxArticlePage)}
                   onClick={() => {
                     if (articlePage < maxArticlePage) {
@@ -168,7 +160,7 @@ const ArticlesContent = ({ embedded = false }) => {
                     iconName="ArrowRight"
                     height="24px"
                     width="24px"
-                    fill="#8693A0"
+                    fill="currentColor"
                   />
                 </button>
               </div>
@@ -179,56 +171,14 @@ const ArticlesContent = ({ embedded = false }) => {
   );
 
   const previewModal = previewContent && (
-    <PublicFullscreenModal
-      ariaLabel={`Preview: ${previewContent.articleTitle}`}
-      onClose={() => setPreviewContent(null)}
-      panelClassName="public-media-modal"
-    >
-            <div className="public-media-modal__media">
-              <ArticleMedia
-                src={previewMediaSource}
-                alt={previewContent.articleTitle}
-                video={isPreviewVideo}
-                controls
-                autoPlay
-                poster={isPreviewVideo ? getResourcePosterSource(previewContent) : undefined}
-              />
-            </div>
-            <div className="public-media-modal__caption">
-              <p>{previewContent.articleTitle}</p>
-              {previewContent.resourceType === "infographic" &&
-                previewMediaSource && (previewResource.failed ? (
-                  <button
-                    type="button"
-                    disabled
-                    className="prod-btn-lg prod-btn-secondary article-preview-download"
-                  >
-                    Download
-                  </button>
-                ) : (
-                  <a
-                    href={previewMediaSource}
-                    download={previewFilename}
-                    className="prod-btn-lg prod-btn-secondary article-preview-download"
-                  >
-                    <span>Download</span>
-                    <Icon
-                      iconName="Download"
-                      height="20px"
-                      width="20px"
-                      fill="#8693A0"
-                    />
-                  </a>
-                ))}
-            </div>
-    </PublicFullscreenModal>
+    <MediaViewer article={previewContent} onClose={() => setPreviewContent(null)} />
   );
 
   if (embedded) {
-    return <div className="article-layout one-page-section">{content}{previewModal}</div>;
+    return <div className="article-layout one-page-section hl-articles public-buttons">{content}{previewModal}</div>;
   }
 
-  return <div className="article-layout"><HomeNavbar />{content}<HomeFooter />{previewModal}</div>;
+  return <div className="article-layout hl-articles public-buttons"><HomeNavbar />{content}<HomeFooter />{previewModal}</div>;
 };
 
 const Articles = (props) => (

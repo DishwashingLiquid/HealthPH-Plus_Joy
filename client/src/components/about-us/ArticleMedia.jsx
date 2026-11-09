@@ -48,6 +48,7 @@ const ArticleMedia = ({
   const resource = useArticleMediaResource(src);
   const posterResource = useArticleMediaResource(poster);
 
+  if (resource.missing) return <p className="hl-media-message">No attachment.</p>;
   if (resource.failed) return <MediaUnavailable resource={resource} />;
 
   const media = video ? (
@@ -57,6 +58,7 @@ const ArticleMedia = ({
         src={src}
         poster={poster && !posterResource.failed ? poster : undefined}
         onError={resource.onError}
+        onLoadedData={resource.onLoad}
         controls={controls}
         autoPlay={autoPlay}
         muted={!controls}
@@ -77,11 +79,12 @@ const ArticleMedia = ({
       )}
     </>
   ) : (
-    <img key={`${src}-${resource.attempt}`} src={src} alt={alt} onError={resource.onError} />
+    <img key={`${src}-${resource.attempt}`} src={src} alt={alt} onError={resource.onError} onLoad={resource.onLoad} />
   );
 
   return (
     <div className={`article-media${poster && posterResource.failed ? " article-media-with-poster-error" : ""}`}>
+      {resource.loading && <span className="hl-media-loading" role="status">Loading attachment…</span>}
       {onPreviewClick ? (
         <button
           type="button"

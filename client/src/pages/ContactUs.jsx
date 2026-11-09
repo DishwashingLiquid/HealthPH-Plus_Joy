@@ -171,7 +171,7 @@ const ContactUs = ({ embedded = false }) => {
                   <div className="flex items-center justify-end">
                     <button
                       type="button"
-                      className=" prod-btn-base prod-btn-primary"
+                      className=" public-button"
                       onClick={() => setIsMessageSent(false)}
                     >
                       Send another message
@@ -278,7 +278,7 @@ const ContactUs = ({ embedded = false }) => {
                   <div className="flex items-center justify-end pt-[8px]">
                     <button
                       type="submit"
-                      className="prod-btn-base prod-btn-primary"
+                      className="public-button"
                       disabled={isLoading}
                     >
                       {isLoading ? "Sending..." : "Send Message"}
@@ -334,8 +334,8 @@ const ContactUs = ({ embedded = false }) => {
     </section>
   );
 
-  if (embedded) return <div className="contact-us-layout">{content}</div>;
+  if (embedded) return <div className="contact-us-layout public-buttons">{content}</div>;
 
-  return <div className="contact-us-layout flex flex-col min-h-[100vh]"><HomeNavbar />{content}<HomeFooter /></div>;
+  return <div className="contact-us-layout public-buttons flex flex-col min-h-[100vh]"><HomeNavbar />{content}<HomeFooter /></div>;
 };
 export default ContactUs;

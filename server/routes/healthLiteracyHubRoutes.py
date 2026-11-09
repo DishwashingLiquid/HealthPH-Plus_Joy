@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from controllers.health_literacy_comments import router as comments_router
 
 from controllers.healthLiteracyHubController import (
     create_health_literacy_analytics_event,
@@ -18,6 +19,8 @@ from controllers.healthLiteracyHubController import (
 
 router = APIRouter()
 mobile_contract_router = APIRouter()
+# Specific website discussion routes must precede /{content_type}.
+router.include_router(comments_router)
 
 # GET       /health-literacy-hub/analytics/overview
 router.add_api_route(

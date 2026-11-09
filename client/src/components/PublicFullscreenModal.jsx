@@ -79,7 +79,7 @@ const PublicFullscreenModal = ({ ariaLabel, children, onClose, panelClassName = 
         <button
           ref={closeButtonRef}
           type="button"
-          className="public-fullscreen-modal__close"
+          className="public-fullscreen-modal__close public-button public-button--icon public-button--round"
           aria-label="Close modal"
           onClick={onClose}
         >
