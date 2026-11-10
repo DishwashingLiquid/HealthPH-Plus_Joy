@@ -12,29 +12,11 @@ from helpers.miscHelpers import get_ph_datetime
 from middleware.requireAuth import require_auth
 from middleware.requireRole import require_role
 from models.organization import OrganizationRequest
+from region_normalization import REGIONS
 from schema.organizationSchema import individual_organization, list_organizations
 
 
-VALID_REGIONS = [
-    "NCR",
-    "I",
-    "II",
-    "III",
-    "CAR",
-    "IVA",
-    "IVB",
-    "V",
-    "VI",
-    "VII",
-    "VIII",
-    "IX",
-    "X",
-    "XI",
-    "XII",
-    "XIII",
-    "BARMM",
-    "ALL",
-]
+VALID_REGIONS = [*REGIONS, "ALL"]
 
 def validate_organization_payload(data: OrganizationRequest):
     errors = []
