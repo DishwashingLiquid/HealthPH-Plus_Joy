@@ -19,6 +19,7 @@ from routes.analyticsRoutes import router as analyticsRouter
 from routes.datasetsRoutes import router as datasetsRouter
 from routes.analyticsEntryRoutes import router as analyticsEntryRouter
 from routes.modelEvaluationRoutes import router as modelEvaluationRouter
+from routes.modelTrainingLogRoutes import router as modelTrainingLogRouter
 from routes.environmentalDataRoutes import (
     router as environmentalDataRouter,
     mobile_router as mobileEnvironmentalDataRouter,
@@ -120,6 +121,7 @@ api_app.include_router(router=activityLogRouter, tags=["Activity Logs"], prefix=
 api_app.include_router(router=datasetsRouter, tags=["Datasets"], prefix="/datasets")
 api_app.include_router(router=analyticsEntryRouter, tags=["Analytics Entries"], prefix="/analytics-entries")
 api_app.include_router(router=modelEvaluationRouter, tags=["Model Evaluations"], prefix="/model-evaluations")
+api_app.include_router(router=modelTrainingLogRouter, tags=["Model Training Logs"], prefix="/model-training-logs")
 api_app.include_router(router=environmentalDataRouter, tags=["Environmental Data"], prefix="/environmental-data")
 api_app.include_router(
     router=mobileEnvironmentalDataRouter,

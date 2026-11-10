@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "runId": "REPLACE_WITH_UNIQUE_TRAINING_RUN_ID",
+  "modelId": "xlmr",
+  "modelVersion": "REPLACE_WITH_CHECKPOINT_OR_VERSION",
+  "trainingDataset": "REPLACE_WITH_TRAINING_DATASET_AND_VERSION",
+  "validationDataset": null,
+  "status": "REPLACE_WITH_completed_failed_OR_cancelled",
+  "startedAt": "REPLACE_WITH_ISO_DATE_TIME_AND_TIMEZONE",
+  "endedAt": "REPLACE_WITH_ISO_DATE_TIME_AND_TIMEZONE",
+  "hyperparameters": {},
+  "epochs": [
+    {
+      "epoch": 1,
+      "metrics": {
+        "trainLoss": null,
+        "validationLoss": null,
+        "validationMicroF1": null
+      }
+    }
+  ],
+  "notes": null
+}

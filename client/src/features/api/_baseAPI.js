@@ -39,6 +39,7 @@ export const baseAPI = createApi({
     "Datasets",
     "AnalyticsEntries",
     "ModelEvaluations",
+    "ModelTrainingLogs",
     "Points",
     "PointsDisease",
     "HealthLiteracyContent",

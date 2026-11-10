@@ -12,6 +12,7 @@ import Regions from "../../assets/data/regions.json";
 import DataManagementPrint from "../../components/admin/DataManagementPrint";
 import SummaryPrintReport from "../../components/admin/SummaryPrintReport";
 import ModelEvaluationUpload from "../../components/admin/ModelEvaluationUpload";
+import TrainingLogs from "../../components/admin/ModelTrainingLogs";
 import { loadSelfReportsForPrint } from "../../utils/selfReportPrintHelpers";
 import { useFetchModelEvaluationsQuery } from "../../features/api/modelEvaluationsSlice";
 import {
@@ -3101,130 +3102,6 @@ const UploadDatasetModal = ({ data, error, isLoading, onCancel, onConfirm }) => 
 
 
 
-/* SUBTAB 3 = TRAINING LOGS */
-const TrainingLogs = () => {
-    const user = useSelector((state) => state.auth.user);
-
-    const {
-        data: datasetsByUser,
-        isFetching: isTrainingLogsFetching,
-        isError: isTrainingLogsError,
-        refetch: refetchTrainingLogs,
-    } = useFetchDatasetsByUserQuery(user.id);
-
-    const datasets = datasetsByUser || [];
-
-    const getTrainingStatus = (status) => {
-        const normalizedStatus = String(status || "").toUpperCase();
-
-        if (normalizedStatus === "PROCESSED") return "Completed";
-        if (normalizedStatus === "PROCESSING") return "Running";
-        if (normalizedStatus === "FAILED") return "Failed";
-        if (normalizedStatus === "QUEUED") return "Queued";
-        if (normalizedStatus === "UPLOADED") return "Uploaded";
-
-        return "Queued";
-    };
-
-    const getDuration = ({ created_at, processed_at, dataset_status }) => {
-        const normalizedStatus = String(dataset_status || "").toUpperCase();
-
-        if (normalizedStatus === "PROCESSING") return "In progress";
-        if (["UPLOADED", "QUEUED"].includes(normalizedStatus)) return "Pending";
-        if (!created_at || !processed_at) return "Unavailable";
-
-        const started = new Date(created_at);
-        const ended = new Date(processed_at);
-        if (Number.isNaN(started.getTime()) || Number.isNaN(ended.getTime())) return "Unavailable";
-        const diffInMinutes = Math.max(1, Math.round((ended - started) / 60000));
-
-        if (diffInMinutes >= 60) {
-            const hours = Math.floor(diffInMinutes / 60);
-            const minutes = diffInMinutes % 60;
-
-            return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
-        }
-
-        return `${diffInMinutes}m`;
-    };
-
-    const trainingLogs = datasets.map((dataset) => ({
-        runId: `TRN-${String(dataset.id).slice(-6).toUpperCase()}`,
-        model: "HealthPH+ NLP Pipeline",
-        dataset: dataset.original_filename || dataset.filename,
-        status: getTrainingStatus(dataset.dataset_status),
-        started: dataset.created_at
-            ? format(new Date(dataset.created_at), "MMM dd, yyyy hh:mm a")
-            : "Pending",
-        duration: getDuration(dataset),
-    }));
-
-    return (
-        <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[20px]">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-[12px] mb-[20px]">
-                <div>
-                    <h2 className="text-[20px] font-semibold text-gray-800">
-                        Training Logs
-                    </h2>
-                    <p className="text-sm text-gray-500 mt-[4px]">
-                        Track model training activity, evaluation runs, and dataset processing history.
-                    </p>
-                </div>
-                <ToolbarButton iconName="Upload" variant="primary">
-                    Export Logs
-                </ToolbarButton>
-            </div>
-
-            {isTrainingLogsFetching ? (
-                <div className="overflow-y-hidden min-w-full h-[300px]">
-                    <SkeletonBody headers={["Run ID", "Model", "Dataset", "Status", "Started", "Duration", "Actions"]} />
-                </div>
-            ) : isTrainingLogsError ? (
-                <EmptyState iconName="Error" heading="Unable to Load Training Logs" content="Please try loading the logs again.">
-                    <button type="button" onClick={() => refetchTrainingLogs()} className="prod-btn-base prod-btn-secondary">Retry</button>
-                </EmptyState>
-            ) : (
-                <div className="overflow-x-auto">
-                    {trainingLogs.length > 0 ? (
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b border-[#E5E5E5] text-left text-gray-500">
-                                    <th className="py-[12px] px-[10px] font-medium">Run ID</th>
-                                    <th className="py-[12px] px-[10px] font-medium">Model</th>
-                                    <th className="py-[12px] px-[10px] font-medium">Dataset</th>
-                                    <th className="py-[12px] px-[10px] font-medium">Status</th>
-                                    <th className="py-[12px] px-[10px] font-medium">Started</th>
-                                    <th className="py-[12px] px-[10px] font-medium">Duration</th>
-                                    <th className="py-[12px] px-[10px] font-medium">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {trainingLogs.map((log) => (
-                                    <TrainingLogRow
-                                        key={log.runId}
-                                        runId={log.runId}
-                                        model={log.model}
-                                        dataset={log.dataset}
-                                        status={log.status}
-                                        started={log.started}
-                                        duration={log.duration}
-                                    />
-                                ))}
-                            </tbody>
-                        </table>
-                    ) : (
-                        <EmptyState
-                            iconName={Document}
-                            heading="No training Logs"
-                            content="Upload and process a dataset to create pipeline activity history."
-                        />
-                    )}
-                </div>
-            )}
-        </div>
-    );
-};
-
 /* HELPERS */
 const ModelCard = ({ 
     name,
@@ -3351,76 +3228,6 @@ const ModelCard = ({
                 </div>
             </div>
         </div>
-    );
-};
-
-const TrainingLogRow = ({
-    runId,
-    model,
-    dataset,
-    status,
-    started,
-    duration,
-}) => {
-    const statusColor = {
-        Completed: {
-            backgroundColor: "#D1FAE5",
-            color: "#059669",
-        },
-        Running: {
-            backgroundColor: "#DBEAFE",
-            color: "#2563EB",
-        },
-        Failed: {
-            backgroundColor: "#FEE2E2",
-            color: "#DC2626",
-        },
-        Queued: {
-            backgroundColor: "#F3F4F6",
-            color: "#6B7280",
-        },
-        Uploaded: {
-            backgroundColor: "#DBEAFE",
-            color: "#2563EB"
-        }
-    };
-
-    return (
-        <tr className="border-b border-[#F0F0F0]">
-            <td className="py-[14px] px-[10px] font-medium text-gray-800">
-                {runId}
-            </td>
-            <td className="py-[14px] px-[10px] text-gray-600">
-                {model}
-            </td>
-            <td className="py-[14px] px-[10px] text-gray-600">
-                {dataset}
-            </td>
-            <td className="py-[14px] px-[10px]">
-                <span
-                    className="px-[8px] py-[4px] rounded-full text-xs font-medium"
-                    style={statusColor[status]}
-                >
-                    {status}
-                </span>
-            </td>
-            <td className="py-[14px] px-[10px] text-gray-600">
-                {started}
-            </td>
-            <td className="py-[14px] px-[10px] text-gray-600">
-                {duration}
-            </td>
-            <td className="py-[14px] px-[10px]">
-                <div className="flex gap-[10px]">
-                    <button className="text-primary-600 text-sm">
-                        View
-                    </button>
-                    <button className="text-gray-600 text-sm">
-                        Export
-                    </button>
-                </div>
-            </td>
-        </tr>
     );
 };
 
