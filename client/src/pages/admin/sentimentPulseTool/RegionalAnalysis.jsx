@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import PropTypes from "prop-types";
 import { formatCount, formatShare, isCount, SENTIMENT_COLORS } from "./sentimentContract";
-import { normalizeRegionalKey, regionalAnswerRows, regionalCardRows, regionalRow, regionalAssessment, regionalDisplayLabel, REGIONAL_ANSWER_SCOPE, REGIONAL_SUBMISSION_SCOPE, REGIONAL_SATISFACTION_SCOPE } from "./regionalMetrics";
+import { normalizeRegionalKey, regionalAnswerRows, regionalCardRows, regionalRow, regionalAssessment, regionalDisplayLabel } from "./regionalMetrics";
 import {
   DASHBOARD_REGIONS as REGIONS,
   getDashboardRegionLabel,
@@ -107,14 +107,33 @@ export default function RegionalAnalysis({
           Exact submission counts are unavailable. {formatNumber(totals?.linkedAnalyzedSubmissions)} linked submissions analyzed in this view.
           {" "}{formatNumber(report.linkage?.missingAnalyzedAnswers)} analyzed answers have missing submission links and {formatNumber(report.linkage?.ambiguousAnalyzedAnswers)} have ambiguous links across all regions in these dates. Their answers remain in sentiment; unlinked scoring answers are excluded from satisfaction.
         </p>}
-        <details className="mt-3 text-xs leading-relaxed text-[#667085]">
+        <details className="mt-3 text-sm leading-relaxed text-[#52607A]">
           <summary className="cursor-pointer rounded font-medium text-[#32418C] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4">How to read these numbers</summary>
-          <p className="mt-2"><strong>Survey responses analyzed: </strong>{REGIONAL_SUBMISSION_SCOPE} Several analyzed answers from a submission count once. This count measures submissions.</p>
-          <p className="mt-2"><strong>Sentiment:</strong> Calm or Worried among analyzed eligible answers; ties show both. Answers without valid results may be unprocessed, invalid or failed; their processing status is unknown.</p>
-          <p className="mt-2"><strong>Satisfaction: </strong>{REGIONAL_SATISFACTION_SCOPE} Not set up means scoring rules are unavailable; no satisfaction answers means there are no valid scored answers in this view.</p>
-          <p className="mt-2"><strong>Survey and regional scope: </strong>{REGIONAL_ANSWER_SCOPE}</p>
-          <p className="mt-2">Philippine dates: {report?.filters ? `${report.filters.startDate} to ${report.filters.endDate}` : "Unavailable"}. Overall shares use aggregate answer counts.</p>
-          <p className="mt-2">{hasRegionFilter ? "Region filters apply after submission assignment. Unknown Region is excluded from selected-region views." : "Unknown Region includes missing or conflicting processed locations."} Unlinked answers use their own normalized record locations. If any analyzed links are unresolved in these dates, exact regional counts are unavailable, including under region filters.</p>
+          <div className="mt-3 rounded-[10px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+            <p className="font-medium text-gray-800">Responses count survey submissions. Percentages describe individual answers.</p>
+            <dl className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <div className="min-w-0 rounded-lg bg-white p-3">
+                <dt className="font-semibold text-gray-800">Survey responses analyzed</dt>
+                <dd className="mt-1">A survey submission counts once when at least one answer has a sentiment result. Repeat submissions count separately.</dd>
+                <dd className="mt-3 font-medium text-[#32418C]">Example: 1 submission with 3 analyzed answers counts as 1 response.</dd>
+              </div>
+              <div className="min-w-0 rounded-lg bg-white p-3">
+                <dt className="font-semibold text-gray-800">Sentiment</dt>
+                <dd className="mt-1">The most common label assigned by the model: Calm or Worried. An equal split shows both.</dd>
+                <dd className="mt-3 font-medium text-[#32418C]">Example: Calm 70% means 7 out of 10 analyzed answers were labeled Calm.</dd>
+              </div>
+              <div className="min-w-0 rounded-lg bg-white p-3">
+                <dt className="font-semibold text-gray-800">Satisfaction</dt>
+                <dd className="mt-1">The share of scored answers marked satisfied, using each survey&apos;s scoring rules. Only submissions with sentiment results are included here.</dd>
+                <dd className="mt-3 font-medium text-[#32418C]">Example: 80% means 8 out of 10 scored answers were satisfied.</dd>
+              </div>
+            </dl>
+            <ul className="mt-4 list-disc space-y-2 border-t border-[#E2E8F0] pl-4 pt-3 text-xs">
+              <li><strong>Missing results:</strong> Answers without sentiment results are left out of sentiment percentages. No results yet means nothing has been classified; Not set up means the required rules are unavailable.</li>
+              <li><strong>Dates and surveys:</strong> All surveys with mobile answers are included, even unpublished surveys. Your date and region filters apply; the Trends survey selector does not. Dates use Philippine time{report?.filters ? ` (${report.filters.startDate} to ${report.filters.endDate})` : ""}.</li>
+              <li><strong>Regions:</strong> Survey answers determine the region. Missing or conflicting locations appear as Unknown region{hasRegionFilter ? ", which is excluded when you select specific regions" : ""}. If answers cannot be matched to their submission, exact response counts may be unavailable.</li>
+            </ul>
+          </div>
         </details>
       </section>
 

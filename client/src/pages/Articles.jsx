@@ -6,13 +6,16 @@ import "../assets/css/about.css";
 import Icon from "../components/Icon";
 import HomeNavbar from "../components/HomeNavbar";
 import HomeFooter from "../components/HomeFooter";
-import PublicFullscreenModal from "../components/PublicFullscreenModal";
+import MediaViewer from "../components/health-literacy/MediaViewers";
+import "../assets/css/health-literacy.css";
+import {
+  ArticleMediaProvider,
+} from "../components/about-us/ArticleMedia";
 import ArticleItem, {
   ArticleItemSkeleton,
 } from "../components/about-us/ArticleItem";
 import { useFetchWebsiteHealthLiteracyContentQuery } from "../features/api/healthLiteracyHubSlice";
 import {
-  getResourceImageSource,
   normalizeStaticArticle,
   normalizeWebsiteContent,
   sortNewestFirst,
@@ -20,7 +23,8 @@ import {
 
 import ArticlesList from "../assets/data/articles.json";
 
-const Articles = ({ embedded = false }) => {
+const ArticlesContent = ({ embedded = false }) => {
+  const Heading = embedded ? "h2" : "h1";
   const location = useLocation();
 
   const [articlePage, setArticlePage] = useState(location.state ?? 1);
@@ -74,35 +78,28 @@ const Articles = ({ embedded = false }) => {
     return articlesPerPage.slice(startIndex - numOfArticlesPerPage, startIndex);
   };
 
-  const previewMediaSource = getResourceImageSource(previewContent);
-  const previewMediaType = previewContent?.media?.contentType ?? "";
-  const isPreviewVideo =
-    previewContent?.resourceType === "video" ||
-    previewMediaType.startsWith("video/");
-  const previewFilename =
-    previewContent?.media?.filename || `${previewContent?.articleTitle ?? "infographic"}`;
   const maxArticlePage = Math.ceil(articles.length / numOfArticlesPerPage);
 
   const content = (
-    <section id={embedded ? "articles" : undefined} className={embedded ? "public-section public-content-section section-articles" : "mt-[56px]"}>
+    <section className={embedded ? "public-section public-content-section section-articles" : "mt-[56px]"}>
       <div className={embedded ? "public-shell" : "about-container mb-[112px]"}>
           <div className="w-full max-w-[1144px]">
             {/* <div className="flex justify-start items-center mb-[24px]">
               <Link
                 to="/about-us"
-                className="prod-btn-lg prod-btn-secondary flex items-center"
+                className="public-button flex items-center"
               >
                 <Icon
                   iconName="ArrowLeft"
                   height="24px"
                   width="24px"
-                  fill="#8693A0"
+                  fill="currentColor"
                 />
                 <span className="ms-[8px]">Go Back</span>
               </Link>
             </div> */}
+            <Heading id={embedded ? "articles" : undefined} className={embedded ? "public-section-heading public-scroll-target" : "section-title"}>Articles</Heading>
             {embedded && <p className="public-section-intro">Research-informed resources, updates, and public-health learning materials from HealthPH+.</p>}
-            <p className={embedded ? "public-section-heading" : "section-title"}>Articles</p>
             {isWebsiteContentError && (
               <p className="article-status">
                 Dashboard resources could not be loaded. Showing saved articles.
@@ -133,7 +130,8 @@ const Articles = ({ embedded = false }) => {
               articles.length > numOfArticlesPerPage && (
               <div className="w-full flex justify-end">
                 <button
-                  className="prod-btn-lg prod-btn-secondary flex items-center justify-center me-[20px] h-[48px]"
+                  className="public-button public-button--icon flex items-center justify-center me-[20px] h-[48px]"
+                  aria-label="Previous articles"
                   disabled={!(articlePage > 1)}
                   onClick={() => {
                     if (articlePage > 1) {
@@ -145,11 +143,12 @@ const Articles = ({ embedded = false }) => {
                     iconName="ArrowLeft"
                     height="24px"
                     width="24px"
-                    fill="#8693A0"
+                    fill="currentColor"
                   />
                 </button>
                 <button
-                  className="prod-btn-lg prod-btn-secondary flex items-center justify-center h-[48px]"
+                  className="public-button public-button--icon flex items-center justify-center h-[48px]"
+                  aria-label="Next articles"
                   disabled={!(articlePage < maxArticlePage)}
                   onClick={() => {
                     if (articlePage < maxArticlePage) {
@@ -161,7 +160,7 @@ const Articles = ({ embedded = false }) => {
                     iconName="ArrowRight"
                     height="24px"
                     width="24px"
-                    fill="#8693A0"
+                    fill="currentColor"
                   />
                 </button>
               </div>
@@ -172,58 +171,18 @@ const Articles = ({ embedded = false }) => {
   );
 
   const previewModal = previewContent && (
-    <PublicFullscreenModal
-      ariaLabel={`Preview: ${previewContent.articleTitle}`}
-      onClose={() => setPreviewContent(null)}
-      panelClassName="public-media-modal"
-    >
-            <div className="public-media-modal__media">
-              {previewMediaSource && isPreviewVideo ? (
-                <video src={previewMediaSource} controls autoPlay />
-              ) : previewMediaSource ? (
-                <img
-                  src={previewMediaSource}
-                  alt={previewContent.articleTitle}
-                />
-              ) : (
-                <div className="article-preview-empty">
-                  <Icon
-                    iconName="Document"
-                    height="48px"
-                    width="48px"
-                    fill="#32418C"
-                  />
-                  <p>Preview is unavailable.</p>
-                </div>
-              )}
-            </div>
-            <div className="public-media-modal__caption">
-              <p>{previewContent.articleTitle}</p>
-              {previewContent.resourceType === "infographic" &&
-                previewMediaSource && (
-                  <a
-                    href={previewMediaSource}
-                    download={previewFilename}
-                    className="prod-btn-lg prod-btn-secondary article-preview-download"
-                  >
-                    <span>Download</span>
-                    <Icon
-                      iconName="Download"
-                      height="20px"
-                      width="20px"
-                      fill="#8693A0"
-                    />
-                  </a>
-                )}
-            </div>
-    </PublicFullscreenModal>
+    <MediaViewer article={previewContent} onClose={() => setPreviewContent(null)} />
   );
 
   if (embedded) {
-    return <div className="article-layout one-page-section">{content}{previewModal}</div>;
+    return <div className="article-layout one-page-section hl-articles public-buttons">{content}{previewModal}</div>;
   }
 
-  return <div className="article-layout"><HomeNavbar />{content}<HomeFooter />{previewModal}</div>;
+  return <div className="article-layout hl-articles public-buttons"><HomeNavbar />{content}<HomeFooter />{previewModal}</div>;
 };
+
+const Articles = (props) => (
+  <ArticleMediaProvider><ArticlesContent {...props} /></ArticleMediaProvider>
+);
 
 export default Articles;

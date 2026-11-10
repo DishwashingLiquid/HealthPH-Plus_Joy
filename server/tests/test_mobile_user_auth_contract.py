@@ -90,6 +90,16 @@ class MobileUserAuthContractTests(unittest.TestCase):
             ))
         self.assertEqual(other_user.exception.status_code, 403)
 
+    def test_existing_credential_verifier_supports_comment_adapter_without_mutation(self):
+        # Website comments reuse these canonical helpers rather than a new password scheme.
+        password = "ExistingPassword1"
+        for field in ("passwordHash", "password"):
+            encoded = mobile._hash_pbkdf2_secret(password)
+            user = {field: encoded}
+            self.assertTrue(mobile._verify_password(password, mobile._stored_password_hash(user)))
+            self.assertFalse(mobile._verify_password("wrong", mobile._stored_password_hash(user)))
+            self.assertEqual(user, {field: encoded})
+
 
 if __name__ == "__main__":
     unittest.main()

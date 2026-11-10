@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="1800" viewBox="0 0 600 1800">
+  <rect width="600" height="1800" fill="#F7F9FC"/><rect width="600" height="180" fill="#003874"/>
+  <text x="40" y="100" fill="white" font-family="sans-serif" font-size="34">Tall image test fixture</text>
+  <path d="M70 250h460M70 800h460M70 1400h460" stroke="#DBB324" stroke-width="12"/>
+  <g fill="#003874" font-family="sans-serif" font-size="30"><text x="70" y="350">Top of image</text><text x="70" y="950">Middle of image</text><text x="70" y="1720">Bottom of image</text></g>
+</svg>

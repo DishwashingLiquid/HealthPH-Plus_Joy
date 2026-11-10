@@ -15,7 +15,13 @@ import {
 } from "../../../../features/api/healthLiteracyHubSlice";
 import { ContentGrid } from "./ContentCards";
 import { ContentFormBody } from "./ContentFormBody";
-import ContentMediaPreviewBody from "./ContentMediaPreviewBody";
+import { createGalleryImageId, galleryValidationError } from "./contentGallery";
+import MediaViewer from "../../../../components/health-literacy/MediaViewers";
+import { ArticleMediaProvider } from "../../../../components/about-us/ArticleMedia";
+import { normalizeDashboardContent } from "../../../../utils/healthLiteracyWebsiteContent";
+import { stopCardPreviews } from "../../../../utils/healthLiteracyMedia";
+import CommentModeration from "./CommentModeration";
+import "../../../../assets/css/health-literacy.css";
 import {
   downloadMediaFile,
   getVideoFileDuration,
@@ -86,14 +92,21 @@ const ContentTab = ({ contentTypeLabel }) => {
   useEffect(() => {
     setFormData((previous) => {
       const fresh = fetchedContent.find((item) => item.id === editingContent?.id);
-      if (!fresh || previous.media || previous.removeMedia) return previous;
-      return { ...previous, existingMedia: fresh.media,
-        mediaPreview: getContentMediaSource(fresh.media) || null };
+      if (!fresh) return previous;
+      return { ...previous,
+        ...(!previous.media && !previous.removeMedia ? { existingMedia: fresh.media,
+          mediaPreview: getContentMediaSource(fresh.media) || null } : {}),
+        galleryImages: (previous.galleryImages || []).map((image) => {
+          const media = fresh.galleryImages?.find((entry) => entry.id === image.id)?.media
+            || (image.id === `main-${fresh.media?.fileId}` ? fresh.media : null);
+          return media && !image.file ? { ...image, media } : image;
+        }),
+      };
     });
     setSelectedMediaContent((previous) => {
       if (!previous) return previous;
       const fresh = fetchedContent.find((item) => item.id === previous.item?.id);
-      return fresh ? { ...previous, media: fresh.media, item: { ...previous.item, media: fresh.media } } : previous;
+      return fresh ? { ...previous, media: fresh.media, item: { ...previous.item, ...fresh } } : previous;
     });
   }, [fetchedContent, editingContent?.id]);
 
@@ -142,15 +155,12 @@ const ContentTab = ({ contentTypeLabel }) => {
     if (item.contentOrigin !== "api") return;
 
     setEditingContent(item);
-    setFormData(createEditFormData({ item }));
+    setFormData(createEditFormData({ item, contentTypeLabel }));
     setIsEditModalOpen(true);
   };
 
   const handleMediaPreviewClick = (item) => {
-    if (!getContentMediaSource(item.media) && contentTypeLabel !== "Infographics") {
-      return;
-    }
-
+    stopCardPreviews();
     createHealthLiteracyAnalyticsEvent({
       eventType: "content_opened",
       contentId: item.id ? String(item.id) : undefined,
@@ -202,7 +212,7 @@ const ContentTab = ({ contentTypeLabel }) => {
   };
 
   const handleDownloadClick = (item) => {
-    const mediaSource = getContentMediaSource(item.media);
+    const mediaSource = getContentMediaSource(item.media) || item.imageUrl;
 
     if (!mediaSource) {
       showToast({
@@ -220,7 +230,7 @@ const ContentTab = ({ contentTypeLabel }) => {
   };
 
   const validateForm = () => {
-    const validationError = getContentFormValidationError(
+    const validationError = (contentTypeLabel === "Articles" && galleryValidationError(formData.galleryImages)) || getContentFormValidationError(
       formData,
       contentTypeLabel
     );
@@ -334,6 +344,13 @@ const ContentTab = ({ contentTypeLabel }) => {
 
   const setMediaFile = async (file) => {
     if (!file) return;
+    if (contentTypeLabel === "Articles" && file.type.startsWith("image/")) {
+      const galleryImages = [...(formData.galleryImages || []), { id: createGalleryImageId(), file, caption: "", alt: "" }];
+      const error = galleryValidationError(galleryImages);
+      if (error) showToast({ iconName: "Error", color: "destructive", message: error });
+      else setFormData((previous) => ({ ...previous, galleryImages }));
+      return;
+    }
 
     if (!isAllowedMediaType(file, contentTypeLabel)) {
       showToast({
@@ -422,7 +439,8 @@ const ContentTab = ({ contentTypeLabel }) => {
   });
 
   return (
-    <>
+    <div className="hl-hub">
+      <CommentModeration />
       <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
         <div className="flex flex-col gap-[14px] xl:flex-row xl:items-start xl:justify-between">
           <div>
@@ -492,6 +510,7 @@ const ContentTab = ({ contentTypeLabel }) => {
             onRemoveThumbnail={handleRemoveThumbnail}
             onMediaDrop={handleMediaDrop}
             onRemoveMedia={handleRemoveMedia}
+            onGalleryChange={(galleryImages) => setFormData((previous) => ({ ...previous, galleryImages }))}
           />
         </ModalWithBody>
       )}
@@ -518,6 +537,7 @@ const ContentTab = ({ contentTypeLabel }) => {
             onRemoveThumbnail={handleRemoveThumbnail}
             onMediaDrop={handleMediaDrop}
             onRemoveMedia={handleRemoveMedia}
+            onGalleryChange={(galleryImages) => setFormData((previous) => ({ ...previous, galleryImages }))}
             onDelete={() => setIsDeleteModalOpen(true)}
             onDeleteDisabled={isUpdatingContent || isDeletingContent}
           />
@@ -544,35 +564,23 @@ const ContentTab = ({ contentTypeLabel }) => {
       )}
 
       {selectedMediaContent && (
-        <ModalWithBody
-          onConfirm={() => setSelectedMediaContent(null)}
-          onConfirmLabel="Close"
-          onCancel={() => setSelectedMediaContent(null)}
-          heading={selectedMediaContent.title}
-          color="primary"
-          additionalClasses="health-literacy-content-modal admin-brand-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
-        >
-          <ContentMediaPreviewBody
-            item={selectedMediaContent.item}
-            title={selectedMediaContent.title}
-            description={selectedMediaContent.description}
-            media={selectedMediaContent.media}
-            contentType={selectedMediaContent.contentType}
-            tags={selectedMediaContent.tags}
-            viewCount={selectedMediaContent.viewCount}
-            uploadDate={selectedMediaContent.uploadDate}
-            publishToMobile={selectedMediaContent.publishToMobile}
-            publishToWebsite={selectedMediaContent.publishToWebsite}
-            canEdit={selectedMediaContent.canEdit}
-            onDownloadClick={handleDownloadClick}
-            onEditClick={(item) => {
-              setSelectedMediaContent(null);
-              handleEditClick(item);
-            }}
-          />
-        </ModalWithBody>
+        <ArticleMediaProvider>
+          <MediaViewer article={normalizeDashboardContent({ ...selectedMediaContent.item, contentType,
+            media: selectedMediaContent.media ? { ...selectedMediaContent.media, url: getContentMediaSource(selectedMediaContent.media) } : null,
+            thumbnail: selectedMediaContent.item.thumbnail ? { ...selectedMediaContent.item.thumbnail, url: getContentMediaSource(selectedMediaContent.item.thumbnail) } : null,
+            galleryImages: (selectedMediaContent.item.galleryImages || []).map((entry) => ({ ...entry,
+              media: { ...entry.media, url: getContentMediaSource(entry.media) } })),
+          })} onClose={() => setSelectedMediaContent(null)} dashboardActions={
+            <div className="hl-details"><p className="hl-meta">Website: {selectedMediaContent.publishToWebsite ? "Published" : "Unpublished"} · Mobile: {selectedMediaContent.publishToMobile ? "Published" : "Unpublished"}</p>
+              <p className="hl-meta">Website comments are managed in the moderation panel.</p>
+              {selectedMediaContent.canEdit && <button type="button" className="hl-button" onClick={() => {
+                const item = selectedMediaContent.item; setSelectedMediaContent(null); handleEditClick(item);
+              }}>Edit</button>}
+            </div>
+          } />
+        </ArticleMediaProvider>
       )}
-    </>
+    </div>
   );
 };
 

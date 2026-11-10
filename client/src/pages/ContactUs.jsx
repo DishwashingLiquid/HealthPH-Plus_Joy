@@ -10,6 +10,7 @@ import Input from "../components/Input";
 import { useSendContactUsMutation } from "../features/api/miscSlice";
 
 const ContactUs = ({ embedded = false }) => {
+  const Heading = embedded ? "h2" : "h1";
   const contactDetails = [
     {
       icon: "Mail",
@@ -148,11 +149,11 @@ const ContactUs = ({ embedded = false }) => {
   };
 
   const content = (
-    <section id={embedded ? "contact" : undefined} className={embedded ? "public-section public-content-section" : ""}>
+    <section className={embedded ? "public-section public-content-section" : ""}>
       <div className="contact-us-container flex-grow">
         <div className="contact-us-wrapper">
+          <Heading id={embedded ? "contact" : undefined} className={embedded ? "heading public-scroll-target" : "heading"}>Contact Us</Heading>
           {embedded && <p className="public-section-intro">Reach the HealthPH+ team, send a message, or find us on the map.</p>}
-          <p className="heading">Contact Us</p>
 
           {/* CONTACT US GRID */}
           <div className="contact-us-grid">
@@ -170,7 +171,7 @@ const ContactUs = ({ embedded = false }) => {
                   <div className="flex items-center justify-end">
                     <button
                       type="button"
-                      className=" prod-btn-base prod-btn-primary"
+                      className=" public-button"
                       onClick={() => setIsMessageSent(false)}
                     >
                       Send another message
@@ -277,7 +278,7 @@ const ContactUs = ({ embedded = false }) => {
                   <div className="flex items-center justify-end pt-[8px]">
                     <button
                       type="submit"
-                      className="prod-btn-base prod-btn-primary"
+                      className="public-button"
                       disabled={isLoading}
                     >
                       {isLoading ? "Sending..." : "Send Message"}
@@ -333,8 +334,8 @@ const ContactUs = ({ embedded = false }) => {
     </section>
   );
 
-  if (embedded) return <div className="contact-us-layout">{content}</div>;
+  if (embedded) return <div className="contact-us-layout public-buttons">{content}</div>;
 
-  return <div className="contact-us-layout flex flex-col min-h-[100vh]"><HomeNavbar />{content}<HomeFooter /></div>;
+  return <div className="contact-us-layout public-buttons flex flex-col min-h-[100vh]"><HomeNavbar />{content}<HomeFooter /></div>;
 };
 export default ContactUs;

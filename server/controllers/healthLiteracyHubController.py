@@ -11,6 +11,7 @@ from models.healthLiteracyHubAnalytics import HealthLiteracyAnalyticsEvent
 from helpers.miscHelpers import get_ph_datetime
 from config.database import analytics_events_collection, content_collection, user_collection
 from health_literacy_media import external_url, media_response, preview_authorized, public_api_base_url
+from controllers.health_literacy_hub.gallery import gallery_uploads, prepare_gallery, store_gallery
 from controllers.health_literacy_hub.analytics import (
     build_analytics_event_document,
     build_health_literacy_analytics_overview,
@@ -277,6 +278,8 @@ def create_health_literacy_content(
     explanation: Annotated[Optional[str], Form()] = "",
     file: Annotated[Optional[UploadFile], File()] = None,
     thumbnail: Annotated[Optional[UploadFile], File()] = None,
+    galleryImages: Annotated[Optional[str], Form()] = None,
+    gallery_files: dict = Depends(gallery_uploads),
 ):
     if content_type not in CONTENT_FILES:
         raise HTTPException(
@@ -352,15 +355,20 @@ def create_health_literacy_content(
 
     media = None
     uploaded_thumbnail = None
+    gallery = prepare_gallery(content_type, galleryImages, gallery_files)
+    new_gallery_media = []
     try:
         media = encode_media(content_type, file)
         uploaded_thumbnail = encode_media("infographics", thumbnail)
         new_content["media"] = media
         new_content["thumbnail"] = uploaded_thumbnail
+        new_content["galleryImages"] = store_gallery(gallery or [], gallery_files, encode_media, new_gallery_media)
         new_content = insert_content(content_type, new_content)
     except Exception:
         delete_media_file(content_type, media)
         delete_media_file(content_type, uploaded_thumbnail)
+        for uploaded in new_gallery_media:
+            delete_media_file(content_type, uploaded)
         raise
 
     return JSONResponse(
@@ -411,6 +419,8 @@ def update_health_literacy_content(
     removeThumbnail: Annotated[bool, Form()] = False,
     file: Annotated[Optional[UploadFile], File()] = None,
     thumbnail: Annotated[Optional[UploadFile], File()] = None,
+    galleryImages: Annotated[Optional[str], Form()] = None,
+    gallery_files: dict = Depends(gallery_uploads),
 ):
     if content_type not in CONTENT_FILES:
         raise HTTPException(
@@ -487,6 +497,8 @@ def update_health_literacy_content(
 
     new_media = None
     new_thumbnail = None
+    gallery = prepare_gallery(content_type, galleryImages, gallery_files, current_content)
+    new_gallery_media = []
     try:
         if file is not None:
             new_media = encode_media(content_type, file)
@@ -494,15 +506,22 @@ def update_health_literacy_content(
         if thumbnail is not None:
             new_thumbnail = encode_media("infographics", thumbnail)
             updated_content["thumbnail"] = new_thumbnail
+        if gallery is not None:
+            updated_content["galleryImages"] = store_gallery(gallery, gallery_files, encode_media, new_gallery_media)
         replace_content(current_content, updated_content)
     except Exception:
         delete_media_file(content_type, new_media)
         delete_media_file(content_type, new_thumbnail)
+        for uploaded in new_gallery_media:
+            delete_media_file(content_type, uploaded)
         raise
     if file is not None or removeMedia:
         delete_media_file(content_type, current_content.get("media"))
     if thumbnail is not None or removeThumbnail:
         delete_media_file(content_type, current_content.get("thumbnail"))
+    if gallery is not None:
+        for entry in current_content.get("galleryImages", []):
+            delete_media_file(content_type, entry.get("media"))
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
@@ -539,6 +558,8 @@ def delete_health_literacy_content(
     delete_content(deleted_content)
     delete_media_file(content_type, deleted_content.get("media"))
     delete_media_file(content_type, deleted_content.get("thumbnail"))
+    for entry in deleted_content.get("galleryImages", []):
+        delete_media_file(content_type, entry.get("media"))
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,

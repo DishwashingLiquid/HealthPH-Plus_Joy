@@ -1,5 +1,7 @@
 /* eslint-disable react/prop-types */
 import Icon from "../../../../components/Icon";
+import ArticleGalleryEditor from "./ArticleGalleryEditor";
+import ArticleAttachmentEditor from "./ArticleAttachmentEditor";
 import {
   FACT_CHECK_CLAIM_STATUS_OPTIONS,
   FACT_CHECK_VERIFIED_BY_OPTIONS,
@@ -9,7 +11,7 @@ import {
 const CONTENT_FORM_GUIDANCE = {
   Articles: {
     uploadNote:
-      "Optional. Upload an image, video, or PDF when the article should include a hosted asset in HealthPH.",
+      "Attach a video or PDF to your article.",
   },
   Videos: {
     uploadNote:
@@ -42,6 +44,7 @@ export const ContentFormBody = ({
   onRemoveThumbnail,
   onMediaDrop,
   onRemoveMedia,
+  onGalleryChange,
   onDelete,
   onDeleteDisabled = false,
 }) => {
@@ -257,7 +260,10 @@ export const ContentFormBody = ({
           />
         </div>
       </div>
-      <div>
+      {contentTypeLabel === "Articles" ? <>
+        <ArticleGalleryEditor images={formData.galleryImages} onChange={onGalleryChange} mode={mode} />
+        <ArticleAttachmentEditor formData={formData} mode={mode} onMediaChange={onMediaChange} onRemoveMedia={onRemoveMedia} />
+      </> : <div>
         <label className="mb-[8px] block text-[14px] font-medium text-gray-800">
           {uploadRule.label}
         </label>
@@ -341,7 +347,7 @@ export const ContentFormBody = ({
             Remove file
           </button>
         )}
-      </div>
+      </div>}
       {contentTypeLabel === "Videos" && (
         <div>
           <label htmlFor={`health-literacy-thumbnail-${mode}`} className="mb-[8px] block text-[14px] font-medium text-gray-800">

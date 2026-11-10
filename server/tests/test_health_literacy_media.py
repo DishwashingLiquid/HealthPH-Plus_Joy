@@ -109,6 +109,16 @@ class HubMediaTests(unittest.TestCase):
         self.assertEqual(preview.content, PNG)
         self.assertEqual(preview.headers["cache-control"], "private, no-store")
 
+    def test_public_discussion_routes_do_not_shadow_media_or_dashboard_content(self):
+        item = self.create(data={"publishToWebsite": "true"}).json()["content"]
+        response = self.client.get("/api/health-literacy-hub/comments", params={
+            "contentId": item["id"], "contentType": "infographics", "contentOrigin": "api"})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json(), {"items": [], "nextCursor": None})
+        self.assertEqual(self.client.get(self.media_path(item)).status_code, 200)
+        self.assertEqual(self.client.get("/api/health-literacy-hub/infographics").status_code, 401)
+        self.assertEqual(self.client.get("/api/health-literacy-hub/comments/moderation/queue").status_code, 401)
+
     def test_upload_requires_admin_and_valid_fields_before_storage(self):
         self.assertEqual(self.create(auth=False).status_code, 401)
         self.assertEqual(self.create(data={"language": "unsupported"}).status_code, 400)
@@ -344,6 +354,174 @@ class HubMediaTests(unittest.TestCase):
         self.assertTrue(self.store.fs.exists(ObjectId(recent["fileId"])))
         self.assertFalse(self.store.fs.exists(ObjectId(orphan["fileId"])))
         self.assertEqual(self.store.chunks.count_documents({"files_id": partial_id}), 0)
+
+    def gallery_request(self, *, item=None, entries=None, files=None, data=None, kind="articles"):
+        fields = {"title": "Gallery", "description": "Image descriptions", "language": "en", **(data or {})}
+        if entries is not None:
+            fields["galleryImages"] = json.dumps(entries)
+        path = f"/api/health-literacy-hub/{kind}" + (f"/{item['id']}" if item else "")
+        return self.client.request("PUT" if item else "POST", path, data=fields, files=files, headers=self.auth)
+
+    def create_gallery(self, **kwargs):
+        response = self.gallery_request(entries=[
+            {"id": "first", "caption": "First caption", "alt": "First description"},
+            {"id": "second", "caption": "Second caption", "alt": "Second description"}],
+            files=[("galleryFile_second", ("same.png", PNG + b"second", "image/png")),
+                   ("galleryFile_first", ("same.png", PNG, "image/png"))], **kwargs)
+        self.assertEqual(response.status_code, 201, response.text)
+        return response.json()["content"]
+
+    @staticmethod
+    def gallery_metadata(item):
+        return [{"id": entry["id"], "fileId": entry["media"]["fileId"],
+                 "caption": entry["caption"], "alt": entry["alt"]} for entry in item["galleryImages"]]
+
+    def test_gallery_duplicate_filenames_reorder_caption_only_and_legacy_omission(self):
+        item = self.create_gallery()
+        first, second = item["galleryImages"]
+        self.assertNotEqual(first["media"]["fileId"], second["media"]["fileId"])
+        self.assertEqual(self.client.get(first["media"]["previewUrl"]).content, PNG)
+        self.assertEqual(self.client.get(second["media"]["previewUrl"]).content, PNG + b"second")
+        entries = list(reversed(self.gallery_metadata(item)))
+        entries[0]["caption"] = "Edited without uploading"
+        entries[0]["alt"] = "Accessible description"
+        response = self.gallery_request(item=item, entries=entries)
+        self.assertEqual(response.status_code, 200, response.text)
+        reopened = self.client.get("/api/health-literacy-hub/articles", headers=self.auth).json()[0]
+        self.assertEqual(self.gallery_metadata(reopened), entries)
+        self.assertEqual(self.gallery_request(item=item).status_code, 200)
+        self.assertEqual(self.db.content.find_one({})["galleryImages"][0]["caption"], "Edited without uploading")
+        self.assertEqual(self.store.files.count_documents({}), 2)
+
+    def test_gallery_add_replace_remove_and_delete(self):
+        item = self.create_gallery()
+        entries = self.gallery_metadata(item)
+        entries.append({"id": "third", "caption": "Third", "alt": ""})
+        response = self.gallery_request(item=item, entries=entries, files=[
+            ("galleryFile_third", ("same.png", PNG + b"third", "image/png")),
+            ("galleryFile_first", ("same.png", PNG + b"replacement", "image/png"))])
+        self.assertEqual(response.status_code, 200, response.text)
+        updated = response.json()["content"]
+        self.assertEqual(updated["galleryImages"][0]["caption"], "First caption")
+        self.assertFalse(self.store.fs.exists(ObjectId(item["galleryImages"][0]["media"]["fileId"])))
+        self.assertEqual(self.store.files.count_documents({}), 3)
+        self.assertEqual(self.gallery_request(item=item, entries=self.gallery_metadata(updated)[1:]).status_code, 200)
+        self.assertEqual(self.store.files.count_documents({}), 2)
+        self.assertEqual(self.gallery_request(item=item, entries=[]).status_code, 200)
+        self.assertEqual(self.store.files.count_documents({}), 0)
+        self.assertEqual(self.client.delete(f"/api/health-literacy-hub/articles/{item['id']}", headers=self.auth).status_code, 200)
+        self.assertEqual(self.store.files.count_documents({}), 0)
+
+    def test_gallery_public_contracts_visibility_and_orphan_protection(self):
+        item = self.create_gallery()
+        media = item["galleryImages"][0]["media"]
+        self.assertEqual(self.client.get(media["url"]).status_code, 404)
+        self.assertEqual(self.client.get(media["previewUrl"]).status_code, 200)
+        old = datetime.now(timezone.utc) - timedelta(days=2)
+        self.store.files.update_many({}, {"$set": {"uploadDate": old}})
+        self.assertEqual(self.store.orphan_report(apply=True)["deleted"], 0)
+        self.assertFalse(self.store.delete_unreferenced(media))
+        self.gallery_request(item=item, data={"publishToWebsite": True, "publishToMobile": True})
+        for path in ("/api/health-literacy-hub/mobile", "/api/health-literacy-hub/website",
+                     "/api/health-literacy/mobile"):
+            result = self.client.get(path).json()
+            public = result[0] if isinstance(result, list) else result["items"][0]
+            self.assertEqual(self.gallery_metadata(public), self.gallery_metadata(item))
+            self.assertNotIn("previewUrl", public["galleryImages"][0]["media"])
+        self.assertEqual(self.client.get(media["url"]).content, PNG)
+        for fields in ({"isArchived": True}, {"isArchived": False, "isPublished": False},
+                       {"isPublished": True, "publishToMobile": False, "publishToWebsite": False}):
+            self.db.content.update_one({}, {"$set": fields})
+            self.assertEqual(self.client.get(media["url"]).status_code, 404)
+
+    def test_gallery_references_cannot_be_stolen_or_reassigned(self):
+        item = self.create_gallery()
+        entries = self.gallery_metadata(item)
+        self.assertEqual(self.gallery_request(entries=entries).status_code, 400)
+        entries[0]["fileId"], entries[1]["fileId"] = entries[1]["fileId"], entries[0]["fileId"]
+        self.assertEqual(self.gallery_request(item=item, entries=entries).status_code, 400)
+        self.assertEqual(self.store.files.count_documents({}), 2)
+
+    def test_gallery_validation_limits_and_partial_upload_failure(self):
+        for raw in ("{}", "null", "bad json", json.dumps([{"id": "a"}] * 11)):
+            response = self.gallery_request(data={"galleryImages": raw})
+            self.assertEqual(response.status_code, 400, response.text)
+        for entry in ({"id": "a", "caption": "c" * 1001}, {"id": "a", "alt": "a" * 501},
+                      {"id": "bad/id"}, {"id": "a", "caption": {} }):
+            self.assertEqual(self.gallery_request(entries=[entry]).status_code, 400)
+        self.assertEqual(self.gallery_request(entries=[{"id": "a"}, {"id": "a"}],
+            files={"galleryFile_a": ("a.png", PNG, "image/png")}).status_code, 400)
+        self.assertEqual(self.gallery_request(entries=[{"id": "a"}],
+            files={"galleryFile_other": ("a.png", PNG, "image/png")}).status_code, 400)
+        self.assertEqual(self.gallery_request(entries=[], kind="videos").status_code, 400)
+        for binary, mime in ((b"<svg/>", "image/svg+xml"), (VIDEO, "video/mp4"),
+                             (b"not png", "image/png"), (b"", "image/png")):
+            self.assertEqual(self.gallery_request(entries=[{"id": "a"}], files={
+                "galleryFile_a": ("same.png", binary, mime)}).status_code, 400)
+        with patch("health_literacy_media.IMAGE_LIMIT", 20):
+            self.assertEqual(self.gallery_request(entries=[{"id": "a"}], files={
+                "galleryFile_a": ("a.png", PNG, "image/png")}).status_code, 413)
+        with patch("controllers.health_literacy_hub.gallery.GALLERY_BYTES_LIMIT", 20):
+            self.assertEqual(self.gallery_request(entries=[{"id": "a"}], files={
+                "galleryFile_a": ("a.png", PNG, "image/png")}).status_code, 413)
+        response = self.gallery_request(entries=[{"id": "a"}, {"id": "b"}], files=[
+            ("galleryFile_a", ("a.png", PNG, "image/png")),
+            ("galleryFile_b", ("a.png", b"bad signature", "image/png"))])
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.store.files.count_documents({}), 0)
+        self.assertEqual(self.store.chunks.count_documents({}), 0)
+        self.assertEqual(self.db.content.count_documents({}), 0)
+
+    def test_gallery_request_size_limit_with_and_without_content_length(self):
+        with patch("controllers.health_literacy_hub.gallery.REQUEST_LIMIT", 100):
+            response = self.gallery_request(entries=[{"id": "a"}], files={
+                "galleryFile_a": ("a.png", PNG, "image/png")})
+            self.assertEqual(response.status_code, 413)
+            # Streaming request has no Content-Length; count actual received bytes.
+            response = self.client.post("/api/health-literacy-hub/articles", headers={
+                **self.auth, "Content-Type": "application/x-www-form-urlencoded"},
+                content=iter([b"title=" + b"a" * 150]))
+            self.assertEqual(response.status_code, 413, response.text)
+        self.assertEqual(self.store.files.count_documents({}), 0)
+
+    def test_gallery_save_failure_and_ambiguous_commit_preserve_files(self):
+        item = self.create_gallery()
+        before = self.db.content.find_one({})
+        entries = self.gallery_metadata(item)
+        files = {"galleryFile_first": ("same.png", PNG + b"replacement", "image/png")}
+        with patch.object(self.controller, "replace_content", side_effect=RuntimeError("failed save")):
+            with self.assertRaises(RuntimeError):
+                self.gallery_request(item=item, entries=entries, files=files)
+        self.assertEqual(self.db.content.find_one({}), before)
+        self.assertEqual(self.store.files.count_documents({}), 2)
+        replace = self.controller.replace_content
+        def committed_then_disconnected(original, updated):
+            replace(original, updated)
+            raise RuntimeError("Disconnected after commit")
+        with patch.object(self.controller, "replace_content", side_effect=committed_then_disconnected):
+            with self.assertRaises(RuntimeError):
+                self.gallery_request(item=item, entries=entries, files=files)
+        committed = self.db.content.find_one({})
+        self.store.verify(committed["galleryImages"][0]["media"])
+        self.assertEqual(self.store.files.count_documents({}), 3)
+        self.store.orphan_report(apply=True, now=datetime.now(timezone.utc) + timedelta(days=2))
+        self.assertEqual(self.store.files.count_documents({}), 2)
+
+    def test_gallery_legacy_main_image_conversion_and_pdf_preservation(self):
+        item = self.create(kind="articles").json()["content"]
+        media = item["media"]
+        response = self.gallery_request(item=item, entries=[{"id": f"main-{media['fileId']}",
+            "fileId": media["fileId"], "caption": "Added to existing image", "alt": "A description"}],
+            data={"removeMedia": True})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertIsNone(response.json()["content"]["media"])
+        self.assertEqual(self.store.files.count_documents({}), 1)
+        self.store.verify(media)
+        pdf = self.create(kind="articles", mime="application/pdf", binary=b"%PDF-1.7\nfixture").json()["content"]
+        response = self.gallery_request(item=pdf, entries=[{"id": "photo", "caption": "Image beside PDF"}],
+            files={"galleryFile_photo": ("a.png", PNG, "image/png")})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["content"]["media"]["fileId"], pdf["media"]["fileId"])
 
     def seed_legacy(self, *, data_url=False):
         folder = self.root / "media" / "infographics"

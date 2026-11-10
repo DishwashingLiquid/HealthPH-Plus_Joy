@@ -3,6 +3,7 @@ from typing import Optional
 
 from fastapi import HTTPException, status
 from health_literacy_media import external_url, serialize_media
+from .gallery import serialize_gallery
 
 from .constants import (
     ANALYTICS_CONTENT_LABELS,
@@ -51,6 +52,7 @@ def serialize_content_document(document: dict, admin_id=None) -> dict:
     serialized_document = dict(document)
     serialized_document["media"] = serialize_media(document.get("media"), admin_id)
     serialized_document["thumbnail"] = serialize_media(document.get("thumbnail"), admin_id)
+    serialized_document["galleryImages"] = serialize_gallery(document, admin_id)
     for key in ("imageUrl", "mediaUrl", "externalUrl"):
         try:
             serialized_document[key] = external_url(document.get(key))
@@ -281,6 +283,7 @@ def serialize_mobile_contract_content(document: dict) -> dict:
         "imageUrl": image_url,
         "mediaUrl": media_url,
         "media": serialized_document.get("media"),
+        "galleryImages": serialized_document["galleryImages"],
         "claim": str(document.get("claim") or "").strip() or None,
         "verdict": normalize_mobile_verdict(document)
         if mobile_content_type == "fact_check"

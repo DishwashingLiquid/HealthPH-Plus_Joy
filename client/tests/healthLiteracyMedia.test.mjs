@@ -20,6 +20,7 @@ const load = (path) => {
 const shared = load("../src/pages/admin/healthLiteracyHub/shared.js");
 const helpers = load("../src/pages/admin/healthLiteracyHub/content/contentTabModalHelpers.js");
 const website = load("../src/utils/healthLiteracyWebsiteContent.js");
+const gallery = load("../src/pages/admin/healthLiteracyHub/content/contentGallery.js");
 const url = "https://api.example.test/api/health-literacy-hub/media/abc";
 const previewUrl = `${url}?preview=scoped-token`;
 
@@ -80,4 +81,132 @@ test("video edit uploads a separate poster without sending generated GridFS URLs
   assert.equal(data.get("thumbnail").size, 6);
   assert.equal(data.get("imageUrl"), "");
   assert.equal(data.get("mediaUrl"), "");
+});
+
+test("gallery edits and reordering associate captions and uploads by ID despite identical filenames", () => {
+  const saved = [{ id: "one", media: { fileId: "file-one", filename: "same.png", url, previewUrl }, caption: "First", alt: "First alt" },
+    { id: "two", media: { fileId: "file-two", filename: "same.png", url: `${url}2` }, caption: "Second", alt: "Second alt" }];
+  const form = helpers.createEditFormData({ item: { title: "Gallery", description: "Description", galleryImages: saved }, contentTypeLabel: "Articles" });
+  form.galleryImages = gallery.moveGalleryImage(form.galleryImages, "two", -1);
+  assert.deepEqual(form.galleryImages.map(({ id, caption }) => [id, caption]), [["two", "Second"], ["one", "First"]]);
+  form.galleryImages[0] = { ...form.galleryImages[0], caption: "Edited without reuploading" };
+  let data = helpers.buildContentFormPayload({ formData: form, contentTypeLabel: "Articles" });
+  assert.deepEqual(JSON.parse(data.get("galleryImages")), [
+    { id: "two", fileId: "file-two", caption: "Edited without reuploading", alt: "Second alt" },
+    { id: "one", fileId: "file-one", caption: "First", alt: "First alt" }]);
+  assert.equal(data.has("galleryFile_two"), false);
+  form.galleryImages[1] = { ...form.galleryImages[1], file: new File(["new bytes"], "same.png", { type: "image/png" }) };
+  form.galleryImages.push({ id: "three", file: new File(["third"], "same.png", { type: "image/png" }), caption: "Third", alt: "" });
+  data = helpers.buildContentFormPayload({ formData: form, contentTypeLabel: "Articles" });
+  assert.equal(data.get("galleryFile_one").name, "same.png");
+  assert.equal(data.get("galleryFile_three").name, "same.png");
+  assert.equal(JSON.parse(data.get("galleryImages"))[1].caption, "First");
+  assert.equal(JSON.parse(data.get("galleryImages"))[1].fileId, undefined);
+  form.galleryImages = form.galleryImages.filter(({ id }) => id !== "two");
+  data = helpers.buildContentFormPayload({ formData: form, contentTypeLabel: "Articles" });
+  assert.deepEqual(JSON.parse(data.get("galleryImages")).map(({ id }) => id), ["one", "three"]);
+  assert.equal(gallery.moveGalleryImage(saved, "one", -1), saved);
+  assert.equal(gallery.galleryValidationError(Array(11).fill({})), "An article supports at most 10 gallery images");
+  assert.match(gallery.galleryValidationError([{ caption: "c".repeat(1001) }]), /1000/);
+  assert.match(gallery.galleryValidationError([{ file: { type: "image/svg+xml", size: 10 } }]), /JPG/);
+  assert.match(gallery.galleryValidationError([{ file: { type: "image/png", size: 26 * 1024 ** 2 } }]), /26.2 MB/);
+});
+
+test("existing article image can gain a caption without a new upload; other content retains its main image", () => {
+  const item = { title: "Existing", media: { fileId: "file-one", contentType: "image/png", url, previewUrl }, imageUrl: url };
+  const form = helpers.createEditFormData({ item, contentTypeLabel: "Articles" });
+  assert.equal(form.removeMedia, true);
+  assert.equal(form.existingMedia, null);
+  assert.equal(form.galleryImages[0].id, "main-file-one");
+  form.galleryImages[0].caption = "New caption";
+  const data = helpers.buildContentFormPayload({ formData: form, contentTypeLabel: "Articles", includeRemoveMedia: true });
+  assert.equal(data.get("removeMedia"), "true");
+  assert.equal(data.get("imageUrl"), "");
+  assert.equal(data.has("galleryFile_main-file-one"), false);
+  assert.equal(helpers.createEditFormData({ item, contentTypeLabel: "Infographics" }).existingMedia, item.media);
+});
+
+test("decorative images save empty alternative text while preserving captions and unsaved descriptions", () => {
+  const item = { title: "Images", galleryImages: [
+    { id: "one", media: { fileId: "one" }, caption: "Visible caption", alt: "An informative image" },
+    { id: "two", media: { fileId: "two" }, caption: "", alt: "" },
+  ] };
+  const form = helpers.createEditFormData({ item, contentTypeLabel: "Articles" });
+  assert.equal(form.galleryImages[0].decorative, false);
+  assert.equal(form.galleryImages[1].decorative, true);
+  form.galleryImages[0].decorative = true;
+  let entries = JSON.parse(helpers.buildContentFormPayload({ formData: form, contentTypeLabel: "Articles" }).get("galleryImages"));
+  assert.equal(entries[0].alt, "");
+  assert.equal(entries[0].caption, "Visible caption");
+  assert.equal(form.galleryImages[0].alt, "An informative image");
+  const reopened = helpers.createEditFormData({ item: { ...item, galleryImages: entries.map((entry) => ({ ...entry, media: { fileId: entry.fileId } })) }, contentTypeLabel: "Articles" });
+  assert.equal(reopened.galleryImages[0].decorative, true);
+  form.galleryImages[0].decorative = false;
+  entries = JSON.parse(helpers.buildContentFormPayload({ formData: form, contentTypeLabel: "Articles" }).get("galleryImages"));
+  assert.equal(entries[0].alt, "An informative image");
+});
+
+const mediaBehavior = load("../src/utils/healthLiteracyMedia.js");
+
+test("attachments distinguish absence, real MIME types, providers and unsupported data", () => {
+  const kind = mediaBehavior.attachmentKind;
+  assert.equal(kind(""), "missing");
+  assert.equal(kind(url, "application/pdf"), "pdf");
+  assert.equal(kind(url, "image/png"), "image");
+  assert.equal(kind(url, "video/mp4"), "video");
+  assert.equal(kind("https://www.youtube.com/watch?v=abc", "video/mp4"), "provider");
+  assert.equal(kind("https://vimeo.com/123", "video/mp4"), "provider");
+  assert.equal(kind("javascript:alert(1)"), "unsupported");
+  assert.equal(kind(url, "application/zip"), "unsupported");
+});
+
+const previewHarness = () => {
+  let sequence = 0;
+  const tasks = new Map();
+  const video = { src: "", pauses: 0, loads: 0, plays: 0, muted: false,
+    pause() { this.pauses++; }, load() { this.loads++; },
+    removeAttribute() { this.src = ""; }, async play() { this.plays++; } };
+  const visible = [];
+  let allowed = true;
+  const controller = mediaBehavior.createHoverPreview({ video, src: url,
+    allowed: () => allowed, show: (value) => visible.push(value),
+    delay: (fn, ms) => { const id = ++sequence; tasks.set(id, { fn, ms }); return id; }, cancel: (id) => tasks.delete(id),
+  });
+  return { video, visible, controller, tasks, disallow: () => { allowed = false; },
+    tick: async (ms) => { for (const [id, task] of [...tasks]) if (task.ms === ms) { tasks.delete(id); await task.fn(); } } };
+};
+
+test("hover loads on demand after 500ms, stops after six seconds and releases the source", async () => {
+  const h = previewHarness();
+  h.controller.start();
+  assert.equal(h.video.src, ""); assert.equal(h.video.plays, 0);
+  await h.tick(500);
+  assert.equal(h.video.src, url); assert.equal(h.video.muted, true); assert.equal(h.video.plays, 1);
+  await h.tick(6000);
+  assert.equal(h.video.src, ""); assert.equal(h.visible.at(-1), false);
+  h.controller.start(); h.controller.stop(); await h.tick(500);
+  assert.equal(h.video.plays, 1); // Pointer exit cancels intent timer.
+});
+
+test("only one preview runs and visibility/reduced-motion gating prevents playback", async () => {
+  const first = previewHarness(), second = previewHarness();
+  first.controller.start(); await first.tick(500);
+  second.controller.start();
+  assert.equal(first.video.src, "");
+  await second.tick(500); assert.equal(second.video.plays, 1);
+  mediaBehavior.stopCardPreviews(); assert.equal(second.video.src, "");
+  second.disallow(); second.controller.start(); await second.tick(500);
+  assert.equal(second.video.plays, 1);
+});
+
+test("blocked and late preview playback retain the poster without reviving an exited card", async () => {
+  const h = previewHarness();
+  h.video.play = () => Promise.reject(new Error("blocked"));
+  h.controller.start(); await h.tick(500);
+  assert.equal(h.video.src, ""); assert.equal(h.visible.at(-1), false);
+  let resolve;
+  h.video.play = () => new Promise((done) => { resolve = done; });
+  h.controller.start(); const pending = h.tick(500);
+  h.controller.stop(); resolve(); await pending;
+  assert.equal(h.visible.at(-1), false);
 });

@@ -5,7 +5,7 @@ import "../assets/css/auth.css";
 const AuthLayout = () => {
   return (
     <>
-      <div className="auth-layout">
+      <div className="auth-layout internal-buttons">
         <main>
           <div className="auth-container">
             <Outlet />

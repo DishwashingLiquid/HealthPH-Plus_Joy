@@ -1,5 +1,6 @@
 /* eslint-disable react/prop-types */
-import { useEffect, useState } from "react";
+import VideoCardPreview from "../../../../components/health-literacy/VideoCardPreview";
+import { attachmentKind, GENERIC_ARTICLE_THUMBNAIL } from "../../../../utils/healthLiteracyMedia";
 import Icon from "../../../../components/Icon";
 import {
   getContentDownloadCount,
@@ -7,7 +8,6 @@ import {
   getContentMediaSource,
   getContentViewCount,
   formatNumber,
-  formatVideoDuration,
 } from "../shared";
 
 export const ContentGrid = ({
@@ -92,7 +92,7 @@ const ContentCard = ({
 }) => {
   const media = item.media;
   const mediaType = media?.contentType ?? "";
-  const mediaSource = getContentMediaSource(media);
+  const mediaSource = getContentMediaSource(media) || (item.contentType === "Videos" ? item.mediaUrl : item.imageUrl) || "";
   const hasPreviewMedia = Boolean(mediaSource);
   const isArticle = item.contentType === "Articles";
   const isVideo = item.contentType === "Videos";
@@ -108,6 +108,7 @@ const ContentCard = ({
         canEdit={canEdit}
         onEditClick={onEditClick}
         onShareClick={onShareClick}
+        onMediaClick={onMediaClick}
       />
     );
   }
@@ -277,239 +278,54 @@ const ContentCard = ({
   );
 };
 
-const InfographicContentCard = ({
-  item,
-  canEdit,
-  mediaType,
-  mediaSource,
-  hasPreviewMedia,
-  onMediaClick,
-  onEditClick,
-  onDownloadClick,
-}) => {
-  const openPreview = () => onMediaClick(item);
-
-  const handleKeyDown = (event) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-
-    event.preventDefault();
-    openPreview();
-  };
-
-  const handleDownloadClick = (event) => {
-    event.stopPropagation();
-    onDownloadClick(item);
-  };
-
-  const handleEditClick = (event) => {
-    event.stopPropagation();
-    onEditClick(item);
-  };
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={openPreview}
-      onKeyDown={handleKeyDown}
-      className="grid h-[360px] w-full cursor-pointer grid-rows-[2fr_1fr] overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-white text-left transition-shadow hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#6A8EB5] focus:ring-offset-2"
-      aria-label={`Open ${item.title} infographic preview`}
-    >
-      <div className="flex min-h-0 w-full items-center justify-center overflow-hidden bg-[#F8FAFC] p-[8px]">
-        {mediaSource && mediaType.startsWith("image/") ? (
-          <img
-            src={mediaSource}
-            alt={item.title}
-            className="h-full w-full object-contain"
-          />
-        ) : (
-          <Icon
-            iconName="Image"
-            height="64px"
-            width="64px"
-            fill="#FFFFFF"
-            opacity="0.5"
-          />
-        )}
-      </div>
-
-      <div className="flex min-h-0 flex-col justify-between overflow-hidden p-[14px]">
-        <h3 className="line-clamp-2 text-left text-[16px] font-semibold leading-[22px] text-gray-800">
-          {item.title}
-        </h3>
-
-        <div className="mt-[10px] flex min-h-[32px] items-center justify-between gap-[10px]">
-          <span className="min-w-0 text-left text-[12px] font-semibold text-gray-600">
-            Downloads: {formatNumber(getContentDownloadCount(item))}
-          </span>
-          <div className="flex flex-shrink-0 items-center justify-end gap-[6px]">
-            <button
-              type="button"
-              onClick={handleDownloadClick}
-              disabled={!hasPreviewMedia}
-              className="inline-flex min-h-[32px] items-center justify-center gap-[6px] rounded-[6px] border border-[#D0D5DD] bg-white px-[9px] text-[12px] font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#6A8EB5] disabled:cursor-not-allowed disabled:text-gray-400"
-            >
-              <Icon
-                iconName="Download"
-                height="14px"
-                width="14px"
-                fill="#344054"
-              />
-              <span>Download</span>
-            </button>
-            {canEdit && (
-              <button
-                type="button"
-                onClick={handleEditClick}
-                className="inline-flex min-h-[32px] items-center justify-center rounded-[6px] border border-[#D0D5DD] bg-white px-[10px] text-[12px] font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#6A8EB5]"
-              >
-                Edit
-              </button>
-            )}
-          </div>
-        </div>
+const InfographicContentCard = ({ item, canEdit, mediaType, mediaSource, hasPreviewMedia, onMediaClick, onEditClick, onDownloadClick }) => {
+  const open = () => onMediaClick(item);
+  return <div className="overflow-hidden rounded-[12px] border border-gray-100 bg-white text-left">
+    <button type="button" onClick={open} aria-label={`View Infographic: ${item.title}`} className="block h-[240px] w-full bg-gray-10 p-2">
+      {attachmentKind(mediaSource, mediaType) === "image" ? <img src={mediaSource} alt={item.title} className="h-full w-full object-contain" />
+        : <span className="text-primary-800">Open infographic details</span>}
+    </button>
+    <div className="p-[16px]">
+      <h3 className="text-[18px] font-semibold text-primary-800">{item.title}</h3>
+      <p className="hl-meta">Downloads: {formatNumber(getContentDownloadCount(item))}</p>
+      <div className="hl-actions">
+        <button type="button" className="hl-button" onClick={open}>View Infographic</button>
+        <button type="button" className="hl-button hl-secondary" disabled={!hasPreviewMedia} onClick={() => onDownloadClick(item)}>Download</button>
+        {canEdit && <button type="button" className="hl-button hl-secondary" onClick={() => onEditClick(item)}>Edit</button>}
       </div>
     </div>
-  );
+  </div>;
 };
 
-const VideoContentCard = ({
-  isLoading,
-  item,
-  mediaType,
-  mediaSource,
-  hasPreviewMedia,
-  canEdit,
-  onMediaClick,
-  onEditClick,
-}) => {
-  const tags = item.tags ?? [];
-  const [detectedDuration, setDetectedDuration] = useState("");
-  const displayDuration = item.duration || detectedDuration;
-  const openPreview = () => {
-    if (!hasPreviewMedia) return;
-
-    onMediaClick(item);
-  };
-
-  const handleKeyDown = (event) => {
-    if (!hasPreviewMedia || (event.key !== "Enter" && event.key !== " ")) return;
-
-    event.preventDefault();
-    openPreview();
-  };
-
-  const handleEditClick = (event) => {
-    event.stopPropagation();
-    onEditClick(item);
-  };
-
-  useEffect(() => {
-    if (item.duration || !mediaSource || !mediaType.startsWith("video/")) {
-      setDetectedDuration("");
-      return undefined;
-    }
-
-    const video = document.createElement("video");
-
-    video.preload = "metadata";
-    video.onloadedmetadata = () => {
-      setDetectedDuration(formatVideoDuration(video.duration));
-    };
-    video.onerror = () => {
-      setDetectedDuration("");
-    };
-    video.src = mediaSource;
-
-    return () => {
-      video.removeAttribute("src");
-      video.load();
-    };
-  }, [item.duration, mediaSource, mediaType]);
-
-  if (isLoading) {
-    return <VideoContentCardLoading />;
-  }
-
-  return (
-    <div
-      role={hasPreviewMedia ? "button" : undefined}
-      tabIndex={hasPreviewMedia ? 0 : undefined}
-      onClick={openPreview}
-      onKeyDown={handleKeyDown}
-      className={`grid h-[440px] w-full grid-rows-[240px_1fr] overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-white text-left transition-shadow hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[#6A8EB5] focus:ring-offset-2 ${
-        hasPreviewMedia ? "cursor-pointer" : "cursor-default opacity-80"
-      }`}
-      aria-label={hasPreviewMedia ? `Open ${item.title} video preview` : undefined}
-    >
-      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#6A8EB5] to-[#78C6B2]">
-        {mediaSource && mediaType.startsWith("video/") ? (
-          <video
-            src={mediaSource}
-            className="h-full w-full object-cover"
-            muted
-            playsInline
-          />
-        ) : (
-          <Icon
-            iconName="Image"
-            height="64px"
-            width="64px"
-            fill="#FFFFFF"
-            opacity="0.5"
-          />
-        )}
-      </div>
-
-      <div className="flex min-h-0 flex-col p-[14px]">
-        <h3 className="line-clamp-2 text-left text-[16px] font-semibold leading-[22px] text-gray-800">
-          {item.title}
-        </h3>
-
-        <div className="mt-[8px] flex items-center justify-between gap-[12px] text-[12px] font-semibold text-gray-600">
-          <span className="min-w-0 truncate text-left">
-            {displayDuration ? `Duration: ${displayDuration}` : "Duration: --"}
-          </span>
-          <span className="flex-shrink-0 text-right">
-            Views: {formatNumber(getContentViewCount(item))}
-          </span>
-        </div>
-
-        {tags.length > 0 && (
-          <div className="mt-[10px] flex flex-wrap items-center justify-start gap-[6px] overflow-hidden">
-            {tags.map((tag, index) => (
-              <span
-                key={`${tag}-${index}`}
-                className="inline-flex min-h-[24px] items-center rounded-[6px] bg-[#16A34A] px-[8px] text-[11px] font-semibold text-white"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-[10px] flex min-h-[32px] items-end justify-end">
-          {canEdit && (
-            <button
-              type="button"
-              onClick={handleEditClick}
-              className="inline-flex min-h-[32px] items-center justify-center rounded-[6px] border border-[#D0D5DD] bg-white px-[10px] text-[12px] font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#6A8EB5]"
-            >
-              Edit
-            </button>
-          )}
-        </div>
-      </div>
+const VideoContentCard = ({ isLoading, item, mediaSource, canEdit, onMediaClick, onEditClick }) => {
+  if (isLoading) return <VideoContentCardLoading />;
+  return <div className="overflow-hidden rounded-[12px] border border-gray-100 bg-white text-left">
+    <div className="h-[240px]"><VideoCardPreview src={mediaSource || item.mediaUrl} mime={item.media?.contentType}
+      poster={getContentMediaSource(item.thumbnail) || item.imageUrl} title={item.title} onOpen={() => onMediaClick(item)} /></div>
+    <div className="p-[16px]">
+      <h3 className="text-[18px] font-semibold text-primary-800">{item.title}</h3>
+      <p className="hl-meta">{item.duration ? `Duration: ${item.duration} · ` : ""}Views: {formatNumber(getContentViewCount(item))}</p>
+      <div className="hl-actions"><button type="button" className="hl-button" onClick={() => onMediaClick(item)}>Watch Video</button>
+        {canEdit && <button type="button" className="hl-button hl-secondary" onClick={() => onEditClick(item)}>Edit</button>}</div>
     </div>
-  );
+  </div>;
 };
 
-const ArticleContentCard = ({ item, canEdit, onEditClick, onShareClick }) => {
+const ArticleContentCard = ({ item, canEdit, onEditClick, onShareClick, onMediaClick }) => {
   const subtitle = String(item.description ?? "").slice(0, 75);
   const tags = item.tags ?? [];
+  const galleryImage = item.galleryImages?.[0];
+  const mainSource = getContentMediaSource(item.media) || item.imageUrl;
+  const imageSource = getContentMediaSource(galleryImage?.media) ||
+    (attachmentKind(mainSource, item.media?.contentType || "") === "image" ? mainSource : GENERIC_ARTICLE_THUMBNAIL);
 
   return (
     <div className="w-full rounded-[8px] border border-[#E5E5E5] bg-white p-[18px] text-left transition-shadow hover:shadow-sm">
+      <button type="button" aria-label={`Read article: ${item.title}`} onClick={() => onMediaClick(item)} className="mb-4 block w-full">
+        <img className="max-h-[220px] w-full rounded-lg object-contain" alt={item.title}
+          src={imageSource} />
+      </button>
+      <button type="button" className="hl-text-button" onClick={() => onMediaClick(item)}>Read More</button>
       <h3 className="text-left text-[18px] font-semibold leading-[26px] text-gray-800">
         {item.title}
       </h3>

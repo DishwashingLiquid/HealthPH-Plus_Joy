@@ -1,269 +1,64 @@
 import { Link, useLocation, useParams } from "react-router-dom";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "../assets/css/about.css";
-
-import Icon from "../components/Icon";
+import "../assets/css/health-literacy.css";
 import HomeNavbar from "../components/HomeNavbar";
 import HomeFooter from "../components/HomeFooter";
 import { useFetchWebsiteHealthLiteracyContentQuery } from "../features/api/healthLiteracyHubSlice";
-import {
-  formatContentDate,
-  getResourceImageSource,
-  normalizeStaticArticle,
-  normalizeWebsiteContent,
-  sortNewestFirst,
-} from "../utils/healthLiteracyWebsiteContent";
-
+import { formatContentDate, getArticleGalleryImages, getResourceImageSource, normalizeStaticArticle, normalizeWebsiteContent, sortNewestFirst } from "../utils/healthLiteracyWebsiteContent";
 import ArticlesList from "../assets/data/articles.json";
 import ArticleItem from "../components/about-us/ArticleItem";
+import ArticleMedia, { ArticleMediaProvider } from "../components/about-us/ArticleMedia";
+import MediaViewer, { Attachment } from "../components/health-literacy/MediaViewers";
+import CommentSection from "../components/health-literacy/CommentSection";
 
-const ArticlePage = () => {
+const ArticlePageContent = () => {
   const { slug } = useParams();
   const location = useLocation();
-  const [imageModalActive, setImageModalActive] = useState(false);
-  const [modalData, setModalData] = useState({ src: "", caption: "" });
-
-  const { data: websiteArticles = [], isFetching } =
-    useFetchWebsiteHealthLiteracyContentQuery("articles");
-  const staticArticles = useMemo(
-    () =>
-      ArticlesList.filter((a) => a.articleTitle != "").map(normalizeStaticArticle),
-    []
-  );
-  const dashboardArticles = useMemo(
-    () => normalizeWebsiteContent(websiteArticles),
-    [websiteArticles]
-  );
-  const allArticles = useMemo(
-    () => sortNewestFirst([...dashboardArticles, ...staticArticles]),
-    [dashboardArticles, staticArticles]
-  );
-
-  const article = allArticles.find((a) => a.articleSlug == slug);
-  const latestArticles = allArticles
-    .filter((a) => a.articleSlug != slug)
-    .slice(0, 4);
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [slug]);
-
-  if (!article && isFetching) {
-    return (
-      <div className="article-page-layout">
-        <HomeNavbar background="solid" />
-        <section className="article-container">
-          <div className="article-wrapper mt-[112px]">
-            <p className="article-body">Loading article...</p>
-          </div>
-        </section>
-        <HomeFooter />
-      </div>
-    );
-  }
-
-  if (!article) {
-    return (
-      <div className="article-page-layout">
-        <HomeNavbar background="solid" />
-        <section className="article-container">
-          <div className="article-wrapper mt-[112px]">
-            <div className="flex justify-start items-center mb-[24px]">
-              <Link
-                to="/articles"
-                state={location.state}
-                className="prod-btn-lg prod-btn-secondary flex items-center"
-              >
-                <Icon
-                  iconName="ArrowLeft"
-                  height="24px"
-                  width="24px"
-                  fill="#8693A0"
-                />
-                <span className="ms-[8px]">Back to Article List</span>
-              </Link>
-            </div>
-            <p className="article-body">Article not found.</p>
-          </div>
-        </section>
-        <HomeFooter />
-      </div>
-    );
-  }
-
-  const {
-    articleTitle,
-    readDuration,
-    datePublished,
-    articlePreview,
-    galleryFolder,
-    galleryImages = [],
-    articleBody,
-    contentTypeLabel,
-    tags = [],
-  } = article;
-  const heroImageSource = getResourceImageSource(article);
-  const articleText = articleBody || articlePreview || "";
-  const displayDate = formatContentDate(datePublished);
-  const detailMeta = [
-    contentTypeLabel,
-    readDuration,
-    displayDate,
-    tags.length > 0 ? tags.join(", ") : null,
-  ]
-    .filter(Boolean)
-    .join(" - ");
-
-  return (
-    <div className="article-page-layout">
-      <HomeNavbar background="solid" />
-      <section
-        className="article-hero-wrapper"
-        style={{
-          backgroundImage: heroImageSource ? `url('${heroImageSource}')` : undefined,
-          backgroundRepeat: "no-repeat",
-        }}
-      >
-        <div className="article-hero-overlay"></div>
-        <div className="article-hero ">
-          <div className="flex justify-start items-center mb-[24px]">
-            <Link
-              to="/articles"
-              state={location.state}
-              className="prod-btn-lg prod-btn-secondary flex items-center"
-            >
-              <Icon
-                iconName="ArrowLeft"
-                height="24px"
-                width="24px"
-                fill="#8693A0"
-              />
-              <span className="ms-[8px]">Back to Article List</span>
-            </Link>
-          </div>
-          <div className="article-header">
-            <p className="article-title">{articleTitle}</p>
-            {detailMeta && (
-              <p className="article-content my-[24px]">{detailMeta}</p>
-            )}
-            <p className="article-content">{articlePreview}</p>
-          </div>
-        </div>
+  const [preview, setPreview] = useState(null);
+  const { data: websiteArticles = [], isFetching, isError, refetch } = useFetchWebsiteHealthLiteracyContentQuery("articles");
+  const allArticles = useMemo(() => sortNewestFirst([
+    ...normalizeWebsiteContent(websiteArticles),
+    ...ArticlesList.filter((a) => a.articleTitle !== "").map(normalizeStaticArticle),
+  ]), [websiteArticles]);
+  const article = allArticles.find((a) => a.articleSlug === slug);
+  const latest = allArticles.filter((a) => a.articleSlug !== slug).slice(0, 4);
+  useEffect(() => { window.scrollTo(0, 0); setPreview(null); }, [slug]);
+  const back = <Link className="public-button" to="/articles" state={location.state}>Back to Article List</Link>;
+  if (!article) return <div className="article-page-layout hl-reading public-buttons">
+    <HomeNavbar background="solid" /><main className="hl-reading-surface">{back}
+      <p role="status">{isFetching ? "Loading article…" : isError ? "Article could not be loaded." : "Article not found."}</p>
+      {isError && <button type="button" className="public-button" onClick={refetch}>Retry article</button>}
+    </main><HomeFooter /></div>;
+  const images = getArticleGalleryImages(article);
+  const showHero = () => setPreview({ images: [{ src: getResourceImageSource(article), alt: article.articleTitle }], index: 0 });
+  return <div className="article-page-layout hl-reading public-buttons">
+    <HomeNavbar background="solid" />
+    <main className="hl-reading-surface">
+      {back}
+      <article>
+        <header className="hl-reading-header">
+          <h1>{article.articleTitle}</h1>
+          <p className="hl-meta">{[article.contentTypeLabel, article.readDuration, formatContentDate(article.datePublished)].filter(Boolean).join(" · ")}</p>
+          {article.tags?.length > 0 && <p className="hl-meta">{article.tags.join(", ")}</p>}
+        </header>
+        <div className="hl-article-attachment"><Attachment article={article} onImageOpen={showHero} /></div>
+        <div className="hl-prose">{(article.articleBody || article.articlePreview || "").split("\n").filter(Boolean).map((paragraph, i) => <p key={i}>{paragraph}</p>)}</div>
+        {images.length > 0 && <div className="hl-gallery">{images.map((image, i) => <figure key={image.id}>
+          <ArticleMedia src={image.src} alt={image.alt} onPreviewClick={() => setPreview({ images, index: i })} />
+          {image.caption && <figcaption>{image.caption}</figcaption>}
+        </figure>)}</div>}
+      </article>
+      <CommentSection key={article.articleSlug} article={article} />
+      <section className="hl-latest" aria-labelledby="latest-articles-heading">
+        <h2 id="latest-articles-heading">Latest Articles</h2>
+        <div className="articles">{latest.map((item) => <ArticleItem article={item} key={item.articleSlug} />)}</div>
+        <Link className="public-button" to="/articles">See All Articles</Link>
       </section>
-      <section className="article-container">
-        <div className="article-wrapper mt-[56px] ">
-          <div className="article-body">
-            <p>
-              {articleText.split("\n").map((v, i) => {
-                const isLast = i == articleText.split("\n").length - 1;
-                return (
-                  <Fragment key={i}>
-                    <span>{v}</span>
-                    {!isLast && (
-                      <>
-                        <br /> <br />
-                      </>
-                    )}
-                  </Fragment>
-                );
-              })}
-            </p>
-          </div>
-
-          {galleryImages.length > 0 && (
-            <div className="article-gallery">
-              {galleryImages.map(({ filename, caption }, i) => {
-                const imagePath =
-                  "/assets/articles/gallery/" + galleryFolder + "/";
-                return (
-                  <div className="gallery-item" key={i}>
-                    <div
-                      className="image-wrapper"
-                      onClick={() => {
-                        setModalData({
-                          src: imagePath + filename,
-                          caption: caption,
-                        });
-                        setImageModalActive(true);
-                      }}
-                    >
-                      <img src={imagePath + filename} alt={caption} />
-                    </div>
-                    <p className="gallery-caption article-caption">{caption}</p>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          <div className="latest-articles">
-            <div className="flex items-center justify-start mb-[24px]">
-              <p className="section-title">Latest Articles</p>
-            </div>
-            <div className="articles mb-[24px]">
-              {latestArticles.map((a, i) => {
-                if (a.articleTitle != "") {
-                  return (
-                    <ArticleItem
-                      article={a}
-                      key={`${a.source}-${a.id ?? a.articleID ?? i}`}
-                    />
-                  );
-                }
-              })}
-            </div>
-            <div className="flex items-center justify-end">
-              <Link
-                to="/articles"
-                className="prod-btn-lg prod-btn-secondary flex items-center"
-              >
-                <span className="me-[8px]">See All Articles</span>
-                <Icon
-                  iconName="ArrowRight"
-                  height="24px"
-                  width="24px"
-                  fill="#8693A0"
-                />
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <HomeFooter />
-
-      {imageModalActive && (
-        <div className="image-modal">
-          <div
-            className="image-modal-backdrop"
-            onClick={() => {
-              setImageModalActive(false);
-              setModalData({ src: "", caption: "" });
-            }}
-          ></div>
-          <div className="image-modal-container">
-            <div className="image-wrapper">
-              <img src={modalData.src} alt={modalData.caption} />
-            </div>
-            <p className="image-caption">{modalData.caption}</p>
-            <div
-              className="close-icon"
-              onClick={() => {
-                setImageModalActive(false);
-                setModalData({ src: "", caption: "" });
-              }}
-            >
-              <Icon
-                iconName="Close"
-                height="24px"
-                width="24px"
-                className="icon"
-              />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+    </main>
+    <HomeFooter />
+    {preview && <MediaViewer article={article} images={preview.images} initialIndex={preview.index} onClose={() => setPreview(null)} />}
+  </div>;
 };
+const ArticlePage = () => <ArticleMediaProvider><ArticlePageContent /></ArticleMediaProvider>;
 export default ArticlePage;
