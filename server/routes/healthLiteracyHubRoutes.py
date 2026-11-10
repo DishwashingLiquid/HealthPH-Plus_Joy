@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from controllers.health_literacy_hub.gallery import HubUploadRoute
 from controllers.health_literacy_comments import router as comments_router
 
 from controllers.healthLiteracyHubController import (
@@ -17,7 +18,7 @@ from controllers.healthLiteracyHubController import (
     update_health_literacy_content,
 )
 
-router = APIRouter()
+router = APIRouter(route_class=HubUploadRoute)
 mobile_contract_router = APIRouter()
 # Specific website discussion routes must precede /{content_type}.
 router.include_router(comments_router)

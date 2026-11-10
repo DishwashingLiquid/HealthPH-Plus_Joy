@@ -27,6 +27,7 @@ def ensure_content_indexes():
     content_collection.create_index([("contentType", 1), ("id", 1)], unique=True,
                                     name="unique_health_literacy_content_type_id")
     content_collection.create_index("media.fileId", name="health_literacy_media_lookup")
+    content_collection.create_index("galleryImages.media.fileId", name="health_literacy_gallery_lookup")
 
 
 def read_content(content_type):
@@ -53,7 +54,7 @@ def insert_content(content_type, document):
 
 def revision_match(document):
     return {"_id": document["_id"], "updatedAt": document.get("updatedAt"),
-            "media": document.get("media")}
+            "media": document.get("media"), "galleryImages": document.get("galleryImages")}
 
 
 def replace_content(original, updated):

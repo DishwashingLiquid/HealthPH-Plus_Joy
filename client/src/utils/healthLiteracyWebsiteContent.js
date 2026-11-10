@@ -60,7 +60,17 @@ export const getResourceImageSource = (article) => {
 };
 
 export const getResourcePosterSource = (article) =>
-  getContentMediaSource(article?.thumbnail) || getTrimmedUrl(article?.imageUrl);
+  getContentMediaSource(article?.thumbnail) || getTrimmedUrl(article?.imageUrl)
+    || getContentMediaSource(article?.galleryImages?.[0]?.media);
+
+export const getArticleGalleryImages = (article) => (article.galleryImages || []).map((entry) => ({
+  id: entry.id || entry.filename,
+  src: article.contentOrigin === "api" ? getContentMediaSource(entry.media)
+    : `/assets/articles/gallery/${article.galleryFolder}/${entry.filename}`,
+  filename: entry.media?.filename || entry.filename,
+  alt: article.contentOrigin === "api" ? entry.alt || "" : entry.alt ?? entry.caption ?? "",
+  caption: entry.caption || "",
+}));
 
 const getReadDuration = (text) => {
   const words = String(text ?? "")
@@ -103,7 +113,7 @@ export const normalizeDashboardContent = (item) => {
     articleImage: "",
     articleImageCaption: item.title ?? "",
     articleBody: item.description ?? "",
-    galleryImages: [],
+    galleryImages: item.galleryImages || [],
     galleryFolder: "",
     readDuration: getReadDuration(item.description),
     sortDate: item.publishedDate ?? item.createdAt,

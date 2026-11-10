@@ -15,6 +15,7 @@ import {
 } from "../../../../features/api/healthLiteracyHubSlice";
 import { ContentGrid } from "./ContentCards";
 import { ContentFormBody } from "./ContentFormBody";
+import { createGalleryImageId, galleryValidationError } from "./contentGallery";
 import MediaViewer from "../../../../components/health-literacy/MediaViewers";
 import { ArticleMediaProvider } from "../../../../components/about-us/ArticleMedia";
 import { normalizeDashboardContent } from "../../../../utils/healthLiteracyWebsiteContent";
@@ -91,14 +92,21 @@ const ContentTab = ({ contentTypeLabel }) => {
   useEffect(() => {
     setFormData((previous) => {
       const fresh = fetchedContent.find((item) => item.id === editingContent?.id);
-      if (!fresh || previous.media || previous.removeMedia) return previous;
-      return { ...previous, existingMedia: fresh.media,
-        mediaPreview: getContentMediaSource(fresh.media) || null };
+      if (!fresh) return previous;
+      return { ...previous,
+        ...(!previous.media && !previous.removeMedia ? { existingMedia: fresh.media,
+          mediaPreview: getContentMediaSource(fresh.media) || null } : {}),
+        galleryImages: (previous.galleryImages || []).map((image) => {
+          const media = fresh.galleryImages?.find((entry) => entry.id === image.id)?.media
+            || (image.id === `main-${fresh.media?.fileId}` ? fresh.media : null);
+          return media && !image.file ? { ...image, media } : image;
+        }),
+      };
     });
     setSelectedMediaContent((previous) => {
       if (!previous) return previous;
       const fresh = fetchedContent.find((item) => item.id === previous.item?.id);
-      return fresh ? { ...previous, media: fresh.media, item: { ...previous.item, media: fresh.media } } : previous;
+      return fresh ? { ...previous, media: fresh.media, item: { ...previous.item, ...fresh } } : previous;
     });
   }, [fetchedContent, editingContent?.id]);
 
@@ -147,7 +155,7 @@ const ContentTab = ({ contentTypeLabel }) => {
     if (item.contentOrigin !== "api") return;
 
     setEditingContent(item);
-    setFormData(createEditFormData({ item }));
+    setFormData(createEditFormData({ item, contentTypeLabel }));
     setIsEditModalOpen(true);
   };
 
@@ -222,7 +230,7 @@ const ContentTab = ({ contentTypeLabel }) => {
   };
 
   const validateForm = () => {
-    const validationError = getContentFormValidationError(
+    const validationError = (contentTypeLabel === "Articles" && galleryValidationError(formData.galleryImages)) || getContentFormValidationError(
       formData,
       contentTypeLabel
     );
@@ -336,6 +344,13 @@ const ContentTab = ({ contentTypeLabel }) => {
 
   const setMediaFile = async (file) => {
     if (!file) return;
+    if (contentTypeLabel === "Articles" && file.type.startsWith("image/")) {
+      const galleryImages = [...(formData.galleryImages || []), { id: createGalleryImageId(), file, caption: "", alt: "" }];
+      const error = galleryValidationError(galleryImages);
+      if (error) showToast({ iconName: "Error", color: "destructive", message: error });
+      else setFormData((previous) => ({ ...previous, galleryImages }));
+      return;
+    }
 
     if (!isAllowedMediaType(file, contentTypeLabel)) {
       showToast({
@@ -495,6 +510,7 @@ const ContentTab = ({ contentTypeLabel }) => {
             onRemoveThumbnail={handleRemoveThumbnail}
             onMediaDrop={handleMediaDrop}
             onRemoveMedia={handleRemoveMedia}
+            onGalleryChange={(galleryImages) => setFormData((previous) => ({ ...previous, galleryImages }))}
           />
         </ModalWithBody>
       )}
@@ -521,6 +537,7 @@ const ContentTab = ({ contentTypeLabel }) => {
             onRemoveThumbnail={handleRemoveThumbnail}
             onMediaDrop={handleMediaDrop}
             onRemoveMedia={handleRemoveMedia}
+            onGalleryChange={(galleryImages) => setFormData((previous) => ({ ...previous, galleryImages }))}
             onDelete={() => setIsDeleteModalOpen(true)}
             onDeleteDisabled={isUpdatingContent || isDeletingContent}
           />
@@ -551,6 +568,8 @@ const ContentTab = ({ contentTypeLabel }) => {
           <MediaViewer article={normalizeDashboardContent({ ...selectedMediaContent.item, contentType,
             media: selectedMediaContent.media ? { ...selectedMediaContent.media, url: getContentMediaSource(selectedMediaContent.media) } : null,
             thumbnail: selectedMediaContent.item.thumbnail ? { ...selectedMediaContent.item.thumbnail, url: getContentMediaSource(selectedMediaContent.item.thumbnail) } : null,
+            galleryImages: (selectedMediaContent.item.galleryImages || []).map((entry) => ({ ...entry,
+              media: { ...entry.media, url: getContentMediaSource(entry.media) } })),
           })} onClose={() => setSelectedMediaContent(null)} dashboardActions={
             <div className="hl-details"><p className="hl-meta">Website: {selectedMediaContent.publishToWebsite ? "Published" : "Unpublished"} · Mobile: {selectedMediaContent.publishToMobile ? "Published" : "Unpublished"}</p>
               <p className="hl-meta">Website comments are managed in the moderation panel.</p>

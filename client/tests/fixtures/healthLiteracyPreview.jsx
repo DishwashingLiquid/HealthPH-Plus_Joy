@@ -20,9 +20,13 @@ const content = [
   { id: "fixture-photo", contentType: "infographics", title: "Tall infographic with a long title and accessible image controls",
     description: "Test illustration only. This fixture contains no medical advice. ".repeat(4), media: { url: image, contentType: "image/svg+xml" } },
   { id: "fixture-article", contentType: "articles", title: "Article without an attachment", description: "A readable article without any media. ".repeat(30), media: null },
-  { id: "fixture-pdf", contentType: "articles", title: "Article with a PDF document", description: "This document uses a link rather than an image renderer.", media: { url: "/tests/fixtures/example.pdf", contentType: "application/pdf" } },
+  { id: "fixture-pdf", contentType: "articles", title: "Article with a PDF document", description: "This document uses a link rather than an image renderer.", media: { url: "/tests/fixtures/example.pdf", filename: "guide.pdf", contentType: "application/pdf" } },
 ].map((item) => ({ ...item, publishedDate: "2026-11-09", publishToWebsite: true }));
 const requests = [];
+if (scenario.startsWith("gallery")) content.push({ id: "fixture-gallery", contentType: "articles", title: "Uploaded gallery with captions",
+  description: "Creator captions and public comments stay separate.", language: "en", publishedDate: "2026-11-09", publishToWebsite: true,
+  galleryImages: [{ id: "first", media: { fileId: "first-file", url: image, previewUrl: image, filename: "same.png", contentType: "image/png" }, caption: "First creator caption", alt: "First accessible description" },
+    { id: "second", media: { fileId: "second-file", url: image + "?second", previewUrl: image + "?second", filename: "same.png", contentType: "image/png" }, caption: "Second creator caption", alt: "Second accessible description" }], media: null });
 window.__hlRequests = requests;
 let postAttempts = 0;
 window.fetch = async (request, options = {}) => {
@@ -39,6 +43,22 @@ window.fetch = async (request, options = {}) => {
     return respond({ items: scenario === "empty" ? [] : [{ id: "fixture-comment", body: "An approved comment that anyone can read.", author: "Community member", createdAt: "2026-11-09T00:00:00Z" }], nextCursor: null });
   }
   if (url.pathname.includes("/health-literacy-hub/")) {
+    if (scenario.startsWith("gallery") && ["POST", "PUT"].includes(method) && !url.pathname.endsWith("/analytics/events")) {
+      const form = options.body instanceof FormData ? options.body : await request.clone().formData();
+      const saved = content.find((item) => item.id === url.pathname.split("/").at(-1));
+      if (!saved) return respond({ detail: "Fixture content missing" }, 404);
+      saved.title = form.get("title"); saved.description = form.get("description");
+      if (form.get("removeMedia") === "true") saved.media = null;
+      const attachment = form.get("file");
+      if (attachment) saved.media = { fileId: "fixture-attachment", url: URL.createObjectURL(attachment), filename: attachment.name, contentType: attachment.type };
+      saved.galleryImages = JSON.parse(form.get("galleryImages")).map((entry) => {
+        const file = form.get(`galleryFile_${entry.id}`);
+        const media = file ? { fileId: `${entry.id}-uploaded`, url: URL.createObjectURL(file), filename: file.name, contentType: file.type }
+          : saved.galleryImages.find((image) => image.id === entry.id).media;
+        return { id: entry.id, caption: entry.caption, alt: entry.alt, media };
+      });
+      return respond({ content: saved, message: "Saved fixture" });
+    }
     const type = url.pathname.split("/").at(-1);
     return respond(["articles", "videos", "infographics"].includes(type) ? content.filter((item) => item.contentType === type) : content);
   }
@@ -62,7 +82,7 @@ try {
 } catch { /* Missing-video fixture still verifies failure and comments access. */ }
 
 function Fixture() {
-  const [type, setType] = useState("Videos");
+  const [type, setType] = useState(scenario === "gallery-hub" ? "Articles" : "Videos");
   if (scenario === "public-buttons") return <Home />;
   if (scenario === "internal-buttons") return <>
     <section className="admin-layout internal-buttons"><button className="prod-btn-base prod-btn-primary" id="admin-primary">Admin primary</button>
@@ -71,7 +91,7 @@ function Fixture() {
     <section className="auth-layout internal-buttons"><button className="prod-btn-base prod-btn-primary" id="auth-primary">Auth primary</button></section>
   </>;
   if (scenario === "testimonial") return <div className="article-layout research-team-page"><TestimonialItem name="Fixture person" position="Fixture role" testimonial="Unchanged shared modal consumer." /></div>;
-  if (scenario === "hub") return <div className="p-4 internal-buttons"><div className="hl-actions">{["Videos", "Infographics", "Articles"].map((label) => <button type="button" className="hl-button" key={label} onClick={() => setType(label)}>{label}</button>)}</div><ContentTab key={type} contentTypeLabel={type} /></div>;
+  if (scenario === "hub" || scenario === "gallery-hub") return <div className="p-4 internal-buttons"><div className="hl-actions">{["Videos", "Infographics", "Articles"].map((label) => <button type="button" className="hl-button" key={label} onClick={() => setType(label)}>{label}</button>)}</div><ContentTab key={type} contentTypeLabel={type} /></div>;
   return <Routes><Route path="/articles/:slug" element={<ArticlePage />} /><Route path="*" element={<Articles embedded />} /></Routes>;
 }
 createRoot(document.getElementById("root")).render(<React.StrictMode><Provider store={store}><BrowserRouter><Fixture /></BrowserRouter></Provider></React.StrictMode>);

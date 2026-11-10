@@ -4,7 +4,7 @@ import FeatureDialog from "./FeatureDialog";
 import CommentSection from "./CommentSection";
 import ArticleMedia from "../about-us/ArticleMedia";
 import { attachmentKind, safeMediaSource } from "../../utils/healthLiteracyMedia";
-import { formatContentDate, getResourceImageSource, getResourcePosterSource } from "../../utils/healthLiteracyWebsiteContent";
+import { formatContentDate, getArticleGalleryImages, getResourceImageSource, getResourcePosterSource } from "../../utils/healthLiteracyWebsiteContent";
 
 export function ContentDetails({ article }) {
   return <header className="hl-details">
@@ -113,7 +113,7 @@ export function PhotoViewerBody({ article, images, initialIndex = 0, children })
         onPointerMove={(e) => { if (drag.current) { e.currentTarget.scrollLeft = drag.current.left - e.clientX + drag.current.x; e.currentTarget.scrollTop = drag.current.top - e.clientY + drag.current.y; } }}
         onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}>
         <div className="hl-photo-canvas" style={{ width: `${zoom * 100}%`, height: `${zoom * 100}%` }}>
-          <ArticleMedia key={image.src} src={image.src} alt={image.alt || article.articleTitle} />
+          <ArticleMedia key={image.id || image.src} src={image.src} alt={image.alt ?? article.articleTitle} />
         </div>
       </div>
       <output className="hl-photo-zoom" aria-label="Image zoom" aria-live="polite">{Math.round(zoom * 100)}%</output>
@@ -127,14 +127,16 @@ export function PhotoViewerBody({ article, images, initialIndex = 0, children })
 
 export default function MediaViewer({ article, onClose, images, initialIndex = 0, dashboardActions }) {
   const src = getResourceImageSource(article);
-  const photo = images || (article.resourceType === "infographic" && attachmentKind(src, article.media?.contentType) === "image"
+  const gallery = getArticleGalleryImages(article);
+  const photo = images || (gallery.length ? gallery : null) || (article.resourceType === "infographic" && attachmentKind(src, article.media?.contentType) === "image"
     ? [{ src, alt: article.articleTitle, filename: article.media?.filename }] : null);
   const discussion = dashboardActions ? <>{dashboardActions}
     {article.publishToWebsite && article.isPublished !== false && !article.isArchived
       ? <CommentSection article={article} readOnly /> : <p className="hl-media-message">Public comments are available when this content is published to the website.</p>}
   </> : <CommentSection article={article} />;
   return <FeatureDialog title={article.articleTitle} onClose={onClose} photo={Boolean(photo)} publicButtons={!dashboardActions}>
-    {photo ? <PhotoViewerBody article={article} images={photo} initialIndex={initialIndex}>{discussion}</PhotoViewerBody>
+    {photo ? <PhotoViewerBody article={article} images={photo} initialIndex={initialIndex}>
+      {dashboardActions && article.media && <Attachment article={article} />}{discussion}</PhotoViewerBody>
       : <div className="hl-video-viewer">
         {article.resourceType === "video" ? <VideoPlayer src={src} poster={getResourcePosterSource(article)} mime={article.media?.contentType} title={article.articleTitle} captions={article.captions} />
           : <Attachment article={article} />}

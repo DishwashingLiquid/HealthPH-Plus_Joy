@@ -80,8 +80,29 @@
 .hl-article-attachment img { width: 100%; max-height: 520px; object-fit: contain; }
 .hl-gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin: 32px 0; }
 .hl-gallery figure { margin: 0; min-width: 0; }
+.hl-gallery .article-media, .hl-gallery .article-media-preview { height: auto; }
 .hl-gallery img { width: 100%; max-height: 400px; object-fit: contain; }
-.hl-gallery figcaption { font-size: 14px; line-height: 1.6; margin-top: 12px; }
+.hl-gallery figcaption { font-size: 14px; line-height: 1.6; margin-top: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* Plain-language article upload controls; scoped to the dashboard form. */
+.hl-form-optional { color: #667085; font-size: 13px; font-weight: 400; }
+.hl-form-hint { color: #5A6876; font-size: 13px; line-height: 1.5; }
+.hl-form-error { color: #B42318; font-size: 14px; line-height: 1.5; margin: 8px 0; }
+.hl-file-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 18px; border: 2px dashed #D5DDE5; border-radius: 8px; background: #F9FBFD; }
+.hl-file-picker > p { flex-basis: 100%; margin: 0; }
+.hl-file-picker.is-dragging, .hl-file-picker-compact.is-dragging { border-color: #003874; background: #EDF4FC; }
+.hl-file-picker-compact { display: inline-flex; }
+.hl-gallery-image { min-width: 0; }
+.hl-gallery-image :is(input[type="text"],textarea) { font-size: 16px; }
+.hl-gallery-image input[type="text"]:disabled { background: #F2F4F7; color: #667085; }
+.hl-gallery-image :is(input,textarea):focus-visible { outline: 3px solid #003874; outline-offset: 2px; }
+.hl-upload-filename { overflow-wrap: anywhere; color: #5A6876; font-size: 13px; }
+.hl-decorative-option { display: flex; align-items: flex-start; gap: 8px; margin-top: 12px; font-size: 14px; line-height: 1.5; cursor: pointer; }
+.hl-decorative-option input { margin-top: 4px; flex-shrink: 0; }
+.hl-attachment-editor { border: 1px solid #D5DDE5; border-radius: 8px; }
+.hl-attachment-editor summary { padding: 16px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.hl-attachment-editor summary:focus-visible { outline: 3px solid #003874; outline-offset: 2px; }
+.hl-attachment-body { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 0 16px 16px; }
+.hl-upload-preview video { display: block; max-height: 180px; width: 100%; }
 .hl-latest { border-top: 1px solid var(--hl-border); margin-top: 40px; padding-top: 32px; }
 .hl-latest .articles { margin-bottom: 24px; }
 .hl-moderation { border: 1px solid var(--hl-border); border-radius: 12px; padding: 20px; margin-bottom: 20px; background: white; }

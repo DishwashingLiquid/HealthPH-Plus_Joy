@@ -20,8 +20,10 @@ const ArticleItem = ({ article, articlePage, isLoading, onPreviewClick }) => {
     contentTypeLabel,
     resourceType,
   } = article;
-  const mediaSource = getResourceImageSource(article);
-  const kind = attachmentKind(mediaSource, article.media?.contentType || "", resourceType);
+  const primarySource = getResourceImageSource(article);
+  const galleryImage = article.galleryImages?.[0];
+  const mediaSource = primarySource || galleryImage?.media?.url || "";
+  const kind = attachmentKind(mediaSource, (primarySource ? article.media?.contentType : galleryImage?.media?.contentType) || "", resourceType);
   const isVideo = resourceType === "video";
   const isPreviewContent = ["video", "infographic"].includes(resourceType);
   const displayDate = formatContentDate(datePublished);

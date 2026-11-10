@@ -5,7 +5,9 @@ import {
   normalizeContentTags,
 } from "../shared";
 
-export const createEditFormData = ({ item }) => {
+export const createEditFormData = ({ item, contentTypeLabel }) => {
+  const mainImage = contentTypeLabel === "Articles" && item.media?.fileId && item.media?.contentType?.startsWith("image/")
+    ? { id: `main-${item.media.fileId}`, media: item.media, caption: "", alt: "" } : null;
   return {
     title: item.title ?? "",
     description: item.description ?? "",
@@ -23,13 +25,15 @@ export const createEditFormData = ({ item }) => {
       ? "" : item.imageUrl ?? "",
     mediaUrl: item.mediaUrl === item.media?.url ? "" : item.mediaUrl ?? "",
     media: null,
-    mediaPreview: getContentMediaSource(item.media) || null,
-    existingMedia: item.media ?? null,
+    mediaPreview: mainImage ? null : getContentMediaSource(item.media) || null,
+    existingMedia: mainImage ? null : item.media ?? null,
+    galleryImages: [...(item.galleryImages || []), ...(mainImage ? [mainImage] : [])]
+      .map((image) => ({ ...image, decorative: !image.alt?.trim() })),
     thumbnail: null,
     existingThumbnail: item.thumbnail ?? null,
     removeThumbnail: false,
     duration: item.duration ?? "",
-    removeMedia: false,
+    removeMedia: Boolean(mainImage),
     publishToMobile: Boolean(item.publishToMobile),
     publishToWebsite: Boolean(item.publishToWebsite),
     isFactCheck: Boolean(item.isFactCheck),
@@ -91,6 +95,16 @@ export const buildContentFormPayload = ({
 
   if (contentTypeLabel === "Videos") {
     payload.append("duration", formData.duration || "");
+  }
+
+  if (contentTypeLabel === "Articles") {
+    payload.append("galleryImages", JSON.stringify((formData.galleryImages || []).map((image) => ({
+      id: image.id, fileId: image.file ? undefined : image.media?.fileId,
+      caption: image.caption || "", alt: image.decorative ? "" : image.alt || "",
+    }))));
+    for (const image of formData.galleryImages || []) {
+      if (image.file) payload.append(`galleryFile_${image.id}`, image.file);
+    }
   }
 
   if (includeRemoveMedia) {

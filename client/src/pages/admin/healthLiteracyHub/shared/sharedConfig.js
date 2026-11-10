@@ -41,6 +41,7 @@ export const INITIAL_FORM_DATA = {
   imageUrl: "",
   mediaUrl: "",
   media: null,
+  galleryImages: [],
   mediaPreview: null,
   existingMedia: null,
   thumbnail: null,

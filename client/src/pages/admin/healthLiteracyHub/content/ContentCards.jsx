@@ -314,12 +314,16 @@ const VideoContentCard = ({ isLoading, item, mediaSource, canEdit, onMediaClick,
 const ArticleContentCard = ({ item, canEdit, onEditClick, onShareClick, onMediaClick }) => {
   const subtitle = String(item.description ?? "").slice(0, 75);
   const tags = item.tags ?? [];
+  const galleryImage = item.galleryImages?.[0];
+  const mainSource = getContentMediaSource(item.media) || item.imageUrl;
+  const imageSource = getContentMediaSource(galleryImage?.media) ||
+    (attachmentKind(mainSource, item.media?.contentType || "") === "image" ? mainSource : GENERIC_ARTICLE_THUMBNAIL);
 
   return (
     <div className="w-full rounded-[8px] border border-[#E5E5E5] bg-white p-[18px] text-left transition-shadow hover:shadow-sm">
       <button type="button" aria-label={`Read article: ${item.title}`} onClick={() => onMediaClick(item)} className="mb-4 block w-full">
         <img className="max-h-[220px] w-full rounded-lg object-contain" alt={item.title}
-          src={attachmentKind(getContentMediaSource(item.media) || item.imageUrl, item.media?.contentType || "") === "image" ? getContentMediaSource(item.media) || item.imageUrl : GENERIC_ARTICLE_THUMBNAIL} />
+          src={imageSource} />
       </button>
       <button type="button" className="hl-text-button" onClick={() => onMediaClick(item)}>Read More</button>
       <h3 className="text-left text-[18px] font-semibold leading-[26px] text-gray-800">

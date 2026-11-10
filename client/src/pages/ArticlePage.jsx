@@ -5,7 +5,7 @@ import "../assets/css/health-literacy.css";
 import HomeNavbar from "../components/HomeNavbar";
 import HomeFooter from "../components/HomeFooter";
 import { useFetchWebsiteHealthLiteracyContentQuery } from "../features/api/healthLiteracyHubSlice";
-import { formatContentDate, getResourceImageSource, normalizeStaticArticle, normalizeWebsiteContent, sortNewestFirst } from "../utils/healthLiteracyWebsiteContent";
+import { formatContentDate, getArticleGalleryImages, getResourceImageSource, normalizeStaticArticle, normalizeWebsiteContent, sortNewestFirst } from "../utils/healthLiteracyWebsiteContent";
 import ArticlesList from "../assets/data/articles.json";
 import ArticleItem from "../components/about-us/ArticleItem";
 import ArticleMedia, { ArticleMediaProvider } from "../components/about-us/ArticleMedia";
@@ -30,9 +30,7 @@ const ArticlePageContent = () => {
       <p role="status">{isFetching ? "Loading article…" : isError ? "Article could not be loaded." : "Article not found."}</p>
       {isError && <button type="button" className="public-button" onClick={refetch}>Retry article</button>}
     </main><HomeFooter /></div>;
-  const images = (article.galleryImages || []).map(({ filename, caption }) => ({
-    src: `/assets/articles/gallery/${article.galleryFolder}/${filename}`, alt: caption, caption,
-  }));
+  const images = getArticleGalleryImages(article);
   const showHero = () => setPreview({ images: [{ src: getResourceImageSource(article), alt: article.articleTitle }], index: 0 });
   return <div className="article-page-layout hl-reading public-buttons">
     <HomeNavbar background="solid" />
@@ -46,9 +44,9 @@ const ArticlePageContent = () => {
         </header>
         <div className="hl-article-attachment"><Attachment article={article} onImageOpen={showHero} /></div>
         <div className="hl-prose">{(article.articleBody || article.articlePreview || "").split("\n").filter(Boolean).map((paragraph, i) => <p key={i}>{paragraph}</p>)}</div>
-        {images.length > 0 && <div className="hl-gallery">{images.map((image, i) => <figure key={image.src}>
+        {images.length > 0 && <div className="hl-gallery">{images.map((image, i) => <figure key={image.id}>
           <ArticleMedia src={image.src} alt={image.alt} onPreviewClick={() => setPreview({ images, index: i })} />
-          <figcaption>{image.caption}</figcaption>
+          {image.caption && <figcaption>{image.caption}</figcaption>}
         </figure>)}</div>}
       </article>
       <CommentSection key={article.articleSlug} article={article} />

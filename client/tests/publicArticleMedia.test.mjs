@@ -146,6 +146,29 @@ test("successful API media uses the supplied URLs and enables preview/download",
   assert.doesNotMatch(view.text(), /Media temporarily unavailable|Showing saved articles/);
 });
 
+test("uploaded galleries render plain captions, separate alt text, empty-caption omission, and matching viewer captions", () => {
+  const article = fixture("gallery", "articles", null, { galleryImages: [
+    { id: "second", media: { url: `${imageUrl}2`, filename: "same.png", contentType: "image/png" }, caption: "<b>Second caption</b>", alt: "Second description" },
+    { id: "first", media: { url: imageUrl, filename: "same.png", contentType: "image/png" }, caption: "", alt: "" },
+  ] });
+  setup([article]); slug = website.getDashboardContentSlug(article);
+  const view = render(website.ArticlePage);
+  const figures = view.nodes().filter((n) => n.type === "figure");
+  assert.equal(figures.length, 2);
+  const captions = view.nodes().filter((n) => n.type === "figcaption");
+  assert.equal(captions.length, 1);
+  assert.equal(view.text(captions[0]), "<b>Second caption</b>");
+  assert.equal(view.find((n) => n.type === "b"), undefined);
+  assert.equal(media(view, `${imageUrl}2`).props.alt, "Second description");
+  assert.equal(media(view, imageUrl).props.alt, "");
+  view.act(() => view.find((n) => n.type === "button" && n.props["aria-label"] === "Preview: Second description").props.onClick());
+  assert.equal(view.nodes().filter((n) => n.props.className === "hl-description").at(-1).children, "<b>Second caption</b>");
+  view.act(() => view.find((n) => n.props["aria-label"] === "Next image").props.onClick());
+  assert.equal(view.nodes().filter((n) => n.type === "img" && n.props.src === imageUrl).at(-1).props.alt, "");
+  assert.equal(view.nodes().filter((n) => n.props.className === "hl-description").length, 1); // Article description only.
+  assert.match(view.text(), /Comments/);
+});
+
 test("image failure preserves opening, description and comments; local retry ignores stale errors", () => {
   setup([fixture("image", "infographics", imageUrl), fixture("video", "videos", videoUrl)]);
   const view = render(website.Articles);

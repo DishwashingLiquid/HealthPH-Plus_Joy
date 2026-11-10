@@ -205,7 +205,8 @@ class MediaStore:
         file_id = ObjectId(str(media["fileId"]))
         # Recheck on every delete, including after an ambiguous write outcome.
         if self.content.find_one({"$or": [{"media.fileId": {"$in": [str(file_id), file_id]}},
-                                         {"thumbnail.fileId": {"$in": [str(file_id), file_id]}}]}):
+                                         {"thumbnail.fileId": {"$in": [str(file_id), file_id]}},
+                                         {"galleryImages.media.fileId": {"$in": [str(file_id), file_id]}}]}):
             return False
         self.fs.delete(file_id)
         return True
@@ -223,7 +224,8 @@ class MediaStore:
         for file in self.files.find({"uploadDate": {"$lt": cutoff}}):
             media = {"fileId": str(file["_id"])}
             if self.content.find_one({"$or": [{"media.fileId": {"$in": [media["fileId"], file["_id"]]}},
-                                             {"thumbnail.fileId": {"$in": [media["fileId"], file["_id"]]}}]}):
+                                             {"thumbnail.fileId": {"$in": [media["fileId"], file["_id"]]}},
+                                             {"galleryImages.media.fileId": {"$in": [media["fileId"], file["_id"]]}}]}):
                 continue
             report["files"].append(media["fileId"])
             if apply and self.delete_unreferenced(media):
@@ -234,7 +236,8 @@ class MediaStore:
                 continue
             if self.files.find_one({"_id": file_id}) or self.content.find_one({"$or": [
                     {"media.fileId": {"$in": [str(file_id), file_id]}},
-                    {"thumbnail.fileId": {"$in": [str(file_id), file_id]}}]}):
+                    {"thumbnail.fileId": {"$in": [str(file_id), file_id]}},
+                    {"galleryImages.media.fileId": {"$in": [str(file_id), file_id]}}]}):
                 continue
             report["incompleteUploads"].append(str(file_id))
             if apply:
@@ -265,7 +268,8 @@ def media_response(store, file_id, request, *, admin=False):
     except (InvalidId, ValueError, TypeError):
         raise HTTPException(404, "Media not found")
     query = {"$or": [{"media.fileId": {"$in": [file_id, object_id]}},
-                     {"thumbnail.fileId": {"$in": [file_id, object_id]}}]}
+                     {"thumbnail.fileId": {"$in": [file_id, object_id]}},
+                     {"galleryImages.media.fileId": {"$in": [file_id, object_id]}}]}
     if not admin:
         query.update({"isArchived": {"$ne": True}, "isPublished": {"$ne": False},
                       "$and": [{"$or": [{"publishToMobile": True}, {"publishToWebsite": True}]}]})
