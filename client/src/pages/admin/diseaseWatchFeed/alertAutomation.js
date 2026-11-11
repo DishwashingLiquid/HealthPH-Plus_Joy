@@ -9,18 +9,32 @@ export const ALERT_AUTOMATION_INTERVALS = Object.freeze([
 
 const intervalValues = new Set(ALERT_AUTOMATION_INTERVALS.map(({ minutes }) => minutes));
 
-export const normalizeAlertAutomationInterval = (value) => {
-  const interval = Number(value);
-  return intervalValues.has(interval) ? interval : 1440;
-};
+// Local strict guard: shared navigation deliberately supports older sessions.
+export const hasDiseaseWatchFeedAccess = (user) => Boolean(
+  user && !user.is_disabled && !user.activation_pending && (
+    user.user_type === "SUPERADMIN" || (
+      Array.isArray(user.accessible_pages) && user.accessible_pages.includes("Disease Watch Feed")
+    )
+  )
+);
+
+export const hasSavedAlertSettings = (settings) => Boolean(
+  settings && typeof settings.enabled === "boolean" &&
+  Number.isInteger(settings.threshold) && settings.threshold > 0 &&
+  intervalValues.has(settings.intervalMinutes)
+);
+
+export const alertIntervalLabel = (minutes) =>
+  ALERT_AUTOMATION_INTERVALS.find((item) => item.minutes === Number(minutes))?.label || "Unavailable";
 
 export const getRunEvaluationControlState = (settings, isRunning = false) => {
-  const enabled = Boolean(settings?.enabled);
+  const available = hasSavedAlertSettings(settings);
+  const enabled = available && settings.enabled;
 
   return {
     enabled,
     disabled: !enabled || isRunning,
-    intervalMinutes: normalizeAlertAutomationInterval(settings?.intervalMinutes),
-    helperText: enabled ? "" : "Turn on automatic alerts in Set Up Alerts before checking reports.",
+    intervalMinutes: available ? settings.intervalMinutes : null,
+    helperText: !available ? "Saved alert settings are unavailable. Load settings before checking reports." : enabled ? "" : "Turn on automatic alerts in Set Up Alerts before checking reports.",
   };
 };

@@ -13,6 +13,7 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 
+import mongomock
 from bson import ObjectId
 from fastapi import HTTPException
 
@@ -101,6 +102,7 @@ fake_database.analytics_entries_collection = FakeCollection()
 fake_database.dataset_collection = FakeCollection()
 fake_database.point_collection = FakeCollection()
 fake_database.user_collection = FakeCollection()
+fake_database.report_id_counters_collection = mongomock.MongoClient().db.report_id_counters
 sys.modules["config.database"] = fake_database
 
 from controllers import diseaseWatchFeedController as disease  # noqa: E402
@@ -138,6 +140,8 @@ def self_report_payload(reporter=None):
 
 class MobileRegistrationAndAnalyticsTests(unittest.TestCase):
     def setUp(self):
+        fake_database.report_id_counters_collection.delete_many({})
+        fake_database.report_id_counters_collection.insert_one({"_id": "self_report_public_id", "value": 0})
         for collection in (
             fake_database.mobile_users_collection,
             fake_database.self_reports_collection,

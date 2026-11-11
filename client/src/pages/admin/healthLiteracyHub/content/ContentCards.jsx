@@ -1,4 +1,5 @@
 /* eslint-disable react/prop-types */
+import { useState } from "react";
 import VideoCardPreview from "../../../../components/health-literacy/VideoCardPreview";
 import { attachmentKind, GENERIC_ARTICLE_THUMBNAIL } from "../../../../utils/healthLiteracyMedia";
 import Icon from "../../../../components/Icon";
@@ -53,7 +54,7 @@ export const ContentGrid = ({
     <div
       className={
         contentType === "Articles"
-          ? "flex w-full flex-col gap-[10px]"
+          ? "hl-article-list flex w-full flex-col gap-[10px]"
           : "grid grid-cols-1 gap-[10px] md:grid-cols-2 lg:grid-cols-3"
       }
     >
@@ -305,76 +306,75 @@ const VideoContentCard = ({ isLoading, item, mediaSource, canEdit, onMediaClick,
     <div className="p-[16px]">
       <h3 className="text-[18px] font-semibold text-primary-800">{item.title}</h3>
       <p className="hl-meta">{item.duration ? `Duration: ${item.duration} · ` : ""}Views: {formatNumber(getContentViewCount(item))}</p>
-      <div className="hl-actions"><button type="button" className="hl-button" onClick={() => onMediaClick(item)}>Watch Video</button>
-        {canEdit && <button type="button" className="hl-button hl-secondary" onClick={() => onEditClick(item)}>Edit</button>}</div>
+      <div className="hl-actions"><button type="button" className="prod-btn-base prod-btn-primary min-h-[44px]" onClick={() => onMediaClick(item)}>Watch Video</button>
+        {canEdit && <button type="button" className="prod-btn-base prod-btn-secondary min-h-[44px]" onClick={() => onEditClick(item)}>Edit</button>}</div>
     </div>
   </div>;
+};
+
+const ArticleCardImage = ({ source, alt }) => {
+  const [useFallback, setUseFallback] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
+  const src = useFallback ? GENERIC_ARTICLE_THUMBNAIL : source;
+
+  if (unavailable) return <span className="hl-meta">Article image unavailable</span>;
+
+  return <img src={src} alt={useFallback ? "" : alt} onError={() => {
+    if (src === GENERIC_ARTICLE_THUMBNAIL) setUnavailable(true);
+    else setUseFallback(true);
+  }} />;
 };
 
 const ArticleContentCard = ({ item, canEdit, onEditClick, onShareClick, onMediaClick }) => {
   const subtitle = String(item.shortPreview?.trim() || item.description || "").slice(0, 75);
   const tags = item.tags ?? [];
   const galleryImage = item.galleryImages?.[0];
+  const gallerySource = getContentMediaSource(galleryImage?.media);
   const mainSource = getContentMediaSource(item.media) || item.imageUrl;
-  const imageSource = getContentMediaSource(galleryImage?.media) ||
+  const imageSource = gallerySource ||
     (attachmentKind(mainSource, item.media?.contentType || "") === "image" ? mainSource : GENERIC_ARTICLE_THUMBNAIL);
+  const imageAlt = gallerySource ? galleryImage.alt ?? item.title
+    : imageSource === GENERIC_ARTICLE_THUMBNAIL ? "" : item.media?.alt ?? item.title;
 
   return (
-    <div className="w-full rounded-[8px] border border-[#E5E5E5] bg-white p-[18px] text-left transition-shadow hover:shadow-sm">
-      <button type="button" aria-label={`Read article: ${item.title}`} onClick={() => onMediaClick(item)} className="mb-4 block w-full">
-        <img className="max-h-[220px] w-full rounded-lg object-contain" alt={item.title}
-          src={imageSource} />
+    <div className="hl-article-card w-full rounded-[8px] border border-[#E5E5E5] bg-white p-[18px] text-left transition-shadow hover:shadow-sm">
+      <button type="button" aria-label={`Read article: ${item.title}`} onClick={() => onMediaClick(item)} className="hl-article-card-cover">
+        <ArticleCardImage key={imageSource} source={imageSource} alt={imageAlt} />
       </button>
-      <button type="button" className="hl-text-button" onClick={() => onMediaClick(item)}>Read More</button>
-      <h3 className="text-left text-[18px] font-semibold leading-[26px] text-gray-800">
-        {item.title}
-      </h3>
-      <p
-        className="mt-[6px] text-left text-[14px] leading-[20px] text-gray-500"
-      >
-        {subtitle}
-      </p>
-
-      {tags.length > 0 && (
-        <div className="mt-[12px] flex flex-wrap items-center justify-start gap-[8px]">
-          {tags.map((tag, index) => (
-            <span
-              key={`${tag}-${index}`}
-              className="inline-flex min-h-[28px] items-center rounded-[6px] bg-[#16A34A] px-[10px] text-[12px] font-semibold text-white"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
-
-      <div className="mt-[14px] flex flex-col gap-[10px] border-t border-[#E5E5E5] pt-[12px] sm:flex-row sm:items-center sm:justify-between">
-        <span className="text-left text-[13px] font-semibold text-gray-700">
-          Views: {formatNumber(getContentViewCount(item))}
-        </span>
-        <div className="flex flex-wrap items-center gap-[8px] sm:justify-end">
-          <button
-            type="button"
-            onClick={() => onShareClick(item)}
-            className="inline-flex min-h-[34px] items-center justify-center gap-[6px] rounded-[6px] border border-[#D0D5DD] bg-white px-[10px] text-[12px] font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#6A8EB5]"
-          >
-            <Icon
-              iconName="ArrowUpRight"
-              height="14px"
-              width="14px"
-              stroke="#344054"
-            />
-            <span>Share</span>
-          </button>
-          {canEdit && (
-            <button
-              type="button"
-              onClick={() => onEditClick(item)}
-              className="inline-flex min-h-[34px] items-center justify-center rounded-[6px] border border-[#D0D5DD] bg-white px-[12px] text-[12px] font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#6A8EB5]"
-            >
-              Edit
+      <div className="hl-article-card-content">
+        <div className="hl-article-card-header">
+          <h3 className="text-left text-[18px] font-semibold leading-[26px] text-gray-800">
+            {item.title}
+          </h3>
+          <div className="hl-article-card-actions">
+            <button type="button" onClick={() => onShareClick(item)} className="prod-btn-base prod-btn-secondary min-h-[44px]">
+              <Icon iconName="ArrowUpRight" height="16px" width="16px" stroke="currentColor" />
+              <span>Share</span>
             </button>
+            {canEdit && <button type="button" onClick={() => onEditClick(item)} className="prod-btn-base prod-btn-secondary min-h-[44px]">Edit</button>}
+          </div>
+        </div>
+        <p className="mt-[6px] text-left text-[14px] leading-[20px] text-gray-500">
+          {subtitle}
+        </p>
+        <button type="button" className="prod-btn-base prod-btn-primary mt-[12px] min-h-[44px]" onClick={() => onMediaClick(item)}>Read Article</button>
+
+        <div className="hl-article-card-support">
+          {tags.length > 0 && (
+            <div className="flex flex-wrap items-center justify-start gap-[8px]">
+              {tags.map((tag, index) => (
+                <span
+                  key={`${tag}-${index}`}
+                  className="inline-flex min-h-[28px] items-center rounded-[6px] bg-[#16A34A] px-[10px] text-[12px] font-semibold text-white"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
           )}
+          <span className="shrink-0 text-left text-[13px] font-semibold text-gray-700">
+            Views: {formatNumber(getContentViewCount(item))}
+          </span>
         </div>
       </div>
     </div>

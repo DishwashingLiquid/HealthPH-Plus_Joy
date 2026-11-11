@@ -24,6 +24,21 @@
 :is(.hl-hub, .hl-feature:not(.public-buttons)) .hl-text-button { color: var(--hl-navy); text-decoration: underline; min-height: 44px; padding: 8px; font-weight: 600; }
 .hl-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .hl-meta { color: #5A6876; font-size: 14px; line-height: 1.6; margin: 10px 0 16px; }
+/* Admin article list only; action colors, sizing and focus use global prod-btn variants. */
+.hl-hub .hl-article-list { container: hl-admin-articles / inline-size; }
+.hl-hub .hl-article-card { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 18px; }
+.hl-hub .hl-article-card-cover { display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 8px; background: var(--hl-bg); }
+/* Gallery/main media have no photo/poster classification; preserve unclassified artwork. */
+.hl-hub .hl-article-card-cover img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; }
+.hl-hub .hl-article-card-content { min-width: 0; }
+.hl-hub .hl-article-card-header { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; }
+.hl-hub .hl-article-card-header h3 { flex: 1 1 220px; min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.hl-hub .hl-article-card-actions { display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; gap: 8px; }
+.hl-hub .hl-article-card-support { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; border-top: 1px solid var(--hl-border); padding-top: 12px; overflow-wrap: anywhere; }
+@container hl-admin-articles (min-width: 640px) {
+  .hl-hub .hl-article-card { grid-template-columns: 200px minmax(0, 1fr); }
+  .hl-hub .hl-article-card-header { flex-wrap: nowrap; }
+}
 .hl-description { font-size: 17px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; margin: 16px 0; }
 .hl-dialog { position: fixed; inset: 0; width: min(1440px, calc(100% - 32px)); max-width: none; max-height: calc(100dvh - 32px); padding: 0; margin: auto; border: 0; border-radius: 12px; background: white; overflow: auto; box-shadow: 0 24px 80px #0005; }
 .hl-dialog::backdrop { background: #07121ee6; }

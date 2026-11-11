@@ -5,6 +5,7 @@ claims device delivery: mobile inbox and push transports intentionally live
 outside this dashboard/backend feature.
 """
 from datetime import datetime, timedelta
+import re
 from uuid import uuid4
 from typing_extensions import Annotated
 
@@ -32,6 +33,7 @@ alerts = getattr(database, "regional_alerts_collection", None)
 deliveries = getattr(database, "mobile_notification_deliveries_collection", None)
 mobile_users = getattr(database, "mobile_users_collection", None)
 users = getattr(database, "user_collection", None)
+roles = getattr(database, "role_label_collection", None)
 self_reports = getattr(database, "self_reports_collection", None)
 settings = getattr(database, "application_settings_collection", None)
 batch_states = getattr(database, "regional_alert_batch_states_collection", None)
@@ -61,18 +63,31 @@ class RegionalAlertSettingsPayload(BaseModel):
 
 
 class RunRegionalAlertEvaluationPayload(BaseModel):
-    intervalMinutes: int = 1440
+    # Compatibility only: evaluation always uses the effective saved settings.
+    intervalMinutes: int | None = None
 
     @field_validator("intervalMinutes")
     @classmethod
     def allowed_interval(cls, value):
-        if value not in ALLOWED_INTERVALS: raise ValueError("intervalMinutes must be 15, 30, 60, 480, 720, or 1440")
+        if value is not None and value not in ALLOWED_INTERVALS: raise ValueError("intervalMinutes must be 15, 30, 60, 480, 720, or 1440")
         return value
 
 
 async def require_regional_alert_user(user_id: Annotated[str, Depends(require_auth)]):
     user = users.find_one({"_id": ObjectId(user_id)}) if users is not None and ObjectId.is_valid(user_id) else None
     if not user: raise HTTPException(status_code=401, detail="User not found")
+    if user.get("activation_pending") or user.get("is_disabled", False):
+        raise HTTPException(status_code=403, detail="An active account is required.")
+    if user.get("user_type") == "SUPERADMIN":
+        return user
+    role_name = str(user.get("role_label") or "").strip()
+    role = roles.find_one({
+        "name": {"$regex": f"^{re.escape(role_name)}$", "$options": "i"},
+        "is_active": {"$ne": False},
+    }) if roles is not None and role_name else None
+    pages = role.get("accessible_pages") if role else None
+    if not isinstance(pages, list) or "Disease Watch Feed" not in pages:
+        raise HTTPException(status_code=403, detail="You do not have access to Disease Watch Feed.")
     return user
 
 
@@ -130,10 +145,25 @@ def preview_for_alert(item):
 
 def serialize_alert(item):
     automatic = item.get("source") == "automated_regional_summary"
+    trigger = item.get("trigger") or {}
+    snapshot = trigger.get("summarySnapshot") or {}
+    # Use stored history only; never reconstruct a window from current settings.
+    raw_count = trigger.get("reportCount", snapshot.get("reportCount"))
+    try:
+        report_count = int(raw_count) if raw_count is not None else None
+    except (TypeError, ValueError):
+        report_count = None
+    # The persisted aggregate can lag while preparation is in progress. Count
+    # actual assignments for the dashboard; unavailable storage is not zero.
+    assignment_count = deliveries.count_documents({"alertId": item.get("_id")}) if deliveries is not None else None
+    inbox_count = deliveries.count_documents({"alertId": item.get("_id"), "status": "Prepared"}) if automatic and item.get("status") in ("Published", "Prepared") and deliveries is not None else None
     return {"id": str(item.get("_id")), "title": item.get("title"), "region": item.get("region"), "message": item.get("message"), "status": item.get("status"),
             "scheduledAt": _iso(item.get("scheduledAt")), "sentAt": _iso(item.get("sentAt")), "cancelledAt": _iso(item.get("cancelledAt")),
-            "recipientCount": int(item.get("recipientCount") or 0), "deliveryError": item.get("deliveryError") or "", "automated": automatic,
-            "reportCount": int(item.get("trigger", {}).get("reportCount") or 0), "intervalMinutes": item.get("trigger", {}).get("intervalMinutes"),
+            "recipientCount": assignment_count,
+            "inboxAssignmentCount": inbox_count, "deliveryError": item.get("deliveryError") or "", "automated": automatic,
+            "reportCount": report_count, "intervalMinutes": trigger.get("intervalMinutes"),
+            "windowStart": _iso(trigger.get("windowStart") or snapshot.get("windowStart")),
+            "windowEnd": _iso(trigger.get("windowEnd") or snapshot.get("windowEnd")),
             "generatedAt": _iso(item.get("createdAt")), "preparationStatus": item.get("status") if automatic else None,
             "summaryPreview": preview_for_alert(item)}
 
@@ -151,6 +181,7 @@ async def fetch_regional_alerts(_user: Annotated[dict, Depends(require_regional_
 
 
 async def fetch_regional_alert_settings(_user: Annotated[dict, Depends(require_regional_alert_user)]):
+    if settings is None: raise HTTPException(status_code=503, detail="Alert settings storage is unavailable")
     return JSONResponse(status_code=200, content={"item": _serialize_settings(None)})
 
 
@@ -170,18 +201,13 @@ async def save_regional_alert_settings(payload: RegionalAlertSettingsPayload, _u
 
 
 async def run_regional_alert_evaluation(payload: RunRegionalAlertEvaluationPayload, _user: Annotated[dict, Depends(require_regional_alert_user)]):
-    """Persist an enabled automation interval and immediately execute its durable flow."""
+    """Evaluate saved settings through the existing durable pipeline."""
     if settings is None: raise HTTPException(status_code=503, detail="Alert settings storage is unavailable")
-    current_time = now()
-    updated = settings.find_one_and_update(
-        {"_id": AUTOMATION_SETTINGS_ID, "enabled": True},
-        {"$set": {"intervalMinutes": payload.intervalMinutes, "updatedAt": current_time}},
-        return_document=ReturnDocument.AFTER,
-    )
-    if not updated:
+    current = _settings_document()
+    if not current["enabled"]:
         raise HTTPException(status_code=409, detail="Enable automation in Alert Settings to run an evaluation.")
-
-    _recalculate_active_cooldowns(payload.intervalMinutes, current_time)
+    if payload.intervalMinutes is not None and payload.intervalMinutes != current["intervalMinutes"]:
+        raise HTTPException(status_code=409, detail="Evaluation uses the saved interval. Reload settings or save interval changes in Alert Settings first.")
     evaluated_regions = run_automation_tick(force=True)
     # The normal scheduler prepares existing work before evaluation. A manual
     # run also prepares an alert created by this evaluation without creating a

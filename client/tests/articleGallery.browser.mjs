@@ -57,13 +57,101 @@ const upload = async (selector, filename = "same.png") => {
   const { nodeId } = await command("DOM.querySelector", { nodeId: root.nodeId, selector });
   await command("DOM.setFileInputFiles", { nodeId, files: [`${output}/${filename}`] });
 };
-const editButtons = (title) => `[...document.querySelectorAll('.hl-hub h3')].find(e=>e.textContent===${JSON.stringify(title)}).parentElement.querySelectorAll('button')`;
+const editButtons = (title) => `([...document.querySelectorAll('.hl-article-card')].find(e=>e.querySelector('h3')?.textContent===${JSON.stringify(title)})?.querySelectorAll('button') || [])`;
 const edit = editButtons("Uploaded gallery with captions");
 const openEdit = async () => { await click(`[...${edit}].find(e=>e.textContent.trim()==='Edit')`); await until("document.querySelector('#caption-edit-first')"); };
+
+const checkAdminCards = async () => {
+  await command("Page.navigate", { url: `${preview}?scenario=article-cards` });
+  await until("document.querySelectorAll('.hl-article-card').length === 6");
+  await until("[...document.querySelectorAll('.hl-article-card img')].every(e => e.complete && e.naturalWidth > 0)");
+  const cards = "[...document.querySelectorAll('.hl-article-card')]";
+  assert.equal(await evaluate(`${cards}.every(e => e.querySelectorAll('img').length === 1)`), true);
+  assert.equal(await evaluate(`${cards}[0].querySelector('img').alt`), "A complete portrait illustration");
+  assert.equal(await evaluate(`${cards}[0].querySelector('img').src.endsWith('health-literacy-tall.svg')`), true);
+  assert.equal(await evaluate(`${cards}[1].querySelector('img').alt`), "", "Explicit decorative alt stays empty");
+  assert.equal(await evaluate(`${cards}[1].querySelector('.hl-article-card-cover').getAttribute('aria-label')`), "Read article: Read-only article with a decorative image");
+  assert.equal(await evaluate(`${cards}[1].querySelectorAll('.hl-article-card-actions button').length`), 1, "Read-only card offers Share without Edit");
+  assert.equal(await evaluate(`${cards}[2].querySelector('img').alt`), "Stored main image description");
+  assert.equal(await evaluate(`${cards}[3].querySelector('img').src.endsWith('generic-article.png?legacy')`), true);
+  for (const i of [4, 5]) assert.equal(await evaluate(`${cards}[${i}].querySelector('img').src.endsWith('/assets/articles/generic-article.png')`), true);
+
+  for (const width of [1440, 1024, 768, 576, 390, 320]) {
+    await viewport(width, 1000, width < 768);
+    const layouts = await evaluate(`${cards}.map(e => {
+      const box = node => { const r = node.getBoundingClientRect(); return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height}; };
+      const title = e.querySelector('h3'), summary = e.querySelector('.hl-article-card-content > p');
+      return {card:box(e),cover:box(e.querySelector('.hl-article-card-cover')),content:box(e.querySelector('.hl-article-card-content')),
+        title:box(title),summary:box(summary),read:box([...e.querySelectorAll('button')].find(b=>b.textContent==='Read Article')),
+        actions:[...e.querySelectorAll('.hl-article-card-actions button')].map(box),
+        fit:getComputedStyle(e.querySelector('img')).objectFit};
+    })`);
+    assert.equal(await evaluate("document.documentElement.scrollWidth <= innerWidth"), true, `No overflow at ${width}px`);
+    for (const layout of layouts) {
+      assert.ok(Math.abs(layout.cover.width / layout.cover.height - 4 / 3) < .01);
+      assert.equal(layout.fit, "contain", "Unclassified artwork stays complete, including portrait images");
+      assert.ok(layout.summary.y >= layout.title.bottom && layout.read.y >= layout.summary.bottom);
+      assert.ok(layout.read.height >= 44);
+      for (const action of layout.actions) {
+        assert.ok(action.height >= 44 && action.x >= layout.content.x && action.right <= layout.card.right);
+        if (width >= 768) assert.equal(action.y, layout.title.y, "Header actions align with title top");
+      }
+      if (width >= 768) {
+        assert.equal(layout.cover.width, 200);
+        assert.ok(layout.content.x > layout.cover.right);
+      } else assert.ok(layout.content.y > layout.cover.bottom);
+    }
+    assert.ok(layouts[0].title.height > 52, "Long title wraps");
+    await evaluate("scrollTo(0,0)");
+    if ([1440, 390, 320].includes(width)) await shot(`admin-cards-${width}`);
+  }
+
+  const styles = await evaluate(`(() => {
+    const style = label => {const e=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===label),s=getComputedStyle(e);
+      return {background:s.backgroundColor,color:s.color,font:s.fontSize,weight:s.fontWeight,padding:s.padding,height:e.getBoundingClientRect().height};};
+    return {read:style('Read Article'),watch:style('Watch Video'),share:style('Share'),edit:style('Edit')};
+  })()`);
+  assert.deepEqual(styles.read, styles.watch, "Article/video primary actions share size and variant");
+  assert.deepEqual(styles.share, styles.edit, "Secondary actions share size and variant");
+  assert.equal(styles.read.background, "rgb(50, 65, 140)");
+  assert.equal(styles.share.background, "rgb(255, 255, 255)");
+
+  await viewport(1440, 1000);
+  await evaluate("document.querySelector('#root > .hl-hub').style.width = '540px'");
+  assert.equal(await evaluate(`(() => {const card=${cards}[0];return card.querySelector('.hl-article-card-content').getBoundingClientRect().top > card.querySelector('.hl-article-card-cover').getBoundingClientRect().bottom;})()`), true, "Constrained desktop cards stack within an expanded sidebar layout");
+  assert.equal(await evaluate(`${cards}.every(e => [...e.querySelectorAll('button')].every(b => b.getBoundingClientRect().right <= e.getBoundingClientRect().right))`), true);
+  await shot("admin-cards-constrained-desktop");
+  await evaluate("document.querySelector('#root > .hl-hub').style.width = ''");
+  await evaluate("document.querySelector('.hl-article-card-cover').focus()");
+  await press("Enter", "Enter", 13);
+  for (const label of ["Share", "Edit", "Read Article"]) {
+    await press("Tab", "Tab", 9);
+    assert.equal(await evaluate("document.activeElement.textContent.trim()"), label);
+    assert.equal(await evaluate("document.activeElement.matches(':focus-visible')"), true);
+    assert.equal(await evaluate("(() => {const s=getComputedStyle(document.activeElement);return s.outlineStyle!=='none' || s.boxShadow!=='none';})()"), true);
+    if (label === "Edit") await press(" ", "Space", 32); else await press("Enter", "Enter", 13);
+  }
+  assert.deepEqual(await evaluate("__hlCardActions"), [
+    { action: "open", id: "long-gallery", galleryCount: 2 },
+    { action: "share", id: "long-gallery", galleryCount: 2 },
+    { action: "edit", id: "long-gallery", galleryCount: 2 },
+    { action: "open", id: "long-gallery", galleryCount: 2 },
+  ], "Keyboard actions keep the original item and its full gallery");
+  await click(button("Watch Video"));
+  await click("document.querySelector('.hl-video-card').parentElement.parentElement.querySelector('.prod-btn-secondary')");
+  assert.deepEqual((await evaluate("__hlCardActions")).slice(-2).map(({ action, id }) => ({ action, id })), [
+    { action: "open", id: "fixture-video" }, { action: "edit", id: "fixture-video" },
+  ]);
+  // Even a missing generic fallback keeps a stable frame and accessible opening action.
+  await evaluate(`${cards}[5].querySelector('img').dispatchEvent(new Event('error'))`);
+  await until(`${cards}[5].querySelector('.hl-article-card-cover').textContent === 'Article image unavailable'`);
+  assert.equal(await evaluate(`${cards}[5].querySelectorAll('img').length`), 0);
+};
 
 try {
   await command("Page.enable");
   await viewport(1440, 1000);
+  await checkAdminCards();
   await command("Page.navigate", { url: `${preview}?scenario=gallery-public` });
   await until("document.querySelector('.article-item')");
   await navigateArticle("uploaded-gallery-with-captions-fixture-gallery");
@@ -104,12 +192,28 @@ try {
   await viewport(1440, 1000);
   await command("Page.navigate", { url: `${preview}?scenario=gallery-hub` });
   await until("document.querySelector('.hl-hub h3')");
-  await click(`[...${edit}].find(e=>e.textContent.trim()==='Read More')`);
+  await click(`[...${edit}].find(e=>e.textContent.trim()==='Read Article')`);
   await until("document.querySelector('dialog[open] .hl-prose')");
+  await until("__hlRequests.filter(r=>r.path.endsWith('/analytics/events')).length === 1");
   assert.match(await evaluate("document.querySelector('dialog[open]').textContent"), /A separate short preview for review/);
   assert.match(await evaluate("document.querySelector('dialog[open] .hl-prose').textContent"), /Creator captions and public comments stay separate/);
+  await click(button("Next image"));
+  await until("document.querySelector('.hl-photo-information > .hl-description').textContent === 'Second creator caption'");
   await press("Escape", "Escape", 27);
   await until("!document.querySelector('dialog[open]')");
+  await click(`[...${edit}].find(e=>e.classList.contains('hl-article-card-cover'))`);
+  await until("document.querySelector('dialog[open] .hl-prose')");
+  await until("__hlRequests.filter(r=>r.path.endsWith('/analytics/events')).length === 2");
+  await press("Escape", "Escape", 27);
+  await until("!document.querySelector('dialog[open]')");
+  await evaluate("Object.defineProperty(navigator,'share',{configurable:true,value:async value=>window.__hlShared=value})");
+  await click(`[...${edit}].find(e=>e.textContent.trim()==='Share')`);
+  await until("window.__hlShared");
+  assert.equal(await evaluate("__hlShared.url"), "https://example.test/article-fixture");
+  await evaluate("Object.defineProperty(navigator,'share',{configurable:true,value:undefined});Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>window.__hlCopied=value}})");
+  await click(`[...${edit}].find(e=>e.textContent.trim()==='Share')`);
+  await until("window.__hlCopied");
+  assert.equal(await evaluate("__hlCopied"), "https://example.test/article-fixture");
   await click(button("Create New Content"));
   await until("document.querySelector('#gallery-add-create')");
   assert.equal(await evaluate("document.querySelector('.hl-attachment-editor').open"), false);
@@ -208,5 +312,5 @@ try {
   await until("!document.querySelector('#gallery-add-edit')");
   await openPdf();
   assert.equal(await evaluate("document.querySelector('.hl-upload-preview').textContent"), "support.pdf");
-  console.log("PASS: desktop/mobile upload layout, collapsed/expanded attachments, drag-and-drop, image descriptions/decorative save and reopen, keyboard reorder, caption retention, replacement/removal, and public gallery/viewer regression checks.");
+  console.log("PASS: admin cards at 320–1440px and constrained desktop widths, image selection/fallbacks/alt, shared button variants, keyboard actions, opening/sharing/editing/analytics, full galleries, upload/edit regressions, and public galleries/viewers.");
 } finally { socket.close(); }

@@ -40,6 +40,7 @@ def load_controller(db):
     database.mobile_notification_deliveries_collection = db.mobile_notification_deliveries
     database.mobile_users_collection = db.mobile_users
     database.user_collection = db.users
+    database.role_label_collection = db.roles
     database.self_reports_collection = db.self_reports
     database.application_settings_collection = db.application_settings
     spec = importlib.util.spec_from_file_location(
@@ -181,8 +182,9 @@ class ConsolidatedAlertProcessingTests(unittest.TestCase):
             "source": "automated_regional_summary", "region": "IVA",
         }), 1)
 
-    def test_run_evaluation_recalculates_active_cooldowns_before_duplicate_evaluation(self):
+    def test_run_evaluation_preserves_active_cooldowns_and_saved_configuration(self):
         self.settings()
+        self.db.application_settings.update_one({"_id": AUTOMATION_SETTINGS_ID}, {"$set": {"threshold": 4}})
         reserved_at = self.at - timedelta(minutes=5)
         self.views[ALERT_COOLDOWN].insert_one({
             "_id": "ncr-fever", "region": "NCR", "symptomKey": "literal:Fever",
@@ -195,15 +197,18 @@ class ConsolidatedAlertProcessingTests(unittest.TestCase):
 
         with patch.object(self.controller, "now", return_value=self.at):
             asyncio.run(self.controller.run_regional_alert_evaluation(
-                self.controller.RunRegionalAlertEvaluationPayload(intervalMinutes=15), {}
+                self.controller.RunRegionalAlertEvaluationPayload(), {}
             ))
 
         cooldown = self.views[ALERT_COOLDOWN].find_one({"_id": "ncr-fever"})
-        self.assertEqual(cooldown["expiresAt"], reserved_at + timedelta(minutes=15))
+        self.assertEqual(cooldown["expiresAt"], reserved_at + timedelta(minutes=1440))
         self.assertEqual(cooldown["reservedAt"], reserved_at)
         self.assertEqual(cooldown["batchId"], "original-batch")
         self.assertEqual(self.db.regional_alerts.count_documents({"source": "automated_regional_summary"}), 0)
         self.assertEqual(self.views[SUMMARY_EVENT].count_documents({"consumedBatchId": {"$exists": True}}), 0)
+        saved = self.db.application_settings.find_one({"_id": AUTOMATION_SETTINGS_ID})
+        self.assertEqual((saved["enabled"], saved["threshold"], saved["intervalMinutes"]), (True, 4, 30))
+        self.assertNotIn("updatedAt", saved)
 
     def test_restart_recovers_processing_state_and_retry_renews_reservation(self):
         self.settings(enabled=False)
@@ -265,9 +270,69 @@ class ConsolidatedAlertProcessingTests(unittest.TestCase):
         alert["status"] = "Published"
         self.assertIsNone(self.controller.serialize_alert(alert)["summaryPreview"])
 
-    def test_run_evaluation_accepts_each_supported_interval_and_persists_next_reconciliation(self):
+    def test_dashboard_history_keeps_stored_trigger_details_after_preparation(self):
+        from copy import deepcopy
+        trigger = {
+            "reportCount": 6, "intervalMinutes": 15,
+            "windowStart": self.at - timedelta(minutes=15), "windowEnd": self.at,
+            "summarySnapshot": {"reportCount": 6, "symptomCounts": [{"symptom": "Fever", "count": 6}]},
+        }
+        alert_id = self.db.regional_alerts.insert_one({
+            "source": "automated_regional_summary", "status": "Preparing", "region": "NCR",
+            "title": "Historical alert", "message": "Submitted symptoms", "createdAt": self.at,
+            "trigger": deepcopy(trigger),
+        }).inserted_id
+        self.db.mobile_users.insert_one({"id": "recipient", "source": "mobile_registration", "roleId": "user", "regionCode": "NCR"})
+        before = self.controller.serialize_alert(self.db.regional_alerts.find_one({"_id": alert_id}))
+        self.controller._prepare_automatic_recipients()
+        stored = self.db.regional_alerts.find_one({"_id": alert_id})
+        after = self.controller.serialize_alert(stored)
+        self.assertEqual(after["status"], "Published")
+        self.assertEqual(after["recipientCount"], 1)
+        self.assertEqual(after["inboxAssignmentCount"], 1)
+        for key in ("region", "reportCount", "intervalMinutes", "generatedAt", "windowStart", "windowEnd"):
+            self.assertEqual(after[key], before[key])
+        self.assertEqual(after["windowStart"], trigger["windowStart"].isoformat())
+        self.assertEqual(after["windowEnd"], trigger["windowEnd"].isoformat())
+        self.assertEqual(stored["trigger"], trigger)
+
+    def test_missing_dashboard_history_is_unknown_and_legacy_snapshot_dates_are_read_only(self):
+        from copy import deepcopy
+        item = {"_id": "legacy", "source": "automated_regional_summary", "status": "Published"}
+        empty = self.controller.serialize_alert(item)
+        self.assertIsNone(empty["reportCount"])
+        self.assertIsNone(empty["intervalMinutes"])
+        self.assertEqual((empty["windowStart"], empty["windowEnd"], empty["generatedAt"]), ("", "", ""))
+        item["trigger"] = {"reportCount": 0, "summarySnapshot": {"windowStart": self.at - timedelta(minutes=60), "windowEnd": self.at}}
+        original = deepcopy(item)
+        serialized = self.controller.serialize_alert(item)
+        self.assertEqual(serialized["reportCount"], 0)
+        self.assertEqual(serialized["windowStart"], (self.at - timedelta(minutes=60)).isoformat())
+        self.assertEqual(serialized["windowEnd"], self.at.isoformat())
+        self.assertEqual(item, original)
+
+    def test_cancellation_remains_limited_to_future_manual_scheduled_alerts(self):
+        future = self.at + timedelta(hours=1)
+        for fields in (
+            {"source": "automated_regional_summary", "status": "Scheduled", "scheduledAt": future},
+            {"status": "Sent", "scheduledAt": future},
+            {"status": "Scheduled", "scheduledAt": self.at - timedelta(hours=1)},
+        ):
+            alert_id = self.db.regional_alerts.insert_one(fields).inserted_id
+            with patch.object(self.controller, "get_ph_datetime", return_value=self.at):
+                with self.assertRaises(self.controller.HTTPException) as raised:
+                    asyncio.run(self.controller.cancel_regional_alert(str(alert_id), {}))
+            self.assertEqual(raised.exception.status_code, 400)
+            self.assertEqual(self.db.regional_alerts.find_one({"_id": alert_id})["status"], fields["status"])
+        alert_id = self.db.regional_alerts.insert_one({"status": "Scheduled", "scheduledAt": future}).inserted_id
+        with patch.object(self.controller, "get_ph_datetime", return_value=self.at):
+            response = asyncio.run(self.controller.cancel_regional_alert(str(alert_id), {}))
+        self.assertEqual(json.loads(response.body)["item"]["status"], "Cancelled")
+
+    def test_run_evaluation_accepts_matching_saved_intervals_and_updates_reconciliation(self):
         self.settings()
         for minutes in (15, 30, 60, 480, 720, 1440):
+            self.db.application_settings.update_one({"_id": AUTOMATION_SETTINGS_ID}, {"$set": {"intervalMinutes": minutes}})
             with self.subTest(minutes=minutes), patch.object(self.controller, "now", return_value=self.at):
                 response = asyncio.run(self.controller.run_regional_alert_evaluation(
                     self.controller.RunRegionalAlertEvaluationPayload(intervalMinutes=minutes), {}
@@ -281,8 +346,9 @@ class ConsolidatedAlertProcessingTests(unittest.TestCase):
             self.assertEqual(saved["lastSuccessfulEvaluation"], self.at)
             self.assertEqual(saved["nextScheduledReconciliation"], self.at + timedelta(minutes=minutes))
 
-    def test_run_evaluation_immediately_uses_selected_rolling_window_and_prepares_recipients(self):
+    def test_run_evaluation_uses_saved_rolling_window_and_prepares_recipients(self):
         self.settings()
+        self.db.application_settings.update_one({"_id": AUTOMATION_SETTINGS_ID}, {"$set": {"intervalMinutes": 15}})
         self.db.self_reports.insert_many([
             source_report("outside-window", self.at - timedelta(minutes=16)),
             *[source_report(index, self.at - timedelta(minutes=5)) for index in range(6)],
@@ -293,7 +359,7 @@ class ConsolidatedAlertProcessingTests(unittest.TestCase):
 
         with patch.object(self.controller, "now", return_value=self.at):
             response = asyncio.run(self.controller.run_regional_alert_evaluation(
-                self.controller.RunRegionalAlertEvaluationPayload(intervalMinutes=15), {}
+                self.controller.RunRegionalAlertEvaluationPayload(), {}
             ))
 
         body = json.loads(response.body)
@@ -330,6 +396,47 @@ class ConsolidatedAlertProcessingTests(unittest.TestCase):
 
         self.assertEqual(self.db.regional_alerts.count_documents({"source": "automated_regional_summary"}), 1)
         self.assertEqual(self.views[SUMMARY_EVENT].count_documents({"consumedBatchId": {"$exists": True}}), 6)
+
+    def test_run_evaluation_rejects_different_interval_without_any_processing(self):
+        self.settings()
+        before = self.db.application_settings.find_one({"_id": AUTOMATION_SETTINGS_ID})
+        with patch.object(self.controller, "run_automation_tick") as tick, patch.object(self.controller, "_recalculate_active_cooldowns") as recalculate:
+            with self.assertRaises(self.controller.HTTPException) as raised:
+                asyncio.run(self.controller.run_regional_alert_evaluation(
+                    self.controller.RunRegionalAlertEvaluationPayload(intervalMinutes=15), {}
+                ))
+            self.assertEqual(raised.exception.status_code, 409)
+            tick.assert_not_called()
+            recalculate.assert_not_called()
+        self.assertEqual(self.db.application_settings.find_one({"_id": AUTOMATION_SETTINGS_ID}), before)
+
+    def test_strict_threshold_does_not_alert_at_five_but_alerts_at_six(self):
+        self.settings()
+        with patch.object(self.controller, "now", return_value=self.at):
+            for index in range(5):
+                self.controller.update_regional_summary_for_report(source_report(index, self.at))
+            self.assertEqual(self.db.regional_alerts.count_documents({}), 0)
+            self.controller.update_regional_summary_for_report(source_report(5, self.at))
+            self.assertEqual(self.db.regional_alerts.count_documents({}), 1)
+
+    def test_dashboard_inbox_counts_require_publication_and_prepared_assignments(self):
+        alert_id = self.db.regional_alerts.insert_one({"source": "automated_regional_summary", "status": "Preparing"}).inserted_id
+        self.db.mobile_notification_deliveries.insert_many([
+            {"alertId": alert_id, "mobileUserId": "one", "status": "Prepared"},
+            {"alertId": alert_id, "mobileUserId": "two", "status": "Queued"},
+        ])
+        item = self.db.regional_alerts.find_one({"_id": alert_id})
+        preparing = self.controller.serialize_alert(item)
+        self.assertIsNone(preparing["inboxAssignmentCount"])
+        self.assertEqual(preparing["recipientCount"], 2)
+        item["status"] = "Published"
+        serialized = self.controller.serialize_alert(item)
+        self.assertEqual(serialized["inboxAssignmentCount"], 1)
+        self.assertEqual(serialized["recipientCount"], 2)
+        with patch.object(self.controller, "deliveries", None):
+            unavailable = self.controller.serialize_alert(item)
+        self.assertIsNone(unavailable["recipientCount"])
+        self.assertIsNone(unavailable["inboxAssignmentCount"])
 
 
 if __name__ == "__main__":

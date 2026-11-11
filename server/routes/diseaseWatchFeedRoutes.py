@@ -5,7 +5,11 @@ from controllers.diseaseWatchFeedController import (
     export_mobile_self_reports,
     fetch_mobile_self_reports_map_pins,
     fetch_mobile_self_reports_mine,
-    fetch_mobile_user_analytics_summary,
+)
+from controllers.diseaseWatchFeedDashboardController import (
+    fetch_dashboard_self_reports,
+    fetch_dashboard_map_pins,
+    fetch_dashboard_user_analytics,
 )
 from controllers.regionalAlertsController import (
     cancel_regional_alert,
@@ -28,6 +32,14 @@ mobile_self_reports_router.add_api_route(
     "/self-reports",
     methods=["POST"],
     endpoint=create_mobile_self_report,
+)
+
+# Protected dashboard adapters; do not guard the shared mobile router.
+mobile_self_reports_router.add_api_route(
+    "/disease-watch-feed/self-reports", methods=["GET"], endpoint=fetch_dashboard_self_reports
+)
+mobile_self_reports_router.add_api_route(
+    "/disease-watch-feed/map-pins", methods=["GET"], endpoint=fetch_dashboard_map_pins
 )
 
 # Saved, admin-reviewed reporting and manual regional mobile alerts.
@@ -83,5 +95,5 @@ mobile_self_reports_router.add_api_route(
 mobile_self_reports_router.add_api_route(
     "/disease-watch-feed/user-analytics",
     methods=["GET"],
-    endpoint=fetch_mobile_user_analytics_summary,
+    endpoint=fetch_dashboard_user_analytics,
 )

@@ -7,6 +7,7 @@ import { store } from "../../src/features/store";
 import Articles from "../../src/pages/Articles";
 import ArticlePage from "../../src/pages/ArticlePage";
 import ContentTab from "../../src/pages/admin/healthLiteracyHub/content/ContentTab";
+import { ContentGrid } from "../../src/pages/admin/healthLiteracyHub/content/ContentCards";
 import TestimonialItem from "../../src/components/about-us/TestimonialItem";
 import Home from "../../src/pages/Home";
 import bundledArticles from "../../src/assets/data/articles.json";
@@ -25,6 +26,7 @@ const content = [
 ].map((item) => ({ ...item, publishedDate: "2026-11-09", publishToWebsite: true }));
 const requests = [];
 if (scenario.startsWith("gallery")) content.push({ id: "fixture-gallery", contentType: "articles", title: "Uploaded gallery with captions",
+  externalUrl: "https://example.test/article-fixture",
   description: "Creator captions and public comments stay separate.", shortPreview: "A separate short preview for review.", language: "en", publishedDate: "2026-11-09", publishToWebsite: true,
   galleryImages: [{ id: "first", media: { fileId: "first-file", url: image, previewUrl: image, filename: "same.png", contentType: "image/png" }, caption: "First creator caption", alt: "First accessible description" },
     { id: "second", media: { fileId: "second-file", url: image + "?second", previewUrl: image + "?second", filename: "same.png", contentType: "image/png" }, caption: "Second creator caption", alt: "Second accessible description" }], media: null });
@@ -39,6 +41,21 @@ if (scenario.startsWith("gallery")) {
       media: { url: `/assets/articles/gallery/${article.galleryFolder}/${entry.filename}`, contentType: "image/jpeg" } })) });
 }
 window.__hlRequests = requests;
+const cardArticles = [
+  { id: "long-gallery", title: "A long title about community learning and health literacy ".repeat(5),
+    shortPreview: "A separate summary below the title.", tags: ["Community", "Learning"], viewCount: 1234,
+    media: { url: "/assets/articles/generic-article.png", contentType: "image/png" },
+    galleryImages: [{ id: "first", media: { url: image }, alt: "A complete portrait illustration" },
+      { id: "second", media: { url: `${image}?second` }, alt: "Second gallery image" }] },
+  { id: "read-only", title: "Read-only article with a decorative image", contentOrigin: "static",
+    galleryImages: [{ id: "decorative", media: { url: image }, alt: "" }] },
+  { id: "main-image", title: "Article with an eligible main image", media: { url: image, contentType: "image/png", alt: "Stored main image description" } },
+  { id: "image-url", title: "Article with a legacy image URL", imageUrl: "/assets/articles/generic-article.png?legacy" },
+  { id: "missing", title: "Article without an image", media: { url: "/tests/fixtures/example.pdf", contentType: "application/pdf" } },
+  { id: "broken", title: "Article with an unavailable gallery image", galleryImages: [{ id: "broken", media: { url: "/tests/fixtures/missing-article.png" }, alt: "Unavailable illustration" }] },
+].map((item) => ({ contentType: "Articles", contentOrigin: "api", description: "Card layout fixture.", ...item }));
+window.__hlCardActions = [];
+const cardAction = (action) => (item) => window.__hlCardActions.push({ action, id: item.id, galleryCount: item.galleryImages?.length || 0 });
 let postAttempts = 0;
 window.fetch = async (request, options = {}) => {
   const url = new URL(typeof request === "string" ? request : request.url, location.origin);
@@ -95,6 +112,10 @@ try {
 
 function Fixture() {
   const [type, setType] = useState(scenario === "gallery-hub" ? "Articles" : "Videos");
+  if (scenario === "article-cards") return <div className="internal-buttons hl-hub p-4">
+    <ContentGrid content={cardArticles} contentType="Articles" onMediaClick={cardAction("open")} onShareClick={cardAction("share")} onEditClick={cardAction("edit")} />
+    <ContentGrid content={[{ ...content[0], contentType: "Videos", contentOrigin: "api" }]} contentType="Videos" onMediaClick={cardAction("open")} onEditClick={cardAction("edit")} />
+  </div>;
   if (scenario === "public-buttons") return <Home />;
   if (scenario === "internal-buttons") return <>
     <section className="admin-layout internal-buttons"><button className="prod-btn-base prod-btn-primary" id="admin-primary">Admin primary</button>

@@ -154,7 +154,7 @@ class RegionalAlertCollectionGuardTests(unittest.TestCase):
             "deliveries": TruthinessForbiddenCollection(),
             "mobile_users": TruthinessForbiddenCollection(),
             "users": TruthinessForbiddenCollection(
-                {"_id": user_id, "user_type": "USER", "role_label": "ADMIN"}
+                {"_id": user_id, "user_type": "SUPERADMIN"}
             ),
             "self_reports": TruthinessForbiddenCollection(),
             "settings": TruthinessForbiddenCollection({"_id": "regional_symptom_summary_backfill_v1"}),

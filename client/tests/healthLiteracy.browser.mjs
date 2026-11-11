@@ -306,7 +306,7 @@ try {
   await shot("hub-infographic-viewer");
   await click(button("Close")); await click(button("Articles"));
   await until("document.querySelector('[aria-label=\"Read article: Article without an attachment\"]')");
-  await click(button("Read More"));
+  await click(button("Read Article"));
   await until("document.querySelector('dialog[open]')");
   await shot("hub-article-viewer");
   await click(button("Close"));
