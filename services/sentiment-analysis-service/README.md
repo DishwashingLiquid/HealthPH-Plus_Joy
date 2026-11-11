@@ -26,8 +26,8 @@ python -m pip install -r requirements-inference.txt
 python -m healthph_sentiment.api
 ```
 
-Default URL: `http://127.0.0.1:8002`. Interactive documentation:
-`http://127.0.0.1:8002/docs`. Use `--host` and `--port` to configure the server.
+Default URL: `http://127.0.0.1:8003`. Interactive documentation:
+`http://127.0.0.1:8003/docs`. Use `--host` and `--port` to configure the server.
 One worker loads the model once on CPU; forward passes are serialized.
 The pinned runtime is tested on Python 3.14.6, macOS arm64. Other platforms need
 their own dependency installation check.
@@ -38,10 +38,37 @@ directory. The service uses local files only and never downloads model assets.
 Missing files, invalid settings, incompatible weights, or a failed startup
 prediction prevent server startup.
 
+## Shared dashboard integration
+
+The web backend reuses this service for Sentiment Pulse survey answers and for
+NLP Insights self-reports/social-media texts. Configure the backend with
+`HEALTHPH_SENTIMENT_URL=http://127.0.0.1:8003`; keep language detection on 8001
+and disease detection on 8002. Model weights remain in this separate service.
+
+In local development, an existing backend environment with compatible inference
+dependencies can also run the service from this directory:
+
+```sh
+../../server/.venv/bin/python -m healthph_sentiment.api --port 8003
+```
+
+Report processing saves the model's `calm`/`worried` label, worried probability,
+threshold, input fingerprint, and model version in the analytics entry.
+Sentiment failures have their own retry state and preserve completed language,
+disease, and symptom results. NLP Insights provides an administrator-only
+**Process Pending Sentiment** action for existing processed reports, up to 500
+entries per request. Reads and manual processing retain analytics region access.
+Survey-answer processing continues through its existing Sentiment Pulse routes.
+
+The dashboard reads `GET /api/analytics-entries/nlp-sentiment-summary` and starts
+report sentiment processing with `POST /api/analytics-entries/process-sentiment`.
+Opening charts never triggers inference. Trends use each report/post's date in
+Philippine time; missing dates are excluded from the trend and reported separately.
+
 ## HTTP API
 
 ```sh
-curl http://127.0.0.1:8002/v1/sentiment/predict \
+curl http://127.0.0.1:8003/v1/sentiment/predict \
   -H 'Content-Type: application/json' \
   -d '{"text":"Kinakabahan ako, my fever is not going away."}'
 ```

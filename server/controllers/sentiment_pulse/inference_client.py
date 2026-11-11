@@ -40,7 +40,7 @@ def validate_prediction(row, version):
 
 class SentimentClient:
     def __init__(self, transport=None):
-        url = os.getenv("HEALTHPH_SENTIMENT_URL", "http://127.0.0.1:8002").rstrip("/")
+        url = os.getenv("HEALTHPH_SENTIMENT_URL", "http://127.0.0.1:8003").rstrip("/")
         parts = urlsplit(url)
         if (parts.scheme not in {"http", "https"} or not parts.hostname
                 or parts.username or parts.password or parts.query or parts.fragment

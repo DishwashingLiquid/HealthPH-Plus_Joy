@@ -109,7 +109,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="Serve the local HealthPH+ sentiment model on CPU")
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", default=8002, type=int)
+    parser.add_argument("--port", default=8003, type=int)
     args = parser.parse_args()
     uvicorn.run(app, host=args.host, port=args.port, workers=1)
 

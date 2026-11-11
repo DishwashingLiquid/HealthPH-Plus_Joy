@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from controllers.nlpSentimentController import fetch_nlp_sentiment_summary, process_nlp_sentiments
 
 from controllers.analyticsEntryController import (
     fetch_analytics_entries,
@@ -11,6 +12,8 @@ from controllers.analyticsEntryController import (
 )
 
 router = APIRouter()
+router.add_api_route("/nlp-sentiment-summary", methods=["GET"], endpoint=fetch_nlp_sentiment_summary)
+router.add_api_route("/process-sentiment", methods=["POST"], endpoint=process_nlp_sentiments)
 
 #GET /analytics-entries
 router.add_api_route("/", methods=["GET"], endpoint=fetch_analytics_entries)

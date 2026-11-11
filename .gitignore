@@ -11,3 +11,4 @@ hub-*.json
 hub-*.jsonl
 docs/mobile-backend/live/
 /services/xlmr-disease-detection-service/model/
+/services/sentiment-analysis-service/model/

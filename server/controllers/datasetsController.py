@@ -35,6 +35,7 @@ from helpers.analyticsEntryHelpers import (
 )
 from helpers.languageDetectionHelpers import detect_languages
 from helpers.diseaseDetectionHelpers import detect_diseases
+from helpers.analyticsSentimentHelpers import run_sentiment_processing
 
 from controllers.pointControllers import delete_point, create_points
 from collections import Counter, defaultdict
@@ -272,6 +273,8 @@ def run_dataset_processing_job(dataset_id: str):
                 }
             },
         )
+
+        run_sentiment_processing(analytics_entries_collection, [entry["_id"] for entry in entries])
 
     except Exception as error:
         dataset_collection.update_one(

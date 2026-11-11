@@ -268,7 +268,13 @@ const OTPCode = ({ email }) => {
 
       dispatch(updateInitialLogin({ value: true }));
 
-      Cookies.set("token", response.data.access_token);
+      const expiresAt = new Date(response.data.expires_at);
+      Cookies.set("token", response.data.access_token, {
+        path: "/",
+        sameSite: "Lax",
+        secure: window.location.protocol === "https:",
+        ...(Number.isFinite(expiresAt.getTime()) ? { expires: expiresAt } : {}),
+      });
 
       localStorage.setItem(
         "auth",

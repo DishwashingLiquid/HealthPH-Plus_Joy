@@ -24,6 +24,7 @@ from helpers.analyticsAccessHelpers import (
     get_analytics_entry_region,
 )
 from helpers.diseaseDetectionHelpers import detect_diseases
+from helpers.analyticsSentimentHelpers import run_sentiment_processing
 from helpers.analyticsSymptomHelpers import get_entry_symptoms
 from helpers.analyticsWordHelpers import summarize_word_frequencies
 from helpers.surveillanceMapHelpers import MAP_DISEASE_CODES, build_processed_map_points
@@ -684,6 +685,8 @@ def run_analytics_entry_processing_job(entry_ids: list[str]):
             raise RuntimeError(
                 "Not all selected analytics entries were updated."
             )
+
+        run_sentiment_processing(analytics_entries_collection, [entry["_id"] for entry in entries])
 
     except Exception as error:
         analytics_entries_collection.update_many(

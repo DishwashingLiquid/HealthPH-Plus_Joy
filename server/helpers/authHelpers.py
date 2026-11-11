@@ -1,6 +1,7 @@
 from jose import jwt
 from datetime import datetime, timedelta, timezone
 import os
+import math
 
 # Password hashing
 from passlib.context import CryptContext
@@ -29,14 +30,28 @@ def generate_hashed_password(password: str):
     return (bcrypt.hashpw(password.encode("utf-8"), (salt))).decode("utf-8")
 
 
+# Web session duration, independent of OTP and password-reset expiry.
+def get_web_session_duration():
+    try:
+        minutes = float(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
+        if not math.isfinite(minutes) or minutes <= 0:
+            raise ValueError()
+        duration = timedelta(minutes=minutes)
+        if duration <= timedelta(0):
+            raise ValueError()
+        return duration
+    except (ValueError, OverflowError):
+        raise ValueError("ACCESS_TOKEN_EXPIRE_MINUTES must be a finite positive number.") from None
+
+
 # For authentication / authorization
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
 
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+    duration = get_web_session_duration() if expires_delta is None else expires_delta
+    if duration <= timedelta(0):
+        raise ValueError("Access token lifetime must be greater than zero.")
+    expire = datetime.now(timezone.utc) + duration
 
     to_encode.update({"exp": expire})
 

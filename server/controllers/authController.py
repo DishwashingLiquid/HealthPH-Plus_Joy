@@ -30,6 +30,7 @@ from helpers.authHelpers import (
     verify_password,
     generate_hashed_password,
     create_access_token,
+    get_web_session_duration,
     create_reset_password_token,
 )
 from helpers.sendMail import mail_forgot_password, mail_verification_code
@@ -183,12 +184,12 @@ async def verify_otp_code(request: OTPCodeRequest):
         raise HTTPException(status_code=400, detail="Invalid or expired OTP code")
 
     # Generate access token for authentication / authorization
-    access_token_expires = timedelta(
-        minutes=float(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
-    )
+    access_token_expires = get_web_session_duration()
     access_token = create_access_token(
         data={"sub": str(user_data["_id"])}, expires_delta=access_token_expires
     )
+    # Read the actual signed expiry so browser persistence matches the JWT.
+    expiry_claim = jwt.get_unverified_claims(access_token)["exp"]
 
     # Set Response Cookie
     # secure = True / https
@@ -196,11 +197,14 @@ async def verify_otp_code(request: OTPCodeRequest):
         content={
             "access_token": access_token,
             "token_type": "bearer",
+            "expires_in": int(access_token_expires.total_seconds()),
+            "expires_at": datetime.fromtimestamp(expiry_claim, timezone.utc).isoformat(),
             "user": individual_user(user_data),
         }
     )
     response.set_cookie(
-        key="accesstoken", value=access_token, httponly=False, samesite="none"
+        key="accesstoken", value=access_token, httponly=False, samesite="none",
+        max_age=int(access_token_expires.total_seconds()),
     )
 
     return response

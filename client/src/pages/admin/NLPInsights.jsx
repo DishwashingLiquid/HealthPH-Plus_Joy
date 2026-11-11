@@ -35,6 +35,8 @@ import useUrlTab from "../../hooks/useUrlTab";
 import { getRegionFromLocation } from "../../utils/locationRegionMap";
 
 import EmptyState from "../../components/admin/EmptyState";
+// Temporarily paused; retain the live implementation for re-enabling later.
+// import NLPSentimentAnalysis from "../../components/admin/NLPSentimentAnalysis";
 
 import ReactWordCloud from "react-wordcloud";
 import "tippy.js/dist/tippy.css";
@@ -642,6 +644,8 @@ const SHOW_SENTIMENT_PREVIEW = false;
 
 const SentimentAnalysis = () => {
     if (!SHOW_SENTIMENT_PREVIEW) {
+        // Live charts paused: restore the printing prop when re-enabling.
+        // return <NLPSentimentAnalysis printing={printing} />;
         return (
             <section
                 role="status"
@@ -650,7 +654,7 @@ const SentimentAnalysis = () => {
                 <EmptyState
                     iconName="Information"
                     heading="Under development"
-                    content="Sentiment analysis is not yet connected to self-reports and social media datasets. Results will be available once the integration is completed."
+                    content="Sentiment analysis is temporarily unavailable."
                 />
             </section>
         );

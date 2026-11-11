@@ -23,7 +23,7 @@ function isPrediction(value) {
 }
 
 export function createSentimentClient({
-  serviceUrl = process.env.HEALTHPH_SENTIMENT_URL ?? "http://127.0.0.1:8002",
+  serviceUrl = process.env.HEALTHPH_SENTIMENT_URL ?? "http://127.0.0.1:8003",
   timeoutMs = 30_000,
 } = {}) {
   const base = new URL(serviceUrl);

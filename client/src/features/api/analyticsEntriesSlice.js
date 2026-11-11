@@ -2,6 +2,14 @@ import { baseAPI } from "./_baseAPI";
 
 export const analyticsEntriesApi = baseAPI.injectEndpoints({
     endpoints: (builder) => ({
+        fetchNlpSentimentSummary: builder.query({
+            query: () => "/analytics-entries/nlp-sentiment-summary",
+            providesTags: ["AnalyticsEntries", "Datasets"],
+        }),
+        processNlpSentiments: builder.mutation({
+            query: () => ({ url: "/analytics-entries/process-sentiment", method: "POST" }),
+            invalidatesTags: (_result, error) => error ? [] : ["AnalyticsEntries"],
+        }),
         fetchNlpWordSummary: builder.query({
             query: () => "/analytics-entries/nlp-word-summary",
             providesTags: ["AnalyticsEntries", "Datasets"],
@@ -74,6 +82,8 @@ export const analyticsEntriesApi = baseAPI.injectEndpoints({
 });
 
 export const {
+    useFetchNlpSentimentSummaryQuery,
+    useProcessNlpSentimentsMutation,
     useFetchSurveillanceSummaryQuery,
     useFetchAnalyticsEntriesQuery,
     useLazyFetchAnalyticsEntriesQuery,
