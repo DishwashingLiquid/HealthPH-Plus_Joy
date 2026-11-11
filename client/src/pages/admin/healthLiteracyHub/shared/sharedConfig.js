@@ -30,6 +30,7 @@ export const UPLOAD_RULES = {
 export const INITIAL_FORM_DATA = {
   title: "",
   description: "",
+  shortPreview: "",
   tags: "",
   topics: "",
   diseases: "",
@@ -100,7 +101,7 @@ export const ANALYTICS_CONTENT_FILTERS = [
 
 export const ANALYTICS_REGIONS = DASHBOARD_REGIONS;
 
-export const HEALTH_LITERACY_VISITOR_ID_KEY = "healthLiteracyVisitorId";
+export { HEALTH_LITERACY_VISITOR_ID_KEY } from "../../../../utils/healthLiteracyVisitor";
 
 export const ILLUSTRATIONS = [
   {

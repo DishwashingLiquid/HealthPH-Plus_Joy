@@ -42,6 +42,11 @@ compiled.require = (name) => {
 compiled._compile(result.outputFiles[0].text, import.meta.filename);
 const website = compiled.exports;
 
+test("migrated articles keep their existing discussion identity", () => {
+  assert.deepEqual(website.commentResource({ contentOrigin: "api", contentType: "articles", id: "static-article-1", legacyStaticArticleId: "1" }),
+    { contentOrigin: "static", contentType: "articles", contentId: "1" });
+});
+
 // Isolated React hook renderer: runs the actual public components and state updates.
 // Media events are injected explicitly; no network, database, DOM, or new test dependency.
 const render = (Component, runEffects = false) => {
@@ -214,7 +219,7 @@ test("missing attachment uses a generic thumbnail and preserves article navigati
 
 test("article hero failure preserves body, metadata, back/latest links and can recover", () => {
   const article = fixture("hero", "articles", imageUrl, { tags: ["Prevention"] });
-  setup([article]);
+  setup([article, fixture("latest", "articles", null)]);
   slug = website.getDashboardContentSlug(article);
   const view = render(website.ArticlePage);
   view.act(() => media(view, imageUrl).props.onError());
@@ -228,20 +233,23 @@ test("article hero failure preserves body, metadata, back/latest links and can r
   assert.doesNotMatch(view.text(), /Media temporarily unavailable/);
 });
 
-test("only API failure invokes the existing saved-articles notice and static fallback", () => {
+test("API failure shows an error without restoring static articles", () => {
   queryResult = { data: undefined, isError: true, isLoading: false, isFetching: false };
   const view = render(website.Articles);
-  assert.match(view.text(), /Dashboard resources could not be loaded. Showing saved articles/);
-  assert.ok(view.nodes().some((n) => n.type === "a" && n.props.href?.startsWith("/articles/")));
-  assert.ok(view.nodes().some((n) => n.type === "img" && n.props.src?.startsWith("/assets/articles/preview/")));
+  assert.match(view.text(), /Articles could not be loaded/);
+  assert.equal(view.nodes().some((n) => n.type === "a" && n.props.href?.startsWith("/articles/")), false);
+  assert.equal(view.nodes().some((n) => n.type === "img" && n.props.src?.startsWith("/assets/articles/preview/")), false);
 });
 
-test("bundled gallery previews share failure/retry state without losing captions or article text", () => {
-  const article = require("../src/assets/data/articles.json").find((item) => item.galleryImages?.length);
-  setup([]);
-  slug = article.articleSlug;
+test("migrated gallery previews share failure/retry state and retain the original link, captions and text", () => {
+  const article = fixture("static-article-1", "articles", null, { legacyArticleSlug: "original-story-link",
+    description: "Original full body", shortPreview: "Original preview", galleryImages: [
+      { id: "cover", media: { url: imageUrl, contentType: "image/png" }, caption: "Original caption", alt: "Original caption" },
+    ] });
+  setup([article]);
+  slug = "original-story-link";
   const view = render(website.ArticlePage);
-  const source = `/assets/articles/gallery/${article.galleryFolder}/${article.galleryImages[0].filename}`;
+  const source = imageUrl;
   const preview = () => view.find((n) => n.props["aria-label"] === `Preview: ${article.galleryImages[0].caption}`);
   view.act(() => preview().props.onClick());
   const images = view.nodes().filter((n) => n.type === "img" && n.props.src === source);
@@ -250,10 +258,17 @@ test("bundled gallery previews share failure/retry state without losing captions
   assert.equal(preview(), undefined);
   assert.match(view.text(), /Media temporarily unavailable/);
   assert.ok(view.text().includes(article.galleryImages[0].caption));
-  assert.ok(view.text().includes(article.articleBody.split("\n")[0]));
+  assert.ok(view.text().includes(article.description));
   view.act(() => button(view, "Retry media").props.onClick());
   assert.ok(preview());
   assert.ok(media(view, source));
+});
+
+test("empty managed content hides static lists and direct static article links", () => {
+  setup([]);
+  assert.match(render(website.Articles).text(), /No published articles/);
+  slug = "healthph-partnership-meeting-with-doh";
+  assert.match(render(website.ArticlePage).text(), /Article not found/);
 });
 
 test("uploaded URL precedence, external editorial URLs and bundled static paths are preserved", () => {

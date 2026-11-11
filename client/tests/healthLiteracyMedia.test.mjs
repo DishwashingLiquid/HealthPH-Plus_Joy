@@ -24,6 +24,22 @@ const gallery = load("../src/pages/admin/healthLiteracyHub/content/contentGaller
 const url = "https://api.example.test/api/health-literacy-hub/media/abc";
 const previewUrl = `${url}?preview=scoped-token`;
 
+test("article preview edits round-trip separately from the full body and keep legacy links", () => {
+  const item = { id: "static-article-1", title: "Edited title", description: "Full body", shortPreview: "Short summary",
+    legacyArticleSlug: "original-story", legacyStaticArticleId: "1" };
+  const form = helpers.createEditFormData({ item, contentTypeLabel: "Articles" });
+  assert.equal(form.shortPreview, "Short summary");
+  form.shortPreview = "Reviewed preview";
+  const data = helpers.buildContentFormPayload({ formData: form, contentTypeLabel: "Articles" });
+  assert.equal(data.get("shortPreview"), "Reviewed preview");
+  assert.equal(data.get("description"), "Full body");
+  const publicArticle = website.normalizeDashboardContent({ ...item, contentType: "articles" });
+  assert.equal(publicArticle.articleSlug, "original-story");
+  assert.equal(publicArticle.articlePreview, "Short summary");
+  assert.equal(publicArticle.articleBody, "Full body");
+  assert.equal(website.normalizeDashboardContent({ ...item, shortPreview: "" }).articlePreview, "Full body");
+});
+
 test("admin uses scoped preview while public website and sharing use public URL", () => {
   const media = { url, previewUrl };
   assert.equal(shared.getContentMediaSource(media), previewUrl);
@@ -31,6 +47,17 @@ test("admin uses scoped preview while public website and sharing use public URL"
   assert.equal(helpers.getShareUrl({ media }), "");
   assert.equal(helpers.getShareUrl({ media, publishToWebsite: true }), url);
   assert.equal(website.getContentMediaSource({ dataUrl: "data:secret" }), "");
+});
+
+test("admin draft images use the dashboard API even when public media URLs point to another deployment", () => {
+  const id = "6af28dedd0747c3a1815cd34";
+  const publicUrl = `https://hosted.example.test/api/health-literacy-hub/media/${id}`;
+  const media = { url: publicUrl, previewUrl: `${publicUrl}?preview=local-scoped-token` };
+  assert.equal(shared.getContentMediaSource(media), `https://api.example.test/api/health-literacy-hub/media/${id}?preview=local-scoped-token`);
+  assert.equal(shared.getContentMediaSource({ url: publicUrl }), `https://api.example.test/api/health-literacy-hub/media/${id}`);
+  assert.equal(website.getContentMediaSource(media), publicUrl);
+  assert.equal(helpers.getShareUrl({ media, publishToWebsite: true }), publicUrl);
+  assert.equal(shared.getContentMediaSource({ url: "https://editorial.example.test/photo.jpg" }), "https://editorial.example.test/photo.jpg");
 });
 
 test("client accepts only supported MIME types with matching size limits", () => {

@@ -66,6 +66,10 @@ def resource_query(resource):
 def require_published(resource):
     if resource.contentOrigin == "static":
         valid = resource.contentType == "articles" and resource.contentId in STATIC_ARTICLE_IDS
+        migrated = database().content.find_one({"contentType": {"$in": ["article", "articles"]},
+                                                "legacyStaticArticleId": resource.contentId}) if valid else None
+        valid = bool(migrated and migrated.get("publishToWebsite") is True
+                     and migrated.get("isPublished") is not False and not migrated.get("isArchived"))
     else:
         from controllers.health_literacy_hub.content_bridge import get_published_website_match
         query = {**get_published_website_match(resource.contentType), "id": resource.contentId}

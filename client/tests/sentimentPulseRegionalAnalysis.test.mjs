@@ -173,7 +173,7 @@ test("CSV keeps unavailable counts blank, valid zero numeric, and scoring config
 test("empty-region toggle and CSV visibility agree; selected empty regions remain visible", () => {
   const data = report();
   assert.equal((render({ regionalAnalysis: data }).match(/<article\b/g) || []).length, 1);
-  assert.equal((render({ regionalAnalysis: data, showEmptyRegions: true }).match(/<article\b/g) || []).length, 17);
+  assert.equal((render({ regionalAnalysis: data, showEmptyRegions: true }).match(/<article\b/g) || []).length, regionalModule.REGIONS.length);
   const selected = render({ regionalAnalysis: data, selectedRegions: ["III"] });
   assert.match(selected, /<h4[^>]*>Region III/);
   assert.match(selected, /No feedback to analyze/);

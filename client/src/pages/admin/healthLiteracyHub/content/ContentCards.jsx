@@ -312,7 +312,7 @@ const VideoContentCard = ({ isLoading, item, mediaSource, canEdit, onMediaClick,
 };
 
 const ArticleContentCard = ({ item, canEdit, onEditClick, onShareClick, onMediaClick }) => {
-  const subtitle = String(item.description ?? "").slice(0, 75);
+  const subtitle = String(item.shortPreview?.trim() || item.description || "").slice(0, 75);
   const tags = item.tags ?? [];
   const galleryImage = item.galleryImages?.[0];
   const mainSource = getContentMediaSource(item.media) || item.imageUrl;

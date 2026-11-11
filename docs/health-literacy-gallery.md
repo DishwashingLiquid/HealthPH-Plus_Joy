@@ -61,6 +61,11 @@ maintenance handles deferred cleanup using its existing 24-hour grace period.
 Draft, archived, unpublished, and scoped-admin-preview access rules apply to
 gallery files exactly as they do to main attachments.
 
+Admin uploaded-media previews use the dashboard's `VITE_API_URL` endpoint,
+preserving the signed preview query. This keeps local draft previews on the API
+that issued their tokens even when `PUBLIC_API_BASE_URL` points to the hosted
+mobile API. Public website/media and share links retain the public media URL.
+
 ## Focused verification
 
 Run from the repository root (using an environment with requirements-test.txt):

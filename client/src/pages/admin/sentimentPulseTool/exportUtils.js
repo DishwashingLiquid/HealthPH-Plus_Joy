@@ -141,19 +141,25 @@ export const exportSentimentPulseCsv = (options) => {
   const csvContent = buildSentimentPulseCsv(options);
   const { activeTab } = options;
 
+  // Use a file URL rather than navigating to a data URL. The BOM also lets
+  // spreadsheet applications recognize the report's UTF-8 characters.
+  const blob = new Blob(["\uFEFF", csvContent], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
   const element = document.createElement("a");
-  element.setAttribute(
-    "href",
-    `data:text/csv;charset=utf-8,${encodeURIComponent(csvContent)}`
-  );
+  element.setAttribute("href", url);
   element.setAttribute(
     "download",
     `sentiment-pulse-export-${activeTab}-${new Date().getTime()}.csv`
   );
   element.style.display = "none";
-  document.body.appendChild(element);
-  element.click();
-  document.body.removeChild(element);
+  try {
+    document.body.appendChild(element);
+    element.click();
+  } finally {
+    element.remove();
+    // Keep the URL alive until the browser has started reading the download.
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 };
 
 export const showSentimentPulsePdfExportNotice = () => {

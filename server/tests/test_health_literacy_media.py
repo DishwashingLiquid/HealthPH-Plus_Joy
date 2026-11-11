@@ -123,6 +123,29 @@ class HubMediaTests(unittest.TestCase):
         self.assertEqual(self.create(auth=False).status_code, 401)
         self.assertEqual(self.create(data={"language": "unsupported"}).status_code, 400)
         self.assertEqual(self.create(data={"isFactCheck": "true", "claim": ""}).status_code, 400)
+
+    def test_article_preview_can_be_reviewed_updated_and_published_separately(self):
+        created = self.client.post("/api/health-literacy-hub/articles", headers=self.auth,
+                                  data={"title": "Imported story", "description": "Full body", "shortPreview": "Short card text", "language": "en"})
+        self.assertEqual(created.status_code, 201, created.text)
+        item = created.json()["content"]
+        self.assertEqual(item["shortPreview"], "Short card text")
+        self.assertEqual(self.client.get("/api/health-literacy-hub/website/articles").json(), [])
+        admin = self.client.get("/api/health-literacy-hub/articles", headers=self.auth).json()
+        self.assertEqual(admin[0]["shortPreview"], "Short card text")
+        path = f"/api/health-literacy-hub/articles/{item['id']}"
+        # An older caller omitting the new field must not erase it.
+        data = {"title": "Imported story", "description": "Reviewed full body", "language": "en"}
+        updated = self.client.put(path, headers=self.auth, data=data)
+        self.assertEqual(updated.json()["content"]["shortPreview"], "Short card text")
+        data.update(shortPreview="Reviewed preview", publishToWebsite="true")
+        self.assertEqual(self.client.put(path, headers=self.auth, data=data).status_code, 200)
+        public = self.client.get("/api/health-literacy-hub/website/articles").json()[0]
+        self.assertEqual(public["shortPreview"], "Reviewed preview")
+        self.assertEqual(public["description"], "Reviewed full body")
+        data["shortPreview"] = ""
+        cleared = self.client.put(path, headers=self.auth, data=data)
+        self.assertEqual(cleared.json()["content"]["shortPreview"], "")
         self.assertEqual(self.create(data={"imageUrl": "http://localhost:8000/a"}).status_code, 400)
         self.assertEqual(self.store.files.count_documents({}), 0)
 

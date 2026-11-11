@@ -104,6 +104,12 @@ try {
   await viewport(1440, 1000);
   await command("Page.navigate", { url: `${preview}?scenario=gallery-hub` });
   await until("document.querySelector('.hl-hub h3')");
+  await click(`[...${edit}].find(e=>e.textContent.trim()==='Read More')`);
+  await until("document.querySelector('dialog[open] .hl-prose')");
+  assert.match(await evaluate("document.querySelector('dialog[open]').textContent"), /A separate short preview for review/);
+  assert.match(await evaluate("document.querySelector('dialog[open] .hl-prose').textContent"), /Creator captions and public comments stay separate/);
+  await press("Escape", "Escape", 27);
+  await until("!document.querySelector('dialog[open]')");
   await click(button("Create New Content"));
   await until("document.querySelector('#gallery-add-create')");
   assert.equal(await evaluate("document.querySelector('.hl-attachment-editor').open"), false);
@@ -118,6 +124,8 @@ try {
   await click(button("Cancel"));
   await until("!document.querySelector('#gallery-add-create')");
   await openEdit();
+  assert.equal(await evaluate("document.querySelector('[name=shortPreview]').value"), "A separate short preview for review.");
+  await fill("[name=shortPreview]", "Reviewed short preview");
   assert.equal(await evaluate("document.querySelector('.hl-attachment-editor').open"), false);
   assert.match(await evaluate("document.querySelector('.hl-gallery-editor [role=status]').textContent"), /2 of 10 images added/);
   await click("document.querySelector('.hl-attachment-editor summary')");
@@ -147,6 +155,8 @@ try {
   await click(button("Save"));
   await until("!document.querySelector('#caption-edit-first')");
   await openEdit();
+  assert.equal(await evaluate("document.querySelector('[name=shortPreview]').value"), "Reviewed short preview");
+  assert.equal(await evaluate("document.querySelector('[name=description]').value"), "Creator captions and public comments stay separate.");
   assert.equal(await evaluate("document.querySelector('ol li textarea').id"), "caption-edit-second");
   assert.equal(await evaluate("document.querySelector('#caption-edit-first').value"), "Edited creator caption <plain text>");
   assert.equal(await evaluate("document.querySelector('#alt-edit-first').value"), "Independent accessible description");

@@ -91,6 +91,7 @@ def serialize_content_document(document: dict, admin_id=None) -> dict:
 
 def serialize_mobile_content(document: dict) -> dict:
     serialized_document = serialize_content_document(document)
+    serialized_document.pop("staticArticleMigration", None)
     serialized_document["contentType"] = get_legacy_content_type(
         document.get("contentType", "")
     )
@@ -99,6 +100,7 @@ def serialize_mobile_content(document: dict) -> dict:
 
 def serialize_website_content(document: dict) -> dict:
     serialized_document = serialize_content_document(document)
+    serialized_document.pop("staticArticleMigration", None)
     serialized_document["contentType"] = get_legacy_content_type(
         document.get("contentType", "")
     )

@@ -571,7 +571,12 @@ const ContentTab = ({ contentTypeLabel }) => {
             galleryImages: (selectedMediaContent.item.galleryImages || []).map((entry) => ({ ...entry,
               media: { ...entry.media, url: getContentMediaSource(entry.media) } })),
           })} onClose={() => setSelectedMediaContent(null)} dashboardActions={
-            <div className="hl-details"><p className="hl-meta">Website: {selectedMediaContent.publishToWebsite ? "Published" : "Unpublished"} · Mobile: {selectedMediaContent.publishToMobile ? "Published" : "Unpublished"}</p>
+            <div className="hl-details">
+              {contentTypeLabel === "Articles" && <div className="hl-prose">
+                <h2>Full description</h2>
+                {(selectedMediaContent.item.description || "").split("\n").filter(Boolean).map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+              </div>}
+              <p className="hl-meta">Website: {selectedMediaContent.publishToWebsite ? "Published" : "Unpublished"} · Mobile: {selectedMediaContent.publishToMobile ? "Published" : "Unpublished"}</p>
               <p className="hl-meta">Website comments are managed in the moderation panel.</p>
               {selectedMediaContent.canEdit && <button type="button" className="hl-button" onClick={() => {
                 const item = selectedMediaContent.item; setSelectedMediaContent(null); handleEditClick(item);

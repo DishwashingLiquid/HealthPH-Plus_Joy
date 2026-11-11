@@ -9,6 +9,7 @@ import ArticlePage from "../../src/pages/ArticlePage";
 import ContentTab from "../../src/pages/admin/healthLiteracyHub/content/ContentTab";
 import TestimonialItem from "../../src/components/about-us/TestimonialItem";
 import Home from "../../src/pages/Home";
+import bundledArticles from "../../src/assets/data/articles.json";
 import "../../src/App.css";
 
 const scenario = new URLSearchParams(location.search).get("scenario") || "";
@@ -24,9 +25,19 @@ const content = [
 ].map((item) => ({ ...item, publishedDate: "2026-11-09", publishToWebsite: true }));
 const requests = [];
 if (scenario.startsWith("gallery")) content.push({ id: "fixture-gallery", contentType: "articles", title: "Uploaded gallery with captions",
-  description: "Creator captions and public comments stay separate.", language: "en", publishedDate: "2026-11-09", publishToWebsite: true,
+  description: "Creator captions and public comments stay separate.", shortPreview: "A separate short preview for review.", language: "en", publishedDate: "2026-11-09", publishToWebsite: true,
   galleryImages: [{ id: "first", media: { fileId: "first-file", url: image, previewUrl: image, filename: "same.png", contentType: "image/png" }, caption: "First creator caption", alt: "First accessible description" },
     { id: "second", media: { fileId: "second-file", url: image + "?second", previewUrl: image + "?second", filename: "same.png", contentType: "image/png" }, caption: "Second creator caption", alt: "Second accessible description" }], media: null });
+// Simulate an imported article through the API; production no longer reads the
+// bundled JSON. Keep the existing gallery typography comparison fixture.
+if (scenario.startsWith("gallery")) {
+  const article = bundledArticles.find((item) => item.articleTitle && item.galleryImages?.length);
+  content.push({ id: `static-article-${article.articleID}`, contentType: "articles", title: article.articleTitle,
+    description: article.articleBody, shortPreview: article.articlePreview, legacyArticleSlug: article.articleSlug,
+    publishedDate: "2023-10-09", publishToWebsite: true, language: "en", media: null,
+    galleryImages: article.galleryImages.map((entry, i) => ({ id: `gallery-${i + 1}`, caption: entry.caption, alt: entry.caption,
+      media: { url: `/assets/articles/gallery/${article.galleryFolder}/${entry.filename}`, contentType: "image/jpeg" } })) });
+}
 window.__hlRequests = requests;
 let postAttempts = 0;
 window.fetch = async (request, options = {}) => {
@@ -48,6 +59,7 @@ window.fetch = async (request, options = {}) => {
       const saved = content.find((item) => item.id === url.pathname.split("/").at(-1));
       if (!saved) return respond({ detail: "Fixture content missing" }, 404);
       saved.title = form.get("title"); saved.description = form.get("description");
+      saved.shortPreview = form.get("shortPreview");
       if (form.get("removeMedia") === "true") saved.media = null;
       const attachment = form.get("file");
       if (attachment) saved.media = { fileId: "fixture-attachment", url: URL.createObjectURL(attachment), filename: attachment.name, contentType: attachment.type };

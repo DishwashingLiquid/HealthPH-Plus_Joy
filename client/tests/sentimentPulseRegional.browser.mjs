@@ -2,7 +2,11 @@
 // Start Vite, launch an isolated Chromium with --remote-debugging-port=9223,
 // then: node tests/sentimentPulseRegional.browser.mjs
 import assert from "node:assert/strict";
-import { writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+const { regions } = JSON.parse(await readFile(new URL("../src/assets/data/regions.json", import.meta.url), "utf8"));
 
 const debugUrl = process.env.REGIONAL_CDP_URL || "http://127.0.0.1:9223";
 const previewUrl = process.env.REGIONAL_PREVIEW_URL || "http://127.0.0.1:5173/tests/sentimentPulse.preview.html";
@@ -11,8 +15,12 @@ const socket = new WebSocket(targets.find((target) => target.type === "page").we
 await new Promise((resolve) => socket.addEventListener("open", resolve, { once: true }));
 let nextId = 0;
 const pending = new Map();
+const downloads = [];
+const completedDownloads = new Set();
 socket.addEventListener("message", ({ data }) => {
   const message = JSON.parse(data);
+  if (message.method === "Browser.downloadWillBegin") downloads.push(message.params);
+  if (message.method === "Browser.downloadProgress" && message.params.state === "completed") completedDownloads.add(message.params.guid);
   if (!message.id) return;
   const callback = pending.get(message.id);
   pending.delete(message.id);
@@ -39,6 +47,24 @@ const until = async (expression) => {
 };
 const clickButton = (label) => evaluate(`[...document.querySelectorAll('button')].find(b => b.textContent.trim() === ${JSON.stringify(label)}).click()`);
 const cardText = `[...document.querySelectorAll('article')].map(c => c.innerText).join(' ')`;
+const downloadDirectory = await mkdtemp(join(tmpdir(), "sentiment-pulse-csv-"));
+const downloadCsv = async () => {
+  const previousCount = downloads.length;
+  await clickButton("Export as CSV");
+  const deadline = Date.now() + 15000;
+  while (Date.now() < deadline) {
+    const download = downloads[previousCount];
+    if (download && completedDownloads.has(download.guid)) {
+      assert.match(download.url, /^blob:/);
+      assert.match(download.suggestedFilename, /^sentiment-pulse-export-regional-analysis-\d+\.csv$/);
+      const bytes = await readFile(join(downloadDirectory, download.suggestedFilename));
+      assert.deepEqual([...bytes.subarray(0, 3)], [0xef, 0xbb, 0xbf]);
+      return bytes.toString("utf8");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error("Regional CSV download did not complete");
+};
 
 const press = async (key, code, windowsVirtualKeyCode) => {
   await command("Input.dispatchKeyEvent", { type: "keyDown", key, code, windowsVirtualKeyCode, ...(key === "Enter" ? { text: "\r" } : {}) });
@@ -54,6 +80,7 @@ const goRegional = async (scenario = "") => {
 };
 
 try {
+  await command("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: downloadDirectory, eventsEnabled: true });
   await command("Page.enable");
   await command("Page.bringToFront");
   await command("Emulation.setFocusEmulationEnabled", { enabled: true });
@@ -66,8 +93,12 @@ try {
   assert.equal(await evaluate(`document.querySelectorAll('#regional-overview').length`), 1);
   assert.equal(await evaluate(`document.querySelectorAll('article').length`), 1);
   assert.doesNotMatch(await evaluate(`document.body.innerText`), /Current Trends filters|Published surveys:/);
+  const allRegionsCsv = await downloadCsv();
+  assert.match(allRegionsCsv, /Region NCR,3,3,exact,Calm \/ Worried,50\.0/);
+  assert.doesNotMatch(allRegionsCsv, /\nRegion III,/);
   await evaluate(`[...document.querySelectorAll('label')].find(l => l.textContent.includes('Show regions with no data')).querySelector('input').click()`);
-  assert.equal(await evaluate(`document.querySelectorAll('article').length`), 17);
+  assert.equal(await evaluate(`document.querySelectorAll('article').length`), regions.length);
+  assert.match(await downloadCsv(), /\nRegion III,0,0,exact/);
   await evaluate(`[...document.querySelectorAll('label')].find(l => l.textContent.includes('Show regions with no data')).querySelector('input').click()`);
   const requests = await evaluate(`document.querySelector('#fixture-requests').textContent`);
   assert.match(requests, /GET \/sentiment-pulse\/regional-analytics\?timeRange=last-30-days(?:\n|$)/);
@@ -133,9 +164,7 @@ try {
   await clickButton("Refresh Results");
   await until(`${cardText}.includes('No feedback to analyze')`);
   assert.equal(await evaluate(`[...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Export as CSV').disabled`), false);
-  await evaluate(`HTMLAnchorElement.prototype.click = function () { window.regionalExport = decodeURIComponent(this.href.split(',').slice(1).join(',')); }`);
-  await clickButton("Export as CSV");
-  assert.match(await evaluate(`window.regionalExport`), /Region III,0,0,exact,No feedback to analyze/);
+  assert.match(await downloadCsv(), /Region III,0,0,exact,No feedback to analyze/);
 
   await goRegional("missing-fields");
   await until(`document.querySelector('[role="alert"]')?.textContent.includes('Some regional analytics fields are unavailable')`);
@@ -180,5 +209,7 @@ try {
   assert.doesNotMatch(await evaluate(`document.querySelector('#fixture-requests').textContent`), /POST/);
   console.log(JSON.stringify({ layouts, checks: "Cards, all-survey analytics request, comparison bars and keyboard disclosure, region/date filter transitions, failure recovery, missing fields, unresolved links, CSV and empty states passed" }, null, 2));
 } finally {
+  await command("Browser.setDownloadBehavior", { behavior: "default" });
   socket.close();
+  await rm(downloadDirectory, { recursive: true, force: true });
 }

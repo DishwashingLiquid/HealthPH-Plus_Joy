@@ -151,12 +151,27 @@ class CommentTests(unittest.TestCase):
             self.assertEqual(self.client.get(self.path, params=self.resource).status_code, 404)
             self.assertEqual(self.approve(identifier).status_code, 404)
         self.assertEqual(self.client.delete(f"{self.path}/{identifier}", headers=self.auth).status_code, 200)
+        self.db.content.insert_one({"id": "static-article-1", "contentType": "article", "legacyStaticArticleId": "1",
+                                    "publishToWebsite": True, "isPublished": True})
         self.assertEqual(self.post(contentOrigin="static", contentType="articles", contentId="1").status_code, 201)
         for content_id in ("10", "99", "unknown-title"):
             self.assertEqual(self.post(contentOrigin="static", contentType="articles", contentId=content_id).status_code, 404)
         self.assertEqual(self.post(contentOrigin="static", contentType="videos", contentId="1").status_code, 404)
         static = __import__("json").loads((Path(__file__).resolve().parents[2] / "client/src/assets/data/articles.json").read_text(encoding="utf-8"))
         self.assertEqual(self.mod.STATIC_ARTICLE_IDS, {str(a["articleID"]) for a in static if a["articleTitle"]})
+
+    def test_imported_drafts_hide_existing_static_discussions_until_publication(self):
+        self.db.content.insert_one({"id": "static-article-1", "contentType": "article", "legacyStaticArticleId": "1",
+                                    "publishToWebsite": False, "isPublished": False})
+        resource = {"contentOrigin": "static", "contentType": "articles", "contentId": "1"}
+        self.assertEqual(self.post(**resource).status_code, 404)
+        self.assertEqual(self.client.get(self.path, params=resource).status_code, 404)
+        self.db.content.update_one({"id": "static-article-1"}, {"$set": {"publishToWebsite": True, "isPublished": True}})
+        self.assertEqual(self.post(**resource).status_code, 201)
+        self.db.content.update_one({"id": "static-article-1"}, {"$set": {"isArchived": True}})
+        self.assertEqual(self.post(**resource).status_code, 404)
+        self.db.content.delete_one({"id": "static-article-1"})
+        self.assertEqual(self.post(**resource).status_code, 404)
 
     def test_cursor_ties_moderation_reports_limits_and_plain_text(self):
         ids = [self.post(body=f"Comment {i}").json()["id"] for i in range(5)]

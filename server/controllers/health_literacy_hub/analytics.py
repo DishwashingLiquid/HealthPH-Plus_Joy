@@ -84,7 +84,12 @@ def parse_content_datetime(value):
         return None
 
     try:
-        return datetime.fromisoformat(str(value))
+        parsed = datetime.fromisoformat(str(value))
+        # Upload cutoffs use naive Philippine wall time, as do legacy records.
+        # Convert aware imports to that same clock without changing stored dates.
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone(timezone(timedelta(hours=8))).replace(tzinfo=None)
+        return parsed
     except ValueError:
         return None
 

@@ -2,7 +2,6 @@ import {
   ANALYTICS_CONTENT_FILTERS,
   ANALYTICS_TIME_RANGES,
   DEFAULT_ANALYTICS_OVERVIEW,
-  HEALTH_LITERACY_VISITOR_ID_KEY,
 } from "./sharedConfig";
 import {
   formatNumber,
@@ -11,22 +10,7 @@ import {
   getRegionLabel,
 } from "./sharedFormatting";
 
-export const getHealthLiteracyVisitorId = (userId) => {
-  if (userId) return String(userId);
-
-  if (typeof window === "undefined") return "anonymous";
-
-  const existingVisitorId = window.localStorage.getItem(
-    HEALTH_LITERACY_VISITOR_ID_KEY
-  );
-
-  if (existingVisitorId) return existingVisitorId;
-
-  const visitorId =
-    window.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-  window.localStorage.setItem(HEALTH_LITERACY_VISITOR_ID_KEY, visitorId);
-  return visitorId;
-};
+export { getHealthLiteracyVisitorId } from "../../../../utils/healthLiteracyVisitor";
 
 export const buildAnalyticsReport = ({
   filters,
