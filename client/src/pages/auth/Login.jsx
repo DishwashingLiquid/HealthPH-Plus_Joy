@@ -1,7 +1,8 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import { getPostLoginPath, SESSION_ENDED_MESSAGE } from "../../utils/authSession";
 
 import {
   useAuthenticateMutation,
@@ -46,13 +47,8 @@ const Login = () => {
 
   const [authenticate] = useAuthenticateMutation();
 
-  const [log_activity] = useCreateAccountActivityMutation();
-
-  const dispatch = useDispatch();
-
   const location = useLocation().state;
-
-  const navigate = useNavigate();
+  const sessionExpired = useSelector((state) => state.auth.sessionExpired);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -129,6 +125,11 @@ const Login = () => {
     <>
       <p className="heading">Welcome Back!</p>
       <p className="subheading">Provide your credentials to start tracking!</p>
+      {(location?.sessionExpired || sessionExpired) && (
+        <p role="status" className="mb-[12px] rounded-[8px] border border-[#BFDBFE] bg-[#EFF6FF] px-[12px] py-[10px] text-sm text-[#1D4ED8]">
+          {SESSION_ENDED_MESSAGE}
+        </p>
+      )}
       {error && <p className="prod-p4  text-[#D82727] mb-[8px]">{error}</p>}
       <form method="POST" onSubmit={handleSubmit}>
         <FieldGroup
@@ -281,7 +282,7 @@ const OTPCode = ({ email }) => {
         JSON.stringify({ user: response.data.user })
       );
 
-      const previousPath = location ? location.from.pathname : "/dashboard";
+      const previousPath = getPostLoginPath(location?.from);
 
       setIsLoading(false);
 

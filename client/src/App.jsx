@@ -4,7 +4,9 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { ToastContainer } from "react-toastify";
 
-import { authenticateUser } from "./features/auth/authSlice";
+import { authenticateUser, expireSession } from "./features/auth/authSlice";
+import useSessionExpiry from "./hooks/useSessionExpiry";
+import { clearSessionStorage, hasLiveSession } from "./utils/authSession";
 
 import AuthLayout from "./layouts/AuthLayout";
 import AdminLayout from "./layouts/AdminLayout";
@@ -22,7 +24,6 @@ import AISurveillance from "./pages/admin/AISurveillance";
 import NLPInsights from "./pages/admin/NLPInsights";
 import MisinformationTracker from "./pages/admin/MisinformationTracker";
 import ModelAccessToolkit from "./pages/admin/ModelAccessToolkit";
-import Analytics from "./pages/admin/Analytics";
 import TrendsMap from "./pages/admin/TrendsMap";
 import UploadDataset from "./pages/admin/UploadDataset";
 import UserManagement from "./pages/admin/UserManagement";
@@ -67,14 +68,23 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   const { isPWA } = useDeviceDetect();
+  useSessionExpiry();
 
   useEffect(() => {
-    const auth = JSON.parse(localStorage.getItem("auth"));
-    if (auth) {
-      dispatch(authenticateUser(auth));
+    try {
+      const auth = JSON.parse(localStorage.getItem("auth"));
+      if (auth?.user && hasLiveSession()) {
+        dispatch(authenticateUser(auth));
+      } else if (auth) {
+        clearSessionStorage();
+        dispatch(expireSession());
+      }
+    } catch {
+      clearSessionStorage();
+      dispatch(expireSession());
     }
     setIsLoading(false);
-  }, []);
+  }, [dispatch]);
 
   const renderLazyRoute = (title, Component) => (
     <>
