@@ -188,17 +188,16 @@ const Login = () => {
         >
           {isLoading ? "Signing in...." : "Sign In"}
         </button>
-        {!isPWA && (
-          <Link
-            to="/"
-            role="button"
-            className="block prod-btn-base prod-btn-secondary w-full"
-            disabled={isLoading}
-          >
-            Back to Home
-          </Link>
-        )}
       </form>
+      {!isPWA && (
+        <Link
+          to="/"
+          className="inline-flex w-full items-center justify-center gap-[8px] rounded-[8px] border border-[#D0D5DD] bg-white px-[16px] py-[10px] text-sm font-medium text-[#344054] transition hover:bg-[#F8F9FA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007AFF]"
+        >
+          <span aria-hidden="true">←</span>
+          Back to public website
+        </Link>
+      )}
     </>
   ) : (
     <OTPCode email={formData.email} />
