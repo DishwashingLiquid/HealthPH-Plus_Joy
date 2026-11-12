@@ -46,6 +46,8 @@ import {
   showToast,
 } from "../shared";
 
+const EMPTY_CONTENT = [];
+
 const ContentTab = ({ contentTypeLabel }) => {
   const user = useSelector((state) => state.auth.user);
   const [searchQuery, setSearchQuery] = useState("");
@@ -58,12 +60,23 @@ const ContentTab = ({ contentTypeLabel }) => {
 
   const contentType = TAB_CONTENT_TYPES[contentTypeLabel];
 
-  const { data: fetchedContent = [], isFetching: isFetchingContent, error: fetchError, refetch } =
-    useFetchHealthLiteracyContentQuery(contentType, {
-      skip: !contentType,
-      pollingInterval: 5 * 60 * 1000,
-      refetchOnMountOrArgChange: true,
-    });
+  const {
+    currentData,
+    isLoading: isLoadingContent,
+    isFetching: isFetchingContent,
+    error: fetchError,
+    refetch,
+  } = useFetchHealthLiteracyContentQuery(contentType, {
+    skip: !contentType,
+    pollingInterval: 5 * 60 * 1000,
+    refetchOnMountOrArgChange: true,
+  });
+
+  // currentData belongs to this type; data can still belong to the previous tab.
+  // A successful empty array also counts as loaded and survives failed refetches.
+  const hasLoadedContent = currentData !== undefined;
+  const fetchedContent = currentData ?? EMPTY_CONTENT;
+  const isInitialLoading = !hasLoadedContent && (isLoadingContent || isFetchingContent);
 
   const [createHealthLiteracyContent, { isLoading: isCreatingContent }] =
     useCreateHealthLiteracyContentMutation();
@@ -463,7 +476,7 @@ const ContentTab = ({ contentTypeLabel }) => {
               type="button"
               onClick={handleCreateClick}
               iconName="Plus"
-              variant="primary"
+              variant="brand"
               className="whitespace-nowrap"
             >
               Create New Content
@@ -472,16 +485,33 @@ const ContentTab = ({ contentTypeLabel }) => {
         </div>
 
         <div className="mt-[20px]">
-          {fetchError && <p role="alert" className="mb-3 text-red-700">Unable to load shared content. Please refresh and try again.</p>}
-          <ContentGrid
-            content={filteredContent}
-            contentType={contentTypeLabel}
-            isLoading={isFetchingContent}
-            onMediaClick={handleMediaPreviewClick}
-            onEditClick={handleEditClick}
-            onShareClick={handleShareClick}
-            onDownloadClick={handleDownloadClick}
-          />
+          <div className="flex min-h-[44px] items-center gap-3 text-[14px]">
+            <span role="status" aria-live="polite" aria-atomic="true" className="text-gray-500">
+              {hasLoadedContent && isFetchingContent ? "Refreshing…" : ""}
+            </span>
+            {fetchError && !isFetchingContent && (
+              <div role="alert" className="flex flex-wrap items-center gap-2 text-red-700">
+                <span>{hasLoadedContent
+                  ? "Unable to refresh shared content. Showing the last successful result."
+                  : "Unable to load shared content. Please try again."}</span>
+                <button type="button" onClick={() => refetch()}
+                  className="rounded px-2 py-1 font-semibold underline focus:outline-none focus:ring-2 focus:ring-[#6A8EB5]">
+                  Retry
+                </button>
+              </div>
+            )}
+          </div>
+          {(hasLoadedContent || !fetchError || isFetchingContent) && (
+            <ContentGrid
+              content={filteredContent}
+              contentType={contentTypeLabel}
+              isLoading={isInitialLoading}
+              onMediaClick={handleMediaPreviewClick}
+              onEditClick={handleEditClick}
+              onShareClick={handleShareClick}
+              onDownloadClick={handleDownloadClick}
+            />
+          )}
         </div>
       </div>
 
@@ -496,7 +526,7 @@ const ContentTab = ({ contentTypeLabel }) => {
           onLoading={isCreatingContent}
           onLoadingLabel="Creating..."
           heading={`Create New ${getContentLabel(contentTypeLabel)}`}
-          color="primary"
+          color="brand"
           additionalClasses="health-literacy-content-modal admin-brand-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
         >
           <ContentFormBody
@@ -523,7 +553,7 @@ const ContentTab = ({ contentTypeLabel }) => {
           onLoading={isUpdatingContent}
           onLoadingLabel="Saving..."
           heading={`Edit ${getContentLabel(contentTypeLabel)}`}
-          color="primary"
+          color="brand"
           additionalClasses="health-literacy-content-modal admin-brand-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
         >
           <ContentFormBody

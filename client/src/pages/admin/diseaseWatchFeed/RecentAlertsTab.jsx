@@ -95,7 +95,7 @@ export default function RecentAlertsTab({ alerts, sentAlerts, canSendAlert, onSe
             </p>
             <details className="mt-2 text-xs text-gray-500"><summary className="w-fit cursor-pointer">About these reports</summary><p className="mt-1">Reports stay in this list after an alert is created. Each alert shows the reports counted at the time it was created.</p></details>
           </div>
-          <button type="button" onClick={onSendAlert} disabled={!canSendAlert} className="prod-btn-base prod-btn-primary send-alert-button ml-auto shrink-0 whitespace-nowrap disabled:opacity-60" style={{ backgroundColor: "#27346f" }}>
+          <button type="button" onClick={onSendAlert} disabled={!canSendAlert} className="public-button public-button--small ml-auto shrink-0 whitespace-nowrap">
               Set Up Alerts
             </button>
         </div>
@@ -125,7 +125,7 @@ export default function RecentAlertsTab({ alerts, sentAlerts, canSendAlert, onSe
           </div>
             <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
               <p className="text-xs text-gray-500">{evaluationControl.intervalMinutes == null ? "Report period: Unavailable" : `Checks reports from the past ${alertIntervalLabel(evaluationControl.intervalMinutes)}.`}</p>
-              <button type="button" onClick={() => onRunEvaluation()} disabled={!canSendAlert || evaluationControl.disabled} className="prod-btn-base prod-btn-primary whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60" style={{ backgroundColor: "#27346f" }}>
+              <button type="button" onClick={() => onRunEvaluation()} disabled={!canSendAlert || evaluationControl.disabled} className="public-button public-button--small whitespace-nowrap">
                 {isEvaluationRunning ? "Checking reports..." : "Check reports now"}
               </button>
             </div>

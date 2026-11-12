@@ -270,7 +270,7 @@ function MobileSurveyResultsModal({ surveyId, onClose }) {
       onConfirmLabel="Close"
       onBackdrop={onClose}
       heading="Survey Results"
-      color="primary"
+      color="brand"
       additionalClasses="health-literacy-content-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
     >
       <div className="max-h-[calc(100vh-230px)] overflow-y-auto px-5 py-5">
@@ -462,21 +462,6 @@ export function MobileSurveyCreateModal({
     boxShadow:
       "0px 0px 0px 1px rgba(70, 83, 96, 0.16), 0px 1px 1px 0px rgba(0, 0, 0, 0.1)",
   };
-  const submitButtonStyle = isSubmitting
-    ? {
-        backgroundColor: "#98a2c7",
-        borderColor: "#98a2c7",
-        color: "#f8fafc",
-        boxShadow:
-          "0px 0px 0px 1px #98a2c7, 0px 1px 1px 0px rgba(0, 0, 0, 0.1)",
-      }
-    : {
-        backgroundColor: "#32418c",
-        borderColor: "#32418c",
-        color: "#ffffff",
-        boxShadow:
-          "0px 0px 0px 1px #32418c, 0px 1px 1px 0px rgba(0, 0, 0, 0.1)",
-      };
   const destructiveButtonStyle =
     isSubmitting || onDeleteDisabled
       ? {
@@ -493,13 +478,6 @@ export function MobileSurveyCreateModal({
           boxShadow:
             "0px 0px 0px 1px #d82727, 0px 1px 1px 0px rgba(0, 0, 0, 0.1)",
         };
-  const addQuestionButtonStyle = {
-    backgroundColor: "#32418c",
-    borderColor: "#32418c",
-    color: "#ffffff",
-    boxShadow:
-      "0px 0px 0px 1px #32418c, 0px 1px 1px 0px rgba(0, 0, 0, 0.1)",
-  };
   const questionRemoveButtonStyle = {
     backgroundColor: "#ffffff",
     borderColor: "#fecaca",
@@ -510,13 +488,12 @@ export function MobileSurveyCreateModal({
     <ModalWithBody
       onConfirm={onSubmitSurvey}
       onConfirmLabel={submitLabel}
-      confirmButtonStyle={submitButtonStyle}
       cancelButtonStyle={secondaryButtonStyle}
       onLoading={isSubmitting}
       onLoadingLabel={submitLoadingLabel}
       onCancel={onClose}
       heading={heading}
-      color="primary"
+      color="brand"
       additionalClasses="health-literacy-content-modal admin-brand-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
       leadingActions={
         mode === "edit" && onDelete ? (
@@ -595,8 +572,7 @@ export function MobileSurveyCreateModal({
                       key={questionType.value}
                       type="button"
                       onClick={() => onAddQuestion(questionType.value)}
-                      className="admin-module-brand-btn rounded-lg border px-3 py-2 text-xs font-semibold"
-                      style={addQuestionButtonStyle}
+                      className="public-button public-button--small"
                     >
                       + {questionType.label}
                     </button>
@@ -862,7 +838,7 @@ export function MobileSurveyReviewModal({
       onLoading={isSubmitting}
       onLoadingLabel={isUpdate ? "Updating..." : "Creating..."}
       heading="Review Survey"
-      color="primary"
+      color="brand"
       additionalClasses="health-literacy-content-modal admin-brand-modal !z-[80] !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
     >
       <div className="max-h-[calc(100vh-230px)] overflow-y-auto px-5 py-5">
@@ -949,7 +925,7 @@ export function MobileSurveyScheduleModal({
       onLoading={isScheduling}
       onLoadingLabel="Scheduling..."
       heading="Schedule Mobile Surveys"
-      color="primary"
+      color="brand"
       additionalClasses="health-literacy-content-modal admin-brand-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
     >
       <div className="space-y-5 px-5 py-5">
@@ -1236,7 +1212,7 @@ export default function MobileSurveys({
                     type="button"
                     onClick={() => onEdit(survey)}
                     disabled={survey.status === "Ended"}
-                    className="min-h-[40px] rounded-[10px] bg-[#32418C] px-[14px] py-[10px] text-sm font-medium text-white shadow-sm transition hover:bg-[#27346F] disabled:cursor-not-allowed disabled:bg-gray-300"
+                    className="public-button public-button--small"
                   >
                     Edit
                   </button>

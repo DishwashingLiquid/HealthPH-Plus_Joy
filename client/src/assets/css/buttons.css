@@ -72,14 +72,6 @@
     box-shadow: 0px 0px 0px 1px #0064d1, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
   }
 
-  /* Disease Watch Feed keeps its alert action at the primary hover tone. */
-  :where(.internal-buttons, .test-layout) .send-alert-button,
-  :where(.internal-buttons, .test-layout) .send-alert-button:hover {
-    background-color: #27346f;
-    color: #ffffff;
-    box-shadow: 0px 0px 0px 1px #0064d1, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
-  }
-
   :where(.internal-buttons, .test-layout) .prod-btn-primary:active,
   :where(.internal-buttons, .test-layout) .prod-btn-primary:focus-visible {
     background-color: #32418c;

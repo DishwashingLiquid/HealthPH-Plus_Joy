@@ -33,7 +33,7 @@ export default function SendAlertModal({ onClose, onSave, isSaving, settings, is
     } catch (requestError) { setError(requestError?.data?.detail || "Could not save your alert choices. Please try again."); }
   };
   const inputClass = "w-full rounded-[8px] border border-[#E5E5E5] px-[12px] py-[10px] text-[14px] focus:border-[#6A8EB5] focus:outline-none";
-  return <ModalWithBody onConfirm={submit} onConfirmDisabled={!hasSavedAlertSettings(settings)} onConfirmLabel="Save choices" onCancel={onClose} onLoading={isSaving || isLoading} onLoadingLabel="Saving..." heading="Set Up Alerts" color="primary" additionalClasses="health-literacy-content-modal admin-brand-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]">
+  return <ModalWithBody onConfirm={submit} onConfirmDisabled={!hasSavedAlertSettings(settings)} onConfirmLabel="Save choices" onCancel={onClose} onLoading={isSaving || isLoading} onLoadingLabel="Saving..." heading="Set Up Alerts" color="brand" additionalClasses="health-literacy-content-modal admin-brand-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]">
     <div className="flex max-h-[60vh] flex-col gap-[16px] overflow-y-auto p-[20px]">
       <div className="rounded-[10px] border border-[#D5E3F0] bg-[#F8FBFF] p-[14px] text-[13px] leading-[19px] text-gray-700">
         <p className="font-medium text-gray-800">How alerts work</p>

@@ -1,0 +1,172 @@
+Window: "HealthPH | User Management - Google Chrome", App: chrome.exe.
+	0 window HealthPH | User Management - Google Chrome Secondary Actions: Raise
+		30603 pane (disabled)
+		30604 region HealthPH | User Management - Google Chrome
+			30605 region
+				30606 region
+					30607 region
+						30608 button Minimize ID: view_1
+						45454 button Restore ID: view_3
+						30610 button Close ID: view_4
+					30611 region
+						30612 region
+							30613 tool bar ID: view_1000
+								30614 button Back ID: view_1001
+								30615 button (disabled) Forward ID: view_1002
+								30616 button Reload ID: view_1003
+								30617 group
+									30618 button View site information ID: view_1011
+									30619 edit (settable, string) Address and search bar Description: Ask Google or type a URL Value: healthph.onrender.com/dashboard/user-management ID: view_1012
+									30620 region
+										45438 button Install HealthPH
+										45439 button Bookmark this tab
+								30622 region
+									30623 button uBlock Origin Lite Has access to this site ID: view_1009
+									30624 button Extensions ID: view_1006
+								30625 region
+								30626 button Verify it's you ID: view_1018
+								30627 button Chrome ID: view_1007
+						30628 region
+							30629 region
+								30630 region
+								45267 document HealthPH | User Management Value: https://healthph.onrender.com/dashboard/user-management ID: RootWebArea
+									45268 group ID: root
+										45269 navigation
+											45270 text HealthPH+
+											45455 list
+												45456 list item
+													45457 link Value: https://healthph.onrender.com/dashboard/help
+														45458 graphic
+												45459 list item
+													45460 link Value: https://healthph.onrender.com/dashboard/settings
+														45461 graphic
+											45278 text Juan
+											45279 text Dela Cruz
+											45280 text SUPERADMIN
+											45462 group
+												45463 graphic
+										45283 complementary
+											45556 text NAVIGATION
+											45284 button Collapse sidebar
+											45557 text MAIN
+											45285 navigation
+												45286 link AI Surveillance Value: https://healthph.onrender.com/dashboard
+													45287 graphic
+												45288 link NLP Insights Value: https://healthph.onrender.com/dashboard/nlp-insights
+													45289 graphic
+												45290 link Misinformation Tracker Value: https://healthph.onrender.com/dashboard/misinformation-tracker
+													45291 graphic
+												45292 link User Management Value: https://healthph.onrender.com/dashboard/user-management
+													45293 graphic
+												45294 link Model Access & Toolkit Value: https://healthph.onrender.com/dashboard/model-access-toolkit
+													45295 graphic
+											45558 text MOBILE INTEGRATION
+											45296 navigation
+												45297 link Disease Watch Feed Value: https://healthph.onrender.com/dashboard/disease-watch-feed
+													45298 graphic
+												45299 link Health Literacy Hub Value: https://healthph.onrender.com/dashboard/health-literacy-hub
+													45300 graphic
+												45301 link Sentiment Pulse Tool Value: https://healthph.onrender.com/dashboard/sentiment-pulse
+													45302 graphic
+										45303 main
+											47193 heading User Management
+											47194 text Manage superadmins, users, access permissions, and account status.
+											47195 button Superadmins
+											47196 button Users
+											47197 button Organizations & Roles
+											47198 button Account Analytics
+											47199 graphic
+											47200 edit (settable, string) Search superadmins... Description: Search superadmins... ID: search
+											47201 text Total superadmins
+											47202 text :
+											47231 text 4
+											47205 button Print Superadmins
+												47206 graphic
+											47207 button Add Superadmin
+												47208 graphic
+											47232 table
+												47233 row
+													47234 group
+														47235 group
+													47236 column header Full Name
+													47237 column header Email
+													47238 column header Date Created
+													47239 column header Account Type
+													47240 column header Status
+												47241 row
+													47242 item -
+													47243 item Juan Dela Cruz
+													47244 item janzzendeleon@gmail.com
+													47245 item Aug 05, 2026 01:59 PM
+													47246 item SUPERADMIN Current
+													47247 item Active
+												47248 row
+													47249 item
+														47250 group
+													47251 item William Araza
+													47252 item arazawhc@gmail.com
+													47253 item Aug 05, 2026 01:59 PM
+													47254 item SUPERADMIN
+													47255 item Active
+												47256 row
+													47257 item
+														47258 group
+													47259 item Gelo Dela Paz
+													47260 item adelapaz@gmail.com
+													47261 item Aug 05, 2026 01:59 PM
+													47262 item SUPERADMIN
+													47263 item Active
+												47264 row
+													47265 item
+														47266 group
+													47267 item Denisse Joy Arawag
+													47268 item arawagdenissejoy03@gmail.com
+													47269 item Apr 07, 2026 09:48 AM
+													47270 item SUPERADMIN
+													47271 item Active
+											47218 navigation superadmins pagination
+												47272 text Showing 1–4 of 4 superadmins
+												47221 button (disabled) Previous
+												47222 text Page
+												47273 text 1 of 1
+												47225 button (disabled) Next
+							30950 region
+						30951 region
+							30952 region
+								30953 button Tab search
+							30954 region ID: view_21
+								30955 tab
+									30956 tab item (selectable) HealthPH+ | Your sign-in verification code - janzzendeleon@gmail.com - Gmail ID: view_20
+										45447 button Close
+									30958 tab item (selectable) Inbox - healthphplusproject@gmail.com - Gmail ID: view_20
+										45448 button Close
+									31830 tab item (selectable) HealthPH+ ・ Render Dashboard ID: view_20
+										45449 button Close
+									30960 tab item (selectable) Branches · DishwashingLiquid/HealthPH-Plus_Joy ID: view_20
+										45450 button Close
+									30962 tab item (selectable) HealthPH+ ・ Web Service ・ Render Dashboard ID: view_20
+										45451 button Close
+									30964 tab item (selectable) GC YARN 2.0 | Messenger ID: view_20
+										45452 button Close
+									35646 tab item (selectable) HealthPH | Health Literacy Hub ID: view_20
+										45453 button Close
+									42675 tab item (selectable) HealthPH | User Management ID: view_20
+										42676 button Close
+								30968 region
+							30969 button New Tab
+							30970 region
+						30971 region
+			47226 pane
+				47227 pane (disabled)
+				47228 region
+					47229 region
+						47230 text https://healthph.onrender.com/dashboard/user-management
+
+Document text: ```
+￼
+```
+
+Focused element: 30619 edit (settable, string) Address and search bar Description: Ask Google or type a URL Value: healthph.onrender.com/dashboard/user-management ID: view_1012
+
+Document text:
+￼

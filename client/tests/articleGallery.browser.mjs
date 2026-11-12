@@ -112,7 +112,7 @@ const checkAdminCards = async () => {
     return {read:style('Read Article'),watch:style('Watch Video'),share:style('Share'),edit:style('Edit')};
   })()`);
   assert.deepEqual(styles.read, styles.watch, "Article/video primary actions share size and variant");
-  assert.deepEqual(styles.share, styles.edit, "Secondary actions share size and variant");
+  assert.deepEqual(styles.read, styles.edit, "Article Edit uses the shared brand button");
   assert.equal(styles.read.background, "rgb(50, 65, 140)");
   assert.equal(styles.share.background, "rgb(255, 255, 255)");
 

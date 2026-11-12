@@ -1,0 +1,405 @@
+Window: "HealthPH | AI Surveillance - Google Chrome", App: chrome.exe.
+	0 window HealthPH | AI Surveillance - Google Chrome Secondary Actions: Raise
+		30603 pane (disabled)
+		30604 region HealthPH | AI Surveillance - Google Chrome
+			30605 region
+				30606 region
+					30607 region
+						30608 button Minimize ID: view_1
+						45454 button Restore ID: view_3
+						30610 button Close ID: view_4
+					30611 region
+						30612 region
+							30613 tool bar ID: view_1000
+								30614 button Back ID: view_1001
+								30615 button (disabled) Forward ID: view_1002
+								30616 button Reload ID: view_1003
+								30617 group
+									30618 button View site information ID: view_1011
+									30619 edit (settable, string) Address and search bar Description: Ask Google or type a URL Value: healthph.onrender.com/dashboard ID: view_1012
+									30620 region
+										45438 button Install HealthPH
+										45439 button Bookmark this tab
+								30622 region
+									30623 button uBlock Origin Lite Has access to this site ID: view_1009
+									30624 button Extensions ID: view_1006
+								30625 region
+								30626 button Verify it's you ID: view_1018
+								30627 button Chrome ID: view_1007
+						30628 region
+							30629 region
+								30630 region
+								45267 document HealthPH | AI Surveillance Value: https://healthph.onrender.com/dashboard ID: RootWebArea
+									45268 group ID: root
+										45269 navigation
+											45270 text HealthPH+
+											45455 list
+												45456 list item
+													45457 link Value: https://healthph.onrender.com/dashboard/help
+														45458 graphic
+												45459 list item
+													45460 link Value: https://healthph.onrender.com/dashboard/settings
+														45461 graphic
+											45278 text Juan
+											45279 text Dela Cruz
+											45280 text SUPERADMIN
+											45462 group
+												45463 graphic
+										45283 complementary
+											45556 text NAVIGATION
+											45284 button Collapse sidebar
+											45557 text MAIN
+											45285 navigation
+												45286 link AI Surveillance Value: https://healthph.onrender.com/dashboard
+													45287 graphic
+												45288 link NLP Insights Value: https://healthph.onrender.com/dashboard/nlp-insights
+													45289 graphic
+												45290 link Misinformation Tracker Value: https://healthph.onrender.com/dashboard/misinformation-tracker
+													45291 graphic
+												45292 link User Management Value: https://healthph.onrender.com/dashboard/user-management
+													45293 graphic
+												45294 link Model Access & Toolkit Value: https://healthph.onrender.com/dashboard/model-access-toolkit
+													45295 graphic
+											45558 text MOBILE INTEGRATION
+											45296 navigation
+												45297 link Disease Watch Feed Value: https://healthph.onrender.com/dashboard/disease-watch-feed
+													45298 graphic
+												45299 link Health Literacy Hub Value: https://healthph.onrender.com/dashboard/health-literacy-hub
+													45300 graphic
+												45301 link Sentiment Pulse Tool Value: https://healthph.onrender.com/dashboard/sentiment-pulse
+													45302 graphic
+										45303 main
+											45564 heading AI Surveillance
+											45565 text Real-time disease surveillance, outbreak monitoring, and AI-driven public health analytics.
+											45566 button Print
+												45567 graphic
+											45568 heading Real-time Outbreak Monitoring
+											45569 group
+												45755 button View disease signals: Region NCR Description: View disease signals: Region NCR
+												45570 group
+													45571 link Leaflet Description: A JavaScript library for interactive maps Value: https://leafletjs.com/
+													45572 text 
+													45573 text ©
+													45574 link OpenStreetMap Value: https://www.openstreetmap.org/copyright
+													45575 text contributors
+											45576 status
+												45756 text Select a red pin to view disease signals and environmental data for the selected period.
+											45579 button Recenter map Description: Recenter map
+												45580 graphic
+											45581 button Zoom in Description: Zoom in
+												45582 graphic
+											45583 button Zoom out Description: Zoom out
+												45584 graphic
+											45585 button Reset filters
+											45586 combo box (settable, string) Value: Last 24 hours
+											45587 combo box (settable, string) Value: All Regions
+											45588 combo box (settable, string) Value: All Impacts
+											45589 status
+												45590 text 1 processed entries match the selected filters in the last 24 hours.
+											45591 group
+												45592 text Disease Label Detections
+												45626 heading 4
+												45594 text TB
+												45757 text 1
+												45597 text COVID
+												45758 text 1
+												45600 text PNEUMONIA
+												45759 text 1
+												45603 text AURI
+												45760 text 1
+											45606 region Symptom Frequency
+												45607 heading Symptom Frequency ID: symptom-frequency-title
+												45608 text Selected self-report symptoms and extracted symptom mentions from processed reports and social media. Each report counts once per symptom.
+												45609 region Symptom Frequency
+													45761 list
+														45762 term body aches
+															45763 text body aches
+														45764 text 1
+														45765 text reports
+														45766 term cough
+															45767 text cough
+														45768 text 1
+														45769 text reports
+														45770 term fatigue
+															45771 text fatigue
+														45772 text 1
+														45773 text reports
+														45774 term headache
+															45775 text headache
+														45776 text 1
+														45777 text reports
+														45778 term Loss of taste or smell
+															45779 text Loss of taste or smell
+														45780 text 1
+														45781 text reports
+														45782 term sore throat
+															45783 text sore throat
+														45784 text 1
+														45785 text reports
+											45612 heading Respiratory Monitoring
+											45613 text Air quality and respiratory metrics with environmental factors.
+											45614 status
+												45615 text Respiratory monitoring unavailable: respiratory rate and cough frequency measurements have not been connected yet.
+											45616 heading Trend Forecasting
+											45617 text Projected disease signal trends based on recent surveillance patterns.
+											45618 status
+												45619 text Forecast unavailable: a forecasting model and prediction data have not been connected yet.
+											45620 heading Suspected Conditions Percentage
+											45621 text Share of disease label detections for the selected filters. A report may contribute more than one label.
+											45786 graphic
+												45787 group
+													45873 group
+														45874 graphic
+													45875 group
+														45876 graphic
+													45877 group
+														45878 graphic
+													45879 group
+														45880 graphic
+													45881 text 25%
+													45882 text 25%
+													45883 text 25%
+													45884 text 25%
+											45788 list Chart legend
+												45789 list item Tuberculosis
+												45790 list item Pneumonia
+												45791 list item COVID-19
+												45792 list item AURI
+							30950 region
+						30951 region
+							30952 region
+								30953 button Tab search
+							30954 region ID: view_21
+								30955 tab
+									30956 tab item (selectable) HealthPH+ | Your sign-in verification code - janzzendeleon@gmail.com - Gmail ID: view_20
+										45447 button Close
+									30958 tab item (selectable) Inbox - healthphplusproject@gmail.com - Gmail ID: view_20
+										45448 button Close
+									31830 tab item (selectable) HealthPH+ ・ Render Dashboard ID: view_20
+										45449 button Close
+									30960 tab item (selectable) Branches · DishwashingLiquid/HealthPH-Plus_Joy ID: view_20
+										45450 button Close
+									30962 tab item (selectable) HealthPH+ ・ Web Service ・ Render Dashboard ID: view_20
+										45451 button Close
+									30964 tab item (selectable) GC YARN 2.0 | Messenger ID: view_20
+										45452 button Close
+									35646 tab item (selectable) HealthPH | Health Literacy Hub ID: view_20
+										45453 button Close
+									42675 tab item (selectable) HealthPH | AI Surveillance ID: view_20
+										42676 button Close
+								30968 region
+							30969 button New Tab
+							30970 region
+						30971 region
+			45559 pane
+				45560 pane (disabled)
+				45561 region
+					45562 region
+						45563 text https://healthph.onrender.com/dashboard
+
+Document text: ```
+HealthPH+
+￼
+￼
+Juan Dela Cruz
+SUPERADMIN
+￼
+NAVIGATION
+☰
+MAIN
+￼
+AI Surveillance
+￼
+NLP Insights
+￼
+Misinformation Tracker
+￼
+User Management
+￼
+Model Access & Toolkit
+MOBILE INTEGRATION
+￼
+Disease Watch Feed
+￼
+Health Literacy Hub
+￼
+Sentiment Pulse Tool
+AI Surveillance
+Real-time disease surveillance, outbreak monitoring, and AI-driven public health analytics.
+￼
+Print
+Real-time Outbreak Monitoring
+￼
+￼
+￼
+￼
+￼
+￼
+￼
+￼
+￼
+ Leaflet  © OpenStreetMap contributors
+Select a red pin to view disease signals and environmental data for the selected period.
+￼
+￼
+￼
+Reset filters
+￼
+￼
+￼
+1 processed entries match the selected filters in the last 24 hours.
+Disease Label Detections
+4
+TB
+1
+COVID
+1
+PNEUMONIA
+1
+AURI
+1
+Symptom Frequency
+Selected self-report symptoms and extracted symptom mentions from processed reports and social media. Each report counts once per symptom.
+body aches
+1
+reports
+cough
+1
+reports
+fatigue
+1
+reports
+headache
+1
+reports
+Loss of taste or smell
+1
+reports
+sore throat
+1
+reports
+Respiratory Monitoring
+Air quality and respiratory metrics with environmental factors.
+Respiratory monitoring unavailable: respiratory rate and cough frequency measurements have not been connected yet.
+Trend Forecasting
+Projected disease signal trends based on recent surveillance patterns.
+Forecast unavailable: a forecasting model and prediction data have not been connected yet.
+Suspected Conditions Percentage
+Share of disease label detections for the selected filters. A report may contribute more than one label.
+￼
+￼
+￼
+￼
+25%
+25%
+25%
+25%
+Tuberculosis
+Pneumonia
+COVID-19
+AURI
+```
+
+Focused element: 30619 edit (settable, string) Address and search bar Description: Ask Google or type a URL Value: healthph.onrender.com/dashboard ID: view_1012
+
+Document text:
+HealthPH+
+￼
+￼
+Juan Dela Cruz
+SUPERADMIN
+￼
+NAVIGATION
+☰
+MAIN
+￼
+AI Surveillance
+￼
+NLP Insights
+￼
+Misinformation Tracker
+￼
+User Management
+￼
+Model Access & Toolkit
+MOBILE INTEGRATION
+￼
+Disease Watch Feed
+￼
+Health Literacy Hub
+￼
+Sentiment Pulse Tool
+AI Surveillance
+Real-time disease surveillance, outbreak monitoring, and AI-driven public health analytics.
+￼
+Print
+Real-time Outbreak Monitoring
+￼
+￼
+￼
+￼
+￼
+￼
+￼
+￼
+￼
+ Leaflet  © OpenStreetMap contributors
+Select a red pin to view disease signals and environmental data for the selected period.
+￼
+￼
+￼
+Reset filters
+￼
+￼
+￼
+1 processed entries match the selected filters in the last 24 hours.
+Disease Label Detections
+4
+TB
+1
+COVID
+1
+PNEUMONIA
+1
+AURI
+1
+Symptom Frequency
+Selected self-report symptoms and extracted symptom mentions from processed reports and social media. Each report counts once per symptom.
+body aches
+1
+reports
+cough
+1
+reports
+fatigue
+1
+reports
+headache
+1
+reports
+Loss of taste or smell
+1
+reports
+sore throat
+1
+reports
+Respiratory Monitoring
+Air quality and respiratory metrics with environmental factors.
+Respiratory monitoring unavailable: respiratory rate and cough frequency measurements have not been connected yet.
+Trend Forecasting
+Projected disease signal trends based on recent surveillance patterns.
+Forecast unavailable: a forecasting model and prediction data have not been connected yet.
+Suspected Conditions Percentage
+Share of disease label detections for the selected filters. A report may contribute more than one label.
+￼
+￼
+￼
+￼
+25%
+25%
+25%
+25%
+Tuberculosis
+Pneumonia
+COVID-19
+AURI

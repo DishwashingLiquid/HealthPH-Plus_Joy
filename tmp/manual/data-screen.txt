@@ -1,0 +1,409 @@
+Window: "HealthPH | Model Access and Toolkit - Google Chrome", App: chrome.exe.
+	0 window HealthPH | Model Access and Toolkit - Google Chrome Secondary Actions: Raise
+		30603 pane (disabled)
+		30604 region HealthPH | Model Access and Toolkit - Google Chrome
+			30605 region
+				30606 region
+					30607 region
+						30608 button Minimize ID: view_1
+						45454 button Restore ID: view_3
+						30610 button Close ID: view_4
+					30611 region
+						30612 region
+							30613 tool bar ID: view_1000
+								30614 button Back ID: view_1001
+								30615 button (disabled) Forward ID: view_1002
+								30616 button Reload ID: view_1003
+								30617 group
+									30618 button View site information ID: view_1011
+									30619 edit (settable, string) Address and search bar Description: Ask Google or type a URL Value: healthph.onrender.com/dashboard/model-access-toolkit?tab=data ID: view_1012
+									30620 region
+										45438 button Install HealthPH
+										45439 button Bookmark this tab
+								30622 region
+									30623 button uBlock Origin Lite Has access to this site ID: view_1009
+									30624 button Extensions ID: view_1006
+								30625 region
+								30626 button Verify it's you ID: view_1018
+								30627 button Chrome ID: view_1007
+						30628 region
+							30629 region
+								30630 region
+								45267 document HealthPH | Model Access and Toolkit Value: https://healthph.onrender.com/dashboard/model-access-toolkit?tab=data ID: RootWebArea
+									45268 group ID: root
+										45269 navigation
+											45270 text HealthPH+
+											45455 list
+												45456 list item
+													45457 link Value: https://healthph.onrender.com/dashboard/help
+														45458 graphic
+												45459 list item
+													45460 link Value: https://healthph.onrender.com/dashboard/settings
+														45461 graphic
+											45278 text Juan
+											45279 text Dela Cruz
+											45280 text SUPERADMIN
+											45462 group
+												45463 graphic
+										45283 complementary
+											45556 text NAVIGATION
+											45284 button Collapse sidebar
+											45557 text MAIN
+											45285 navigation
+												45286 link AI Surveillance Value: https://healthph.onrender.com/dashboard
+													45287 graphic
+												45288 link NLP Insights Value: https://healthph.onrender.com/dashboard/nlp-insights
+													45289 graphic
+												45290 link Misinformation Tracker Value: https://healthph.onrender.com/dashboard/misinformation-tracker
+													45291 graphic
+												45292 link User Management Value: https://healthph.onrender.com/dashboard/user-management
+													45293 graphic
+												45294 link Model Access & Toolkit Value: https://healthph.onrender.com/dashboard/model-access-toolkit
+													45295 graphic
+											45558 text MOBILE INTEGRATION
+											45296 navigation
+												45297 link Disease Watch Feed Value: https://healthph.onrender.com/dashboard/disease-watch-feed
+													45298 graphic
+												45299 link Health Literacy Hub Value: https://healthph.onrender.com/dashboard/health-literacy-hub
+													45300 graphic
+												45301 link Sentiment Pulse Tool Value: https://healthph.onrender.com/dashboard/sentiment-pulse
+													45302 graphic
+										45303 main
+											46560 heading Model Access and Toolkit
+											46561 text Evaluate, compare, and manage machine learning models for health surveillance.
+											46562 button Model Comparison
+											46563 button Data Management
+											46564 button Training Logs
+											46683 button Self Reports
+											46684 button Social Media Datasets
+											46685 heading Self Reports
+											46686 text Mobile self-report entries prepared for analytics and NLP processing.
+											46687 button Print Description: Print all self reports matching the current filters
+												46688 graphic
+											46689 graphic
+											46690 edit (settable, string) Search report text or location... Description: Search report text or location...
+											46691 text Total entries
+											46692 text :
+											46735 text 64
+											46695 text From date
+											46696 date picker (settable, string) From date
+												46697 spin button (settable, float) Month From date Description: mm Value: 0
+												46698 text /
+												46699 spin button (settable, float) Day From date Description: dd Value: 0
+												46700 text /
+												46701 spin button (settable, float) Year From date Description: yyyy Value: 0
+												46702 button Show date picker From date Description: Show date picker From date ID: picker
+											46703 text To date
+											46704 date picker (settable, string) To date
+												46705 spin button (settable, float) Month To date Description: mm Value: 0
+												46706 text /
+												46707 spin button (settable, float) Day To date Description: dd Value: 0
+												46708 text /
+												46709 spin button (settable, float) Year To date Description: yyyy Value: 0
+												46710 button Show date picker To date Description: Show date picker To date ID: picker
+											46711 button Reset filters
+											46712 text Language
+											46713 combo box (settable, string) Language Value: All Languages
+											46714 text Region
+											46715 combo box (settable, string) Region Value: All Regions
+											46716 text Status
+											46717 combo box (settable, string) Status Value: All Status
+											46736 table
+												46737 row
+													46738 check box (settable, string)
+													46739 column header Report ID
+													46740 column header Language
+													46741 column header Text
+													46742 column header Location
+													46743 column header Date Reported
+													46744 column header Status
+												46745 row
+													46746 item
+														46747 check box (settable, string)
+													46748 item SEL-000124
+													46749 item Failed
+														46750 group Description: Processing failed. Please retry.
+													46751 item Cough, Shortness of breath, Fatigue, Chest Pain, Sore throat, Wheezing Possible acute respiratory infection pattern
+													46752 item Barangay 305 Zone 29 Barangay Hall, San Bernardo Street, Santa Cruz, Third District, Manila, Capital District, Metro Manila, 1006, Philippines
+													46753 item Nov 11, 2026 10:09 AM
+													46754 item FAILED
+												46755 row
+													46756 item
+														46757 check box (settable, string)
+													46758 item SEL-000123
+													46759 item unprocessed
+														46760 group Description: Language detection has not finished yet.
+													46761 item Chills, Shortness of breath, Runny nose, Loss of taste or smell, Cough for 2+ weeks Possible tuberculosis symptom pattern
+													46762 item Barangay 305 Zone 29 Barangay Hall, San Bernardo Street, Santa Cruz, Third District, Manila, Capital District, Metro Manila, 1006, Philippines
+													46763 item Nov 10, 2026 04:37 PM
+													46764 item SUBMITTED
+												46765 row
+													46766 item
+														46767 check box (disabled)
+													46768 item SEL-000122
+													46769 item en
+														46770 group Description: Detected language: en
+													46771 item Demo only, Fatigue and unable to breath properly and so much more!
+													46772 item Barangay 305 Zone 29 Barangay Hall, San Bernardo Street, Santa Cruz, Third District, Manila, Capital District, Metro Manila, 1006, Philippines
+													46773 item Nov 10, 2026 03:55 PM
+													46774 item PROCESSED
+												46775 row
+													46776 item
+														46777 check box (disabled)
+													46778 item SEL-000121
+													46779 item en
+														46780 group Description: Detected language: en
+													46781 item Cough for 2+ weeks, Headache, Wheezing, Chest Pain, Chills Possible tuberculosis symptom pattern
+													46782 item Barangay 305 Zone 29 Barangay Hall, San Bernardo Street, Santa Cruz, Third District, Manila, Capital District, Metro Manila, 1006, Philippines
+													46783 item Nov 10, 2026 02:16 PM
+													46784 item PROCESSED
+												46785 row
+													46786 item
+														46787 check box (disabled)
+													46788 item SEL-000120
+													46789 item en
+														46790 group Description: Detected language: en
+													46791 item Cough for 2+ weeks, Weight loss, Cough, Fatigue, Fever Possible COVID-like respiratory symptom pattern
+													46792 item Barangay 305 Zone 29 Barangay Hall, San Bernardo Street, Santa Cruz, Third District, Manila, Capital District, Metro Manila, 1006, Philippines
+													46793 item Nov 10, 2026 02:15 PM
+													46794 item PROCESSED
+												46795 row
+													46796 item
+														46797 check box (disabled)
+													46798 item SEL-000119
+													46799 item en
+														46800 group Description: Detected language: en
+													46801 item I sweat a lot at night and I get chilly so often.
+													46802 item Barangay 305 Zone 29 Barangay Hall, San Bernardo Street, Santa Cruz, Third District, Manila, Capital District, Metro Manila, 1006, Philippines
+													46803 item Nov 10, 2026 02:09 PM
+													46804 item PROCESSED
+												46805 row
+													46806 item
+														46807 check box (disabled)
+													46808 item SEL-000118
+													46809 item en
+														46810 group Description: Detected language: en
+													46811 item I can’t taste the food I’m eating.
+													46812 item Barangay 305 Zone 29 Barangay Hall, San Bernardo Street, Santa Cruz, Third District, Manila, Capital District, Metro Manila, 1006, Philippines
+													46813 item Nov 10, 2026 02:08 PM
+													46814 item PROCESSED
+												46815 row
+													46816 item
+														46817 check box (settable, string)
+													46818 item SEL-000117
+													46819 item unprocessed
+														46820 group Description: Language detection has not finished yet.
+													46821 item My cough is unbearable.
+													46822 item Barangay 305 Zone 29 Barangay Hall, San Bernardo Street, Santa Cruz, Third District, Manila, Capital District, Metro Manila, 1006, Philippines
+													46823 item Nov 10, 2026 02:08 PM
+													46824 item SUBMITTED
+												46825 row
+													46826 item
+														46827 check box (settable, string)
+													46828 item SEL-000116
+													46829 item unprocessed
+														46830 group Description: Language detection has not finished yet.
+													46831 item Fatigue and body aches.
+													46832 item Barangay 305 Zone 29 Barangay Hall, San Bernardo Street, Santa Cruz, Third District, Manila, Capital District, Metro Manila, 1006, Philippines
+													46833 item Nov 10, 2026 02:08 PM
+													46834 item SUBMITTED
+												46835 row
+													46836 item
+														46837 check box (settable, string)
+													46838 item SEL-000115
+													46839 item unprocessed
+														46840 group Description: Language detection has not finished yet.
+													46841 item Demo Only
+													46842 item Barangay 305 Zone 29 Barangay Hall, San Bernardo Street, Santa Cruz, Third District, Manila, Capital District, Metro Manila, 1006, Philippines
+													46843 item Nov 10, 2026 01:31 PM
+													46844 item SUBMITTED
+												46845 row
+													46846 item
+														46847 check box (settable, string)
+													46848 item SEL-000114
+													46849 item unprocessed
+														46850 group Description: Language detection has not finished yet.
+													46851 item Fatigue, Shortness of breath, Chills Respiratory symptoms reported
+													46852 item City of Iloilo, Iloilo, Philippines
+													46853 item Nov 06, 2026 02:05 PM
+													46854 item SUBMITTED
+												46855 row
+													46856 item
+														46857 check box (settable, string)
+													46858 item SEL-000113
+													46859 item unprocessed
+														46860 group Description: Language detection has not finished yet.
+													46861 item Cough Possible acute respiratory infection pattern
+													46862 item Dungon-C, Mandurriao, Iloilo City, Western Visayas, 5000, Philippines
+													46863 item Nov 06, 2026 02:05 PM
+													46864 item SUBMITTED
+												46865 row
+													46866 item
+														46867 check box (settable, string)
+													46868 item SEL-000112
+													46869 item unprocessed
+														46870 group Description: Language detection has not finished yet.
+													46871 item Cough, Headache Possible acute respiratory infection pattern
+													46872 item City of Iloilo, Iloilo, Philippines
+													46873 item Nov 06, 2026 02:01 PM
+													46874 item SUBMITTED
+												46875 row
+													46876 item
+														46877 check box (settable, string)
+													46878 item SEL-000111
+													46879 item unprocessed
+														46880 group Description: Language detection has not finished yet.
+													46881 item Cough Possible acute respiratory infection pattern
+													46882 item City of Iloilo, Iloilo, Philippines
+													46883 item Nov 06, 2026 02:01 PM
+													46884 item SUBMITTED
+												46885 row
+													46886 item
+														46887 check box (settable, string)
+													46888 item SEL-000110
+													46889 item unprocessed
+														46890 group Description: Language detection has not finished yet.
+													46891 item Sore throat Possible acute respiratory infection pattern
+													46892 item City of Iloilo, Iloilo, Philippines
+													46893 item Nov 06, 2026 02:01 PM
+													46894 item SUBMITTED
+												46895 row
+													46896 item
+														46897 check box (settable, string)
+													46898 item SEL-000109
+													46899 item unprocessed
+														46900 group Description: Language detection has not finished yet.
+													46901 item Headache, Chest Pain Respiratory symptoms reported
+													46902 item City of Iloilo, Iloilo, Philippines
+													46903 item Nov 06, 2026 02:00 PM
+													46904 item SUBMITTED
+												46905 row
+													46906 item
+														46907 check box (settable, string)
+													46908 item SEL-000108
+													46909 item unprocessed
+														46910 group Description: Language detection has not finished yet.
+													46911 item Fever, Headache, Cough Possible acute respiratory infection pattern
+													46912 item City of Iloilo, Iloilo, Philippines
+													46913 item Nov 06, 2026 01:59 PM
+													46914 item SUBMITTED
+												46915 row
+													46916 item
+														46917 check box (settable, string)
+													46918 item SEL-000107
+													46919 item unprocessed
+														46920 group Description: Language detection has not finished yet.
+													46921 item Runny nose, Fever, Cough Possible acute respiratory infection pattern
+													46922 item City of Iloilo, Iloilo, Philippines
+													46923 item Nov 06, 2026 01:59 PM
+													46924 item SUBMITTED
+												46925 row
+													46926 item
+														46927 check box (settable, string)
+													46928 item SEL-000106
+													46929 item unprocessed
+														46930 group Description: Language detection has not finished yet.
+													46931 item Fever, Headache, Fatigue Respiratory symptoms reported
+													46932 item City of Iloilo, Iloilo, Philippines
+													46933 item Nov 06, 2026 01:58 PM
+													46934 item SUBMITTED
+												46935 row
+													46936 item
+														46937 check box (settable, string)
+													46938 item SEL-000105
+													46939 item unprocessed
+														46940 group Description: Language detection has not finished yet.
+													46941 item Fever, Runny nose, Headache Possible acute respiratory infection pattern
+													46942 item City of Iloilo, Iloilo, Philippines
+													46943 item Nov 06, 2026 01:57 PM
+													46944 item SUBMITTED
+												46945 row
+													46946 item
+														46947 check box (settable, string)
+													46948 item SEL-000104
+													46949 item unprocessed
+														46950 group Description: Language detection has not finished yet.
+													46951 item Cough, Fatigue, Fever Possible COVID-like respiratory symptom pattern
+													46952 item City of Iloilo, Iloilo, Philippines
+													46953 item Nov 06, 2026 01:57 PM
+													46954 item SUBMITTED
+												46955 row
+													46956 item
+														46957 check box (settable, string)
+													46958 item SEL-000103
+													46959 item unprocessed
+														46960 group Description: Language detection has not finished yet.
+													46961 item Cough, Fever, Chills, Fatigue, Shortness of breath, Chest Pain, Sore throat, Runny nose, Wheezing, Loss of taste or smell, Headache, Body aches, Cough for 2+ weeks, Night sweats, Weight loss Possible COVID-like respiratory symptom pattern
+													46962 item City of Iloilo, Iloilo, Philippines
+													46963 item Nov 06, 2026 01:56 PM
+													46964 item SUBMITTED
+												46965 row
+													46966 item
+														46967 check box (settable, string)
+													46968 item SEL-000102
+													46969 item unprocessed
+														46970 group Description: Language detection has not finished yet.
+													46971 item Fever, Shortness of breath, Weight loss Respiratory symptoms reported
+													46972 item City of Iloilo, Iloilo, Philippines
+													46973 item Nov 06, 2026 01:56 PM
+													46974 item SUBMITTED
+												46975 row
+													46976 item
+														46977 check box (settable, string)
+													46978 item SEL-000101
+													46979 item unprocessed
+														46980 group Description: Language detection has not finished yet.
+													46981 item Runny nose, Sore throat, Fever Possible acute respiratory infection pattern
+													46982 item City of Iloilo, Iloilo, Philippines
+													46983 item Nov 06, 2026 01:51 PM
+													46984 item SUBMITTED
+												46985 row
+													46986 item
+														46987 check box (settable, string)
+													46988 item SEL-000100
+													46989 item unprocessed
+														46990 group Description: Language detection has not finished yet.
+													46991 item pagbubuhat ng mabubigat na bagay
+													46992 item City of Iloilo, Iloilo, Philippines
+													46993 item Nov 06, 2026 01:51 PM
+													46994 item SUBMITTED
+											46995 text Showing 1–25 of 64 reports
+											46730 button (disabled) Previous
+											46731 text Page
+											46996 text 1 of 3
+											46734 button Next
+							30950 region
+						30951 region
+							30952 region
+								30953 button Tab search
+							30954 region ID: view_21
+								30955 tab
+									30956 tab item (selectable) HealthPH+ | Your sign-in verification code - janzzendeleon@gmail.com - Gmail ID: view_20
+										45447 button Close
+									30958 tab item (selectable) Inbox - healthphplusproject@gmail.com - Gmail ID: view_20
+										45448 button Close
+									31830 tab item (selectable) HealthPH+ ・ Render Dashboard ID: view_20
+										45449 button Close
+									30960 tab item (selectable) Branches · DishwashingLiquid/HealthPH-Plus_Joy ID: view_20
+										45450 button Close
+									30962 tab item (selectable) HealthPH+ ・ Web Service ・ Render Dashboard ID: view_20
+										45451 button Close
+									30964 tab item (selectable) GC YARN 2.0 | Messenger ID: view_20
+										45452 button Close
+									35646 tab item (selectable) HealthPH | Health Literacy Hub ID: view_20
+										45453 button Close
+									42675 tab item (selectable) HealthPH | Model Access and Toolkit ID: view_20
+										42676 button Close
+								30968 region
+							30969 button New Tab
+							30970 region
+						30971 region
+
+Document text: ```
+￼
+```
+
+Focused element: 30619 edit (settable, string) Address and search bar Description: Ask Google or type a URL Value: healthph.onrender.com/dashboard/model-access-toolkit?tab=data ID: view_1012
+
+Document text:
+￼

@@ -1,0 +1,532 @@
+Window: "HealthPH | Disease Watch Feed - Google Chrome", App: chrome.exe.
+	0 window HealthPH | Disease Watch Feed - Google Chrome Secondary Actions: Raise
+		30603 pane (disabled)
+		30604 region HealthPH | Disease Watch Feed - Google Chrome
+			30605 region
+				30606 region
+					30607 region
+						30608 button Minimize ID: view_1
+						45454 button Restore ID: view_3
+						30610 button Close ID: view_4
+					30611 region
+						30612 region
+							30613 tool bar ID: view_1000
+								30614 button Back ID: view_1001
+								30615 button (disabled) Forward ID: view_1002
+								30616 button Reload ID: view_1003
+								30617 group
+									30618 button View site information ID: view_1011
+									30619 edit (settable, string) Address and search bar Description: Ask Google or type a URL Value: healthph.onrender.com/dashboard/disease-watch-feed ID: view_1012
+									30620 region
+										45438 button Install HealthPH
+										45439 button Bookmark this tab
+								30622 region
+									30623 button uBlock Origin Lite Has access to this site ID: view_1009
+									30624 button Extensions ID: view_1006
+								30625 region
+								30626 button Verify it's you ID: view_1018
+								30627 button Chrome ID: view_1007
+						30628 region
+							30629 region
+								30630 region
+								45267 document HealthPH | Disease Watch Feed Value: https://healthph.onrender.com/dashboard/disease-watch-feed ID: RootWebArea
+									45268 group ID: root
+										45269 navigation
+											45270 text HealthPH+
+											45455 list
+												45456 list item
+													45457 link Value: https://healthph.onrender.com/dashboard/help
+														45458 graphic
+												45459 list item
+													45460 link Value: https://healthph.onrender.com/dashboard/settings
+														45461 graphic
+											45278 text Juan
+											45279 text Dela Cruz
+											45280 text SUPERADMIN
+											45462 group
+												45463 graphic
+										45283 complementary
+											45556 text NAVIGATION
+											45284 button Collapse sidebar
+											45557 text MAIN
+											45285 navigation
+												45286 link AI Surveillance Value: https://healthph.onrender.com/dashboard
+													45287 graphic
+												45288 link NLP Insights Value: https://healthph.onrender.com/dashboard/nlp-insights
+													45289 graphic
+												45290 link Misinformation Tracker Value: https://healthph.onrender.com/dashboard/misinformation-tracker
+													45291 graphic
+												45292 link User Management Value: https://healthph.onrender.com/dashboard/user-management
+													45293 graphic
+												45294 link Model Access & Toolkit Value: https://healthph.onrender.com/dashboard/model-access-toolkit
+													45295 graphic
+											45558 text MOBILE INTEGRATION
+											45296 navigation
+												45297 link Disease Watch Feed Value: https://healthph.onrender.com/dashboard/disease-watch-feed
+													45298 graphic
+												45299 link Health Literacy Hub Value: https://healthph.onrender.com/dashboard/health-literacy-hub
+													45300 graphic
+												45301 link Sentiment Pulse Tool Value: https://healthph.onrender.com/dashboard/sentiment-pulse
+													45302 graphic
+										45303 main
+											45891 heading Disease Watch Feed
+											45892 text Canonical mobile self-report activity, regional coverage, and mobile reporter analytics.
+											45893 heading Alert Distribution
+											45894 text Push notifications for disease outbreaks to targeted regions
+											45895 heading Early Warning
+											45896 text Citizens receive alerts before official announcements
+											45897 heading Symptom Reporting
+											45898 text Community-driven symptom reporting for early detection
+											45899 button Recent Alerts
+											45900 button Regional Coverage
+											45901 button User Analytics
+											45903 heading Self-Reports
+											45904 text Submitted symptoms and saved regional administrative summaries. These are not diagnoses.
+											45905 button Set Up Alerts
+											45906 status
+												45907 text No regional summary is ready yet. A summary becomes ready after a region reaches five submitted reports.
+											45908 article
+												45909 heading Possible acute respiratory infection pattern
+												45910 text Symptom Report
+												45911 text Self-reported
+												45912 text Cough, Shortness of breath, Fatigue
+												45913 text in
+												45914 text Region NCR
+												45915 text .
+												45916 text Region:
+												45917 text Region NCR
+												45918 text · Updated:
+												45919 text about 5 hours ago
+											45920 article
+												45921 heading Possible tuberculosis symptom pattern
+												45922 text Symptom Report
+												45923 text Self-reported
+												45924 text Chills, Shortness of breath, Runny nose
+												45925 text in
+												45926 text Region NCR
+												45927 text .
+												45928 text Region:
+												45929 text Region NCR
+												45930 text · Updated:
+												45931 text about 23 hours ago
+											45932 article
+												45933 heading Possible acute respiratory infection pattern
+												45934 text Symptom Report
+												45935 text Self-reported
+												45936 text Fatigue, Cough, Sore throat
+												45937 text in
+												45938 text Region NCR
+												45939 text .
+												45940 text Region:
+												45941 text Region NCR
+												45942 text · Updated:
+												45943 text about 24 hours ago
+											45944 article
+												45945 heading Possible tuberculosis symptom pattern
+												45946 text Symptom Report
+												45947 text Self-reported
+												45948 text Cough for 2+ weeks, Headache, Wheezing
+												45949 text in
+												45950 text Region NCR
+												45951 text .
+												45952 text Region:
+												45953 text Region NCR
+												45954 text · Updated:
+												45955 text 1 day ago
+											45956 article
+												45957 heading Possible COVID-like respiratory symptom pattern
+												45958 text Symptom Report
+												45959 text Self-reported
+												45960 text Cough for 2+ weeks, Weight loss, Cough
+												45961 text in
+												45962 text Region NCR
+												45963 text .
+												45964 text Region:
+												45965 text Region NCR
+												45966 text · Updated:
+												45967 text 1 day ago
+											45968 navigation Self-report pages
+												45969 button (disabled) Previous
+												45970 text 1
+												45971 text /
+												45972 text 14
+												45973 button Next
+											45974 heading Alert History
+											45975 text See past alerts and alerts being prepared. A prepared alert may not have reached anyone yet.
+											45976 text Evaluation interval
+											45977 combo box (settable, string) Evaluation interval Value: 15 minutes ID: run-evaluation-interval
+											45978 button Check reports now
+											45981 article
+												45982 heading Regional self-report alert: NCR
+												45983 text Made automatically
+												45984 text Prepared
+												45985 text 6 self-reports were recorded in NCR during the last 1 hour. Reported symptoms included Body aches, Chest Pain, Chills, Cough, Cough for 2+ weeks, Fatigue, Fever, Headache, Loss of taste or smell, Night sweats, Shortness of breath, Sore throat, Weight loss, and Wheezing. These are not confirmed diagnoses.
+												45986 text Region:
+												45987 text NCR
+												45988 text Made
+												45989 text 1 day ago
+												45990 text Reports counted:
+												45991 text 6
+												45992 text Reports from the last
+												45993 text 1 hour
+												45994 text Prepared for 2 app users.
+												45995 text This does not mean they received it.
+											45996 article
+												45997 heading Regional self-report alert: IVA
+												45998 text Made automatically
+												45999 text Prepared
+												46000 text 6 self-reports were recorded in IVA during the last 15 minutes. Reported symptoms included Body aches, Chest Pain, Chills, Cough, Cough for 2+ weeks, Fatigue, Fever, Headache, Loss of taste or smell, Night sweats, Runny nose, Shortness of breath, Sore throat, Weight loss, and Wheezing. These are not confirmed diagnoses.
+												46001 text Region:
+												46002 text IVA
+												46003 text Made
+												46004 text about 1 month ago
+												46005 text Reports counted:
+												46006 text 6
+												46007 text Reports from the last
+												46008 text 15 minutes
+												46009 text Prepared for 2 app users.
+												46010 text This does not mean they received it.
+											46011 article
+												46012 heading Regional self-report alert: IVA
+												46013 text Made automatically
+												46014 text Prepared
+												46015 text 6 self-reports were recorded in IVA during the last 15 minutes. Reported symptoms included Body aches, Chest Pain, Chills, Cough, Cough for 2+ weeks, Fatigue, Fever, Headache, Loss of taste or smell, Runny nose, Shortness of breath, Sore throat, Weight loss, and Wheezing. These are not confirmed diagnoses.
+												46016 text Region:
+												46017 text IVA
+												46018 text Made
+												46019 text about 2 months ago
+												46020 text Reports counted:
+												46021 text 6
+												46022 text Reports from the last
+												46023 text 15 minutes
+												46024 text Prepared for 1 app users.
+												46025 text This does not mean they received it.
+											46026 article
+												46027 heading Regional self-report alert: IVA
+												46028 text Made automatically
+												46029 text Prepared
+												46030 text 6 self-reports were recorded in IVA during the last 24 hours. Reported symptoms included Body aches, Chest Pain, Chills, Cough, Cough for 2+ weeks, Fatigue, Fever, Headache, Loss of taste or smell, Night sweats, Runny nose, Shortness of breath, Sore throat, Weight loss, and Wheezing. These are not confirmed diagnoses.
+												46031 text Region:
+												46032 text IVA
+												46033 text Made
+												46034 text about 2 months ago
+												46035 text Reports counted:
+												46036 text 6
+												46037 text Reports from the last
+												46038 text 24 hours
+												46039 text Prepared for 1 app users.
+												46040 text This does not mean they received it.
+											46041 article
+												46042 heading Regional self-report alert: IVA
+												46043 text Made automatically
+												46044 text Prepared
+												46045 text 6 self-reports were recorded in IVA during the last 24 hours. Reported symptoms included Body aches, Chest Pain, Chills, Cough, Cough for 2+ weeks, Fatigue, Fever, Headache, Loss of taste or smell, Night sweats, Runny nose, Shortness of breath, Sore throat, Weight loss, and Wheezing. These are not confirmed diagnoses.
+												46046 text Region:
+												46047 text IVA
+												46048 text Made
+												46049 text about 2 months ago
+												46050 text Reports counted:
+												46051 text 6
+												46052 text Reports from the last
+												46053 text 24 hours
+												46054 text Prepared for 1 app users.
+												46055 text This does not mean they received it.
+											46056 article
+												46057 heading Regional self-report alert: III
+												46058 text Made automatically
+												46059 text Prepared
+												46060 text 11 self-reports were recorded in III during the last 24 hours. Reported symptoms included Body aches, Chest Pain, Chills, Cough, Cough for 2+ weeks, Fatigue, Fever, Headache, Loss of taste or smell, Night sweats, Runny nose, Shortness of breath, Sore throat, Weight loss, and Wheezing. These are not confirmed diagnoses.
+												46061 text Region:
+												46062 text III
+												46063 text Made
+												46064 text 2 months ago
+												46065 text Reports counted:
+												46066 text 11
+												46067 text Reports from the last
+												46068 text 24 hours
+												46069 text Prepared for 2 app users.
+												46070 text This does not mean they received it.
+							30950 region
+						30951 region
+							30952 region
+								30953 button Tab search
+							30954 region ID: view_21
+								30955 tab
+									30956 tab item (selectable) HealthPH+ | Your sign-in verification code - janzzendeleon@gmail.com - Gmail ID: view_20
+										45447 button Close
+									30958 tab item (selectable) Inbox - healthphplusproject@gmail.com - Gmail ID: view_20
+										45448 button Close
+									31830 tab item (selectable) HealthPH+ ・ Render Dashboard ID: view_20
+										45449 button Close
+									30960 tab item (selectable) Branches · DishwashingLiquid/HealthPH-Plus_Joy ID: view_20
+										45450 button Close
+									30962 tab item (selectable) HealthPH+ ・ Web Service ・ Render Dashboard ID: view_20
+										45451 button Close
+									30964 tab item (selectable) GC YARN 2.0 | Messenger ID: view_20
+										45452 button Close
+									35646 tab item (selectable) HealthPH | Health Literacy Hub ID: view_20
+										45453 button Close
+									42675 tab item (selectable) HealthPH | Disease Watch Feed ID: view_20
+										42676 button Close
+								30968 region
+							30969 button New Tab
+							30970 region
+						30971 region
+			45886 pane
+				45887 pane (disabled)
+				45888 region
+					45889 region
+						45890 text https://healthph.onrender.com/dashboard/disease-watch-feed
+
+Document text: ```
+HealthPH+
+￼
+￼
+Juan Dela Cruz
+SUPERADMIN
+￼
+NAVIGATION
+☰
+MAIN
+￼
+AI Surveillance
+￼
+NLP Insights
+￼
+Misinformation Tracker
+￼
+User Management
+￼
+Model Access & Toolkit
+MOBILE INTEGRATION
+￼
+Disease Watch Feed
+￼
+Health Literacy Hub
+￼
+Sentiment Pulse Tool
+Disease Watch Feed
+Canonical mobile self-report activity, regional coverage, and mobile reporter analytics.
+Alert Distribution
+Push notifications for disease outbreaks to targeted regions
+Early Warning
+Citizens receive alerts before official announcements
+Symptom Reporting
+Community-driven symptom reporting for early detection
+Recent Alerts
+Regional Coverage
+User Analytics
+Self-Reports
+Submitted symptoms and saved regional administrative summaries. These are not diagnoses.
+Set Up Alerts
+No regional summary is ready yet. A summary becomes ready after a region reaches five submitted reports.
+Possible acute respiratory infection pattern
+Symptom Report
+Self-reported Cough, Shortness of breath, Fatigue in Region NCR.
+Region: Region NCR · Updated: about 5 hours ago
+Possible tuberculosis symptom pattern
+Symptom Report
+Self-reported Chills, Shortness of breath, Runny nose in Region NCR.
+Region: Region NCR · Updated: about 23 hours ago
+Possible acute respiratory infection pattern
+Symptom Report
+Self-reported Fatigue, Cough, Sore throat in Region NCR.
+Region: Region NCR · Updated: about 24 hours ago
+Possible tuberculosis symptom pattern
+Symptom Report
+Self-reported Cough for 2+ weeks, Headache, Wheezing in Region NCR.
+Region: Region NCR · Updated: 1 day ago
+Possible COVID-like respiratory symptom pattern
+Symptom Report
+Self-reported Cough for 2+ weeks, Weight loss, Cough in Region NCR.
+Region: Region NCR · Updated: 1 day ago
+Previous
+1 / 14
+Next
+Alert History
+See past alerts and alerts being prepared. A prepared alert may not have reached anyone yet.
+Evaluation interval
+￼
+Check reports now
+Regional self-report alert: NCR
+Made automatically
+Prepared
+6 self-reports were recorded in NCR during the last 1 hour. Reported symptoms included Body aches, Chest Pain, Chills, Cough, Cough for 2+ weeks, Fatigue, Fever, Headache, Loss of taste or smell, Night sweats, Shortness of breath, Sore throat, Weight loss, and Wheezing. These are not confirmed diagnoses.
+Region: NCR
+Made 1 day ago
+Reports counted: 6
+Reports from the last 1 hour
+Prepared for 2 app users. This does not mean they received it.
+Regional self-report alert: IVA
+Made automatically
+Prepared
+6 self-reports were recorded in IVA during the last 15 minutes. Reported symptoms included Body aches, Chest Pain, Chills, Cough, Cough for 2+ weeks, Fatigue, Fever, Headache, Loss of taste or smell, Night sweats, Runny nose, Shortness of breath, Sore throat, Weight loss, and Wheezing. These are not confirmed diagnoses.
+Region: IVA
+Made about 1 month ago
+Reports counted: 6
+Reports from the last 15 minutes
+Prepared for 2 app users. This does not mean they received it.
+Regional self-report alert: IVA
+Made automatically
+Prepared
+6 self-reports were recorded in IVA during the last 15 minutes. Reported symptoms included Body aches, Chest Pain, Chills, Cough, Cough for 2+ weeks, Fatigue, Fever, Headache, Loss of taste or smell, Runny nose, Shortness of breath, Sore throat, Weight loss, and Wheezing. These are not confirmed diagnoses.
+Region: IVA
+Made about 2 months ago
+Reports counted: 6
+Reports from the last 15 minutes
+Prepared for 1 app users. This does not mean they received it.
+Regional self-report alert: IVA
+Made automatically
+Prepared
+6 self-reports were recorded in IVA during the last 24 hours. Reported symptoms included Body aches, Chest Pain, Chills, Cough, Cough for 2+ weeks, Fatigue, Fever, Headache, Loss of taste or smell, Night sweats, Runny nose, Shortness of breath, Sore throat, Weight loss, and Wheezing. These are not confirmed diagnoses.
+Region: IVA
+Made about 2 months ago
+Reports counted: 6
+Reports from the last 24 hours
+Prepared for 1 app users. This does not mean they received it.
+Regional self-report alert: IVA
+Made automatically
+Prepared
+6 self-reports were recorded in IVA during the last 24 hours. Reported symptoms included Body aches, Chest Pain, Chills, Cough, Cough for 2+ weeks, Fatigue, Fever, Headache, Loss of taste or smell, Night sweats, Runny nose, Shortness of breath, Sore throat, Weight loss, and Wheezing. These are not confirmed diagnoses.
+Region: IVA
+Made about 2 months ago
+Reports counted: 6
+Reports from the last 24 hours
+Prepared for 1 app users. This does not mean they received it.
+Regional self-report alert: III
+Made automatically
+Prepared
+11 self-reports were recorded in III during the last 24 hours. Reported symptoms included Body aches, Chest Pain, Chills, Cough, Cough for 2+ weeks, Fatigue, Fever, Headache, Loss of taste or smell, Night sweats, Runny nose, Shortness of breath, Sore throat, Weight loss, and Wheezing. These are not confirmed diagnoses.
+Region: III
+Made 2 months ago
+Reports counted: 11
+Reports from the last 24 hours
+Prepared for 2 app users. This does not mean they received it.
+```
+
+Focused element: 30619 edit (settable, string) Address and search bar Description: Ask Google or type a URL Value: healthph.onrender.com/dashboard/disease-watch-feed ID: view_1012
+
+Document text:
+HealthPH+
+￼
+￼
+Juan Dela Cruz
+SUPERADMIN
+￼
+NAVIGATION
+☰
+MAIN
+￼
+AI Surveillance
+￼
+NLP Insights
+￼
+Misinformation Tracker
+￼
+User Management
+￼
+Model Access & Toolkit
+MOBILE INTEGRATION
+￼
+Disease Watch Feed
+￼
+Health Literacy Hub
+￼
+Sentiment Pulse Tool
+Disease Watch Feed
+Canonical mobile self-report activity, regional coverage, and mobile reporter analytics.
+Alert Distribution
+Push notifications for disease outbreaks to targeted regions
+Early Warning
+Citizens receive alerts before official announcements
+Symptom Reporting
+Community-driven symptom reporting for early detection
+Recent Alerts
+Regional Coverage
+User Analytics
+Self-Reports
+Submitted symptoms and saved regional administrative summaries. These are not diagnoses.
+Set Up Alerts
+No regional summary is ready yet. A summary becomes ready after a region reaches five submitted reports.
+Possible acute respiratory infection pattern
+Symptom Report
+Self-reported Cough, Shortness of breath, Fatigue in Region NCR.
+Region: Region NCR · Updated: about 5 hours ago
+Possible tuberculosis symptom pattern
+Symptom Report
+Self-reported Chills, Shortness of breath, Runny nose in Region NCR.
+Region: Region NCR · Updated: about 23 hours ago
+Possible acute respiratory infection pattern
+Symptom Report
+Self-reported Fatigue, Cough, Sore throat in Region NCR.
+Region: Region NCR · Updated: about 24 hours ago
+Possible tuberculosis symptom pattern
+Symptom Report
+Self-reported Cough for 2+ weeks, Headache, Wheezing in Region NCR.
+Region: Region NCR · Updated: 1 day ago
+Possible COVID-like respiratory symptom pattern
+Symptom Report
+Self-reported Cough for 2+ weeks, Weight loss, Cough in Region NCR.
+Region: Region NCR · Updated: 1 day ago
+Previous
+1 / 14
+Next
+Alert History
+See past alerts and alerts being prepared. A prepared alert may not have reached anyone yet.
+Evaluation interval
+￼
+Check reports now
+Regional self-report alert: NCR
+Made automatically
+Prepared
+6 self-reports were recorded in NCR during the last 1 hour. Reported symptoms included Body aches, Chest Pain, Chills, Cough, Cough for 2+ weeks, Fatigue, Fever, Headache, Loss of taste or smell, Night sweats, Shortness of breath, Sore throat, Weight loss, and Wheezing. These are not confirmed diagnoses.
+Region: NCR
+Made 1 day ago
+Reports counted: 6
+Reports from the last 1 hour
+Prepared for 2 app users. This does not mean they received it.
+Regional self-report alert: IVA
+Made automatically
+Prepared
+6 self-reports were recorded in IVA during the last 15 minutes. Reported symptoms included Body aches, Chest Pain, Chills, Cough, Cough for 2+ weeks, Fatigue, Fever, Headache, Loss of taste or smell, Night sweats, Runny nose, Shortness of breath, Sore throat, Weight loss, and Wheezing. These are not confirmed diagnoses.
+Region: IVA
+Made about 1 month ago
+Reports counted: 6
+Reports from the last 15 minutes
+Prepared for 2 app users. This does not mean they received it.
+Regional self-report alert: IVA
+Made automatically
+Prepared
+6 self-reports were recorded in IVA during the last 15 minutes. Reported symptoms included Body aches, Chest Pain, Chills, Cough, Cough for 2+ weeks, Fatigue, Fever, Headache, Loss of taste or smell, Runny nose, Shortness of breath, Sore throat, Weight loss, and Wheezing. These are not confirmed diagnoses.
+Region: IVA
+Made about 2 months ago
+Reports counted: 6
+Reports from the last 15 minutes
+Prepared for 1 app users. This does not mean they received it.
+Regional self-report alert: IVA
+Made automatically
+Prepared
+6 self-reports were recorded in IVA during the last 24 hours. Reported symptoms included Body aches, Chest Pain, Chills, Cough, Cough for 2+ weeks, Fatigue, Fever, Headache, Loss of taste or smell, Night sweats, Runny nose, Shortness of breath, Sore throat, Weight loss, and Wheezing. These are not confirmed diagnoses.
+Region: IVA
+Made about 2 months ago
+Reports counted: 6
+Reports from the last 24 hours
+Prepared for 1 app users. This does not mean they received it.
+Regional self-report alert: IVA
+Made automatically
+Prepared
+6 self-reports were recorded in IVA during the last 24 hours. Reported symptoms included Body aches, Chest Pain, Chills, Cough, Cough for 2+ weeks, Fatigue, Fever, Headache, Loss of taste or smell, Night sweats, Runny nose, Shortness of breath, Sore throat, Weight loss, and Wheezing. These are not confirmed diagnoses.
+Region: IVA
+Made about 2 months ago
+Reports counted: 6
+Reports from the last 24 hours
+Prepared for 1 app users. This does not mean they received it.
+Regional self-report alert: III
+Made automatically
+Prepared
+11 self-reports were recorded in III during the last 24 hours. Reported symptoms included Body aches, Chest Pain, Chills, Cough, Cough for 2+ weeks, Fatigue, Fever, Headache, Loss of taste or smell, Night sweats, Runny nose, Shortness of breath, Sore throat, Weight loss, and Wheezing. These are not confirmed diagnoses.
+Region: III
+Made 2 months ago
+Reports counted: 11
+Reports from the last 24 hours
+Prepared for 2 app users. This does not mean they received it.

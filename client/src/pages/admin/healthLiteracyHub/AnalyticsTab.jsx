@@ -23,7 +23,6 @@ import {
 } from "./shared";
 
 const ANALYTICS_DASHBOARD_LABEL = "Analytics Dashboard";
-const ANALYTICS_EXPORT_BUTTON_CLASS = "health-literacy-analytics-export-btn";
 const ANALYTICS_EXPORT_ICON_FILL = "#FFFFFF";
 
 const AnalyticsSelect = ({ label, value, options, onChange }) => {
@@ -251,23 +250,6 @@ const AnalyticsTab = () => {
 
   return (
     <>
-      <style>
-        {`
-          .${ANALYTICS_EXPORT_BUTTON_CLASS} {
-            background-color: #2a3776;
-            border-color: #2a3776;
-            color: #ffffff;
-            box-shadow: 0px 0px 0px 1px #2a3776, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
-          }
-
-          .${ANALYTICS_EXPORT_BUTTON_CLASS}:hover:not(:active):not(:focus-visible):not(:disabled) {
-            background-color: #2a3776;
-            border-color: #2a3776;
-            color: #ffffff;
-            box-shadow: 0px 0px 0px 1px #2a3776, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
-          }
-        `}
-      </style>
       <div ref={reportRef} className="flex flex-col gap-[16px]">
         <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
           <div className="flex flex-col gap-[14px] lg:flex-row lg:items-end lg:justify-between">
@@ -285,7 +267,7 @@ const AnalyticsTab = () => {
                 type="button"
                 onClick={handleExportCsv}
                 disabled={!isOverviewAvailable}
-                className={`prod-btn-base admin-module-brand-btn ${ANALYTICS_EXPORT_BUTTON_CLASS} flex min-h-[40px] items-center justify-center gap-[8px] px-[14px]`}
+                className="public-button public-button--small"
               >
                 <Icon
                   iconName="Download"
@@ -299,7 +281,7 @@ const AnalyticsTab = () => {
                 type="button"
                 onClick={handleExportPdf}
                 disabled={!isOverviewAvailable}
-                className={`prod-btn-base admin-module-brand-btn ${ANALYTICS_EXPORT_BUTTON_CLASS} flex min-h-[40px] items-center justify-center gap-[8px] px-[14px]`}
+                className="public-button public-button--small"
               >
                 <Icon
                   iconName="Printer"
@@ -341,7 +323,7 @@ const AnalyticsTab = () => {
         ) : !isOverviewAvailable ? (
           <div role="alert" className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px] text-[14px] text-gray-700">
             <p>Analytics could not be loaded for the selected filters. Please try again.</p>
-            <button type="button" onClick={retryOverview} className="prod-btn-base admin-module-brand-btn mt-[12px] min-h-[40px] px-[14px]">
+            <button type="button" onClick={retryOverview} className="public-button public-button--small mt-[12px]">
               Retry analytics
             </button>
           </div>

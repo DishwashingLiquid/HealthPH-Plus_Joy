@@ -24,6 +24,10 @@
 :is(.hl-hub, .hl-feature:not(.public-buttons)) .hl-text-button { color: var(--hl-navy); text-decoration: underline; min-height: 44px; padding: 8px; font-weight: 600; }
 .hl-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .hl-meta { color: #5A6876; font-size: 14px; line-height: 1.6; margin: 10px 0 16px; }
+.hl-hub .hl-content-card { min-width: 0; }
+.hl-hub .hl-content-card-heading { min-width: 0; overflow-wrap: anywhere; }
+.hl-hub .hl-content-card .hl-publication-badge { display: inline-block; max-width: 100%; margin-top: 6px; border-radius: 6px; padding: 2px 8px; background: #F2F4F7; color: #344054; font-size: 12px; font-weight: 600; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; }
+.hl-hub .hl-content-card .hl-publication-badge.is-published { background: #F0FDF4; color: #166534; }
 /* Admin article list only; action colors, sizing and focus use global prod-btn variants. */
 .hl-hub .hl-article-list { container: hl-admin-articles / inline-size; }
 .hl-hub .hl-article-card { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 18px; }
@@ -32,7 +36,8 @@
 .hl-hub .hl-article-card-cover img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; }
 .hl-hub .hl-article-card-content { min-width: 0; }
 .hl-hub .hl-article-card-header { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; }
-.hl-hub .hl-article-card-header h3 { flex: 1 1 220px; min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.hl-hub .hl-article-card-header .hl-content-card-heading { flex: 1 1 220px; }
+.hl-hub .hl-article-card-header h3 { min-width: 0; margin: 0; overflow-wrap: anywhere; }
 .hl-hub .hl-article-card-actions { display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; gap: 8px; }
 .hl-hub .hl-article-card-support { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; border-top: 1px solid var(--hl-border); padding-top: 12px; overflow-wrap: anywhere; }
 @container hl-admin-articles (min-width: 640px) {

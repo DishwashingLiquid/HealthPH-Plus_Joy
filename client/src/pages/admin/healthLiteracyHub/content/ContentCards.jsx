@@ -20,9 +20,9 @@ export const ContentGrid = ({
   onShareClick,
   onDownloadClick,
 }) => {
-  if (isLoading && (contentType !== "Videos" || content.length === 0)) {
+  if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-[12px] border border-[#E5E5E5] bg-white p-[40px] text-center">
+      <div role="status" className="flex flex-col items-center justify-center rounded-[12px] border border-[#E5E5E5] bg-white p-[40px] text-center">
         <p className="text-[16px] font-medium text-gray-600">
           Loading {contentType.toLowerCase()}...
         </p>
@@ -62,7 +62,6 @@ export const ContentGrid = ({
         <ContentCard
           key={`${item.contentOrigin ?? "content"}-${item.id}`}
           item={item}
-          isLoading={isLoading && contentType === "Videos"}
           onMediaClick={onMediaClick}
           onEditClick={onEditClick}
           onShareClick={onShareClick}
@@ -73,18 +72,7 @@ export const ContentGrid = ({
   );
 };
 
-const VideoContentCardLoading = () => (
-  <div
-    className="flex h-[440px] w-full items-center justify-center overflow-hidden rounded-[12px] border border-[#E5E5E5] bg-[#E4E7EB]"
-    role="status"
-    aria-label="Loading video content"
-  >
-    <Icon iconName="Video" height="48px" width="48px" stroke="#6B7280" />
-  </div>
-);
-
 const ContentCard = ({
-  isLoading,
   item,
   onMediaClick,
   onEditClick,
@@ -108,7 +96,6 @@ const ContentCard = ({
         item={item}
         canEdit={canEdit}
         onEditClick={onEditClick}
-        onShareClick={onShareClick}
         onMediaClick={onMediaClick}
       />
     );
@@ -117,7 +104,6 @@ const ContentCard = ({
   if (isVideo) {
     return (
       <VideoContentCard
-        isLoading={isLoading}
         item={item}
         mediaType={mediaType}
         mediaSource={mediaSource}
@@ -279,34 +265,52 @@ const ContentCard = ({
   );
 };
 
+const PublicationBadge = ({ item }) => {
+  // Explicit unpublishing and archival override channel flags, including on legacy records.
+  const canPublish = !item.isArchived && item.isPublished !== false;
+  const destinations = canPublish ? [
+    item.publishToWebsite === true ? "Website" : null,
+    item.publishToMobile === true ? "Mobile" : null,
+  ].filter(Boolean) : [];
+
+  return <span className={`hl-publication-badge${destinations.length ? " is-published" : ""}`}>
+    {destinations.length ? `Published · ${destinations.join(" & ")}` : "Draft"}
+  </span>;
+};
+
 const InfographicContentCard = ({ item, canEdit, mediaType, mediaSource, hasPreviewMedia, onMediaClick, onEditClick, onDownloadClick }) => {
   const open = () => onMediaClick(item);
-  return <div className="overflow-hidden rounded-[12px] border border-gray-100 bg-white text-left">
+  return <div className="hl-content-card overflow-hidden rounded-[12px] border border-gray-100 bg-white text-left">
     <button type="button" onClick={open} aria-label={`View Infographic: ${item.title}`} className="block h-[240px] w-full bg-gray-10 p-2">
       {attachmentKind(mediaSource, mediaType) === "image" ? <img src={mediaSource} alt={item.title} className="h-full w-full object-contain" />
         : <span className="text-primary-800">Open infographic details</span>}
     </button>
     <div className="p-[16px]">
-      <h3 className="text-[18px] font-semibold text-primary-800">{item.title}</h3>
+      <div className="hl-content-card-heading">
+        <h3 className="text-[18px] font-semibold text-primary-800">{item.title}</h3>
+        <PublicationBadge item={item} />
+      </div>
       <p className="hl-meta">Downloads: {formatNumber(getContentDownloadCount(item))}</p>
       <div className="hl-actions">
-        <button type="button" className="hl-button" onClick={open}>View Infographic</button>
-        <button type="button" className="hl-button hl-secondary" disabled={!hasPreviewMedia} onClick={() => onDownloadClick(item)}>Download</button>
-        {canEdit && <button type="button" className="hl-button hl-secondary" onClick={() => onEditClick(item)}>Edit</button>}
+        <button type="button" className="public-button public-button--small" onClick={open}>View Infographic</button>
+        <button type="button" className="prod-btn-base prod-btn-secondary min-h-[44px]" disabled={!hasPreviewMedia} onClick={() => onDownloadClick(item)}>Download</button>
+        {canEdit && <button type="button" className="prod-btn-base prod-btn-secondary min-h-[44px]" onClick={() => onEditClick(item)}>Edit</button>}
       </div>
     </div>
   </div>;
 };
 
-const VideoContentCard = ({ isLoading, item, mediaSource, canEdit, onMediaClick, onEditClick }) => {
-  if (isLoading) return <VideoContentCardLoading />;
-  return <div className="overflow-hidden rounded-[12px] border border-gray-100 bg-white text-left">
+const VideoContentCard = ({ item, mediaSource, canEdit, onMediaClick, onEditClick }) => {
+  return <div className="hl-content-card overflow-hidden rounded-[12px] border border-gray-100 bg-white text-left">
     <div className="h-[240px]"><VideoCardPreview src={mediaSource || item.mediaUrl} mime={item.media?.contentType}
       poster={getContentMediaSource(item.thumbnail) || item.imageUrl} title={item.title} onOpen={() => onMediaClick(item)} /></div>
     <div className="p-[16px]">
-      <h3 className="text-[18px] font-semibold text-primary-800">{item.title}</h3>
+      <div className="hl-content-card-heading">
+        <h3 className="text-[18px] font-semibold text-primary-800">{item.title}</h3>
+        <PublicationBadge item={item} />
+      </div>
       <p className="hl-meta">{item.duration ? `Duration: ${item.duration} · ` : ""}Views: {formatNumber(getContentViewCount(item))}</p>
-      <div className="hl-actions"><button type="button" className="prod-btn-base prod-btn-primary min-h-[44px]" onClick={() => onMediaClick(item)}>Watch Video</button>
+      <div className="hl-actions"><button type="button" className="public-button public-button--small" onClick={() => onMediaClick(item)}>Watch Video</button>
         {canEdit && <button type="button" className="prod-btn-base prod-btn-secondary min-h-[44px]" onClick={() => onEditClick(item)}>Edit</button>}</div>
     </div>
   </div>;
@@ -325,7 +329,7 @@ const ArticleCardImage = ({ source, alt }) => {
   }} />;
 };
 
-const ArticleContentCard = ({ item, canEdit, onEditClick, onShareClick, onMediaClick }) => {
+const ArticleContentCard = ({ item, canEdit, onEditClick, onMediaClick }) => {
   const subtitle = String(item.shortPreview?.trim() || item.description || "").slice(0, 75);
   const tags = item.tags ?? [];
   const galleryImage = item.galleryImages?.[0];
@@ -337,28 +341,26 @@ const ArticleContentCard = ({ item, canEdit, onEditClick, onShareClick, onMediaC
     : imageSource === GENERIC_ARTICLE_THUMBNAIL ? "" : item.media?.alt ?? item.title;
 
   return (
-    <div className="hl-article-card w-full rounded-[8px] border border-[#E5E5E5] bg-white p-[18px] text-left transition-shadow hover:shadow-sm">
+    <div className="hl-content-card hl-article-card w-full rounded-[8px] border border-[#E5E5E5] bg-white p-[18px] text-left transition-shadow hover:shadow-sm">
       <button type="button" aria-label={`Read article: ${item.title}`} onClick={() => onMediaClick(item)} className="hl-article-card-cover">
         <ArticleCardImage key={imageSource} source={imageSource} alt={imageAlt} />
       </button>
       <div className="hl-article-card-content">
         <div className="hl-article-card-header">
-          <h3 className="text-left text-[18px] font-semibold leading-[26px] text-gray-800">
-            {item.title}
-          </h3>
+          <div className="hl-content-card-heading">
+            <h3 className="text-left text-[18px] font-semibold leading-[26px] text-gray-800">
+              {item.title}
+            </h3>
+            <PublicationBadge item={item} />
+          </div>
           <div className="hl-article-card-actions">
-            <button type="button" onClick={() => onShareClick(item)} className="prod-btn-base prod-btn-secondary min-h-[44px]">
-              <Icon iconName="ArrowUpRight" height="16px" width="16px" stroke="currentColor" />
-              <span>Share</span>
-            </button>
+            <button type="button" className="public-button public-button--small" onClick={() => onMediaClick(item)}>Read Article</button>
             {canEdit && <button type="button" onClick={() => onEditClick(item)} className="prod-btn-base prod-btn-secondary min-h-[44px]">Edit</button>}
           </div>
         </div>
         <p className="mt-[6px] text-left text-[14px] leading-[20px] text-gray-500">
           {subtitle}
         </p>
-        <button type="button" className="prod-btn-base prod-btn-primary mt-[12px] min-h-[44px]" onClick={() => onMediaClick(item)}>Read Article</button>
-
         <div className="hl-article-card-support">
           {tags.length > 0 && (
             <div className="flex flex-wrap items-center justify-start gap-[8px]">
