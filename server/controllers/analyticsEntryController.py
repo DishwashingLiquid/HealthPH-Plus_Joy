@@ -1,3 +1,5 @@
+from uuid import uuid4
+import logging
 from collections import Counter, defaultdict
 
 import re
@@ -25,6 +27,10 @@ from helpers.analyticsAccessHelpers import (
 )
 from helpers.diseaseDetectionHelpers import detect_diseases
 from helpers.analyticsSentimentHelpers import run_sentiment_processing
+from helpers.processingJobHelpers import (
+    ProcessingLease, ProcessingLeaseLost, new_processing_job, job_guard,
+    INTERRUPTED_MESSAGE,
+)
 from helpers.analyticsSymptomHelpers import get_entry_symptoms
 from helpers.analyticsWordHelpers import summarize_word_frequencies
 from helpers.surveillanceMapHelpers import MAP_DISEASE_CODES, build_processed_map_points
@@ -569,141 +575,139 @@ def fetch_nlp_word_summary(
 
 PROCESSABLE_SOURCE_TYPES = ["self_report"]
 
-def run_analytics_entry_processing_job(entry_ids: list[str]):
+def run_analytics_entry_processing_job(entry_ids: list[str], job_id: str):
     object_ids = [ObjectId(entry_id) for entry_id in entry_ids]
-
-    analytics_entries_collection.update_many(
-        {
-            "_id": {"$in": object_ids},
-            "analysis_status": "QUEUED",
-        },
-        {
-            "$set": {
-                "analysis_status": "PROCESSING",
-                "analysis_error": "",
-                "analysis_started_at": get_ph_datetime(),
-                "updated_at": get_ph_datetime(),
-            }
-        },
-    )
-
+    worker_id = str(uuid4())
     try:
-        entries = list(
-            analytics_entries_collection.find(
-                {
-                    "_id": {"$in": object_ids},
-                    "source_type": {"$in": PROCESSABLE_SOURCE_TYPES},
-                    "analysis_status": "PROCESSING",
-                }
-            ).sort("_id", 1)
-        )
-
-        if not entries:
-            raise RuntimeError("No analytics entries are available for processing.")
-
-        texts = [
-            entry["text"]
-            for entry in entries
-        ]
-
-        language_predictions = detect_languages(texts)
-        disease_predictions = detect_diseases(texts)
-
-        completed_at = get_ph_datetime()
-        updates = []
-
-        for entry, language_prediction, disease_prediction in zip(
-            entries,
-            language_predictions,
-            disease_predictions,
-            strict=True,
-        ):
-            is_supported = language_prediction["is_supported"]
-
-            updates.append(
-                UpdateOne(
-                    {"_id": entry["_id"]},
+        claimed = analytics_entries_collection.update_many({
+            "_id": {"$in": object_ids},
+            "source_type": {"$in": PROCESSABLE_SOURCE_TYPES},
+            "analysis_status": "QUEUED", **job_guard(job_id, require_live=True),
+        }, {"$set": {
+            "analysis_status": "PROCESSING", "analysis_error": "",
+            "analysis_started_at": get_ph_datetime(), "updated_at": get_ph_datetime(),
+            "processing_job.worker_id": worker_id,
+        }})
+        if not claimed.matched_count:
+            return
+        with ProcessingLease(
+            analytics_entries_collection, "analysis_status", job_id, worker_id,
+            scope={"_id": {"$in": object_ids}},
+        ) as lease:
+            entries = list(
+                analytics_entries_collection.find(
                     {
-                        "$set": {
-                            "language": (
-                                language_prediction["language"]
-                                if is_supported
-                                else ""
-                            ),
-                            "analysis.language_detection": {
-                                "status": (
-                                    "completed"
+                        "_id": {"$in": object_ids},
+                        "source_type": {"$in": PROCESSABLE_SOURCE_TYPES},
+                        "analysis_status": "PROCESSING",
+                        **job_guard(job_id, worker_id, True),
+                    }
+                ).sort("_id", 1)
+            )
+
+            if not entries:
+                raise ProcessingLeaseLost(INTERRUPTED_MESSAGE)
+
+            texts = [
+                entry["text"]
+                for entry in entries
+            ]
+
+            language_predictions = detect_languages(texts)
+            disease_predictions = detect_diseases(texts)
+
+            completed_at = get_ph_datetime()
+            updates = []
+
+            for entry, language_prediction, disease_prediction in zip(
+                entries,
+                language_predictions,
+                disease_predictions,
+                strict=True,
+            ):
+                is_supported = language_prediction["is_supported"]
+
+                updates.append(
+                    UpdateOne(
+                        {"_id": entry["_id"], "analysis_status": "PROCESSING", **job_guard(job_id, worker_id, True)},
+                        {
+                            "$set": {
+                                "language": (
+                                    language_prediction["language"]
                                     if is_supported
-                                    else "unsupported"
+                                    else ""
                                 ),
-                                "detection_source": (
-                                    language_prediction["detection_source"]
+                                "analysis.language_detection": {
+                                    "status": (
+                                        "completed"
+                                        if is_supported
+                                        else "unsupported"
+                                    ),
+                                    "detection_source": (
+                                        language_prediction["detection_source"]
+                                    ),
+                                    "confidence": (
+                                        language_prediction["confidence"]
+                                        if is_supported
+                                        else None
+                                    ),
+                                    "completed_at": completed_at,
+                                },
+                                "analysis.disease_labels": (
+                                    disease_prediction["labels"]
                                 ),
-                                "confidence": (
-                                    language_prediction["confidence"]
-                                    if is_supported
-                                    else None
+                                "analysis.disease_probabilities": (
+                                    disease_prediction["probabilities"]
                                 ),
-                                "completed_at": completed_at,
-                            },
-                            "analysis.disease_labels": (
-                                disease_prediction["labels"]
-                            ),
-                            "analysis.disease_probabilities": (
-                                disease_prediction["probabilities"]
-                            ),
-                            "analysis.disease_classification": {
-                                "status": "completed",
-                                "thresholds_used": (
-                                    disease_prediction["thresholds_used"]
-                                ),
-                                "model_version": (
-                                    disease_prediction["model_version"]
-                                ),
-                                "completed_at": completed_at,
-                            },
-                            "analysis.symptoms": disease_prediction["symptoms"],
-                            "analysis.symptom_extraction": {
-                                "status": "completed",
-                                "model_version": (
-                                    disease_prediction["symptom_model_version"]
-                                ),
-                                "completed_at": completed_at,
-                            },
-                            "analysis_status": "PROCESSED",
-                            "analysis_error": "",
-                            "analyzed_at": completed_at,
-                            "updated_at": completed_at,
-                        }
-                    },
+                                "analysis.disease_classification": {
+                                    "status": "completed",
+                                    "thresholds_used": (
+                                        disease_prediction["thresholds_used"]
+                                    ),
+                                    "model_version": (
+                                        disease_prediction["model_version"]
+                                    ),
+                                    "completed_at": completed_at,
+                                },
+                                "analysis.symptoms": disease_prediction["symptoms"],
+                                "analysis.symptom_extraction": {
+                                    "status": "completed",
+                                    "model_version": (
+                                        disease_prediction["symptom_model_version"]
+                                    ),
+                                    "completed_at": completed_at,
+                                },
+                                "analysis_status": "PROCESSED",
+                                "analysis_error": "",
+                                "analyzed_at": completed_at,
+                                "updated_at": completed_at,
+                            }
+                        },
+                    )
                 )
-            )
 
-        update_result = analytics_entries_collection.bulk_write(updates)
+            lease.ensure_active()
+            update_result = analytics_entries_collection.bulk_write(updates)
 
-        if update_result.matched_count != len(entries):
-            raise RuntimeError(
-                "Not all selected analytics entries were updated."
-            )
-
-        run_sentiment_processing(analytics_entries_collection, [entry["_id"] for entry in entries])
+            if update_result.matched_count != len(entries):
+                raise RuntimeError(
+                    "Not all selected analytics entries were updated."
+                )
 
     except Exception as error:
-        analytics_entries_collection.update_many(
-            {
-                "_id": {"$in": object_ids},
-                "analysis_status": {
-                    "$in": ["QUEUED", "PROCESSING"],
-                },
-            },
-            {
-                "$set": {
-                    "analysis_status": "FAILED",
-                    "analysis_error": str(error),
-                    "updated_at": get_ph_datetime(),
-                }
-            },
-        )
+        analytics_entries_collection.update_many({
+            "_id": {"$in": object_ids}, "analysis_status": "PROCESSING",
+            **job_guard(job_id, worker_id),
+        }, {"$set": {
+            "analysis_status": "FAILED", "analysis_error": str(error),
+            "updated_at": get_ph_datetime(),
+        }})
+        return
+
+    try:
+        run_sentiment_processing(analytics_entries_collection, [entry["_id"] for entry in entries])
+    except Exception:
+        logging.getLogger(__name__).exception("Sentiment processing failed after self-report processing completed")
 
 async def process_analytics_entries(
     background_tasks: BackgroundTasks,
@@ -750,22 +754,25 @@ async def process_analytics_entries(
     ]
 
     queued_at = get_ph_datetime()
-
-    analytics_entries_collection.update_many(
-        {"_id": {"$in": eligible_ids}},
-        {
-            "$set": {
-                "analysis_status": "QUEUED",
-                "analysis_error": "",
-                "queued_at": queued_at,
-                "updated_at": queued_at,
-            }
-        },
-    )
-
+    job = new_processing_job()
+    analytics_entries_collection.update_many({
+        "_id": {"$in": eligible_ids},
+        "source_type": {"$in": PROCESSABLE_SOURCE_TYPES},
+        "analysis_status": {"$in": ["SUBMITTED", "FAILED"]},
+    }, {"$set": {
+        "analysis_status": "QUEUED", "analysis_error": "",
+        "queued_at": queued_at, "updated_at": queued_at, "processing_job": job,
+    }})
+    # Only schedule entries this request actually queued, including concurrent requests.
+    queued_ids = [entry["_id"] for entry in analytics_entries_collection.find({
+        "_id": {"$in": eligible_ids}, "analysis_status": "QUEUED",
+        **job_guard(job["id"]),
+    }, {"_id": 1})]
+    if not queued_ids:
+        raise HTTPException(status_code=409, detail="Selected entries are already queued or processing.")
     background_tasks.add_task(
         run_analytics_entry_processing_job,
-        [str(entry_id) for entry_id in eligible_ids],
+        [str(entry_id) for entry_id in queued_ids], job["id"],
     )
 
     return JSONResponse(
@@ -774,6 +781,6 @@ async def process_analytics_entries(
             "message": (
                 "Self-report entries queued for language and disease processing."
             ),
-            "queued_count": len(eligible_ids),
+            "queued_count": len(queued_ids),
         },
     )

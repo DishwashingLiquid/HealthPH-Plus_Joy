@@ -38,6 +38,21 @@ adding an alias alone does not enable matching. For example, `inuubo` and
 disease services and backend after vocabulary updates; previously processed
 results need reprocessing to use the updated vocabulary.
 
+### Recovering interrupted processing
+
+Self-report and social-media processing renew database ownership while running.
+If the backend stops or restarts, abandoned Queued/Processing jobs become Failed
+with a retry message after their lease expires (10 minutes by default; checked
+every 30 seconds while the backend is running). Use the existing Process/Retry
+Processing action in Data Management. Reports and saved results are preserved;
+recovery does not automatically run models. Active jobs keep renewing ownership,
+so the lease is not a maximum processing duration.
+
+`HEALTHPH_PROCESSING_LEASE_SECONDS` controls the lease. Jobs created before this
+feature have a conservative 30-minute grace period controlled by
+`HEALTHPH_LEGACY_PROCESSING_TIMEOUT_SECONDS`. Both settings accept 60–86400
+seconds and have defaults, so existing environments need no new variables.
+
 ## Prerequisites
 1. Python 3.11 (64-bit). Use this version for the server virtual environment so compiled dependencies match the interpreter.
 2. MongoDB database connection string

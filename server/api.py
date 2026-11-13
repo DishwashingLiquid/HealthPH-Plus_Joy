@@ -1,4 +1,6 @@
 import asyncio
+from contextlib import suppress
+import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -53,6 +55,37 @@ api_app = FastAPI(
     description="Shared web and mobile backend. Public mobile environmental GET routes are available to guests; dashboard and personal-data routes retain their own access rules.",
 )
 regional_alert_scheduler_task = None
+processing_recovery_task = None
+
+
+async def _processing_recovery_loop():
+    from config.database import dataset_collection, analytics_entries_collection
+    from helpers.processingJobHelpers import recover_interrupted_processing
+
+    while True:
+        try:
+            recovered = await asyncio.to_thread(
+                recover_interrupted_processing, dataset_collection, analytics_entries_collection,
+            )
+            if any(recovered.values()):
+                logging.getLogger(__name__).info("Interrupted processing recovered: %s", recovered)
+        except Exception:
+            logging.getLogger(__name__).exception("Processing recovery temporarily unavailable")
+        await asyncio.sleep(30)
+
+
+@app.on_event("startup")
+async def start_processing_recovery():
+    global processing_recovery_task
+    processing_recovery_task = asyncio.create_task(_processing_recovery_loop())
+
+
+@app.on_event("shutdown")
+async def stop_processing_recovery():
+    if processing_recovery_task:
+        processing_recovery_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await processing_recovery_task
 
 
 async def _regional_alert_scheduler():

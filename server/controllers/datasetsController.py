@@ -1,3 +1,5 @@
+from uuid import uuid4
+import logging
 from datetime import datetime
 import json
 import os
@@ -36,6 +38,10 @@ from helpers.analyticsEntryHelpers import (
 from helpers.languageDetectionHelpers import detect_languages
 from helpers.diseaseDetectionHelpers import detect_diseases
 from helpers.analyticsSentimentHelpers import run_sentiment_processing
+from helpers.processingJobHelpers import (
+    ProcessingLease, ProcessingLeaseLost, new_processing_job, job_guard, utc_now,
+    live_lease_guard, INTERRUPTED_MESSAGE,
+)
 
 from controllers.pointControllers import delete_point, create_points
 from collections import Counter, defaultdict
@@ -128,165 +134,209 @@ def annotate_dataset(
     create_points(result_filename)
     pass
 
-def run_dataset_processing_job(dataset_id: str):
+def run_dataset_processing_job(dataset_id: str, job_id: str):
     object_id = ObjectId(dataset_id)
-
-    dataset_collection.update_one(
-        {"_id": object_id},
-        {
-            "$set": {
-                "dataset_status": "PROCESSING",
-                "processing_error": "",
-                "processing_started_at": get_ph_datetime(),
-                "processed_at": None,
-            }
-        },
-    )
-
+    worker_id = str(uuid4())
     try:
-        entries = list(
-            analytics_entries_collection.find(
-                {
-                    "dataset_id": dataset_id,
-                    "source_type": "social_media",
-                }
-            ).sort("_id", pymongo.ASCENDING)
-        )
+        claimed = dataset_collection.update_one({
+            "_id": object_id, "dataset_type": "RAW", "dataset_status": "QUEUED",
+            **job_guard(job_id, require_live=True),
+        }, {"$set": {
+            "dataset_status": "PROCESSING", "processing_error": "",
+            "processing_started_at": get_ph_datetime(), "processed_at": None,
+            "processing_job.worker_id": worker_id,
+        }})
+        if not claimed.matched_count:
+            return
+        with ProcessingLease(
+            dataset_collection, "dataset_status", job_id, worker_id,
+            related_collection=analytics_entries_collection, dataset_id=dataset_id,
+            scope={"_id": object_id},
+        ) as lease:
+            lease.ensure_active()
+            owned_dataset = dataset_collection.find_one({"_id": object_id, **lease.guard()})
+            if not owned_dataset:
+                raise ProcessingLeaseLost(INTERRUPTED_MESSAGE)
+            analytics_entries_collection.update_many({
+                "dataset_id": dataset_id, "source_type": "social_media",
+                "$or": [
+                    {"dataset_processing_job": {"$exists": False}},
+                    {"dataset_processing_job.id": job_id, "dataset_processing_job.worker_id": worker_id},
+                    {"dataset_processing_job.lease_expires_at": {"$lte": utc_now()}},
+                ],
+            }, {"$set": {"dataset_processing_job": owned_dataset["processing_job"]}})
 
-        if not entries:
-            raise RuntimeError(
-                "Dataset has no social-media analytics entries to process."
-            )
-
-        texts = [
-            entry["text"]
-            for entry in entries
-        ]
-
-        language_predictions = detect_languages(texts)
-        disease_predictions = detect_diseases(texts)
-
-        completed_at = get_ph_datetime()
-        language_counts = Counter()
-        disease_counts = Counter()
-        location_language_counts = defaultdict(Counter)
-        updates = []
-
-        for entry, language_prediction, disease_prediction in zip(
-            entries,
-            language_predictions,
-            disease_predictions,
-            strict=True,
-        ):
-            is_supported = language_prediction["is_supported"]
-            language = (
-                language_prediction["language"]
-                if is_supported
-                else ""
-            )
-
-            disease_labels = disease_prediction["labels"]
-            disease_counts.update(disease_labels)
-
-            detection_status = (
-                "completed" if is_supported else "unsupported"
-            )
-
-            if is_supported:
-                language_counts[language] += 1
-
-                location = entry.get("location") or {}
-                raw_location = str(location.get("raw") or "").strip()
-
-                if raw_location:
-                    location_language_counts[raw_location][language] += 1
-
-            updates.append(
-                pymongo.UpdateOne(
-                    {"_id": entry["_id"]},
+            entries = list(
+                analytics_entries_collection.find(
                     {
-                        "$set": {
-                            "language": language,
-                            "analysis.language_detection": {
-                                "status": detection_status,
-                                "detection_source": language_prediction["detection_source"],
-                                "confidence": (
-                                    language_prediction["confidence"]
-                                    if is_supported
-                                    else None
-                                ),
-                                "completed_at": completed_at,
-                            },
-                            "analysis.disease_labels": disease_labels,
-                            "analysis.disease_probabilities": (
-                                disease_prediction["probabilities"]
-                            ),
-                            "analysis.disease_classification": {
-                                "status": "completed",
-                                "thresholds_used": (
-                                    disease_prediction["thresholds_used"]
-                                ),
-                                "model_version": (
-                                    disease_prediction["model_version"]
-                                ),
-                                "completed_at": completed_at,
-                            },
-                            "analysis.symptoms": disease_prediction["symptoms"],
-                            "analysis.symptom_extraction": {
-                                "status": "completed",
-                                "model_version": (
-                                    disease_prediction["symptom_model_version"]
-                                ),
-                                "completed_at": completed_at,
-                            },
-                            "analysis_status": "PROCESSED",
-                            "analysis_error": "",
-                            "analyzed_at": completed_at,
-                            "updated_at": completed_at,
-                        }
-                    },
+                        "dataset_id": dataset_id,
+                        "source_type": "social_media",
+                    }
+                ).sort("_id", pymongo.ASCENDING)
+            )
+
+            if not entries:
+                raise RuntimeError(
+                    "Dataset has no social-media analytics entries to process."
                 )
+
+            texts = [
+                entry["text"]
+                for entry in entries
+            ]
+
+            language_predictions = detect_languages(texts)
+            disease_predictions = detect_diseases(texts)
+
+            completed_at = get_ph_datetime()
+            language_counts = Counter()
+            disease_counts = Counter()
+            location_language_counts = defaultdict(Counter)
+            updates = []
+
+            for entry, language_prediction, disease_prediction in zip(
+                entries,
+                language_predictions,
+                disease_predictions,
+                strict=True,
+            ):
+                is_supported = language_prediction["is_supported"]
+                language = (
+                    language_prediction["language"]
+                    if is_supported
+                    else ""
+                )
+
+                disease_labels = disease_prediction["labels"]
+                disease_counts.update(disease_labels)
+
+                detection_status = (
+                    "completed" if is_supported else "unsupported"
+                )
+
+                if is_supported:
+                    language_counts[language] += 1
+
+                    location = entry.get("location") or {}
+                    raw_location = str(location.get("raw") or "").strip()
+
+                    if raw_location:
+                        location_language_counts[raw_location][language] += 1
+
+                updates.append(
+                    pymongo.UpdateOne(
+                        {
+                            "_id": entry["_id"],
+                            "dataset_id": dataset_id,
+                            "source_type": "social_media",
+                            "dataset_processing_job.id": job_id,
+                            "dataset_processing_job.worker_id": worker_id,
+                            **live_lease_guard("dataset_processing_job"),
+                        },
+                        {
+                            "$set": {
+                                "language": language,
+                                "analysis.language_detection": {
+                                    "status": detection_status,
+                                    "detection_source": language_prediction["detection_source"],
+                                    "confidence": (
+                                        language_prediction["confidence"]
+                                        if is_supported
+                                        else None
+                                    ),
+                                    "completed_at": completed_at,
+                                },
+                                "analysis.disease_labels": disease_labels,
+                                "analysis.disease_probabilities": (
+                                    disease_prediction["probabilities"]
+                                ),
+                                "analysis.disease_classification": {
+                                    "status": "completed",
+                                    "thresholds_used": (
+                                        disease_prediction["thresholds_used"]
+                                    ),
+                                    "model_version": (
+                                        disease_prediction["model_version"]
+                                    ),
+                                    "completed_at": completed_at,
+                                },
+                                "analysis.symptoms": disease_prediction["symptoms"],
+                                "analysis.symptom_extraction": {
+                                    "status": "completed",
+                                    "model_version": (
+                                        disease_prediction["symptom_model_version"]
+                                    ),
+                                    "completed_at": completed_at,
+                                },
+                                "analysis_status": "PROCESSED",
+                                "analysis_error": "",
+                                "analyzed_at": completed_at,
+                                "updated_at": completed_at,
+                            }
+                        },
+                    )
+                )
+
+            lease.ensure_active()
+            update_result = analytics_entries_collection.bulk_write(updates)
+
+            if update_result.matched_count != len(entries):
+                raise RuntimeError(
+                    "Not all analytics entries were updated."
+                )
+
+            # Clear child ownership before making the dataset processable again.
+            analytics_entries_collection.update_many({
+                "dataset_id": dataset_id,
+                "dataset_processing_job.id": job_id,
+                "dataset_processing_job.worker_id": worker_id,
+            }, {"$unset": {"dataset_processing_job": ""}})
+            finished = dataset_collection.update_one(
+                {"_id": object_id, **lease.guard()},
+                {
+                    "$set": {
+                        "dataset_status": "PROCESSED",
+                        "languages": sorted(language_counts),
+                        "language_counts": dict(language_counts),
+                        "diseases": sorted(disease_counts),
+                        "disease_counts": dict(disease_counts),
+                        "location_language_counts": {
+                            location: dict(counts)
+                            for location, counts in location_language_counts.items()
+                        },
+                        "processing_error": "",
+                        "processed_at": completed_at,
+                    }
+                },
             )
 
-        update_result = analytics_entries_collection.bulk_write(updates)
-
-        if update_result.matched_count != len(entries):
-            raise RuntimeError(
-                "Not all analytics entries were updated."
-            )
-
-        dataset_collection.update_one(
-            {"_id": object_id},
-            {
-                "$set": {
-                    "dataset_status": "PROCESSED",
-                    "languages": sorted(language_counts),
-                    "language_counts": dict(language_counts),
-                    "diseases": sorted(disease_counts),
-                    "disease_counts": dict(disease_counts),
-                    "location_language_counts": {
-                        location: dict(counts)
-                        for location, counts in location_language_counts.items()
-                    },
-                    "processing_error": "",
-                    "processed_at": completed_at,
-                }
-            },
-        )
-
-        run_sentiment_processing(analytics_entries_collection, [entry["_id"] for entry in entries])
+            if not finished.matched_count:
+                raise ProcessingLeaseLost(INTERRUPTED_MESSAGE)
 
     except Exception as error:
-        dataset_collection.update_one(
-            {"_id": object_id},
-            {
-                "$set": {
-                    "dataset_status": "FAILED",
-                    "processing_error": str(error),
-                    "processed_at": get_ph_datetime(),
-                }
-            },
-        )
+        # A stale worker may fail only its own attempt, never a later retry.
+        analytics_entries_collection.update_many({
+            "dataset_id": dataset_id,
+            "dataset_processing_job.id": job_id,
+            "dataset_processing_job.worker_id": worker_id,
+        }, {"$unset": {"dataset_processing_job": ""}})
+        dataset_collection.update_one({
+            "_id": object_id, "dataset_status": "PROCESSING",
+            **job_guard(job_id, worker_id),
+        }, {"$set": {
+            "dataset_status": "FAILED", "processing_error": str(error),
+            "processed_at": get_ph_datetime(),
+        }})
+        return
+
+    # Sentiment has its own status/retry handling; it cannot fail a completed dataset.
+    try:
+        run_sentiment_processing(analytics_entries_collection, [entry["_id"] for entry in entries])
+    except Exception:
+        logging.getLogger(__name__).exception("Sentiment processing failed after dataset processing completed")
+
+
+
 
 """
 @desc     Upload a single dataset
@@ -557,11 +607,13 @@ async def process_dataset(
             detail="Dataset is already queued or processing.",
         )
     
-    dataset_collection.update_one(
-        {"_id": ObjectId(id)},
+    job = new_processing_job()
+    queued = dataset_collection.update_one(
+        {"_id": ObjectId(id), "dataset_type": "RAW", "dataset_status": {"$nin": ["QUEUED", "PROCESSING"]}},
         {
             "$set": {
                 "dataset_status": "QUEUED",
+                "processing_job": job,
                 "queued_at": get_ph_datetime(),
                 "processing_started_at": None,
                 "processing_error": "",
@@ -570,7 +622,9 @@ async def process_dataset(
         },
     )
 
-    background_tasks.add_task(run_dataset_processing_job, id)
+    if not queued.matched_count:
+        raise HTTPException(status_code=409, detail="Dataset is already queued or processing.")
+    background_tasks.add_task(run_dataset_processing_job, id, job["id"])
 
     return JSONResponse(
         status_code=status.HTTP_202_ACCEPTED,
