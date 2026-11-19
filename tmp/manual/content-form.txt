@@ -1,0 +1,188 @@
+Window: "HealthPH | Health Literacy Hub - Google Chrome", App: chrome.exe.
+	0 window HealthPH | Health Literacy Hub - Google Chrome Secondary Actions: Raise
+		30603 pane (disabled)
+		30604 region HealthPH | Health Literacy Hub - Google Chrome
+			30605 region
+				30606 region
+					30607 region
+						30608 button Minimize ID: view_1
+						45454 button Restore ID: view_3
+						30610 button Close ID: view_4
+					30611 region
+						30612 region
+							30613 tool bar ID: view_1000
+								30614 button Back ID: view_1001
+								30615 button (disabled) Forward ID: view_1002
+								30616 button Reload ID: view_1003
+								30617 group
+									30618 button View site information ID: view_1011
+									30619 edit (settable, string) Address and search bar Description: Ask Google or type a URL Value: healthph.onrender.com/dashboard/health-literacy-hub ID: view_1012
+									30620 region
+										45438 button Install HealthPH
+										45439 button Bookmark this tab
+								30622 region
+									30623 button uBlock Origin Lite Has access to this site ID: view_1009
+									30624 button Extensions ID: view_1006
+								30625 region
+								30626 button Verify it's you ID: view_1018
+								30627 button Chrome ID: view_1007
+						30628 region
+							30629 region
+								30630 region
+								45267 document HealthPH | Health Literacy Hub Value: https://healthph.onrender.com/dashboard/health-literacy-hub ID: RootWebArea
+									45268 group ID: root
+										45269 navigation
+											45270 text HealthPH+
+											45455 list
+												45456 list item
+													45457 link Value: https://healthph.onrender.com/dashboard/help
+														45458 graphic
+												45459 list item
+													45460 link Value: https://healthph.onrender.com/dashboard/settings
+														45461 graphic
+											45278 text Juan
+											45279 text Dela Cruz
+											45280 text SUPERADMIN
+											45462 group
+												45463 graphic
+										45283 complementary
+											45556 text NAVIGATION
+											45284 button Collapse sidebar
+											45557 text MAIN
+											45285 navigation
+												45286 link AI Surveillance Value: https://healthph.onrender.com/dashboard
+													45287 graphic
+												45288 link NLP Insights Value: https://healthph.onrender.com/dashboard/nlp-insights
+													45289 graphic
+												45290 link Misinformation Tracker Value: https://healthph.onrender.com/dashboard/misinformation-tracker
+													45291 graphic
+												45292 link User Management Value: https://healthph.onrender.com/dashboard/user-management
+													45293 graphic
+												45294 link Model Access & Toolkit Value: https://healthph.onrender.com/dashboard/model-access-toolkit
+													45295 graphic
+											45558 text MOBILE INTEGRATION
+											45296 navigation
+												45297 link Disease Watch Feed Value: https://healthph.onrender.com/dashboard/disease-watch-feed
+													45298 graphic
+												45299 link Health Literacy Hub Value: https://healthph.onrender.com/dashboard/health-literacy-hub
+													45300 graphic
+												45301 link Sentiment Pulse Tool Value: https://healthph.onrender.com/dashboard/sentiment-pulse
+													45302 graphic
+										45303 main
+											47274 heading Health Literacy Hub
+											47275 text Access educational resources, multilingual content, and community insights to enhance your health knowledge.
+											47276 graphic
+											47277 heading Educational Content
+											47278 text Verified health information in easy-to-understand formats
+											47279 graphic
+											47280 heading Multilingual Resources
+											47281 text Content translated into major Philippine languages
+											47282 graphic
+											47283 heading Community Q&A
+											47284 text Expert responses to common health questions
+											47285 button Articles
+											47286 button Videos
+											47287 button Infographics
+											47288 button Analytics
+											47289 region Website comment moderation
+												47290 heading Website comment moderation
+												47291 text New submissions require approval. Only approved comments appear publicly.
+												47292 text Review comments:
+												47293 combo box (settable, string) Review comments: Value: Pending ID: hl-moderation-status
+												47310 text No
+												47311 text pending
+												47312 text comments.
+												47296 list
+												47297 button (disabled) Previous comments
+												47298 button (disabled) Next comments
+											47299 heading Articles
+											47300 text Manage health literacy
+											47301 text articles
+											47302 text for mobile and public channels.
+											47303 graphic
+											47304 edit (settable, string) Search articles... Description: Search articles...
+											47305 button Create New Content
+												47306 graphic
+											47315 button Read article: Iloilo Science and Technology University and HealthPH+ MOU signing
+												47316 graphic Iloilo Science and Technology University and HealthPH+ MOU signing
+											47317 group
+											47318 text Create New Article
+											47319 text Before you save
+											47320 text Required fields:
+											47321 text Title
+											47322 text ,
+											47323 text 
+											47324 text Description
+											47325 text , and
+											47326 text 
+											47327 text Language
+											47328 text . If fact-check is enabled,
+											47329 text Claim
+											47330 text is also required.
+											47331 text Tags, topics, and diseases are optional comma-separated lists. Choose the language from the Language field instead of adding language names to Tags.
+											47332 text Publish to mobile and Publish to website control public visibility. Leave both unchecked to save a draft.
+											47333 text Title *
+											47334 edit (settable, string) Enter content title Description: Enter content title
+											47335 text Description *
+											47336 edit (settable, string) Enter content description Description: Enter content description
+											47337 text Language *
+											47338 combo box (settable, string) Value: English
+											47339 text Select the content language here. Do not repeat language names in Tags.
+											47340 text Published Date
+											47341 local date and time picker (settable, string)
+												47342 spin button (settable, float) Month Description: mm Value: 0
+												47343 text /
+												47344 spin button (settable, float) Day Description: dd Value: 0
+												47345 text /
+												47346 spin button (settable, float) Year Description: yyyy Value: 0
+												47347 text 
+												47348 spin button (settable, float) Hours Description: -- Value: 0
+												47349 text :
+												47350 spin button (settable, float) Minutes Description: -- Value: 0
+												47351 text 
+												47352 spin button (settable, float) AM/PM Description: -- Value: 0
+												47353 button Show local date and time picker Description: Show local date and time picker ID: picker
+											47354 text Optional. Use this when the public publish date should differ from the save date.
+											47355 text Source
+											47356 edit (settable, string) e.g. DOH, WHO Description: e.g. DOH, WHO
+											47357 text Author
+											47358 edit (settable, string) Enter author name Description: Enter author name
+											47359 text Tags
+											47360 edit (settable, string) Comma-separated tags Description: Comma-separated tags
+											47361 button Cancel
+											47362 button Create
+							30950 region
+						30951 region
+							30952 region
+								30953 button Tab search
+							30954 region ID: view_21
+								30955 tab
+									30956 tab item (selectable) HealthPH+ | Your sign-in verification code - janzzendeleon@gmail.com - Gmail ID: view_20
+										45447 button Close
+									30958 tab item (selectable) Inbox - healthphplusproject@gmail.com - Gmail ID: view_20
+										45448 button Close
+									31830 tab item (selectable) HealthPH+ ・ Render Dashboard ID: view_20
+										45449 button Close
+									30960 tab item (selectable) Branches · DishwashingLiquid/HealthPH-Plus_Joy ID: view_20
+										45450 button Close
+									30962 tab item (selectable) HealthPH+ ・ Web Service ・ Render Dashboard ID: view_20
+										45451 button Close
+									30964 tab item (selectable) GC YARN 2.0 | Messenger ID: view_20
+										45452 button Close
+									35646 tab item (selectable) HealthPH | Health Literacy Hub ID: view_20
+										45453 button Close
+									42675 tab item (selectable) HealthPH | Health Literacy Hub ID: view_20
+										42676 button Close
+								30968 region
+							30969 button New Tab
+							30970 region
+						30971 region
+
+Document text: ```
+￼
+```
+
+Focused element: 30619 edit (settable, string) Address and search bar Description: Ask Google or type a URL Value: healthph.onrender.com/dashboard/health-literacy-hub ID: view_1012
+
+Document text:
+￼

@@ -7,8 +7,10 @@ from controllers.diseaseWatchFeedController import (
 from controllers.processedSelfReportsController import (
     export_mobile_self_reports,
     fetch_mobile_self_reports_map_pins,
-    fetch_mobile_user_analytics_summary,
-    fetch_processed_self_report_dashboard,
+)
+from controllers.diseaseWatchFeedDashboardController import (
+    fetch_dashboard_processed_reports,
+    fetch_dashboard_user_analytics,
 )
 from controllers.regionalAlertsController import (
     fetch_regional_alert_settings,
@@ -25,7 +27,7 @@ from controllers.mobileAlertsController import (
 
 mobile_self_reports_router = APIRouter()
 mobile_self_reports_router.add_api_route(
-    "/disease-watch-feed/processed-reports", methods=["GET"], endpoint=fetch_processed_self_report_dashboard
+    "/disease-watch-feed/processed-reports", methods=["GET"], endpoint=fetch_dashboard_processed_reports
 )
 
 # POST      /mobile/self-reports
@@ -86,5 +88,5 @@ mobile_self_reports_router.add_api_route(
 mobile_self_reports_router.add_api_route(
     "/disease-watch-feed/user-analytics",
     methods=["GET"],
-    endpoint=fetch_mobile_user_analytics_summary,
+    endpoint=fetch_dashboard_user_analytics,
 )

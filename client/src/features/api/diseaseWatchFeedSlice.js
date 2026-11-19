@@ -15,7 +15,7 @@ const buildParams = (params = {}) =>
     })
   );
 
-export const diseaseWatchFeedApi = baseAPI.injectEndpoints({
+export const diseaseWatchFeedApi = baseAPI.enhanceEndpoints({ addTagTypes: ["RegionalAlertSettings", "ProcessedSelfReports"] }).injectEndpoints({
   endpoints: (builder) => ({
     getProcessedSelfReportDashboard: builder.query({
       query: (params = {}) => ({
@@ -41,7 +41,7 @@ export const diseaseWatchFeedApi = baseAPI.injectEndpoints({
       invalidatesTags: ["RegionalAlertSettings", "RegionalAlerts", "RegionalSymptomSummaries"],
     }),
     runRegionalAlertEvaluation: builder.mutation({
-      query: (body) => ({ url: "/mobile/disease-watch-feed/alert-settings/run-evaluation", method: "POST", body }),
+      query: () => ({ url: "/mobile/disease-watch-feed/alert-settings/run-evaluation", method: "POST", body: {} }),
       invalidatesTags: ["RegionalAlertSettings", "RegionalAlerts", "RegionalSymptomSummaries"],
     }),
 

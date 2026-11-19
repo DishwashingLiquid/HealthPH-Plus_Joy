@@ -638,7 +638,7 @@ export default function SentimentPulseTool() {
                   surveyFeedback,
                 })
               }
-              variant="primary"
+              variant="brand"
               className="sm:w-auto"
               disabled={
                 (activeTab === "regional-analysis" && (isRegionalAnalysisFetching || isRegionalAnalysisError || Boolean(filterError) || !regionalAnalysisData)) ||
@@ -651,7 +651,7 @@ export default function SentimentPulseTool() {
             <ToolbarButton
               type="button"
               onClick={showSentimentPulsePdfExportNotice}
-              variant="primary"
+              variant="brand"
               className="sm:w-auto"
             >
               Export as PDF
@@ -760,7 +760,7 @@ export default function SentimentPulseTool() {
                   type="button"
                   onClick={handleNewSurvey}
                   iconName="Plus"
-                  variant="primary"
+                  variant="brand"
                   className="sm:w-auto"
                 >
                   New Survey
@@ -770,7 +770,7 @@ export default function SentimentPulseTool() {
                   onClick={handleScheduleButtonClick}
                   disabled={isSurveysLoading || isSurveysError}
                   iconName="Megaphone"
-                  variant="primary"
+                  variant="brand"
                   className="sm:w-auto"
                 >
                   {scheduleButtonLabel}

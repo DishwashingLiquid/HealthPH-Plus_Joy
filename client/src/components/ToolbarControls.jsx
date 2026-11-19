@@ -40,18 +40,22 @@ export const ToolbarButton = ({
     type = "button",
     ...buttonProps
 }) => {
-    const isPrimary = variant === "primary";
+    const isBrand = variant === "brand";
+    const isPrimary = variant === "primary" || isBrand;
+    const buttonClassName = isBrand
+        ? "public-button public-button--small"
+        : `rounded-[10px] px-[16px] py-[10px] text-sm font-medium flex items-center gap-[8px] transition shadow-sm disabled:cursor-not-allowed disabled:opacity-60 ${
+            isPrimary
+                ? "bg-[#32418C] text-white hover:bg-[#27346F]"
+                : "border border-[#E5E5E5] bg-white text-gray-800 hover:bg-[#F8F9FA]"
+        }`;
 
     return (
         <button
             type={type}
             onClick={onClick}
             disabled={disabled}
-            className={`rounded-[10px] px-[16px] py-[10px] text-sm font-medium flex items-center gap-[8px] transition shadow-sm disabled:cursor-not-allowed disabled:opacity-60 ${
-                isPrimary
-                    ? "bg-[#32418C] text-white hover:bg-[#27346F]"
-                    : "border border-[#E5E5E5] bg-white text-gray-800 hover:bg-[#F8F9FA]"
-            } ${className}`}
+            className={`${buttonClassName} ${className}`}
             {...buttonProps}
         >
             {iconName && (

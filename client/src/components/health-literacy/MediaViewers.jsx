@@ -3,6 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import FeatureDialog from "./FeatureDialog";
 import CommentSection from "./CommentSection";
 import ArticleMedia from "../about-us/ArticleMedia";
+import PublicContentActions from "./PublicContentActions";
+import usePublicContentView from "./usePublicContentView";
+import { downloadPublicContent } from "../../utils/publicHealthLiteracyAnalytics";
 import { attachmentKind, safeMediaSource } from "../../utils/healthLiteracyMedia";
 import { formatContentDate, getArticleGalleryImages, getResourceImageSource, getResourcePosterSource } from "../../utils/healthLiteracyWebsiteContent";
 
@@ -67,12 +70,14 @@ function PhotoControlIcon({ name }) {
   </svg>;
 }
 
-export function PhotoViewerBody({ article, images, initialIndex = 0, children }) {
+export function PhotoViewerBody({ article, images, initialIndex = 0, children, publicEngagement = false }) {
   const [index, setIndex] = useState(initialIndex);
   const [zoom, setZoom] = useState(1);
   const [fullscreen, setFullscreen] = useState(false);
   const [fullscreenAvailable, setFullscreenAvailable] = useState(false);
   const [fullscreenError, setFullscreenError] = useState("");
+  const [downloadError, setDownloadError] = useState("");
+  const [downloading, setDownloading] = useState(false);
   const viewer = useRef(null);
   const stage = useRef(null);
   const drag = useRef(null);
@@ -105,9 +110,20 @@ export function PhotoViewerBody({ article, images, initialIndex = 0, children })
         <button className="hl-photo-icon-button" type="button" aria-label="Fit to screen" title="Fit to screen" onClick={fit}><PhotoControlIcon name="fit" /></button>
         <button className="hl-photo-icon-button" type="button" aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"} title={fullscreenAvailable ? fullscreen ? "Exit fullscreen" : "Enter fullscreen" : "Fullscreen unavailable in this browser"}
           aria-pressed={fullscreen} disabled={!fullscreenAvailable} onClick={toggleFullscreen}><PhotoControlIcon name={fullscreen ? "exitFullscreen" : "fullscreen"} /></button>
-        <a className="hl-photo-icon-button" aria-label="Download image" title="Download image" href={image.src} download={image.filename || "health-literacy-image"} target="_blank" rel="noopener noreferrer"><PhotoControlIcon name="download" /></a>
+        <a className="hl-photo-icon-button" aria-label="Download image" title="Download image" href={image.src} download={image.filename || "health-literacy-image"} target="_blank" rel="noopener noreferrer"
+          aria-disabled={downloading || undefined} onClick={publicEngagement ? async (event) => {
+            event.preventDefault();
+            if (downloading) return;
+            setDownloading(true); setDownloadError("");
+            try { await downloadPublicContent(article, image.src, image.filename || "health-literacy-image"); }
+            catch { setDownloadError("Image could not be downloaded. Please try again."); }
+            finally { setDownloading(false); }
+          } : undefined}><PhotoControlIcon name="download" /></a>
       </div>
       {fullscreenError && <p className="hl-photo-fullscreen-status" role="status">{fullscreenError}</p>}
+      {downloadError && <p className="hl-photo-fullscreen-status" role="status">{downloadError}{" "}
+        <a href={image.src} target="_blank" rel="noopener noreferrer">Open image at source (new tab)</a>
+      </p>}
       <div ref={stage} className={`hl-photo-stage${zoom > 1 ? " hl-photo-stage-zoomed" : ""}`} tabIndex={0} aria-label="Image stage. Use arrow keys to pan when zoomed."
         onPointerDown={(e) => { if (zoom <= 1) return; drag.current = { x: e.clientX, y: e.clientY, left: e.currentTarget.scrollLeft, top: e.currentTarget.scrollTop }; e.currentTarget.setPointerCapture(e.pointerId); }}
         onPointerMove={(e) => { if (drag.current) { e.currentTarget.scrollLeft = drag.current.left - e.clientX + drag.current.x; e.currentTarget.scrollTop = drag.current.top - e.clientY + drag.current.y; } }}
@@ -125,7 +141,9 @@ export function PhotoViewerBody({ article, images, initialIndex = 0, children })
   </div>;
 }
 
-export default function MediaViewer({ article, onClose, images, initialIndex = 0, dashboardActions }) {
+export default function MediaViewer({ article, onClose, images, initialIndex = 0, dashboardActions, trackView = true }) {
+  const publicEngagement = !dashboardActions;
+  usePublicContentView(article, publicEngagement && trackView);
   const src = getResourceImageSource(article);
   const gallery = getArticleGalleryImages(article);
   const photo = images || (gallery.length ? gallery : null) || (article.resourceType === "infographic" && attachmentKind(src, article.media?.contentType) === "image"
@@ -133,9 +151,9 @@ export default function MediaViewer({ article, onClose, images, initialIndex = 0
   const discussion = dashboardActions ? <>{dashboardActions}
     {article.publishToWebsite && article.isPublished !== false && !article.isArchived
       ? <CommentSection article={article} readOnly /> : <p className="hl-media-message">Public comments are available when this content is published to the website.</p>}
-  </> : <CommentSection article={article} />;
+  </> : <><PublicContentActions article={article} hideDownload={Boolean(photo)} /><CommentSection article={article} /></>;
   return <FeatureDialog title={article.articleTitle} onClose={onClose} photo={Boolean(photo)} publicButtons={!dashboardActions}>
-    {photo ? <PhotoViewerBody article={article} images={photo} initialIndex={initialIndex}>
+    {photo ? <PhotoViewerBody article={article} images={photo} initialIndex={initialIndex} publicEngagement={publicEngagement}>
       {dashboardActions && article.media && <Attachment article={article} />}{discussion}</PhotoViewerBody>
       : <div className="hl-video-viewer">
         {article.resourceType === "video" ? <VideoPlayer src={src} poster={getResourcePosterSource(article)} mime={article.media?.contentType} title={article.articleTitle} captions={article.captions} />

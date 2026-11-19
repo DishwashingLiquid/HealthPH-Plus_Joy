@@ -11,6 +11,8 @@ export const createEditFormData = ({ item, contentTypeLabel }) => {
   return {
     title: item.title ?? "",
     description: item.description ?? "",
+    shortPreview: item.shortPreview ?? "",
+    migrationReviewNotes: item.staticArticleMigration?.reviewNotes ?? [],
     tags: getLimitedContentTags(item.tags).join(", "),
     topics: getLimitedContentTags(item.topics).join(", "),
     diseases: getLimitedContentTags(item.diseases).join(", "),
@@ -76,6 +78,7 @@ export const buildContentFormPayload = ({
   const payload = new FormData();
   payload.append("title", formData.title);
   payload.append("description", formData.description);
+  if (contentTypeLabel === "Articles") payload.append("shortPreview", formData.shortPreview || "");
   payload.append("tags", JSON.stringify(normalizeContentTags(formData.tags)));
   payload.append("topics", JSON.stringify(normalizeContentTags(formData.topics)));
   payload.append("diseases", JSON.stringify(normalizeContentTags(formData.diseases)));

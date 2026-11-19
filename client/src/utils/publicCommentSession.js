@@ -20,9 +20,9 @@ export const commentRequest = async (path, { method = "GET", body, authenticated
   return data;
 };
 export const commentResource = (article) => ({
-  contentId: String(article.contentOrigin === "static" ? article.articleID : article.id),
+  contentId: String(article.legacyStaticArticleId ?? (article.contentOrigin === "static" ? article.articleID : article.id)),
   contentType: article.contentType,
-  contentOrigin: article.contentOrigin,
+  contentOrigin: article.legacyStaticArticleId ? "static" : article.contentOrigin,
 });
 
 export const draftKey = (resource) => `hl-comment-draft:${resource.contentOrigin}:${resource.contentType}:${resource.contentId}`;

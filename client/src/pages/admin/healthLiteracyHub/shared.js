@@ -68,7 +68,15 @@ export const getContentMediaSource = (media) => {
   if (!mediaSource || mediaSource.startsWith("data:")) return mediaSource;
 
   try {
-    return new URL(mediaSource, import.meta.env.VITE_API_URL).href;
+    const apiBase = import.meta.env.VITE_API_URL;
+    const source = new URL(mediaSource, apiBase);
+    const uploadedMedia = source.pathname.match(/\/health-literacy-hub\/media\/([a-f0-9]{24})$/i);
+    // Admin preview tokens are issued by the API serving the dashboard. In local
+    // development PUBLIC_API_BASE_URL may still point at the hosted mobile API.
+    if (apiBase && uploadedMedia) {
+      return `${apiBase.replace(/\/+$/, "")}/health-literacy-hub/media/${uploadedMedia[1]}${source.search}`;
+    }
+    return source.href;
   } catch {
     return mediaSource;
   }

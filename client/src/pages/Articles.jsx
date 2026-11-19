@@ -1,6 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useLocation } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "../assets/css/about.css";
 
 import Icon from "../components/Icon";
@@ -16,12 +16,9 @@ import ArticleItem, {
 } from "../components/about-us/ArticleItem";
 import { useFetchWebsiteHealthLiteracyContentQuery } from "../features/api/healthLiteracyHubSlice";
 import {
-  normalizeStaticArticle,
   normalizeWebsiteContent,
   sortNewestFirst,
 } from "../utils/healthLiteracyWebsiteContent";
-
-import ArticlesList from "../assets/data/articles.json";
 
 const ArticlesContent = ({ embedded = false }) => {
   const Heading = embedded ? "h2" : "h1";
@@ -29,6 +26,7 @@ const ArticlesContent = ({ embedded = false }) => {
 
   const [articlePage, setArticlePage] = useState(location.state ?? 1);
   const [previewContent, setPreviewContent] = useState(null);
+  const openedShare = useRef(null);
   const {
     data: websiteContent,
     isLoading: isLoadingWebsiteContent,
@@ -43,13 +41,19 @@ const ArticlesContent = ({ embedded = false }) => {
     typeof websiteContent === "undefined";
 
   const articles = useMemo(() => {
-    const staticArticles = ArticlesList.filter((a) => a.articleTitle != "").map(
-      normalizeStaticArticle
-    );
     const dashboardContent = normalizeWebsiteContent(websiteContent ?? []);
 
-    return sortNewestFirst([...dashboardContent, ...staticArticles]);
+    return sortNewestFirst(dashboardContent);
   }, [websiteContent]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const visit = `${location.key}:${location.search}`;
+    if (openedShare.current === visit) return;
+    const item = articles.find((entry) => String(entry.id) === params.get("content")
+      && entry.contentType === params.get("type") && ["video", "infographic"].includes(entry.resourceType));
+    if (item) { openedShare.current = visit; setPreviewContent(item); }
+  }, [articles, location.search, location.key]);
 
   useEffect(() => {
     if (!embedded) window.scrollTo(0, 0);
@@ -102,7 +106,7 @@ const ArticlesContent = ({ embedded = false }) => {
             {embedded && <p className="public-section-intro">Research-informed resources, updates, and public-health learning materials from HealthPH+.</p>}
             {isWebsiteContentError && (
               <p className="article-status">
-                Dashboard resources could not be loaded. Showing saved articles.
+                Articles could not be loaded. Please try again later.
               </p>
             )}
             <div className="articles">
@@ -126,6 +130,9 @@ const ArticlesContent = ({ embedded = false }) => {
                     }
                   })}
             </div>
+            {!isShowingArticleSkeletons && !isWebsiteContentError && articles.length === 0 && (
+              <p className="article-status">No published articles are available yet.</p>
+            )}
             {!isShowingArticleSkeletons &&
               articles.length > numOfArticlesPerPage && (
               <div className="w-full flex justify-end">

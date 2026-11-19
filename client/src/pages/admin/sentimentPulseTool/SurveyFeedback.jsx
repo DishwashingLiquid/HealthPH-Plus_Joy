@@ -83,7 +83,7 @@ export default function SurveyFeedback({ surveyId, ended, onSnapshot, detailed =
   if (!ended) return <p className="text-sm text-gray-500">Written-feedback analysis is available after the survey ends.</p>;
   const processButton = (
     <button type="button" onClick={handleProcess} disabled={isSending || isActionPending || active}
-      className="min-h-[40px] rounded-[10px] bg-[#32418C] px-[12px] py-[10px] text-sm font-medium text-white shadow-sm transition hover:bg-[#27346F] disabled:cursor-not-allowed disabled:opacity-50">{isSending || isActionPending ? "Requesting..." : active ? "Processing..." : "Process"}</button>
+      className="public-button public-button--small">{isSending || isActionPending ? "Requesting..." : active ? "Processing..." : "Process"}</button>
   );
   if (buttonOnly) return <>
     {processButton}

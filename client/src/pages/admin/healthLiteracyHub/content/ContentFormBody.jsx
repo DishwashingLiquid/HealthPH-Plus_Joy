@@ -74,6 +74,12 @@ export const ContentFormBody = ({
           both unchecked to save a draft.
         </p>
       </div>
+      {formData.migrationReviewNotes?.length > 0 && (
+        <div role="note" className="rounded-[10px] border border-[#D5E3F0] bg-[#F8FBFF] p-[14px]">
+          <p className="text-[13px] font-semibold text-gray-800">Import review notes</p>
+          {formData.migrationReviewNotes.map((note, index) => <p key={index} className={helperTextClassName}>{note}</p>)}
+        </div>
+      )}
       <div>
         <label className="mb-[8px] block text-[14px] font-medium text-gray-800">
           Title *
@@ -87,6 +93,15 @@ export const ContentFormBody = ({
           className="w-full rounded-[8px] border border-[#E5E5E5] px-[12px] py-[10px] text-[14px] focus:border-[#6A8EB5] focus:outline-none"
         />
       </div>
+      {contentTypeLabel === "Articles" && <div>
+        <label htmlFor={`health-literacy-short-preview-${mode}`} className="mb-[8px] block text-[14px] font-medium text-gray-800">
+          Short preview (optional)
+        </label>
+        <textarea id={`health-literacy-short-preview-${mode}`} name="shortPreview" value={formData.shortPreview || ""}
+          onChange={onFormChange} rows="3" placeholder="Enter a short introduction for the article card"
+          className="w-full rounded-[8px] border border-[#E5E5E5] px-[12px] py-[10px] text-[14px] focus:border-[#6A8EB5] focus:outline-none" />
+        <p className={helperTextClassName}>Shown on article cards. Leave blank to use the full description as the preview.</p>
+      </div>}
       <div>
         <label className="mb-[8px] block text-[14px] font-medium text-gray-800">
           Description *

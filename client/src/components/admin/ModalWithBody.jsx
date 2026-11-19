@@ -53,7 +53,7 @@ const ModalWithBody = ({
                 </button>
               )}
               <button
-                className={`prod-btn-base prod-btn-${color ?? "primary"}`}
+                className={color === "brand" ? "public-button public-button--small" : `prod-btn-base prod-btn-${color ?? "primary"}`}
                 onClick={onConfirm}
                 disabled={onLoading || onConfirmDisabled}
                 style={confirmButtonStyle}

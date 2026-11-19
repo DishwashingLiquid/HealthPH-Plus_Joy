@@ -1,0 +1,676 @@
+Window: "HealthPH | Sentiment Pulse Tool - Google Chrome", App: chrome.exe.
+	0 window HealthPH | Sentiment Pulse Tool - Google Chrome Secondary Actions: Raise
+		30603 pane (disabled)
+		30604 region HealthPH | Sentiment Pulse Tool - Google Chrome
+			30605 region
+				30606 region
+					30607 region
+						30608 button Minimize ID: view_1
+						45454 button Restore ID: view_3
+						30610 button Close ID: view_4
+					30611 region
+						30612 region
+							30613 tool bar ID: view_1000
+								30614 button Back ID: view_1001
+								30615 button (disabled) Forward ID: view_1002
+								30616 button Reload ID: view_1003
+								30617 group
+									30618 button View site information ID: view_1011
+									30619 edit (settable, string) Address and search bar Description: Ask Google or type a URL Value: healthph.onrender.com/dashboard/sentiment-pulse ID: view_1012
+									30620 region
+										45438 button Install HealthPH
+										45439 button Bookmark this tab
+								30622 region
+									30623 button uBlock Origin Lite Has access to this site ID: view_1009
+									30624 button Extensions ID: view_1006
+								30625 region
+								30626 button Verify it's you ID: view_1018
+								30627 button Chrome ID: view_1007
+						30628 region
+							30629 region
+								30630 region
+								45267 document HealthPH | Sentiment Pulse Tool Value: https://healthph.onrender.com/dashboard/sentiment-pulse ID: RootWebArea
+									45268 group ID: root
+										45269 navigation
+											45270 text HealthPH+
+											45455 list
+												45456 list item
+													45457 link Value: https://healthph.onrender.com/dashboard/help
+														45458 graphic
+												45459 list item
+													45460 link Value: https://healthph.onrender.com/dashboard/settings
+														45461 graphic
+											45278 text Juan
+											45279 text Dela Cruz
+											45280 text SUPERADMIN
+											45462 group
+												45463 graphic
+										45283 complementary
+											45556 text NAVIGATION
+											45284 button Collapse sidebar
+											45557 text MAIN
+											45285 navigation
+												45286 link AI Surveillance Value: https://healthph.onrender.com/dashboard
+													45287 graphic
+												45288 link NLP Insights Value: https://healthph.onrender.com/dashboard/nlp-insights
+													45289 graphic
+												45290 link Misinformation Tracker Value: https://healthph.onrender.com/dashboard/misinformation-tracker
+													45291 graphic
+												45292 link User Management Value: https://healthph.onrender.com/dashboard/user-management
+													45293 graphic
+												45294 link Model Access & Toolkit Value: https://healthph.onrender.com/dashboard/model-access-toolkit
+													45295 graphic
+											45558 text MOBILE INTEGRATION
+											45296 navigation
+												45297 link Disease Watch Feed Value: https://healthph.onrender.com/dashboard/disease-watch-feed
+													45298 graphic
+												45299 link Health Literacy Hub Value: https://healthph.onrender.com/dashboard/health-literacy-hub
+													45300 graphic
+												45301 link Sentiment Pulse Tool Value: https://healthph.onrender.com/dashboard/sentiment-pulse
+													45302 graphic
+										45303 main
+											47363 heading Sentiment Pulse Tool
+											47364 text Monitor public sentiment trends, regional analysis, and mobile survey responses.
+											47365 button Export as CSV
+											47366 button Export as PDF
+											47367 group
+												47368 heading Sentiment Score
+												47406 text Calm
+												47407 text ·
+												47408 text 100.0%
+												47370 text 30 analyzed answers
+												47371 group Description: Mobile answers · 2026-10-13 to 2026-11-11 · Philippine dates · All regions (including unknown) · All surveys
+													47372 text Current Trends filters
+													47373 text :
+													47374 text Mobile answers · 2026-10-13 to 2026-11-11 · Philippine dates · All regions (including unknown) · All surveys
+												47409 text 2
+												47410 text without results
+												47375 heading Survey Responses
+												47376 text 9
+												47377 text Published surveys: Nov 2026
+												47402 text ↑ 125.0%
+												47403 text vs Oct 2026 · 4 responses
+												47378 heading Active Regions
+												47379 text 3/18
+												47380 text With responses
+												47381 text Latest 5 published surveys
+												47404 text 2
+												47405 text responses · region unknown
+												47382 heading Latest Response
+												47383 text Nov 10, 2026, 7:15:33 PM
+												47384 text Philippine time
+												47385 text Next month:
+												47386 text Dec 1, 2026
+											47387 button Sentiment Trends
+											47388 button Regional Analysis
+											47389 button Mobile Surveys
+											47823 heading Mobile Surveys
+											47824 button New Survey
+												47825 graphic
+											47826 button Publish Survey
+												47827 graphic
+											47828 heading Pneumonia Awareness Survey
+											47829 text SUR00026
+											47830 text Ended
+											47831 text A survey for checking the awareness of the community regarding Pneumonia
+											47832 text Scheduled:
+											47833 text 
+											47834 text Nov 10, 2026, 3:56 PM
+											47835 text Published:
+											47836 text 
+											47837 text Nov 10, 2026, 3:56 PM
+											47838 text Responses:
+											47839 text 
+											47840 text 1
+											47841 text Target:
+											47842 text 
+											47843 text 100
+											47844 text 99 short
+											47845 status
+												47846 text SENTIMENT
+												47847 text —
+												47848 text Not processed
+												47849 text Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+											47850 button Results
+											47851 button (disabled) Edit
+											47852 button Process
+											47878 alert
+												47879 text Sentiment processing failed; retry answers without results
+											47853 heading Survey tungkol sa tuberculosis (TB)
+											47854 text SUR00025
+											47855 text Ended
+											47856 text ang survey na ito ay nagtatanong kung ano ang mga hakbang na ginagawa ng barangay niyo upang maagapan ang paglaganap ng TB sa lugar niyo
+											47857 text Scheduled:
+											47858 text 
+											47859 text Nov 6, 2026, 2:01 PM
+											47860 text Published:
+											47861 text 
+											47862 text Nov 6, 2026, 2:01 PM
+											47863 text Responses:
+											47864 text 
+											47865 text 3
+											47866 text Target:
+											47867 text 
+											47868 text 500
+											47869 text 497 short
+											47870 status
+												47871 text SENTIMENT
+												47872 text 100.0%
+												47873 text Calm
+												47880 text 5
+												47881 text of
+												47882 text 5
+												47883 text answers analyzed
+												47874 text Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+											47875 button Results
+											47876 button (disabled) Edit
+											47877 button Process
+							30950 region
+						30951 region
+							30952 region
+								30953 button Tab search
+							30954 region ID: view_21
+								30955 tab
+									30956 tab item (selectable) HealthPH+ | Your sign-in verification code - janzzendeleon@gmail.com - Gmail ID: view_20
+										45447 button Close
+									30958 tab item (selectable) Inbox - healthphplusproject@gmail.com - Gmail ID: view_20
+										45448 button Close
+									31830 tab item (selectable) HealthPH+ ・ Render Dashboard ID: view_20
+										45449 button Close
+									30960 tab item (selectable) Branches · DishwashingLiquid/HealthPH-Plus_Joy ID: view_20
+										45450 button Close
+									30962 tab item (selectable) HealthPH+ ・ Web Service ・ Render Dashboard ID: view_20
+										45451 button Close
+									30964 tab item (selectable) GC YARN 2.0 | Messenger ID: view_20
+										45452 button Close
+									35646 tab item (selectable) HealthPH | Health Literacy Hub ID: view_20
+										45453 button Close
+									42675 tab item (selectable) HealthPH | Sentiment Pulse Tool ID: view_20
+										42676 button Close
+								30968 region
+							30969 button New Tab
+							30970 region
+						30971 region
+
+Document text: ```
+HealthPH+
+￼
+￼
+Juan Dela Cruz
+SUPERADMIN
+￼
+NAVIGATION
+☰
+MAIN
+￼
+AI Surveillance
+￼
+NLP Insights
+￼
+Misinformation Tracker
+￼
+User Management
+￼
+Model Access & Toolkit
+MOBILE INTEGRATION
+￼
+Disease Watch Feed
+￼
+Health Literacy Hub
+￼
+Sentiment Pulse Tool
+Sentiment Pulse Tool
+Monitor public sentiment trends, regional analysis, and mobile survey responses.
+Export as CSV
+Export as PDF
+Sentiment Score
+Calm
+· 100.0%
+30 analyzed answers
+Current Trends filters
+: Mobile answers · 2026-10-13 to 2026-11-11 · Philippine dates · All regions (including unknown) · All surveys
+2 without results
+Survey Responses
+9
+Published surveys: Nov 2026
+↑ 125.0%
+vs Oct 2026 · 4 responses
+Active Regions
+3/18
+With responses
+Latest 5 published surveys
+2 responses · region unknown
+Latest Response
+Nov 10, 2026, 7:15:33 PM
+Philippine time
+Next month: Dec 1, 2026
+Sentiment Trends
+Regional Analysis
+Mobile Surveys
+Mobile Surveys
+￼
+New Survey
+￼
+Publish Survey
+Pneumonia Awareness Survey
+SUR00026
+Ended
+A survey for checking the awareness of the community regarding Pneumonia
+Scheduled: Nov 10, 2026, 3:56 PM
+Published: Nov 10, 2026, 3:56 PM
+Responses: 1
+Target: 100
+99 short
+SENTIMENT
+—
+Not processed
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+Process
+Sentiment processing failed; retry answers without results
+Survey tungkol sa tuberculosis (TB)
+SUR00025
+Ended
+ang survey na ito ay nagtatanong kung ano ang mga hakbang na ginagawa ng barangay niyo upang maagapan ang paglaganap ng TB sa lugar niyo
+Scheduled: Nov 6, 2026, 2:01 PM
+Published: Nov 6, 2026, 2:01 PM
+Responses: 3
+Target: 500
+497 short
+SENTIMENT
+100.0%
+Calm
+5 of 5 answers analyzed
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+Process
+Respiratory Health Survey
+SUR00024
+Ended
+Draft mobile sentiment survey
+Scheduled: Nov 5, 2026, 10:00 PM
+Published: Nov 5, 2026, 10:00 PM
+Responses: 4
+Target: 500
+496 short
+SENTIMENT
+100.0%
+Calm
+12 of 12 answers analyzed
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+Process
+survey for respiratory health
+SUR00023
+Draft
+Draft mobile sentiment survey
+Responses: 0
+Target: 500
+500 short
+SENTIMENT
+—
+Not processed
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+End Survey
+health services surveyt
+SUR00022
+Draft
+to determine how many people are satisfied with barangay health services
+Responses: 0
+Target: 500
+500 short
+SENTIMENT
+—
+Not processed
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+End Survey
+Respiratory Health Survey
+SUR00021
+Ended
+Survey for Respiratory health in the Philippines
+Scheduled: Nov 5, 2026, 9:50 AM
+Published: Nov 5, 2026, 9:50 AM
+Responses: 1
+Target: 500
+499 short
+SENTIMENT
+100.0%
+Calm
+3 of 3 answers analyzed
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+Process
+Respiratory Health Survey in the Philippines
+SUR00020
+Ended
+This survey asks about your experiences with air quality, respiratory health services, and health information in your community over the past six months.
+Scheduled: Oct 29, 2026, 10:51 AM
+Published: Oct 29, 2026, 10:51 AM
+Responses: 1
+Target: 500
+499 short
+SENTIMENT
+100.0%
+Calm
+4 of 4 answers analyzed
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+Process
+Sentiment Model survey test
+SUR00019
+Ended
+Model Test
+Scheduled: Oct 29, 2026, 10:38 AM
+Published: Oct 29, 2026, 10:38 AM
+Responses: 0
+Target: 500
+500 short
+SENTIMENT
+—
+No eligible feedback
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+Process
+Test Survey for sentiment
+SUR00018
+Ended
+testsurvey
+Scheduled: Oct 28, 2026, 2:59 PM
+Published: Oct 28, 2026, 2:59 PM
+Responses: 1
+Target: 500
+499 short
+SENTIMENT
+100.0%
+Calm
+3 of 3 answers analyzed
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+Process
+Sentiment Test survey
+SUR00017
+Ended
+Test for sentiment trends
+Scheduled: Oct 28, 2026, 1:35 PM
+Published: Oct 28, 2026, 1:35 PM
+Responses: 1
+Target: 500
+499 short
+SENTIMENT
+100.0%
+Calm
+3 of 3 answers analyzed
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+Process
+HealthPH+ Community Health Awareness Survey
+SUR00016
+Ended
+This survey aims to assess public awareness, knowledge, and preventive practices regarding respiratory diseases in the Philippines. Your responses will help HealthPH+ improve its health education and disease surveillance initiatives.
+Scheduled: Oct 22, 2026, 3:57 PM
+Published: Oct 22, 2026, 3:57 PM
+Responses: 1
+Target: 100
+99 short
+SENTIMENT
+—
+No eligible feedback
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+Process
+```
+
+Focused element: 30619 edit (settable, string) Address and search bar Description: Ask Google or type a URL Value: healthph.onrender.com/dashboard/sentiment-pulse ID: view_1012
+
+Document text:
+HealthPH+
+￼
+￼
+Juan Dela Cruz
+SUPERADMIN
+￼
+NAVIGATION
+☰
+MAIN
+￼
+AI Surveillance
+￼
+NLP Insights
+￼
+Misinformation Tracker
+￼
+User Management
+￼
+Model Access & Toolkit
+MOBILE INTEGRATION
+￼
+Disease Watch Feed
+￼
+Health Literacy Hub
+￼
+Sentiment Pulse Tool
+Sentiment Pulse Tool
+Monitor public sentiment trends, regional analysis, and mobile survey responses.
+Export as CSV
+Export as PDF
+Sentiment Score
+Calm
+· 100.0%
+30 analyzed answers
+Current Trends filters
+: Mobile answers · 2026-10-13 to 2026-11-11 · Philippine dates · All regions (including unknown) · All surveys
+2 without results
+Survey Responses
+9
+Published surveys: Nov 2026
+↑ 125.0%
+vs Oct 2026 · 4 responses
+Active Regions
+3/18
+With responses
+Latest 5 published surveys
+2 responses · region unknown
+Latest Response
+Nov 10, 2026, 7:15:33 PM
+Philippine time
+Next month: Dec 1, 2026
+Sentiment Trends
+Regional Analysis
+Mobile Surveys
+Mobile Surveys
+￼
+New Survey
+￼
+Publish Survey
+Pneumonia Awareness Survey
+SUR00026
+Ended
+A survey for checking the awareness of the community regarding Pneumonia
+Scheduled: Nov 10, 2026, 3:56 PM
+Published: Nov 10, 2026, 3:56 PM
+Responses: 1
+Target: 100
+99 short
+SENTIMENT
+—
+Not processed
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+Process
+Sentiment processing failed; retry answers without results
+Survey tungkol sa tuberculosis (TB)
+SUR00025
+Ended
+ang survey na ito ay nagtatanong kung ano ang mga hakbang na ginagawa ng barangay niyo upang maagapan ang paglaganap ng TB sa lugar niyo
+Scheduled: Nov 6, 2026, 2:01 PM
+Published: Nov 6, 2026, 2:01 PM
+Responses: 3
+Target: 500
+497 short
+SENTIMENT
+100.0%
+Calm
+5 of 5 answers analyzed
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+Process
+Respiratory Health Survey
+SUR00024
+Ended
+Draft mobile sentiment survey
+Scheduled: Nov 5, 2026, 10:00 PM
+Published: Nov 5, 2026, 10:00 PM
+Responses: 4
+Target: 500
+496 short
+SENTIMENT
+100.0%
+Calm
+12 of 12 answers analyzed
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+Process
+survey for respiratory health
+SUR00023
+Draft
+Draft mobile sentiment survey
+Responses: 0
+Target: 500
+500 short
+SENTIMENT
+—
+Not processed
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+End Survey
+health services surveyt
+SUR00022
+Draft
+to determine how many people are satisfied with barangay health services
+Responses: 0
+Target: 500
+500 short
+SENTIMENT
+—
+Not processed
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+End Survey
+Respiratory Health Survey
+SUR00021
+Ended
+Survey for Respiratory health in the Philippines
+Scheduled: Nov 5, 2026, 9:50 AM
+Published: Nov 5, 2026, 9:50 AM
+Responses: 1
+Target: 500
+499 short
+SENTIMENT
+100.0%
+Calm
+3 of 3 answers analyzed
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+Process
+Respiratory Health Survey in the Philippines
+SUR00020
+Ended
+This survey asks about your experiences with air quality, respiratory health services, and health information in your community over the past six months.
+Scheduled: Oct 29, 2026, 10:51 AM
+Published: Oct 29, 2026, 10:51 AM
+Responses: 1
+Target: 500
+499 short
+SENTIMENT
+100.0%
+Calm
+4 of 4 answers analyzed
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+Process
+Sentiment Model survey test
+SUR00019
+Ended
+Model Test
+Scheduled: Oct 29, 2026, 10:38 AM
+Published: Oct 29, 2026, 10:38 AM
+Responses: 0
+Target: 500
+500 short
+SENTIMENT
+—
+No eligible feedback
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+Process
+Test Survey for sentiment
+SUR00018
+Ended
+testsurvey
+Scheduled: Oct 28, 2026, 2:59 PM
+Published: Oct 28, 2026, 2:59 PM
+Responses: 1
+Target: 500
+499 short
+SENTIMENT
+100.0%
+Calm
+3 of 3 answers analyzed
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+Process
+Sentiment Test survey
+SUR00017
+Ended
+Test for sentiment trends
+Scheduled: Oct 28, 2026, 1:35 PM
+Published: Oct 28, 2026, 1:35 PM
+Responses: 1
+Target: 500
+499 short
+SENTIMENT
+100.0%
+Calm
+3 of 3 answers analyzed
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+Process
+HealthPH+ Community Health Awareness Survey
+SUR00016
+Ended
+This survey aims to assess public awareness, knowledge, and preventive practices regarding respiratory diseases in the Philippines. Your responses will help HealthPH+ improve its health education and disease surveillance initiatives.
+Scheduled: Oct 22, 2026, 3:57 PM
+Published: Oct 22, 2026, 3:57 PM
+Responses: 1
+Target: 100
+99 short
+SENTIMENT
+—
+No eligible feedback
+Whole-survey mobile text and choice answers, all dates and regions. Percentage of classified answers, not unique respondents or a satisfaction score.
+Results
+Edit
+Process

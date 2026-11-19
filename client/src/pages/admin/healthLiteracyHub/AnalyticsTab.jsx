@@ -23,7 +23,6 @@ import {
 } from "./shared";
 
 const ANALYTICS_DASHBOARD_LABEL = "Analytics Dashboard";
-const ANALYTICS_EXPORT_BUTTON_CLASS = "health-literacy-analytics-export-btn";
 const ANALYTICS_EXPORT_ICON_FILL = "#FFFFFF";
 
 const AnalyticsSelect = ({ label, value, options, onChange }) => {
@@ -156,21 +155,27 @@ const AnalyticsTab = () => {
   });
 
   const {
-    data: overviewAnalytics = DEFAULT_ANALYTICS_OVERVIEW,
+    currentData: overviewAnalytics,
     isFetching: isFetchingOverviewAnalytics,
-  } = useFetchHealthLiteracyAnalyticsOverviewQuery(filters);
+    isError: isOverviewError,
+    isSuccess: isOverviewSuccess,
+    refetch: retryOverview,
+  } = useFetchHealthLiteracyAnalyticsOverviewQuery(filters, { refetchOnMountOrArgChange: true });
+  const isOverviewAvailable = Boolean(
+    isOverviewSuccess && overviewAnalytics && !isFetchingOverviewAnalytics && !isOverviewError
+  );
   const [createHealthLiteracyAnalyticsEvent] =
     useCreateHealthLiteracyAnalyticsEventMutation();
 
   const report = useMemo(
     () =>
-      buildAnalyticsReport({
+      isOverviewAvailable ? buildAnalyticsReport({
         activeTab: "overview",
         rows: [],
         filters,
         overviewAnalytics,
-      }),
-    [filters, overviewAnalytics]
+      }) : null,
+    [filters, overviewAnalytics, isOverviewAvailable]
   );
 
   const updateFilter = (name, value) => {
@@ -195,6 +200,7 @@ const AnalyticsTab = () => {
   };
 
   const handleExportCsv = () => {
+    if (!isOverviewAvailable || !report) return;
     recordReportExport("csv");
 
     downloadCsv({
@@ -207,11 +213,9 @@ const AnalyticsTab = () => {
   };
 
   const handleExportPdf = async () => {
-    if (!reportRef.current) return;
+    if (!isOverviewAvailable || !reportRef.current) return;
 
     try {
-      recordReportExport("pdf");
-
       const imageData = await toPng(reportRef.current, {
         canvasWidth: reportRef.current.offsetWidth * 2,
         canvasHeight: reportRef.current.offsetHeight * 2,
@@ -219,6 +223,8 @@ const AnalyticsTab = () => {
         quality: 1,
         backgroundColor: "#ffffff",
       });
+
+      recordReportExport("pdf");
 
       navigate("/print", {
         state: {
@@ -244,23 +250,6 @@ const AnalyticsTab = () => {
 
   return (
     <>
-      <style>
-        {`
-          .${ANALYTICS_EXPORT_BUTTON_CLASS} {
-            background-color: #2a3776;
-            border-color: #2a3776;
-            color: #ffffff;
-            box-shadow: 0px 0px 0px 1px #2a3776, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
-          }
-
-          .${ANALYTICS_EXPORT_BUTTON_CLASS}:hover:not(:active):not(:focus-visible):not(:disabled) {
-            background-color: #2a3776;
-            border-color: #2a3776;
-            color: #ffffff;
-            box-shadow: 0px 0px 0px 1px #2a3776, 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
-          }
-        `}
-      </style>
       <div ref={reportRef} className="flex flex-col gap-[16px]">
         <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
           <div className="flex flex-col gap-[14px] lg:flex-row lg:items-end lg:justify-between">
@@ -277,7 +266,8 @@ const AnalyticsTab = () => {
               <button
                 type="button"
                 onClick={handleExportCsv}
-                className={`prod-btn-base admin-module-brand-btn ${ANALYTICS_EXPORT_BUTTON_CLASS} flex min-h-[40px] items-center justify-center gap-[8px] px-[14px]`}
+                disabled={!isOverviewAvailable}
+                className="public-button public-button--small"
               >
                 <Icon
                   iconName="Download"
@@ -290,7 +280,8 @@ const AnalyticsTab = () => {
               <button
                 type="button"
                 onClick={handleExportPdf}
-                className={`prod-btn-base admin-module-brand-btn ${ANALYTICS_EXPORT_BUTTON_CLASS} flex min-h-[40px] items-center justify-center gap-[8px] px-[14px]`}
+                disabled={!isOverviewAvailable}
+                className="public-button public-button--small"
               >
                 <Icon
                   iconName="Printer"
@@ -325,14 +316,19 @@ const AnalyticsTab = () => {
           </div>
         </div>
 
-        {isFetchingOverviewAnalytics && (
-          <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[14px] text-[14px] text-gray-500">
-            Refreshing analytics data...
+        {isFetchingOverviewAnalytics ? (
+          <div role="status" className="rounded-[12px] border border-[#E5E5E5] bg-white p-[14px] text-[14px] text-gray-500">
+            Loading analytics data...
           </div>
-        )}
-
-        <OverviewAnalyticsPage overviewAnalytics={overviewAnalytics} />
-        {overviewAnalytics.unknownRegionInteractions > 0 && (
+        ) : !isOverviewAvailable ? (
+          <div role="alert" className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px] text-[14px] text-gray-700">
+            <p>Analytics could not be loaded for the selected filters. Please try again.</p>
+            <button type="button" onClick={retryOverview} className="public-button public-button--small mt-[12px]">
+              Retry analytics
+            </button>
+          </div>
+        ) : <OverviewAnalyticsPage overviewAnalytics={overviewAnalytics} />}
+        {isOverviewAvailable && overviewAnalytics.unknownRegionInteractions > 0 && (
           <p className="text-sm text-gray-500">
             {overviewAnalytics.unknownRegionInteractions.toLocaleString()} interactions have an unknown region. They are included in all-region totals.
           </p>

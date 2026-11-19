@@ -95,6 +95,13 @@ def _parse_optional_string(value: Optional[str]) -> Optional[str]:
     return normalized_value or None
 
 
+async def _article_short_preview(request: Request, shortPreview: Annotated[Optional[str], Form()] = None):
+    # FastAPI normalizes empty form strings to the default. Retain the distinction
+    # between an omitted field (older callers) and explicitly clearing a preview.
+    form = await request.form()
+    return str(form["shortPreview"]) if "shortPreview" in form else None
+
+
 """
 @desc     Fetch Health Literacy Hub content by type
 route     GET api/health-literacy-hub/{content_type}
@@ -256,6 +263,7 @@ def create_health_literacy_content(
     ],
     title: Annotated[str, Form()],
     description: Annotated[str, Form()],
+    shortPreview: Annotated[Optional[str], Form()] = "",
     tags: Annotated[Optional[str], Form()] = "",
     topics: Annotated[Optional[str], Form()] = "",
     diseases: Annotated[Optional[str], Form()] = "",
@@ -320,6 +328,7 @@ def create_health_literacy_content(
         "id": str(uuid4()),
         "title": title.strip(),
         "description": description.strip(),
+        "shortPreview": str(shortPreview or "").strip(),
         "tags": parse_string_list(tags),
         "topics": normalized_topics,
         "diseases": normalized_diseases,
@@ -395,6 +404,7 @@ def update_health_literacy_content(
     ],
     title: Annotated[str, Form()],
     description: Annotated[str, Form()],
+    shortPreview: Annotated[Optional[str], Depends(_article_short_preview)] = None,
     tags: Annotated[Optional[str], Form()] = "",
     topics: Annotated[Optional[str], Form()] = "",
     diseases: Annotated[Optional[str], Form()] = "",
@@ -468,6 +478,8 @@ def update_health_literacy_content(
         **current_content,
         "title": title.strip(),
         "description": description.strip(),
+        "shortPreview": (str(shortPreview).strip() if shortPreview is not None
+                         else current_content.get("shortPreview", "")),
         "tags": parse_string_list(tags),
         "topics": normalized_topics,
         "diseases": normalized_diseases,

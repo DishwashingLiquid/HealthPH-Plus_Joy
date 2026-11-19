@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSelector } from "react-redux";
 
 import {
   AlertDistribution,
@@ -9,7 +10,6 @@ import {
   useGetProcessedSelfReportDashboardQuery,
   useGetRegionalAlertsQuery,
   useGetRegionalAlertSettingsQuery,
-  useGetRegionalSymptomSummariesQuery,
   useSaveRegionalAlertSettingsMutation,
   useRunRegionalAlertEvaluationMutation,
 } from "../../../features/api/diseaseWatchFeedSlice";
@@ -18,6 +18,7 @@ import SendAlertModal from "./SendAlertModal";
 import RegionalCoverageTab from "./RegionalCoverageTab";
 import UserAnalyticsTab from "./UserAnalyticsTab";
 import { buildRecentAlerts } from "./recentAlerts";
+import { hasDiseaseWatchFeedAccess, hasSavedAlertSettings } from "./alertAutomation";
 
 const TABS = [
   { id: "recent-alerts", label: "Recent Alerts" },
@@ -28,13 +29,13 @@ const TABS = [
 const STATIC_SUMMARY_CARDS = [
   {
     title: "Alert Distribution",
-    subtitle: "Push notifications for disease outbreaks to targeted regions",
+    subtitle: "Regional symptom alerts prepared for assigned app inboxes",
     icon: AlertDistribution,
     iconColor: "#ef4444",
   },
   {
     title: "Early Warning",
-    subtitle: "Citizens receive alerts before official announcements",
+    subtitle: "Submitted symptoms support early awareness; they are not confirmed diagnoses",
     icon: EarlyWarning,
     iconColor: "#f59e0b",
   },
@@ -118,8 +119,9 @@ export default function DiseaseWatchFeed() {
   const [selectedRegions, setSelectedRegions] = useState([]);
   const [isSendAlertOpen, setIsSendAlertOpen] = useState(false);
   const [evaluationFeedback, setEvaluationFeedback] = useState(null);
-  // Temporary access policy: show alert controls for every dashboard role.
-  const canSendAlert = true;
+  const user = useSelector((state) => state.auth.user);
+  const [accessDenied, setAccessDenied] = useState(false);
+  const canView = hasDiseaseWatchFeedAccess(user) && !accessDenied;
 
   const handleRegionChange = (regionName) => {
     setSelectedRegions((currentRegions) =>
@@ -136,24 +138,24 @@ export default function DiseaseWatchFeed() {
     isLoading: isDashboardLoading,
     refetch: refetchDashboard,
   } = useGetProcessedSelfReportDashboardQuery(undefined, {
+    skip: !canView,
     pollingInterval: 30000,
     refetchOnMountOrArgChange: true,
   });
 
-  const { data: summariesResponse, error: summariesError, isLoading: isSummariesLoading, isFetching: isSummariesFetching, refetch: refetchRegionalSummaries } =
-    useGetRegionalSymptomSummariesQuery(undefined, {
-      skip: !canSendAlert,
-      refetchOnMountOrArgChange: true,
-      // Mobile submissions happen outside this Redux cache. Poll at a bounded
-      // interval while Self-Reports is visible, never from a render effect.
-      pollingInterval: activeTab === "recent-alerts" ? 30000 : 0,
-    });
-  const { data: regionalAlertsResponse, error: regionalAlertsError, refetch: refetchRegionalAlerts } =
-    useGetRegionalAlertsQuery(undefined, { skip: !canSendAlert, pollingInterval: activeTab === "recent-alerts" ? 30000 : 0 });
-  const { data: alertSettingsResponse, isLoading: isSettingsLoading, refetch: refetchAlertSettings } =
-    useGetRegionalAlertSettingsQuery(undefined, { skip: !canSendAlert, pollingInterval: activeTab === "recent-alerts" || isSendAlertOpen ? 30000 : 0 });
+  const { data: regionalAlertsResponse, error: regionalAlertsError, isLoading: isHistoryLoading, isFetching: isHistoryFetching, refetch: refetchRegionalAlerts } =
+    useGetRegionalAlertsQuery(undefined, { skip: !canView, pollingInterval: activeTab === "recent-alerts" ? 30000 : 0 });
+  const { data: alertSettingsResponse, error: settingsError, isLoading: isSettingsLoading, refetch: refetchAlertSettings } =
+    useGetRegionalAlertSettingsQuery(undefined, { skip: !canView, refetchOnMountOrArgChange: true, pollingInterval: activeTab === "recent-alerts" || isSendAlertOpen ? 30000 : 0 });
   const [saveRegionalAlertSettings, { isLoading: isSavingSettings }] = useSaveRegionalAlertSettingsMutation();
   const [runRegionalAlertEvaluation, { isLoading: isEvaluationRunning }] = useRunRegionalAlertEvaluationMutation();
+  const readForbidden = [dashboardError, regionalAlertsError, settingsError].some((error) => error?.status === 403);
+  const canSendAlert = canView && !readForbidden && !settingsError && !isSettingsLoading && hasSavedAlertSettings(alertSettingsResponse?.item);
+
+  useEffect(() => {
+    if (readForbidden) setAccessDenied(true);
+  }, [readForbidden]);
+
 
   const alerts = useMemo(
     () => buildRecentAlerts(dashboardResponse?.items || []),
@@ -179,32 +181,38 @@ export default function DiseaseWatchFeed() {
     );
   }, [availableRegions]);
 
-  const isRecentAlertsLoading = isDashboardLoading;
   const isRegionalCoverageLoading = isDashboardLoading;
 
   const handleSaveAlertSettings = async (form) => {
-    await saveRegionalAlertSettings(form).unwrap();
-    setIsSendAlertOpen(false);
+    if (!canSendAlert) return;
+    try {
+      await saveRegionalAlertSettings(form).unwrap();
+      setIsSendAlertOpen(false);
+    } catch (error) {
+      if (error?.status === 403) setAccessDenied(true);
+      throw error;
+    }
   };
 
   const refreshRegionalAlertData = async () => {
     await Promise.allSettled([
       refetchDashboard(),
       refetchAlertSettings(),
-      refetchRegionalSummaries(),
       refetchRegionalAlerts(),
     ]);
   };
 
-  const handleRunEvaluation = async (intervalMinutes) => {
+  const handleRunEvaluation = async () => {
+    if (!canSendAlert || !alertSettingsResponse.item.enabled) return;
     setEvaluationFeedback(null);
     try {
-      await runRegionalAlertEvaluation({ intervalMinutes }).unwrap();
+      await runRegionalAlertEvaluation().unwrap();
       setEvaluationFeedback({
         type: "success",
         message: "Reports checked. Alert history is up to date.",
       });
     } catch (requestError) {
+      if (requestError?.status === 403) setAccessDenied(true);
       setEvaluationFeedback({
         type: "error",
         message: getErrorMessage(requestError, "Could not check reports. Please try again."),
@@ -213,6 +221,10 @@ export default function DiseaseWatchFeed() {
       await refreshRegionalAlertData();
     }
   };
+
+  if (!canView || readForbidden) {
+    return <p role="alert" className="rounded-xl border border-red-200 bg-white p-5 text-sm text-red-700">Disease Watch Feed access is unavailable for your account.</p>;
+  }
 
   return (
     <div className="flex flex-col gap-[10px]">
@@ -226,7 +238,7 @@ export default function DiseaseWatchFeed() {
       </div>
 
       {isDashboardFetching && !isDashboardLoading && <p className="text-xs text-gray-500">Refreshing report results...</p>}
-      {renderTopMetricCards()}
+      {activeTab !== "recent-alerts" && renderTopMetricCards()}
 
       <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[12px]">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-[8px] bg-[#F5F5F5] rounded-[10px] p-[6px]">
@@ -251,23 +263,26 @@ export default function DiseaseWatchFeed() {
         {activeTab === "recent-alerts" && (
           <RecentAlertsTab
             alerts={alerts}
-            summaries={summariesResponse?.items || []}
-            isSummariesLoading={isSummariesLoading}
-            isSummariesFetching={isSummariesFetching}
-            summariesErrorMessage={summariesError ? getErrorMessage(summariesError, "Failed to load regional summaries.") : ""}
             sentAlerts={regionalAlertsResponse?.items || []}
             canSendAlert={canSendAlert}
+            settingsErrorMessage={settingsError ? getErrorMessage(settingsError, "Failed to load saved alert settings.") : !isSettingsLoading && !hasSavedAlertSettings(alertSettingsResponse?.item) ? "Saved alert settings are unavailable." : ""}
+            isSettingsLoading={isSettingsLoading}
+            onRetrySettings={refetchAlertSettings}
             onSendAlert={() => setIsSendAlertOpen(true)}
             alertSettings={alertSettingsResponse?.item}
             onRunEvaluation={handleRunEvaluation}
             isEvaluationRunning={isEvaluationRunning}
             evaluationFeedback={evaluationFeedback}
-            errorMessage={
-              dashboardError || regionalAlertsError
-                ? getErrorMessage(dashboardError || regionalAlertsError, "Failed to load recent alerts.")
-                : ""
-            }
-            isLoading={isRecentAlertsLoading}
+            hasReportsData={dashboardResponse !== undefined}
+            hasHistoryData={regionalAlertsResponse !== undefined}
+            isReportsLoading={isDashboardLoading}
+            isReportsFetching={isDashboardFetching}
+            isHistoryLoading={isHistoryLoading}
+            isHistoryFetching={isHistoryFetching}
+            reportsErrorMessage={dashboardError ? getErrorMessage(dashboardError, "Failed to load processed reports.") : ""}
+            historyErrorMessage={regionalAlertsError ? getErrorMessage(regionalAlertsError, "Failed to load alert history.") : ""}
+            onRetryReports={refetchDashboard}
+            onRetryHistory={refetchRegionalAlerts}
           />
         )}
         {activeTab === "regional-coverage" && (
@@ -303,7 +318,7 @@ export default function DiseaseWatchFeed() {
           />
         )}
       </div>
-      {isSendAlertOpen && (
+      {isSendAlertOpen && canSendAlert && (
         <SendAlertModal
           onClose={() => setIsSendAlertOpen(false)}
           onSave={handleSaveAlertSettings}

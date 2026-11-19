@@ -5,12 +5,13 @@ import "../assets/css/health-literacy.css";
 import HomeNavbar from "../components/HomeNavbar";
 import HomeFooter from "../components/HomeFooter";
 import { useFetchWebsiteHealthLiteracyContentQuery } from "../features/api/healthLiteracyHubSlice";
-import { formatContentDate, getArticleGalleryImages, getResourceImageSource, normalizeStaticArticle, normalizeWebsiteContent, sortNewestFirst } from "../utils/healthLiteracyWebsiteContent";
-import ArticlesList from "../assets/data/articles.json";
+import { formatContentDate, getArticleGalleryImages, getResourceImageSource, normalizeWebsiteContent, sortNewestFirst } from "../utils/healthLiteracyWebsiteContent";
 import ArticleItem from "../components/about-us/ArticleItem";
 import ArticleMedia, { ArticleMediaProvider } from "../components/about-us/ArticleMedia";
 import MediaViewer, { Attachment } from "../components/health-literacy/MediaViewers";
 import CommentSection from "../components/health-literacy/CommentSection";
+import PublicContentActions from "../components/health-literacy/PublicContentActions";
+import usePublicContentView from "../components/health-literacy/usePublicContentView";
 
 const ArticlePageContent = () => {
   const { slug } = useParams();
@@ -19,9 +20,9 @@ const ArticlePageContent = () => {
   const { data: websiteArticles = [], isFetching, isError, refetch } = useFetchWebsiteHealthLiteracyContentQuery("articles");
   const allArticles = useMemo(() => sortNewestFirst([
     ...normalizeWebsiteContent(websiteArticles),
-    ...ArticlesList.filter((a) => a.articleTitle !== "").map(normalizeStaticArticle),
   ]), [websiteArticles]);
   const article = allArticles.find((a) => a.articleSlug === slug);
+  usePublicContentView(article, true, location.key);
   const latest = allArticles.filter((a) => a.articleSlug !== slug).slice(0, 4);
   useEffect(() => { window.scrollTo(0, 0); setPreview(null); }, [slug]);
   const back = <Link className="public-button" to="/articles" state={location.state}>Back to Article List</Link>;
@@ -49,6 +50,7 @@ const ArticlePageContent = () => {
           {image.caption && <figcaption>{image.caption}</figcaption>}
         </figure>)}</div>}
       </article>
+      <PublicContentActions key={`actions-${article.articleSlug}`} article={article} />
       <CommentSection key={article.articleSlug} article={article} />
       <section className="hl-latest" aria-labelledby="latest-articles-heading">
         <h2 id="latest-articles-heading">Latest Articles</h2>
@@ -57,7 +59,7 @@ const ArticlePageContent = () => {
       </section>
     </main>
     <HomeFooter />
-    {preview && <MediaViewer article={article} images={preview.images} initialIndex={preview.index} onClose={() => setPreview(null)} />}
+    {preview && <MediaViewer article={article} trackView={false} images={preview.images} initialIndex={preview.index} onClose={() => setPreview(null)} />}
   </div>;
 };
 const ArticlePage = () => <ArticleMediaProvider><ArticlePageContent /></ArticleMediaProvider>;

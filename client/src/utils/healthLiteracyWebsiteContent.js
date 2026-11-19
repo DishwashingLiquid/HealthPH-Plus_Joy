@@ -11,6 +11,7 @@ export const slugify = (value) =>
     .replace(/(^-|-$)/g, "");
 
 export const getDashboardContentSlug = (item) => {
+  if (item?.legacyArticleSlug) return item.legacyArticleSlug;
   const titleSlug = slugify(item?.title) || "health-literacy-content";
   return `${titleSlug}-${item?.id}`;
 };
@@ -109,7 +110,7 @@ export const normalizeDashboardContent = (item) => {
     articleTitle: item.title ?? "Untitled content",
     articleSlug: getDashboardContentSlug(item),
     datePublished: item.publishedDate ?? item.createdAt,
-    articlePreview: item.description ?? "",
+    articlePreview: item.shortPreview?.trim() || item.description || "",
     articleImage: "",
     articleImageCaption: item.title ?? "",
     articleBody: item.description ?? "",
