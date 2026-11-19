@@ -17,7 +17,7 @@ from controllers.health_literacy_hub.analytics import (
     build_health_literacy_analytics_overview,
     get_analytics_region,
 )
-from controllers.health_literacy_hub.constants import CONTENT_FILES
+from controllers.health_literacy_hub.constants import CONTENT_BUCKETS
 from controllers.health_literacy_hub.content_bridge import (
     delete_media_file,
     encode_media,
@@ -198,8 +198,7 @@ def fetch_health_literacy_media(file_id: str, request: Request, preview: str | N
     return media_response(get_media_store(), file_id, request, admin=authorized)
 
 
-def fetch_legacy_health_literacy_media(content_type: str, filename: str):
-    raise HTTPException(410, "Legacy filesystem media retired; refresh content from the API after migration")
+
 
 
 """
@@ -281,7 +280,7 @@ def create_health_literacy_content(
     galleryImages: Annotated[Optional[str], Form()] = None,
     gallery_files: dict = Depends(gallery_uploads),
 ):
-    if content_type not in CONTENT_FILES:
+    if content_type not in CONTENT_BUCKETS:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Health Literacy Hub content type not found",
@@ -422,7 +421,7 @@ def update_health_literacy_content(
     galleryImages: Annotated[Optional[str], Form()] = None,
     gallery_files: dict = Depends(gallery_uploads),
 ):
-    if content_type not in CONTENT_FILES:
+    if content_type not in CONTENT_BUCKETS:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Health Literacy Hub content type not found",
@@ -547,7 +546,7 @@ def delete_health_literacy_content(
         dict, Depends(require_role(["Admin", "SUPERADMIN"]))
     ],
 ):
-    if content_type not in CONTENT_FILES:
+    if content_type not in CONTENT_BUCKETS:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Health Literacy Hub content type not found",

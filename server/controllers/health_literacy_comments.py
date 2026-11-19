@@ -115,13 +115,13 @@ def require_commenter(credentials: HTTPAuthorizationCredentials | None = Depends
 
 @router.post("/session")
 def login(payload: MobileLoginRequest, request: Request, response: Response):
-    # Reuse canonical verification and eligibility without invoking optional hash migration.
-    from controllers.mobileUserController import _stored_password_hash, _verify_password
+    # Use the same bcrypt verification as mobile account login.
+    from controllers.mobileUserController import _verify_password
     rate_limit(f"login:{request.client.host if request.client else 'unknown'}", 10, 600)
     account = database().mobile_users.find_one({"email": payload.email,
         "source": MOBILE_REGISTRATION_SOURCE, "roleId": MOBILE_ROLE_ID})
     if (not account or not isinstance(account.get("id"), str) or not account["id"]
-            or not _verify_password(payload.password, _stored_password_hash(account))):
+            or not _verify_password(payload.password, account.get("passwordHash", ""))):
         raise HTTPException(401, "Invalid email or password")
     issued = now()
     token = jwt.encode({"sub": account["id"], "aud": "health_literacy_comments",

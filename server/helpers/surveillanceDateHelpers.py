@@ -10,7 +10,7 @@ ISO_TIMESTAMP_PATTERN = re.compile(
 
 
 def parse_analytics_datetime(value):
-    """Parse ISO dates/timestamps; legacy offset-free times mean Philippine time."""
+    """Parse current ISO input; offset-free timestamps mean Philippine time."""
     if isinstance(value, datetime):
         parsed = value
     elif isinstance(value, str):

@@ -5,6 +5,7 @@ from helpers.miscHelpers import get_ph_datetime
 from helpers.surveillanceDateHelpers import normalize_analytics_datetime
 
 from region_normalization import resolve_region
+from helpers.processedSelfReportHelpers import reporter_snapshot
 
 DEFAULT_ANALYSIS_TASKS = [
     "language_detection",
@@ -187,20 +188,12 @@ def build_social_media_analytics_entries(
 def build_survey_response_analytics_entries(response_document, survey_document):
     entries = []
 
-    submission_id = str(response_document.get("submissionId") or response_document.get("id") or response_document.get("_id") or "")
+    submission_id = response_document["submissionId"]
     survey_id = str(response_document.get("surveyId") or "")
     answers = response_document.get("answers") or {}
     answer_ids = response_document.get("answerIds") or {}
     created_at = response_document.get("createdAt") or get_ph_datetime()
-    questions = {}
-    for question in survey_document.get("questions") or []:
-        if not isinstance(question, dict):
-            continue
-        for key in (question.get("id"), question.get("name")):
-            if key:
-                questions[str(key)] = question
-
-    user_location = response_document.get("user_location") or response_document.get("userLocation") or {}
+    questions = {str(question["id"]): question for question in survey_document["questions"]}
 
     for question_id, answer_value in answers.items():
         response_id = answer_ids.get(question_id)
@@ -232,8 +225,6 @@ def build_survey_response_analytics_entries(response_document, survey_document):
                     "city": "",
                     "barangay": "",
                 },
-
-                "user_location": user_location,
 
                 "event_time": normalize_analytics_datetime(created_at),
                 "collected_at": normalize_analytics_datetime(created_at),
@@ -306,9 +297,7 @@ def build_self_report_analytics_entry(report_document):
         "source_id": report_id,
         "report_id": report_id,
         "sourcePublicId": report_document.get("id") or "",
-        "reporter": {
-            "reporterType": (report_document.get("reporter") or {}).get("reporterType"),
-        },
+        "reporter": reporter_snapshot(report_document.get("reporter") or {}),
 
         "text": text,
         "language": "",
@@ -320,6 +309,8 @@ def build_self_report_analytics_entry(report_document):
                 or _clean_text_value(location.get("provinceName"))
                 or _clean_text_value(location.get("regionName")),
             "region": region or "",
+            "regionCode": location.get("regionCode"),
+            "regionName": location.get("regionName"),
             "province": _clean_text_value(location.get("provinceName")),
             "city": _clean_text_value(location.get("cityName")),
             "barangay": _clean_text_value(location.get("barangayName")),

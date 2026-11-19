@@ -111,4 +111,4 @@ def fetch_regional_analytics(_current_user: Admin, timeRange: str = "last-30-day
             "endDate": ((bounds.end_exclusive - timedelta(days=1)).date().isoformat()
                         if bounds.end_exclusive else bounds.cutoff.date().isoformat()),
             "regions": selected, "surveyId": None, "unknownRegionIncluded": not selected},
-            **regional_report(analytics_entries_collection, survey_responses_collection, rules, bounds, selected)}
+            **regional_report(analytics_entries_collection, rules, bounds, selected)}

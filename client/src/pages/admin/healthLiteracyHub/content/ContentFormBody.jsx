@@ -267,11 +267,6 @@ export const ContentFormBody = ({
         <label className="mb-[8px] block text-[14px] font-medium text-gray-800">
           {uploadRule.label}
         </label>
-        {formData.existingMedia?.migrationRequired && (
-          <p role="status" className="mb-3 text-sm text-amber-800">
-            This legacy attachment needs migration before it can be previewed. You can also upload a replacement.
-          </p>
-        )}
         <label
           htmlFor={uploadInputId}
           className="block cursor-pointer rounded-[8px] border-2 border-dashed border-[#E5E5E5] p-[20px] text-center transition-colors hover:bg-[#F9F9F9]"

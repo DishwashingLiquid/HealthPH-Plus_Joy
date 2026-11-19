@@ -11,7 +11,7 @@ from .constants import (
     FACT_CHECK_VERIFIERS,
     HEALTH_LITERACY_LANGUAGES,
     get_content_type_label,
-    get_legacy_content_type,
+    get_content_bucket,
     normalize_storage_content_type,
 )
 from .public_metrics import (
@@ -91,7 +91,7 @@ def serialize_content_document(document: dict, admin_id=None) -> dict:
 
 def serialize_mobile_content(document: dict) -> dict:
     serialized_document = serialize_content_document(document)
-    serialized_document["contentType"] = get_legacy_content_type(
+    serialized_document["contentType"] = get_content_bucket(
         document.get("contentType", "")
     )
     return serialized_document
@@ -99,7 +99,7 @@ def serialize_mobile_content(document: dict) -> dict:
 
 def serialize_website_content(document: dict) -> dict:
     serialized_document = serialize_content_document(document)
-    serialized_document["contentType"] = get_legacy_content_type(
+    serialized_document["contentType"] = get_content_bucket(
         document.get("contentType", "")
     )
     return serialized_document
@@ -137,34 +137,8 @@ def normalize_language_code(value: Optional[str]) -> Optional[str]:
     return LANGUAGE_NAME_TO_CODE.get(normalized_value)
 
 
-def split_content_tags_by_schema(document: dict) -> tuple[list[str], list[str]]:
-    raw_tags = parse_string_list(document.get("tags"))
-    content_tags = []
-    language_codes = []
-
-    for tag in raw_tags:
-        language_code = normalize_language_code(tag)
-        if language_code:
-            if language_code not in language_codes:
-                language_codes.append(language_code)
-            continue
-
-        if tag not in content_tags:
-            content_tags.append(tag)
-
-    return content_tags, language_codes
-
-
 def get_mobile_language(document: dict) -> str:
-    explicit_language = normalize_language_code(document.get("language"))
-    if explicit_language:
-        return explicit_language
-
-    _, language_codes = split_content_tags_by_schema(document)
-    if language_codes:
-        return language_codes[0]
-
-    return "en"
+    return document["language"]
 
 
 def get_mobile_topics(document: dict) -> list[str]:
@@ -176,8 +150,7 @@ def get_mobile_diseases(document: dict) -> list[str]:
 
 
 def get_mobile_content_tags(document: dict) -> list[str]:
-    content_tags, _ = split_content_tags_by_schema(document)
-    return content_tags
+    return document["tags"]
 
 
 def get_mobile_content_type(document: dict) -> str:
@@ -244,12 +217,7 @@ def matches_mobile_content_filters(
 
 
 def normalize_mobile_verdict(document: dict) -> str:
-    explicit_verdict = str(document.get("verdict") or "").strip()
-    if explicit_verdict:
-        return explicit_verdict
-
-    claim_status = str(document.get("claimStatus") or "").strip()
-    return FACT_CHECK_STATUS_TO_VERDICT.get(claim_status, "Needs Context")
+    return document["verdict"]
 
 
 def serialize_mobile_contract_content(document: dict) -> dict:
@@ -293,16 +261,12 @@ def serialize_mobile_contract_content(document: dict) -> dict:
         "topics": get_mobile_topics(document),
         "diseases": get_mobile_diseases(document),
         "language": get_mobile_language(document),
-        "isPublished": bool(
-            document.get("isPublished")
-            if document.get("isPublished") is not None
-            else document.get("publishToMobile") or document.get("publishToWebsite")
-        ),
+        "isPublished": document["isPublished"],
         "publishToMobile": bool(document.get("publishToMobile")),
         "viewCount": serialized_document.get("viewCount", 0),
         "shareCount": get_public_share_count(content_type, content_id),
         "createdAt": document.get("createdAt"),
-        "updatedAt": document.get("updatedAt") or document.get("createdAt"),
+        "updatedAt": document["updatedAt"],
     }
 
 

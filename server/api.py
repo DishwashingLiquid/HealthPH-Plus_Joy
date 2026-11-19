@@ -42,7 +42,6 @@ from routes.healthRoutes import router as healthRouter
 from routes.mobileSurveillanceRoutes import router as mobileSurveillanceRouter
 from controllers.regionalAlertsController import (
     ensure_regional_alert_indexes,
-    process_due_regional_alerts,
     run_automation_tick,
 )
 
@@ -94,7 +93,6 @@ async def _regional_alert_scheduler():
         try:
             # PyMongo is synchronous. Keep bounded regional reconciliation and
             # recipient preparation off FastAPI's async request loop.
-            await asyncio.to_thread(process_due_regional_alerts)
             await asyncio.to_thread(run_automation_tick)
         except Exception as error:
             # Do not bring down the API for a transient delivery/store failure.

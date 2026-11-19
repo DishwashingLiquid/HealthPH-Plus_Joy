@@ -705,6 +705,12 @@ def run_analytics_entry_processing_job(entry_ids: list[str], job_id: str):
         return
 
     try:
+        from controllers.regionalAlertsController import on_self_report_processing_completed
+        on_self_report_processing_completed()
+    except Exception:
+        logging.getLogger(__name__).exception("Regional symptom projection failed; the scheduled worker will retry")
+
+    try:
         run_sentiment_processing(analytics_entries_collection, [entry["_id"] for entry in entries])
     except Exception:
         logging.getLogger(__name__).exception("Sentiment processing failed after self-report processing completed")

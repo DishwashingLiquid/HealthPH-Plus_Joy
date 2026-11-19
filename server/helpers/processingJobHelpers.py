@@ -117,14 +117,11 @@ def recover_interrupted_processing(datasets, entries):
     """Mark expired work retryable; never run inference or delete saved results."""
     now = utc_now()
     recovered = {"datasets": 0, "self_reports": 0}
-    legacy_timeout = _seconds("HEALTHPH_LEGACY_PROCESSING_TIMEOUT_SECONDS", 1800)
     specifications = [
-        (datasets, "dataset_status", {"dataset_type": "RAW"}, "processing_error", "datasets",
-         ("processing_started_at", "queued_at", "processing_recovery_observed_at")),
-        (entries, "analysis_status", {"source_type": "self_report"}, "analysis_error", "self_reports",
-         ("analysis_started_at", "queued_at", "processing_recovery_observed_at")),
+        (datasets, "dataset_status", {"dataset_type": "RAW"}, "processing_error", "datasets"),
+        (entries, "analysis_status", {"source_type": "self_report"}, "analysis_error", "self_reports"),
     ]
-    for collection, status_field, scope, error_field, kind, timestamp_fields in specifications:
+    for collection, status_field, scope, error_field, kind in specifications:
         failed_fields = {
             status_field: "FAILED", error_field: INTERRUPTED_MESSAGE,
             "processed_at" if kind == "datasets" else "updated_at": get_ph_datetime(),
@@ -146,23 +143,4 @@ def recover_interrupted_processing(datasets, entries):
                         "dataset_processing_job.lease_expires_at": {"$lte": now},
                     }, {"$unset": {"dataset_processing_job": ""}})
 
-        # Pre-upgrade work has no lease. Use its last start/queue timestamp and
-        # compare the unchanged snapshot before recovery. Undated work receives
-        # a grace period from its first observation, rather than being reset now.
-        legacy = {**active, "processing_job.id": {"$exists": False}}
-        projection = {"_id": 1, status_field: 1, **{key: 1 for key in timestamp_fields}}
-        for document in collection.find(legacy, projection):
-            timestamps = [(key, parse_analytics_datetime(document.get(key))) for key in timestamp_fields]
-            known = [(key, value) for key, value in timestamps if value is not None]
-            guard = {**legacy, "_id": document["_id"], status_field: document[status_field]}
-            guard.update({key: document[key] if key in document else {"$exists": False} for key in timestamp_fields})
-            if not known:
-                collection.update_one(guard, {"$set": {"processing_recovery_observed_at": get_ph_datetime()}})
-                continue
-            last_update = max(value for _, value in known)
-            if now - last_update >= timedelta(seconds=legacy_timeout):
-                if collection.update_one(guard, {"$set": {
-                    **failed_fields,
-                }}).matched_count:
-                    recovered[kind] += 1
     return recovered

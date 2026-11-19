@@ -119,7 +119,7 @@ export default function RegionalCoverageTab({
         <div className="rounded-[12px] border border-[#E8EDF5] bg-[#F8FAFC] p-[14px]">
           <ResponsiveContainer width="100%" height={400}>
             <BarChart
-              data={regionUserData}
+              data={visibleRegionCards}
               margin={{ top: 24, right: 12, left: 0, bottom: 92 }}
             >
               <CartesianGrid
@@ -180,7 +180,7 @@ export default function RegionalCoverageTab({
         <div>
           <h3 className="text-[18px] font-semibold text-gray-800">Regional Cards</h3>
           <p className="mt-[4px] text-sm text-gray-500">
-            Detailed reporter totals and share of mobile self-report coverage by
+            Known submitter totals and share of processed self-report coverage by
             region.
           </p>
         </div>
@@ -271,7 +271,7 @@ export default function RegionalCoverageTab({
                       color: accentColor,
                     }}
                   >
-                    {region.percentage}% share
+                    {region.percentage === null ? "Share unavailable" : `${region.percentage}% share`}
                   </span>
                 </div>
               </div>
@@ -281,8 +281,9 @@ export default function RegionalCoverageTab({
                   {region.users.toLocaleString()}
                 </p>
                 <p className="mt-[6px] text-sm text-gray-500">
-                  distinct mobile reporters
+                  identified submitters
                 </p>
+                {region.unidentifiedReporterReports > 0 && <p className="mt-2 text-xs text-amber-700">{region.unidentifiedReporterReports} processed reports have unknown submitter identity.</p>}
 
                 <div className="mt-[18px]">
                   <div className="mb-[8px] flex items-center justify-between text-sm">
@@ -290,14 +291,14 @@ export default function RegionalCoverageTab({
                       Coverage share
                     </span>
                     <span className="font-semibold text-[#1F2A44]">
-                      {region.percentage}%
+                      {region.percentage === null ? "Unavailable" : `${region.percentage}%`}
                     </span>
                   </div>
                   <div className="h-[10px] overflow-hidden rounded-full bg-[#E6EDF7]">
                     <div
                       className="h-full rounded-full"
                       style={{
-                        width: `${region.percentage}%`,
+                        width: `${region.percentage ?? 0}%`,
                         backgroundColor: accentColor,
                       }}
                     />
@@ -316,10 +317,10 @@ export default function RegionalCoverageTab({
                 <div className="mt-[12px] grid grid-cols-2 gap-[10px]">
                   <div className="rounded-[10px] border border-[#EEF2F8] bg-[#FBFCFE] px-[12px] py-[10px]">
                     <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[#6B7A90]">
-                      Alerts
+                      Reports without identity
                     </p>
                     <p className="mt-[6px] text-sm font-semibold text-[#1F2A44]">
-                      {formatCompactNumber(region.alertCount)}
+                      {formatCompactNumber(region.unidentifiedReporterReports)}
                     </p>
                   </div>
                   <div className="rounded-[10px] border border-[#EEF2F8] bg-[#FBFCFE] px-[12px] py-[10px]">

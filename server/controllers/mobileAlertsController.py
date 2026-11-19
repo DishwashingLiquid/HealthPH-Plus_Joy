@@ -17,10 +17,6 @@ from regional_summaries import PH_TZ, now
 AUTOMATED_SOURCE = "automated_regional_summary"
 PUBLISHED_ALERT_STATUS = "Published"
 PREPARED_DELIVERY_STATUS = "Prepared"
-# Keep already-published records visible while deployments transition from the
-# former aggregate status name. Recipient records intentionally remain Prepared.
-VISIBLE_ALERT_STATUSES = (PUBLISHED_ALERT_STATUS, PREPARED_DELIVERY_STATUS)
-
 alerts = getattr(database, "regional_alerts_collection", None)
 deliveries = getattr(database, "mobile_notification_deliveries_collection", None)
 mobile_users = getattr(database, "mobile_users_collection", None)
@@ -44,12 +40,7 @@ def _require_mobile_user(mobile_user_id: str):
 
 
 def _date_iso(value):
-    """Return an explicit UTC API timestamp, preserving legacy PH wall time."""
-    if isinstance(value, str):
-        try:
-            value = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
-        except ValueError:
-            return None
+    """Convert stored Philippine wall time to an explicit UTC API timestamp."""
     if not isinstance(value, datetime):
         return None
     aware = value.replace(tzinfo=PH_TZ) if value.tzinfo is None else value
@@ -57,12 +48,7 @@ def _date_iso(value):
 
 
 def _published_at(alert: dict, delivery: dict):
-    return _date_iso(
-        delivery.get("publishedAt")
-        or alert.get("preparedAt")
-        or alert.get("createdAt")
-        or delivery.get("createdAt")
-    )
+    return _date_iso(delivery["publishedAt"])
 
 
 def _integer(value, default=0):
@@ -78,14 +64,13 @@ def _symptoms(alert: dict):
     keys = trigger.get("includedSymptomKeys") or []
     labels = snapshot.get("symptomKeyLabels") or {}
     counts = snapshot.get("symptomKeyCounts") or {}
-    legacy_labels = trigger.get("includedSymptomLabels") or []
     return [
         {
             "symptomKey": str(key),
-            "label": str(labels.get(key) or (legacy_labels[index] if index < len(legacy_labels) else key)),
+            "label": str(labels[key]),
             "reportCount": _integer(counts.get(key)),
         }
-        for index, key in enumerate(keys)
+        for key in keys
     ]
 
 
@@ -123,7 +108,7 @@ def _visible_assignments(mobile_user_id: str):
         alert = alerts.find_one({
             "_id": alert_id,
             "source": AUTOMATED_SOURCE,
-            "status": {"$in": VISIBLE_ALERT_STATUSES},
+            "status": PUBLISHED_ALERT_STATUS,
         })
         if alert:
             result.append((alert, delivery))
@@ -155,7 +140,7 @@ def _find_assignment(mobile_user_id: str, alert_id: str):
     alert = alerts.find_one({
         "_id": ObjectId(alert_id),
         "source": AUTOMATED_SOURCE,
-        "status": {"$in": VISIBLE_ALERT_STATUSES},
+        "status": PUBLISHED_ALERT_STATUS,
     })
     delivery = deliveries.find_one({
         "alertId": ObjectId(alert_id),

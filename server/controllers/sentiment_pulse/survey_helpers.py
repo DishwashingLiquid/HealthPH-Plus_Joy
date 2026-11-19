@@ -17,92 +17,40 @@ from .constants import (
     surveys_collection,
 )
 from .survey_ids import (
-    HISTORIC_QUESTION_ID_PATTERN, HISTORIC_SURVEY_ID_PATTERN,
     QUESTION_ID_PATTERN, SURVEY_ID_PATTERN, format_answer_id,
     format_question_id, format_survey_id, sync_survey_json_names,
 )
 
 
-# Retain the existing settings document and its next value. The old display-ID
-# allocator may already have consumed values, so reusing it prevents a reset.
-APPLICATION_ID_SEQUENCE_SETTINGS_ID = "sentiment_pulse_display_sequences"
-APPLICATION_ID_SEQUENCE_FIELD = "nextSentimentPulseSurveyDisplaySequence"
+APPLICATION_ID_SEQUENCE_SETTINGS_ID = "sentiment_pulse_sequences"
+APPLICATION_ID_SEQUENCE_FIELD = "nextSurveySequence"
+
+
 def get_application_survey_sequence(survey: dict) -> int:
-    """Only an actual hierarchy ID marks a migrated survey."""
+    """Extract the sequence from the current survey identifier."""
     match = SURVEY_ID_PATTERN.match(str(survey.get("id") or ""))
     return int(match.group(1)) if match else 0
 
 
-def _historic_survey_sequence(survey: dict) -> int:
-    """Read old display fields only to preserve already consumed numbers."""
-    sequence = get_application_survey_sequence(survey)
-    if isinstance(survey.get("displaySequence"), int):
-        sequence = max(sequence, survey["displaySequence"])
-    match = HISTORIC_SURVEY_ID_PATTERN.match(str(survey.get("displayId") or ""))
-    old_id_match = HISTORIC_SURVEY_ID_PATTERN.match(str(survey.get("id") or ""))
-    if old_id_match:
-        sequence = max(sequence, int(old_id_match.group(1)))
-    return max(sequence, int(match.group(1)) if match else 0)
-
-
-def _initialize_survey_id_sequence() -> None:
-    highest = 0
-    for survey in surveys_collection.find({}, {"id": 1, "displayId": 1, "displaySequence": 1}):
-        highest = max(highest, _historic_survey_sequence(survey))
-    # Create first, then use $max separately: MongoDB forbids targeting the
-    # same field with $setOnInsert and $max in one update. $max never rolls a
-    # concurrent allocation back.
-    application_settings_collection.update_one(
-        {"_id": APPLICATION_ID_SEQUENCE_SETTINGS_ID},
-        {"$setOnInsert": {"kind": "application_settings"}},
-        upsert=True,
-    )
-    application_settings_collection.update_one(
-        {"_id": APPLICATION_ID_SEQUENCE_SETTINGS_ID},
-        {"$max": {APPLICATION_ID_SEQUENCE_FIELD: highest + 1}},
-    )
-
-
 def allocate_survey_id_sequence() -> int:
-    """Atomically reserve a survey number. Reservations are never recycled."""
-    while True:
-        _initialize_survey_id_sequence()
-        previous = application_settings_collection.find_one_and_update(
-            {"_id": APPLICATION_ID_SEQUENCE_SETTINGS_ID},
-            {"$inc": {APPLICATION_ID_SEQUENCE_FIELD: 1}},
-            return_document=ReturnDocument.BEFORE,
-        )
-        if previous and isinstance(previous.get(APPLICATION_ID_SEQUENCE_FIELD), int):
-            return previous[APPLICATION_ID_SEQUENCE_FIELD]
-
-
-def _highest_question_sequence(survey: dict, survey_sequence: int) -> int:
-    highest = 0
-    for question in survey.get("questions") or []:
-        for candidate in (question.get("id"), question.get("displayId")):
-            match = QUESTION_ID_PATTERN.match(str(candidate or "")) or HISTORIC_QUESTION_ID_PATTERN.match(str(candidate or ""))
-            if match and int(match.group(1)) == survey_sequence:
-                highest = max(highest, int(match.group(2)))
-    return highest
-
-
-def _initialize_question_id_sequence(survey: dict) -> None:
-    survey_sequence = get_application_survey_sequence(survey)
-    if not survey_sequence:
-        return
-    next_sequence = _highest_question_sequence(survey, survey_sequence) + 1
-    if isinstance(survey.get("nextQuestionDisplaySequence"), int):
-        next_sequence = max(next_sequence, survey["nextQuestionDisplaySequence"])
-    surveys_collection.update_one(
-        {"id": survey["id"]}, {"$max": {"nextQuestionIdSequence": next_sequence}}
+    """Atomically allocate a new survey ID from the current sequence."""
+    application_settings_collection.update_one(
+        {"_id": APPLICATION_ID_SEQUENCE_SETTINGS_ID},
+        {"$setOnInsert": {APPLICATION_ID_SEQUENCE_FIELD: 1}}, upsert=True,
     )
+    previous = application_settings_collection.find_one_and_update(
+        {"_id": APPLICATION_ID_SEQUENCE_SETTINGS_ID, APPLICATION_ID_SEQUENCE_FIELD: {"$gte": 1}},
+        {"$inc": {APPLICATION_ID_SEQUENCE_FIELD: 1}}, return_document=ReturnDocument.BEFORE,
+    )
+    if previous is None:
+        raise HTTPException(status_code=503, detail="Survey ID sequence is unavailable")
+    return previous[APPLICATION_ID_SEQUENCE_FIELD]
 
 
 def allocate_question_id_sequences(survey: dict, count: int) -> int:
     """Reserve a contiguous, permanent sequence range on the survey document."""
     if count < 1:
         return 0
-    _initialize_question_id_sequence(survey)
     previous = surveys_collection.find_one_and_update(
         {"id": survey["id"]},
         {"$inc": {"nextQuestionIdSequence": count}},
@@ -113,7 +61,7 @@ def allocate_question_id_sequences(survey: dict, count: int) -> int:
             status_code=status.HTTP_409_CONFLICT,
             detail="Survey changed before question IDs could be reserved; reload and try again",
         )
-    return int(previous.get("nextQuestionIdSequence") or 1)
+    return previous["nextQuestionIdSequence"]
 
 
 def ensure_survey_indexes() -> None:
@@ -151,24 +99,14 @@ def get_survey_status(survey: dict, now: Optional[datetime] = None) -> str:
     scheduled_at = survey.get("scheduledAt")
     if not scheduled_at:
         return "Draft"
-    if isinstance(scheduled_at, str):
-        scheduled_at = parse_ph_datetime(scheduled_at)
     return "Published" if scheduled_at <= (now or get_ph_datetime()) else "Scheduled"
 
 
 def serialize_survey(survey: dict, include_private_fields: bool = True) -> dict:
     serialized = dict(survey)
     serialized.pop("_id", None)
-    # Historic display fields stay in MongoDB, but are no longer serialized.
-    for field in ("displayId", "displaySequence", "nextQuestionDisplaySequence", "nextQuestionIdSequence", "nextAnswerIdSequences", "legacyId", "archivedQuestions"):
+    for field in ("nextQuestionIdSequence", "nextAnswerIdSequences"):
         serialized.pop(field, None)
-    if isinstance(serialized.get("questions"), list):
-        serialized["questions"] = [
-            {key: value for key, value in question.items() if key not in ("displayId", "legacyId", "legacyName")}
-            if isinstance(question, dict)
-            else question
-            for question in serialized["questions"]
-        ]
     serialized["status"] = get_survey_status(survey)
     serialized["createdAt"] = serialize_datetime(survey.get("createdAt"))
     serialized["updatedAt"] = serialize_datetime(survey.get("updatedAt"))
@@ -224,12 +162,6 @@ def _question_input_id(question: dict) -> str:
     return str(question.get("id") or question.get("name") or "").strip()
 
 
-def _without_display_id(question: dict) -> dict:
-    normalized = dict(question)
-    normalized.pop("displayId", None)
-    return normalized
-
-
 def _normalize_new_survey_questions(questions: list[dict], survey_sequence: int):
     normalized_questions, id_mapping = [], {}
     for position, question in enumerate(questions, start=1):
@@ -237,7 +169,7 @@ def _normalize_new_survey_questions(questions: list[dict], survey_sequence: int)
         supplied_id = _question_input_id(question)
         if supplied_id:
             id_mapping[supplied_id] = assigned_id
-        normalized = _without_display_id(question)
+        normalized = dict(question)
         normalized["id"] = assigned_id
         normalized["name"] = assigned_id
         normalized_questions.append(normalized)
@@ -279,7 +211,7 @@ def _normalize_new_format_questions(survey: dict, questions: list[dict]):
     survey_sequence = get_application_survey_sequence(survey)
     if not survey_sequence:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail="Survey ID migration must finish before this survey can be edited")
+                            detail="Invalid survey ID")
     existing = {str(question.get("id")): question for question in survey.get("questions") or []}
     new_questions = [question for question in questions if _question_input_id(question) not in existing]
     next_sequence = allocate_question_id_sequences(survey, len(new_questions))
@@ -289,13 +221,9 @@ def _normalize_new_format_questions(survey: dict, questions: list[dict]):
         assigned_id = supplied_id if supplied_id in existing else format_question_id(survey_sequence, next_sequence)
         if supplied_id not in existing:
             next_sequence += 1
-        normalized = _without_display_id(question)
+        normalized = dict(question)
         normalized["id"] = assigned_id
         normalized["name"] = assigned_id
-        if supplied_id in existing:
-            for field in ("displayId", "legacyId", "legacyName"):
-                if field in existing[supplied_id]:
-                    normalized[field] = existing[supplied_id][field]
         normalized_questions.append(normalized)
         if supplied_id:
             id_mapping[supplied_id] = assigned_id
@@ -304,18 +232,11 @@ def _normalize_new_format_questions(survey: dict, questions: list[dict]):
 
 def build_survey_update_document(data, current_user: Optional[dict], survey: dict) -> dict:
     questions, id_mapping = _normalize_new_format_questions(survey, data.questions)
-    kept = {question["id"] for question in questions}
-    archived = list(survey.get("archivedQuestions") or [])
-    archived_ids = {question["id"] for question in archived}
-    for question in survey.get("questions") or []:
-        if question["id"] not in kept and question["id"] not in archived_ids:
-            archived.append({"id": question["id"], "legacyKey": question.get("legacyName") or question.get("legacyId") or question["id"]})
     # Do not reset publication, counters, responses, or analytics when editing.
     return {
         "title": data.title.strip(),
         "subtitle": (data.subtitle or "").strip() or "Draft mobile sentiment survey",
         "target": data.target, "questions": questions,
-        "archivedQuestions": archived,
         "surveyJson": sync_survey_json_names(data.surveyJson, id_mapping),
         "updatedAt": get_ph_datetime(), "updatedBy": get_user_snapshot(current_user),
     }
@@ -330,12 +251,12 @@ def build_public_response_document(
     survey_id = survey["id"]
     if not get_application_survey_sequence(survey):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail="Survey ID migration must finish before responses can be submitted")
+                            detail="Invalid survey ID")
     question_ids = {question["id"] for question in survey.get("questions") or []}
     if any(not QUESTION_ID_PATTERN.fullmatch(question_id) or
            not question_id.startswith(survey_id + "-Q") for question_id in question_ids):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail="Question ID migration must finish before responses can be submitted")
+                            detail="Invalid question ID")
     invalid = set(data.answers) - question_ids
     if invalid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Answers contain unknown question IDs")

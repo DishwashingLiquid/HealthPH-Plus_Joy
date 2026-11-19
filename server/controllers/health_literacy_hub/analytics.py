@@ -19,13 +19,11 @@ from .constants import (
     PUBLIC_ANALYTICS_EVENTS,
     SECRET_KEY,
     get_content_type_label,
-    get_legacy_content_type,
     normalize_storage_content_type,
     analytics_events_collection,
     user_collection,
 )
 from .content_bridge import read_content
-from .public_metrics import get_public_event_platform_or_match
 
 
 def get_optional_bearer_user_id(request: Request) -> Optional[str]:
@@ -93,19 +91,10 @@ def get_event_content_type_values(content_type: str) -> list[str]:
     if content_type == "all":
         return []
 
-    values = {content_type}
-    storage_content_type = normalize_storage_content_type(content_type)
-    if storage_content_type:
-        values.add(storage_content_type)
-        values.add(get_legacy_content_type(storage_content_type))
-        values.add(get_content_type_label(storage_content_type))
-    else:
-        for content_key, content_label in ANALYTICS_CONTENT_LABELS.items():
-            if content_label == content_type:
-                values.add(content_key)
-                values.add(get_legacy_content_type(content_key))
-
-    return list(values)
+    normalized = normalize_storage_content_type(content_type, allow_fact_check=True)
+    if not normalized:
+        raise HTTPException(status_code=400, detail="Invalid content type filter")
+    return [normalized]
 
 
 def get_previous_range_bounds(time_range: str):
@@ -126,7 +115,7 @@ def build_content_interaction_match(
 ) -> dict:
     match = {
         "event_type": {"$in": list(CONTENT_INTERACTION_EVENTS)},
-        "$or": get_public_event_platform_or_match(),
+        "client_platform": {"$in": list(ALLOWED_FEEDBACK_PLATFORMS)},
     }
     content_type_values = get_event_content_type_values(content_type)
 
@@ -439,11 +428,7 @@ def build_analytics_event_document(data, request: Request) -> dict:
     topic = data.topic.strip() if data.topic else None
     vote = data.vote.strip() if data.vote else None
     metadata = data.metadata or {}
-    client_platform = (
-        data.clientPlatform
-        or metadata.get("clientPlatform")
-        or metadata.get("client_platform")
-    )
+    client_platform = data.clientPlatform
     client_platform = client_platform.strip() if client_platform else None
     visitor_id = str(data.visitorId or "").strip()
 
@@ -481,17 +466,19 @@ def build_analytics_event_document(data, request: Request) -> dict:
     if client_platform:
         metadata = {**metadata, "clientPlatform": client_platform}
 
+    content_type = data.contentType or "all"
+    if content_type != "all":
+        content_type = normalize_storage_content_type(content_type, allow_fact_check=True)
+        if content_type is None:
+            raise HTTPException(status_code=400, detail="Invalid content type")
+
     actor_user_id = authenticated_user_id or visitor_id
 
     return {
         "event_type": event_type,
         "content_id": data.contentId,
         "content_title": data.contentTitle,
-        "content_type": (
-            normalize_storage_content_type(data.contentType, allow_fact_check=True)
-            or data.contentType
-            or "all"
-        ),
+        "content_type": content_type,
         "client_platform": client_platform,
         "region": data.region or "all",
         "topic": topic,

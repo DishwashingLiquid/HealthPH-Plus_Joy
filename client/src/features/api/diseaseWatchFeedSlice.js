@@ -17,23 +17,12 @@ const buildParams = (params = {}) =>
 
 export const diseaseWatchFeedApi = baseAPI.injectEndpoints({
   endpoints: (builder) => ({
-    getMobileSelfReportsMapPins: builder.query({
+    getProcessedSelfReportDashboard: builder.query({
       query: (params = {}) => ({
-        url: "/mobile/self-reports/map-pins",
+        url: "/mobile/disease-watch-feed/processed-reports",
         params: buildParams(params),
       }),
-    }),
-    getMobileSelfReportsExport: builder.query({
-      query: (params = {}) => ({
-        url: "/mobile/self-reports/export",
-        params: buildParams(params),
-      }),
-    }),
-    getDiseaseWatchFeedUserAnalytics: builder.query({
-      query: (params = {}) => ({
-        url: "/mobile/disease-watch-feed/user-analytics",
-        params: buildParams(params),
-      }),
+      providesTags: ["ProcessedSelfReports"],
     }),
     getRegionalSymptomSummaries: builder.query({
       query: () => ({ url: "/mobile/disease-watch-feed/regional-summaries" }),
@@ -55,24 +44,15 @@ export const diseaseWatchFeedApi = baseAPI.injectEndpoints({
       query: (body) => ({ url: "/mobile/disease-watch-feed/alert-settings/run-evaluation", method: "POST", body }),
       invalidatesTags: ["RegionalAlertSettings", "RegionalAlerts", "RegionalSymptomSummaries"],
     }),
-    cancelRegionalAlert: builder.mutation({
-      query: (alertId) => ({
-        url: `/mobile/disease-watch-feed/alerts/${alertId}/cancel`,
-        method: "PATCH",
-      }),
-      invalidatesTags: ["RegionalAlerts"],
-    }),
+
   }),
 });
 
 export const {
-  useGetDiseaseWatchFeedUserAnalyticsQuery,
-  useGetMobileSelfReportsExportQuery,
-  useGetMobileSelfReportsMapPinsQuery,
+  useGetProcessedSelfReportDashboardQuery,
   useGetRegionalAlertsQuery,
   useGetRegionalAlertSettingsQuery,
   useGetRegionalSymptomSummariesQuery,
   useSaveRegionalAlertSettingsMutation,
   useRunRegionalAlertEvaluationMutation,
-  useCancelRegionalAlertMutation,
 } = diseaseWatchFeedApi;

@@ -2,6 +2,15 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
+SELF_REPORT_SYMPTOM_ID_TO_LABEL = {
+    "cough": "Cough", "fever": "Fever", "chills": "Chills", "fatigue": "Fatigue",
+    "shortness_of_breath": "Shortness of breath", "chest_pain": "Chest Pain",
+    "sore_throat": "Sore throat", "runny_nose": "Runny nose", "wheezing": "Wheezing",
+    "loss_of_taste_or_smell": "Loss of taste or smell", "headache": "Headache",
+    "body_aches": "Body aches", "cough_2_weeks": "Cough for 2+ weeks",
+    "night_sweats": "Night sweats", "weight_loss": "Weight loss",
+}
+
 
 def _clean_label(value):
     return " ".join(value.split()) if isinstance(value, str) else ""
@@ -32,15 +41,19 @@ def _symptom_aliases():
     return aliases
 
 
+def normalize_symptom_label(value):
+    label = _clean_label(value)
+    return _symptom_aliases().get(label.casefold(), label)
+
+
 def get_entry_symptoms(entry):
-    aliases = _symptom_aliases()
     symptoms = {}
 
     def add_label(value):
         label = _clean_label(value)
 
         if label:
-            label = aliases.get(label.casefold(), label)
+            label = normalize_symptom_label(label)
             symptoms.setdefault(label.casefold(), label)
 
     # keep selected symptoms from self reports. the buttons

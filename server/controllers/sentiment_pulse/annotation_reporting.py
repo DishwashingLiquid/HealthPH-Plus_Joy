@@ -17,7 +17,7 @@ READ_FIELDS = {key: 1 for key in (
 
 
 def submission_time(entry):
-    value = entry.get("event_time") or entry.get("created_at")
+    value = entry.get("event_time")
     try:
         return _ph_naive(value if isinstance(value, datetime) else datetime.fromisoformat(value))
     except (ValueError, TypeError):

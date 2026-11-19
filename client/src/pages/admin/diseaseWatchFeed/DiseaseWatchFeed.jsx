@@ -6,22 +6,17 @@ import {
   SymptomReporting,
 } from "../../../assets/icons/icons";
 import {
-  useGetDiseaseWatchFeedUserAnalyticsQuery,
-  useGetMobileSelfReportsExportQuery,
-  useGetMobileSelfReportsMapPinsQuery,
+  useGetProcessedSelfReportDashboardQuery,
   useGetRegionalAlertsQuery,
   useGetRegionalAlertSettingsQuery,
   useGetRegionalSymptomSummariesQuery,
   useSaveRegionalAlertSettingsMutation,
   useRunRegionalAlertEvaluationMutation,
-  useCancelRegionalAlertMutation,
 } from "../../../features/api/diseaseWatchFeedSlice";
 import RecentAlertsTab from "./RecentAlertsTab";
 import SendAlertModal from "./SendAlertModal";
 import RegionalCoverageTab from "./RegionalCoverageTab";
 import UserAnalyticsTab from "./UserAnalyticsTab";
-import { DASHBOARD_REGION_CODES } from "../dashboardRegions";
-import { buildRegionalCoverage } from "./regionalCoverage";
 import { buildRecentAlerts } from "./recentAlerts";
 
 const TABS = [
@@ -118,14 +113,10 @@ const renderTopMetricCards = () => (
   </div>
 );
 
-const buildLocationLookup = (mapPins) =>
-  new Map(mapPins.map((pin) => [pin.id, pin]));
-
 export default function DiseaseWatchFeed() {
   const [activeTab, setActiveTab] = useState("recent-alerts");
   const [selectedRegions, setSelectedRegions] = useState([]);
   const [isSendAlertOpen, setIsSendAlertOpen] = useState(false);
-  const [cancellingAlertId, setCancellingAlertId] = useState("");
   const [evaluationFeedback, setEvaluationFeedback] = useState(null);
   // Temporary access policy: show alert controls for every dashboard role.
   const canSendAlert = true;
@@ -139,31 +130,15 @@ export default function DiseaseWatchFeed() {
   };
 
   const {
-    data: mapPinsResponse,
-    error: mapPinsError,
-    isFetching: isMapPinsFetching,
-    isLoading: isMapPinsLoading,
-  } = useGetMobileSelfReportsMapPinsQuery();
-
-  const {
-    data: selfReportsResponse,
-    error: selfReportsError,
-    isFetching: isSelfReportsFetching,
-    isLoading: isSelfReportsLoading,
-  } = useGetMobileSelfReportsExportQuery(
-    { format: "json" },
-    {
-      pollingInterval: activeTab === "recent-alerts" ? 30000 : 0,
-      refetchOnMountOrArgChange: true,
-    }
-  );
-
-  const {
-    data: userAnalyticsResponse,
-    error: userAnalyticsError,
-    isFetching: isUserAnalyticsFetching,
-    isLoading: isUserAnalyticsLoading,
-  } = useGetDiseaseWatchFeedUserAnalyticsQuery();
+    data: dashboardResponse,
+    error: dashboardError,
+    isFetching: isDashboardFetching,
+    isLoading: isDashboardLoading,
+    refetch: refetchDashboard,
+  } = useGetProcessedSelfReportDashboardQuery(undefined, {
+    pollingInterval: 30000,
+    refetchOnMountOrArgChange: true,
+  });
 
   const { data: summariesResponse, error: summariesError, isLoading: isSummariesLoading, isFetching: isSummariesFetching, refetch: refetchRegionalSummaries } =
     useGetRegionalSymptomSummariesQuery(undefined, {
@@ -179,28 +154,16 @@ export default function DiseaseWatchFeed() {
     useGetRegionalAlertSettingsQuery(undefined, { skip: !canSendAlert, pollingInterval: activeTab === "recent-alerts" || isSendAlertOpen ? 30000 : 0 });
   const [saveRegionalAlertSettings, { isLoading: isSavingSettings }] = useSaveRegionalAlertSettingsMutation();
   const [runRegionalAlertEvaluation, { isLoading: isEvaluationRunning }] = useRunRegionalAlertEvaluationMutation();
-  const [cancelRegionalAlert] = useCancelRegionalAlertMutation();
-
-  const mapPins = useMemo(() => mapPinsResponse?.items || [], [mapPinsResponse]);
-  const selfReports = useMemo(
-    () => selfReportsResponse?.items || [],
-    [selfReportsResponse]
-  );
-
-  const locationLookup = useMemo(
-    () => buildLocationLookup(mapPins),
-    [mapPins]
-  );
 
   const alerts = useMemo(
-    () => buildRecentAlerts(selfReports, locationLookup),
-    [locationLookup, selfReports]
+    () => buildRecentAlerts(dashboardResponse?.items || []),
+    [dashboardResponse]
   );
   const regionUserData = useMemo(
-    () => buildRegionalCoverage(selfReports),
-    [selfReports]
+    () => dashboardResponse?.regionalCoverage || [],
+    [dashboardResponse]
   );
-  const userAnalytics = userAnalyticsResponse || EMPTY_USER_ANALYTICS;
+  const userAnalytics = dashboardResponse?.userAnalytics || EMPTY_USER_ANALYTICS;
   const availableRegions = useMemo(
     () => regionUserData.map((region) => region.region),
     [regionUserData]
@@ -216,13 +179,8 @@ export default function DiseaseWatchFeed() {
     );
   }, [availableRegions]);
 
-  const isRecentAlertsLoading = isSelfReportsLoading || isSelfReportsFetching;
-  const isRegionalCoverageLoading =
-    isMapPinsLoading ||
-    isMapPinsFetching ||
-    isSelfReportsLoading ||
-    isSelfReportsFetching;
-  const regionalCoverageError = mapPinsError || selfReportsError;
+  const isRecentAlertsLoading = isDashboardLoading;
+  const isRegionalCoverageLoading = isDashboardLoading;
 
   const handleSaveAlertSettings = async (form) => {
     await saveRegionalAlertSettings(form).unwrap();
@@ -231,6 +189,7 @@ export default function DiseaseWatchFeed() {
 
   const refreshRegionalAlertData = async () => {
     await Promise.allSettled([
+      refetchDashboard(),
       refetchAlertSettings(),
       refetchRegionalSummaries(),
       refetchRegionalAlerts(),
@@ -255,15 +214,6 @@ export default function DiseaseWatchFeed() {
     }
   };
 
-  const handleCancelAlert = async (alertId) => {
-    setCancellingAlertId(alertId);
-    try {
-      await cancelRegionalAlert(alertId).unwrap();
-    } finally {
-      setCancellingAlertId("");
-    }
-  };
-
   return (
     <div className="flex flex-col gap-[10px]">
       <div>
@@ -271,11 +221,11 @@ export default function DiseaseWatchFeed() {
           Disease Watch Feed
         </h1>
         <p className="text-[14px] text-gray-500">
-          Canonical mobile self-report activity, regional coverage, and mobile
-          reporter analytics.
+          Processed self-reports, regional coverage, and submitter activity from the last 30 days.
         </p>
       </div>
 
+      {isDashboardFetching && !isDashboardLoading && <p className="text-xs text-gray-500">Refreshing report results...</p>}
       {renderTopMetricCards()}
 
       <div className="bg-white rounded-[12px] border border-[#E5E5E5] p-[12px]">
@@ -308,15 +258,13 @@ export default function DiseaseWatchFeed() {
             sentAlerts={regionalAlertsResponse?.items || []}
             canSendAlert={canSendAlert}
             onSendAlert={() => setIsSendAlertOpen(true)}
-            onCancelAlert={handleCancelAlert}
-            cancellingId={cancellingAlertId}
             alertSettings={alertSettingsResponse?.item}
             onRunEvaluation={handleRunEvaluation}
             isEvaluationRunning={isEvaluationRunning}
             evaluationFeedback={evaluationFeedback}
             errorMessage={
-              selfReportsError || regionalAlertsError
-                ? getErrorMessage(selfReportsError || regionalAlertsError, "Failed to load recent alerts.")
+              dashboardError || regionalAlertsError
+                ? getErrorMessage(dashboardError || regionalAlertsError, "Failed to load recent alerts.")
                 : ""
             }
             isLoading={isRecentAlertsLoading}
@@ -324,12 +272,12 @@ export default function DiseaseWatchFeed() {
         )}
         {activeTab === "regional-coverage" && (
           <RegionalCoverageTab
-            unknownRegionReports={selfReports.filter((report) => !DASHBOARD_REGION_CODES.includes(report.region)).length}
+            unknownRegionReports={dashboardResponse?.totals?.unknownRegionReports || 0}
             availableRegions={availableRegions}
             errorMessage={
-              regionalCoverageError
+              dashboardError
                 ? getErrorMessage(
-                    regionalCoverageError,
+                    dashboardError,
                     "Failed to load regional coverage."
                   )
                 : ""
@@ -343,14 +291,14 @@ export default function DiseaseWatchFeed() {
         {activeTab === "user-analytics" && (
           <UserAnalyticsTab
             errorMessage={
-              userAnalyticsError
+              dashboardError
                 ? getErrorMessage(
-                    userAnalyticsError,
+                    dashboardError,
                     "Failed to load user analytics."
                   )
                 : ""
             }
-            isLoading={isUserAnalyticsLoading || isUserAnalyticsFetching}
+            isLoading={isDashboardLoading}
             userAnalytics={userAnalytics}
           />
         )}

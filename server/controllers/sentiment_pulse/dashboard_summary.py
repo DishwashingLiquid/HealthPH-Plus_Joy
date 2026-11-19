@@ -7,7 +7,7 @@ from controllers.dashboard_regions import mongo_region_expression
 
 from .constants import PUBLIC_SOURCES, REGIONS, survey_responses_collection, surveys_collection
 from .regional_analysis import get_event_region
-from .survey_helpers import get_survey_status, parse_ph_datetime
+from .survey_helpers import get_survey_status
 
 
 PH_TIMEZONE = timezone(timedelta(hours=8))  # Asia/Manila; matches get_ph_datetime.
@@ -24,23 +24,8 @@ def reporting_months(now: datetime):
 
 
 def publication_date_expression():
-    """Accept the legacy ISO strings supported by serialize_survey as well as BSON dates."""
-    return {
-        "$cond": [
-            {"$eq": [{"$type": "$scheduledAt"}, "string"]},
-            {"$let": {
-                "vars": {"parsed": {"$convert": {
-                    "input": "$scheduledAt", "to": "date", "onError": None, "onNull": None,
-                }}},
-                "in": {"$cond": [
-                    {"$regexMatch": {"input": "$scheduledAt", "regex": r"(?:Z|[+-]\d{2}:?\d{2})$"}},
-                    {"$add": ["$$parsed", 8 * 60 * 60 * 1000]},
-                    "$$parsed",
-                ]},
-            }},
-            {"$cond": [{"$eq": [{"$type": "$scheduledAt"}, "date"]}, "$scheduledAt", None]},
-        ],
-    }
+    """Publication schedules are stored as BSON dates by the survey writer."""
+    return "$scheduledAt"
 
 
 def response_totals_pipeline(now: datetime):
@@ -84,8 +69,6 @@ def build_dashboard_summary(surveys, now: datetime):
     published = []
     for survey in surveys:
         publication = survey.get("publishedAt")
-        if isinstance(publication, str):
-            publication = parse_ph_datetime(publication)
         if get_survey_status({"scheduledAt": publication}, now) == "Published":
             published.append({**survey, "publishedAt": publication})
     published.sort(key=lambda survey: (datetime.max - survey["publishedAt"], survey["id"]))

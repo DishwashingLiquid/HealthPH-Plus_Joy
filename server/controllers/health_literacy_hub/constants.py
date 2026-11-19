@@ -9,40 +9,30 @@ from config.database import (
 
 CONTENT_TYPE_CONFIG = {
     "article": {
-        "legacy": "articles",
+        "bucket": "articles",
         "label": "Articles",
-        "file": "articles.json",
         "media_prefixes": ("image/", "video/", "application/pdf"),
     },
     "video": {
-        "legacy": "videos",
+        "bucket": "videos",
         "label": "Videos",
-        "file": "videos.json",
         "media_prefixes": ("video/",),
     },
     "infographic": {
-        "legacy": "infographics",
+        "bucket": "infographics",
         "label": "Infographics",
-        "file": "infographics.json",
         "media_prefixes": ("image/",),
     },
 }
 
-CONTENT_FILES = {
-    config["legacy"]: config["file"] for config in CONTENT_TYPE_CONFIG.values()
-}
+CONTENT_BUCKETS = tuple(config["bucket"] for config in CONTENT_TYPE_CONFIG.values())
 
-CONTENT_MEDIA_PREFIXES = {
-    config["legacy"]: config["media_prefixes"]
-    for config in CONTENT_TYPE_CONFIG.values()
-}
-
-LEGACY_TO_STORAGE_CONTENT_TYPE = {
-    config["legacy"]: storage_type
+BUCKET_TO_STORAGE_CONTENT_TYPE = {
+    config["bucket"]: storage_type
     for storage_type, config in CONTENT_TYPE_CONFIG.items()
 }
-STORAGE_TO_LEGACY_CONTENT_TYPE = {
-    storage_type: config["legacy"]
+STORAGE_TO_BUCKET_CONTENT_TYPE = {
+    storage_type: config["bucket"]
     for storage_type, config in CONTENT_TYPE_CONFIG.items()
 }
 CONTENT_TYPE_LABELS = {
@@ -50,7 +40,7 @@ CONTENT_TYPE_LABELS = {
     for storage_type, config in CONTENT_TYPE_CONFIG.items()
 }
 CONTENT_TYPE_ALIASES = {
-    **LEGACY_TO_STORAGE_CONTENT_TYPE,
+    **BUCKET_TO_STORAGE_CONTENT_TYPE,
     **{storage_type: storage_type for storage_type in CONTENT_TYPE_CONFIG},
 }
 CONTENT_TYPE_ALIASES["fact_check"] = "fact_check"
@@ -132,20 +122,9 @@ def normalize_storage_content_type(
     return None
 
 
-def get_content_bucket(content_type: str) -> str | None:
-    storage_type = normalize_storage_content_type(content_type)
-    if not storage_type:
-        return None
-
-    return STORAGE_TO_LEGACY_CONTENT_TYPE.get(storage_type)
-
-
-def get_legacy_content_type(content_type: str) -> str:
-    storage_type = normalize_storage_content_type(content_type)
-    if not storage_type:
-        return str(content_type or "")
-
-    return STORAGE_TO_LEGACY_CONTENT_TYPE.get(storage_type, storage_type)
+def get_content_bucket(content_type: str) -> str:
+    storage_type = normalize_storage_content_type(content_type, allow_fact_check=True)
+    return STORAGE_TO_BUCKET_CONTENT_TYPE.get(storage_type, storage_type or "")
 
 
 def get_content_type_label(content_type: str) -> str:

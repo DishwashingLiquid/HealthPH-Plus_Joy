@@ -21,14 +21,6 @@ DOCUMENT_KINDS = (
     ALERT_COOLDOWN,
 )
 
-SOURCE_COLLECTION_KINDS = {
-    "regional_symptom_summaries": REGIONAL_SUMMARY,
-    "regional_summary_events": SUMMARY_EVENT,
-    "regional_alert_batch_states": ALERT_BATCH_STATE,
-    "regional_alert_cooldowns": ALERT_COOLDOWN,
-}
-
-
 class KindScopedCollection:
     """A narrow PyMongo collection view that cannot cross document kinds."""
 
@@ -174,27 +166,3 @@ def ensure_disease_watch_internal_indexes(collection):
         }),
     )
     return [collection.create_index(keys, **options) for keys, options in definitions]
-
-
-def assert_disease_watch_cutover_ready(db):
-    """Refuse startup when legacy records have not all reached the destination."""
-    source_counts = {name: db[name].count_documents({}) for name in SOURCE_COLLECTION_KINDS}
-    destination_counts = {
-        kind: db[DESTINATION_COLLECTION].count_documents({"kind": kind})
-        for kind in DOCUMENT_KINDS
-    }
-    incomplete = [
-        name for name, kind in SOURCE_COLLECTION_KINDS.items()
-        if destination_counts[kind] < source_counts[name]
-    ]
-    if incomplete:
-        raise RuntimeError(
-            "Disease Watch consolidation is not ready: run and validate "
-            "migrate_disease_watch_internal.py before deploying this code"
-        )
-    return {
-        "sourceCount": sum(source_counts.values()),
-        "destinationCount": sum(destination_counts.values()),
-        "sourceCounts": source_counts,
-        "destinationKindCounts": destination_counts,
-    }

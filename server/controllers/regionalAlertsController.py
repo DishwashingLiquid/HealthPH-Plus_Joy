@@ -17,7 +17,6 @@ from pymongo.errors import DuplicateKeyError
 
 import config.database as database
 from disease_watch_storage import (
-    assert_disease_watch_cutover_ready,
     ensure_disease_watch_internal_indexes,
 )
 from helpers.miscHelpers import get_ph_datetime
@@ -32,7 +31,7 @@ alerts = getattr(database, "regional_alerts_collection", None)
 deliveries = getattr(database, "mobile_notification_deliveries_collection", None)
 mobile_users = getattr(database, "mobile_users_collection", None)
 users = getattr(database, "user_collection", None)
-self_reports = getattr(database, "self_reports_collection", None)
+analytics_entries = getattr(database, "analytics_entries_collection", None)
 settings = getattr(database, "application_settings_collection", None)
 batch_states = getattr(database, "regional_alert_batch_states_collection", None)
 cooldowns = getattr(database, "regional_alert_cooldowns_collection", None)
@@ -78,10 +77,9 @@ async def require_regional_alert_user(user_id: Annotated[str, Depends(require_au
 
 def ensure_regional_alert_indexes():
     """Called at startup only; ordinary scheduler ticks do not build indexes."""
+    if analytics_entries is not None:
+        _store().repository.ensure_indexes()
     if disease_watch_internal is not None:
-        configured_db = getattr(database, "db", None)
-        if configured_db is not None:
-            assert_disease_watch_cutover_ready(configured_db)
         ensure_disease_watch_internal_indexes(disease_watch_internal)
     if _collections_available(summaries, summary_events, alerts, deliveries):
         alerts.create_index([("batchId", 1)], unique=True, sparse=True, name="unique_automatic_alert_batch")
@@ -90,7 +88,7 @@ def ensure_regional_alert_indexes():
         deliveries.create_index([("mobileUserId", 1), ("status", 1), ("alertId", 1)], name="mobile_alert_inbox_lookup")
 
 
-def _store(): return SummaryStore(self_reports, summary_events, summaries, settings)
+def _store(): return SummaryStore(analytics_entries, summary_events, summaries, settings)
 
 
 def _settings_document():
@@ -112,7 +110,7 @@ def serialize_summary(item, state=None):
     return {"region": item.get("region"), "regionName": REGION_NAMES.get(item.get("region"), item.get("region")), "reportCount": int(item.get("reportCount") or 0),
             "symptomCounts": item.get("symptomCounts") or [], "updatedAt": _iso(item.get("updatedAt")),
             "automationStatus": (state or {}).get("status") or "Active", "nextEligibleAt": _iso((state or {}).get("nextEligibleAt")),
-            "notice": "Counts reflect eligible submitted symptoms only and are not diagnoses."}
+            "notice": "Counts combine selected symptoms and non-negated symptoms extracted from processed report text, once per report. These are not diagnoses."}
 
 
 def preview_for_alert(item):
@@ -129,24 +127,24 @@ def preview_for_alert(item):
 
 
 def serialize_alert(item):
-    automatic = item.get("source") == "automated_regional_summary"
-    return {"id": str(item.get("_id")), "title": item.get("title"), "region": item.get("region"), "message": item.get("message"), "status": item.get("status"),
-            "scheduledAt": _iso(item.get("scheduledAt")), "sentAt": _iso(item.get("sentAt")), "cancelledAt": _iso(item.get("cancelledAt")),
-            "recipientCount": int(item.get("recipientCount") or 0), "deliveryError": item.get("deliveryError") or "", "automated": automatic,
-            "reportCount": int(item.get("trigger", {}).get("reportCount") or 0), "intervalMinutes": item.get("trigger", {}).get("intervalMinutes"),
-            "generatedAt": _iso(item.get("createdAt")), "preparationStatus": item.get("status") if automatic else None,
+    trigger = item["trigger"]
+    return {"id": str(item["_id"]), "title": item["title"], "region": item["region"],
+            "message": item["message"], "status": item["status"], "automated": True,
+            "recipientCount": int(item.get("recipientCount") or 0), "deliveryError": item.get("deliveryError") or "",
+            "reportCount": trigger["reportCount"], "intervalMinutes": trigger["intervalMinutes"],
+            "generatedAt": _iso(item["createdAt"]), "preparationStatus": item["status"],
             "summaryPreview": preview_for_alert(item)}
 
 
 async def fetch_regional_summaries(_user: Annotated[dict, Depends(require_regional_alert_user)]):
-    items = list(summaries.find({"isReady": True})) if summaries is not None else []
+    items = [item for item in _store().read_summaries() if item["isReady"]] if _collections_available(analytics_entries, summary_events, summaries) else []
     states = {item.get("_id"): item for item in batch_states.find({})} if batch_states is not None else {}
     items.sort(key=lambda item: REGIONS.index(item.get("region")) if item.get("region") in REGIONS else len(REGIONS))
     return JSONResponse(status_code=200, content={"items": [serialize_summary(item, states.get(item.get("region"))) for item in items]})
 
 
 async def fetch_regional_alerts(_user: Annotated[dict, Depends(require_regional_alert_user)]):
-    items = list(alerts.find({}).sort([("createdAt", -1), ("scheduledAt", -1)])) if alerts is not None else []
+    items = list(alerts.find({"source": "automated_regional_summary"}).sort([("createdAt", -1), ("scheduledAt", -1)])) if alerts is not None else []
     return JSONResponse(status_code=200, content={"items": [serialize_alert(item) for item in items]})
 
 
@@ -211,15 +209,19 @@ def _message(summary, region, included_keys=None):
     interval = int(summary.get("intervalMinutes") or 0)
     interval_text = f"{interval} minutes" if interval < 60 else ("1 hour" if interval == 60 else f"{interval // 60} hours")
     count = int(summary.get("reportCount") or 0)
-    return (f"{count} self-reports were recorded in {region} during the last {interval_text}. "
+    return (f"{count} processed self-reports were recorded in {region} during the last {interval_text}. "
             f"Reported symptoms included {listed}. These are not confirmed diagnoses.")
 
 
 def _cooldown_status(region, symptom_keys, at):
-    records = {item.get("symptomKey"): item for item in cooldowns.find({"region": region, "symptomKey": {"$in": list(symptom_keys)}})}
+    deadlines_by_key = {}
+    for item in cooldowns.find({"region": region, "expiresAt": {"$gt": at}}):
+        key = item["symptomKey"]
+        deadline = item["expiresAt"]
+        deadlines_by_key[key] = max(deadline, deadlines_by_key.get(key, deadline))
     eligible, suppressed, deadlines = [], [], []
     for key in symptom_keys:
-        deadline = records.get(key, {}).get("expiresAt")
+        deadline = deadlines_by_key.get(key)
         if deadline and deadline > at: suppressed.append(key); deadlines.append(deadline)
         else: eligible.append(key)
     return eligible, suppressed, min(deadlines) if deadlines else None
@@ -281,12 +283,11 @@ def _finish_processing(region, state, at=None):
     alert = alerts.find_one({"batchId": batch_id})
     if not alert:
         included = state.get("includedSymptomKeys") or []
-        included_labels = [item["symptom"] for item in snapshot.get("symptomCounts") or [] if item.get("symptom")]
         alert_document = {"source": "automated_regional_summary", "batchId": batch_id, "region": region,
             "title": f"Regional self-report alert: {region}", "message": _message(snapshot, region, included), "status": "Preparing", "recipientCount": 0,
             "createdAt": at, "updatedAt": at, "trigger": {"reportCount": snapshot.get("reportCount"), "threshold": _settings_document()["threshold"], "comparison": ">",
             "intervalMinutes": snapshot.get("intervalMinutes"), "windowStart": snapshot.get("windowStart"), "windowEnd": snapshot.get("windowEnd"), "summarySnapshot": snapshot,
-            "includedSymptomKeys": included, "suppressedSymptomKeys": state.get("suppressedSymptomKeys") or [], "includedSymptomLabels": included_labels}}
+            "includedSymptomKeys": included, "suppressedSymptomKeys": state.get("suppressedSymptomKeys") or []}}
         try:
             result = alerts.insert_one(alert_document); alert_document["_id"] = result.inserted_id; alert = alert_document
         except DuplicateKeyError: alert = alerts.find_one({"batchId": batch_id})
@@ -299,11 +300,11 @@ def _finish_processing(region, state, at=None):
     return bool(alert)
 
 
-def evaluate_regional_summary(region):
-    if not _collections_available(summaries, summary_events, alerts, batch_states, cooldowns, settings): return "unavailable"
+def evaluate_regional_summary(region, *, refresh=True):
+    if not _collections_available(analytics_entries, summaries, summary_events, alerts, batch_states, cooldowns, settings): return "unavailable"
     configuration, at = _settings_document(), now()
     if not configuration["enabled"]: return "paused"
-    summary = _store().refresh_region(region, at)
+    summary = _store().refresh_region(region, at) if refresh else (summaries.find_one({"region": region}) or {})
     if int(summary.get("reportCount") or 0) <= configuration["threshold"]:
         # A cooling-down batch may age below the strict trigger boundary. It is
         # retained raw but must not wake repeatedly or alert after expiry.
@@ -312,15 +313,13 @@ def evaluate_regional_summary(region):
     return _claim_and_finish(region, summary, configuration, at)
 
 
-def update_regional_summary_for_report(report: dict):
-    if not _collections_available(summaries, summary_events): return {"status": "failed", "reason": "storage_unavailable"}
-    result = _store().update_report(report)
-    if result.get("status") == "updated":
-        # Alert persistence is deliberately separate from source acceptance;
-        # an automation problem cannot turn an accepted report into a failed POST.
-        try: result["automation"] = evaluate_regional_summary(result["region"])
-        except Exception as error: result["automation"] = f"deferred:{type(error).__name__}"
-    return result
+def on_self_report_processing_completed():
+    """Processing-completion hook; submissions never trigger alert evaluation."""
+    if not _collections_available(analytics_entries, summary_events, summaries):
+        return 0
+    if _settings_document()["enabled"]:
+        return run_automation_tick(force=True)
+    return _store().refresh_recent_reports()
 
 
 def _prepare_automatic_recipients():
@@ -345,41 +344,9 @@ def _prepare_automatic_recipients():
     return prepared
 
 
-def _reconcile_recent_source_reports(configuration, current):
-    """Bounded recovery for reports accepted before a projection write failed.
-
-    The normal POST path projects immediately.  The scheduler additionally
-    reads only the active rolling window, so a restart or projection failure
-    does not leave fresh source reports permanently invisible.  Old consumed
-    events remain untouched by SummaryStore's explicit consumption checks.
-    """
-    if self_reports is None:
-        return 0
-    lower_bound = current - timedelta(minutes=configuration["intervalMinutes"])
-    recovered = 0
-    for report in self_reports.find({"source": "mobile_self_report", "createdAt": {"$gte": lower_bound}}):
-        result = _store().update_report(report)
-        recovered += int(result.get("status") == "updated")
-    return recovered
-
-
-def process_due_regional_alerts():
-    """Legacy manual scheduled alerts only; automatic records are never Sent here."""
-    if not _collections_available(alerts, deliveries, mobile_users): return 0
-    current, sent = get_ph_datetime(), 0
-    for candidate in alerts.find({"source": {"$ne": "automated_regional_summary"}, "$or": [{"status": "Scheduled", "scheduledAt": {"$lte": current}}, {"status": "Sending", "deliveryClaimedAt": {"$lte": current - timedelta(minutes=5)}}]}):
-        claimed = alerts.find_one_and_update({"_id": candidate["_id"], "status": candidate["status"]}, {"$set": {"status": "Sending", "deliveryClaimedAt": current}}, return_document=ReturnDocument.AFTER)
-        if not claimed: continue
-        for recipient in mobile_users.find({"regionCode": claimed["region"], "source": "mobile_registration", "roleId": "user"}):
-            try: deliveries.update_one({"alertId": claimed["_id"], "mobileUserId": recipient.get("id")}, {"$setOnInsert": {"alertId": claimed["_id"], "mobileUserId": recipient.get("id"), "status": "Queued", "createdAt": current}}, upsert=True)
-            except Exception: pass
-        alerts.update_one({"_id": claimed["_id"], "status": "Sending"}, {"$set": {"status": "Sent", "sentAt": current, "recipientCount": deliveries.count_documents({"alertId": claimed["_id"]})}}); sent += 1
-    return sent
-
-
 def run_automation_tick(force=False):
     """30-second wake-up: recover claims/preparation and reconcile only when due."""
-    if not _collections_available(summaries, summary_events, alerts, batch_states, cooldowns, settings): return 0
+    if not _collections_available(analytics_entries, summaries, summary_events, alerts, batch_states, cooldowns, settings): return 0
     configuration, current = _settings_document(), now()
     for state in batch_states.find({"status": "Processing"}): _finish_processing(state.get("_id"), state, current)
     _prepare_automatic_recipients()
@@ -390,18 +357,10 @@ def run_automation_tick(force=False):
     regions = set(REGIONS if due else []) | {state.get("_id") for state in due_states}
     successes = 0
     try:
-        if due:
-            _reconcile_recent_source_reports(configuration, current)
+        _store().refresh_recent_reports(current)
         for region in regions:
-            if region in REGIONS: evaluate_regional_summary(region); successes += 1
+            if region in REGIONS: evaluate_regional_summary(region, refresh=False); successes += 1
         settings.update_one({"_id": AUTOMATION_SETTINGS_ID}, {"$set": {"lastSuccessfulEvaluation": current, "lastEvaluationError": "", "nextScheduledReconciliation": current + timedelta(minutes=configuration["intervalMinutes"])}}, upsert=True)
     except Exception as error:
         settings.update_one({"_id": AUTOMATION_SETTINGS_ID}, {"$set": {"lastEvaluationError": type(error).__name__, "nextScheduledReconciliation": current + timedelta(seconds=30)}}, upsert=True)
     return successes
-
-
-async def cancel_regional_alert(alert_id: str, _user: Annotated[dict, Depends(require_regional_alert_user)]):
-    if not ObjectId.is_valid(alert_id): raise HTTPException(status_code=404, detail="Alert not found")
-    result = alerts.find_one_and_update({"_id": ObjectId(alert_id), "source": {"$ne": "automated_regional_summary"}, "status": "Scheduled", "scheduledAt": {"$gt": get_ph_datetime()}}, {"$set": {"status": "Cancelled", "cancelledAt": now()}}, return_document=ReturnDocument.AFTER)
-    if not result: raise HTTPException(status_code=400, detail="Only future manually scheduled alerts can be cancelled")
-    return JSONResponse(status_code=200, content={"item": serialize_alert(result)})

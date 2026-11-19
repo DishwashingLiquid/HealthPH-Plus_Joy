@@ -20,7 +20,7 @@ from .regional_reporting import regional_report
 
 
 def share(answers, denominator):
-    # Unknown legacy satisfaction mappings remain null, including in distributions.
+    # Unconfigured satisfaction mappings remain null, including in distributions.
     return answers / denominator * 100 if answers is not None and denominator else None
 
 
@@ -128,7 +128,7 @@ def mobile_regional(user, requested_region, surveys, fallback, bounds, filters):
         # Never substitute all-region totals for an absent/contradictory profile region.
         return result
     rules = {survey["id"]: configured_rules(survey, fallback) for survey in surveys if survey.get("id")}
-    aggregate = regional_report(analytics_entries_collection, survey_responses_collection, rules, bounds, [region])
+    aggregate = regional_report(analytics_entries_collection, rules, bounds, [region])
     projected = mobile_report(aggregate, regional_filters)
     result.update({key: projected[key] for key in ("sentiment", "sentimentDistribution",
                                                  "satisfaction", "satisfactionDistribution")})

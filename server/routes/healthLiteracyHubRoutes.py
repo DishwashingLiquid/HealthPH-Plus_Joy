@@ -7,7 +7,6 @@ from controllers.healthLiteracyHubController import (
     create_health_literacy_content,
     delete_health_literacy_content,
     fetch_health_literacy_media,
-    fetch_legacy_health_literacy_media,
     fetch_health_literacy_analytics_overview,
     fetch_health_literacy_content,
     fetch_mobile_health_literacy_contract,
@@ -83,13 +82,6 @@ router.add_api_route(
     "/media/{file_id}",
     methods=["GET", "HEAD"],
     endpoint=fetch_health_literacy_media,
-)
-
-# Legacy filesystem URLs deliberately never expose local files.
-router.add_api_route(
-    "/media/{content_type}/{filename}",
-    methods=["GET"],
-    endpoint=fetch_legacy_health_literacy_media,
 )
 
 # GET       /health-literacy-hub/{content_type}

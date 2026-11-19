@@ -18,38 +18,12 @@ def report_number(value):
     return int(match.group(1)) if match and int(match.group(1)) > 0 else None
 
 
-def audit_report_ids(reports):
-    """Validate before index/counter initialization or a controlled backfill."""
-    seen = set()
-    highest = 0
-    missing = []
-    for report in reports:
-        value = report.get("id")
-        if value in (None, ""):
-            missing.append(report)
-            continue
-        number = report_number(value)
-        if number is None or value in seen:
-            raise ReportIdError("Invalid or duplicate readable report ID; reconcile before rollout.")
-        seen.add(value)
-        highest = max(highest, number)
-    return highest, missing
-
-
 def ensure_report_id_indexes(reports, counters):
-    highest, _ = audit_report_ids(reports.find({}, {"id": 1}))
-    # Legacy records without an id are permitted until the controlled backfill.
-    reports.create_index(
-        [("id", 1)],
-        name="unique_self_report_public_id",
-        unique=True,
-        partialFilterExpression={"id": {"$type": "string"}},
-    )
-    # $max never resets a sequence consumed by another worker or failed insert.
+    reports.create_index([("id", 1)], name="unique_self_report_public_id", unique=True)
     try:
-        counters.update_one({"_id": COUNTER_ID}, {"$max": {"value": highest}}, upsert=True)
+        counters.update_one({"_id": COUNTER_ID}, {"$setOnInsert": {"value": 0}}, upsert=True)
     except DuplicateKeyError:
-        counters.update_one({"_id": COUNTER_ID}, {"$max": {"value": highest}})
+        pass  # Another worker initialized the same counter.
 
 
 def next_report_id(counters):
@@ -64,5 +38,5 @@ def next_report_id(counters):
 
 def insert_report_with_id(reports, counters, document):
     document["id"] = next_report_id(counters)
-    # The unique index is the final guard even across API workers/backfill runs.
+    # The unique index guards concurrent API workers.
     return reports.insert_one(document)

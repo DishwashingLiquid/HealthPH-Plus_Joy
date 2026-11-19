@@ -1,46 +1,22 @@
 import { getDashboardRegionLabel } from "../dashboardRegions";
 
-export const buildRecentAlerts = (reports, locationLookup) => {
-  const dedupeKeys = new Set();
-  const alerts = [];
-
-  reports.forEach((report) => {
-    const mapPin = locationLookup.get(report.id);
-    const canonicalSymptoms = [...(report.symptomIds || [])].sort();
-    const dedupeKey = `${report.id}:${canonicalSymptoms.join("|")}`;
-
-    if (dedupeKeys.has(dedupeKey)) {
-      return;
-    }
-
-    dedupeKeys.add(dedupeKey);
-
-    const symptomLabels = report.symptomLabels?.length
-      ? report.symptomLabels
-      : mapPin?.tags?.length
-        ? mapPin.tags
-        : ["respiratory symptoms"];
-    const locationLabel = getDashboardRegionLabel(report.region);
-    const diseaseLabel =
-      mapPin?.disease || report.possibleConditionLabel || "Respiratory symptoms reported";
-    const summarySymptoms = symptomLabels.slice(0, 3).join(", ");
-
-    alerts.push({
-      id: report.id,
-      disease: diseaseLabel,
-      region: locationLabel,
-      type: "Symptom Report",
-      timestamp: report.createdAt,
-      summary: `Self-reported ${summarySymptoms} in ${locationLabel}.`,
-      summarySegments: [
-        { type: "text", value: "Self-reported " },
-        { type: "entity", label: summarySymptoms, tone: "symptom" },
-        { type: "text", value: " in " },
-        { type: "entity", label: locationLabel, tone: "location" },
-        { type: "text", value: "." },
-      ],
-    });
-  });
-
-  return alerts;
-};
+// Presentation only. The backend owns eligibility, deduplication and results.
+export const buildRecentAlerts = (reports) => reports.map((report) => {
+  const locationLabel = getDashboardRegionLabel(report.region);
+  const symptoms = report.combinedSymptoms.slice(0, 3).join(", ") || "no detected symptoms";
+  return {
+    id: report.id,
+    disease: report.diseaseLabels.join(", ") || "No disease detected",
+    region: locationLabel,
+    type: "Processed Self-Report",
+    timestamp: report.createdAt,
+    summary: `Report includes ${symptoms} in ${locationLabel}.`,
+    summarySegments: [
+      { type: "text", value: "Report includes " },
+      { type: "entity", label: symptoms, tone: "symptom" },
+      { type: "text", value: " in " },
+      { type: "entity", label: locationLabel, tone: "location" },
+      { type: "text", value: "." },
+    ],
+  };
+});

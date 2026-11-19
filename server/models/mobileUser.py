@@ -63,12 +63,12 @@ class MobileRegistrationRequest(BaseModel):
 
     @field_validator("email")
     @classmethod
-    def email(cls, value):
+    def validate_email(cls, value):
         return normalize_mobile_email(value)
 
     @field_validator("password")
     @classmethod
-    def password(cls, value):
+    def validate_password(cls, value):
         return validate_mobile_password(value)
 
     @field_validator("roleId")
@@ -87,7 +87,7 @@ class MobileRegistrationRequest(BaseModel):
 
     @field_validator("source")
     @classmethod
-    def source(cls, value):
+    def validate_source(cls, value):
         if value != MOBILE_REGISTRATION_SOURCE:
             raise ValueError("source must be mobile_registration")
         return MOBILE_REGISTRATION_SOURCE
@@ -99,12 +99,12 @@ class MobileLoginRequest(BaseModel):
 
     @field_validator("email")
     @classmethod
-    def email(cls, value):
+    def validate_email(cls, value):
         return normalize_mobile_email(value)
 
     @field_validator("password")
     @classmethod
-    def password(cls, value):
+    def validate_password(cls, value):
         if not isinstance(value, str) or not value or len(value) > 128:
             raise ValueError("A password is required")
         return value

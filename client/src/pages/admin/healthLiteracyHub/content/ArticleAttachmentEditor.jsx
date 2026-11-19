@@ -32,7 +32,6 @@ export default function ArticleAttachmentEditor({ formData, mode, onMediaChange,
       {hasAttachment && <div className="hl-upload-preview">
         {formData.mediaPreview && mime.startsWith("video/") && <video src={formData.mediaPreview} controls preload="metadata" />}
         <p className="hl-upload-filename">{name}</p>
-        {formData.existingMedia?.migrationRequired && <p role="status" className="hl-form-hint">This file cannot be previewed yet. You can keep it or choose a replacement.</p>}
       </div>}
       <MediaFilePicker id={`health-literacy-media-upload-${mode}`} label={hasAttachment ? "Replace file" : "Choose video or PDF"}
         accept="video/mp4,video/quicktime,video/webm,application/pdf" onFiles={select}

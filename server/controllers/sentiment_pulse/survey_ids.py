@@ -6,8 +6,6 @@ import re
 SURVEY_ID_PATTERN = re.compile(r"^SUR(\d{5,})$")
 QUESTION_ID_PATTERN = re.compile(r"^SUR(\d{5,})-Q(\d{2,})$")
 ANSWER_ID_PATTERN = re.compile(r"^SUR(\d{5,})-Q(\d{2,})-RES(\d{4,})$")
-HISTORIC_SURVEY_ID_PATTERN = re.compile(r"^SUR-(\d+)$")
-HISTORIC_QUESTION_ID_PATTERN = re.compile(r"^Q-SUR(\d+)-(\d+)$")
 
 
 def format_survey_id(sequence: int) -> str:

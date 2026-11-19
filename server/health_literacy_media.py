@@ -106,9 +106,7 @@ def serialize_media(media, admin_id=None):
     if not isinstance(media, dict):
         return None
     if not media.get("fileId"):
-        # Never expose legacy data URLs or host-specific filesystem URLs.
-        return {"filename": media.get("filename"), "contentType": media.get("contentType"),
-                "size": media.get("size"), "migrationRequired": True} if admin_id else None
+        return None
     result = {key: media[key] for key in ("fileId", "filename", "contentType", "size", "sha256") if key in media}
     result["fileId"] = str(result["fileId"])
     result["url"] = media_url(result["fileId"])

@@ -9,7 +9,7 @@ function SummaryCard({ summary }) {
   const regionName = summary.regionName || `Region ${summary.region}`;
   const symptoms = summary.symptomCounts || [];
   const leading = symptoms.slice(0, 3);
-  const sentence = `${regionName} has ${summary.reportCount} submitted ${summary.reportCount === 1 ? "self-report" : "self-reports"}. `
+  const sentence = `${regionName} has ${summary.reportCount} processed ${summary.reportCount === 1 ? "self-report" : "self-reports"}. `
     + (leading.length
       ? `The most frequently reported ${leading.length === 1 ? "symptom is" : "symptoms are"} ${joinSymptoms(leading.map((item) => `${item.symptom} (${reportLabel(item.count)})`))}.`
       : "No symptom data was provided in these reports.");
@@ -17,7 +17,7 @@ function SummaryCard({ summary }) {
   return <article className="rounded-[10px] border border-[#D5E3F0] bg-[#F8FBFF] p-[14px]">
     <h3 className="font-semibold text-gray-800">{regionName}</h3>
     <p className="mt-2 text-sm leading-6 text-gray-700">{sentence}</p>
-    <p className="mt-2 text-xs text-gray-500">Counts reflect submitted symptoms only and are not diagnoses.</p>
+    <p className="mt-2 text-xs text-gray-500">Only processed reports contribute. Counts combine selected symptoms and symptoms extracted from report text, once per report. Negated text mentions are excluded. These are not diagnoses.</p>
     {summary.automationStatus === "CoolingDown" && <p className="mt-2 text-xs text-[#7E22CE]">Alert batch is waiting for symptom cooldown{summary.nextEligibleAt ? ` until ${new Date(summary.nextEligibleAt).toLocaleString()}` : ""}.</p>}
     {symptoms.length > 0 && <details className="mt-2 text-xs text-gray-700">
       <summary className="cursor-pointer font-medium">View all symptom counts ({symptoms.length})</summary>
@@ -34,7 +34,7 @@ export default function RegionalSummaryList({ summaries = [], isLoading = false,
   if (errorMessage) return <p role="alert" className="text-sm text-[#B42318]">{errorMessage}</p>;
   if (!summaries.length) return <p role="status" className="text-sm text-gray-500">{isFetching
     ? "Loading regional summaries..."
-    : "No regional summary is ready yet. A summary becomes ready after a region reaches five submitted reports."}</p>;
+    : "No regional summary is ready yet. A summary becomes ready after a region reaches five processed reports."}</p>;
   return <div>
     {isFetching && <p role="status" className="mb-2 text-xs text-gray-500">Refreshing regional summaries...</p>}
     <div className="grid grid-cols-1 gap-[10px] lg:grid-cols-2">

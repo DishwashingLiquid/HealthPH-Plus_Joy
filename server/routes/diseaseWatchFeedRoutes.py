@@ -2,13 +2,15 @@ from fastapi import APIRouter
 
 from controllers.diseaseWatchFeedController import (
     create_mobile_self_report,
+    fetch_mobile_self_reports_mine,
+)
+from controllers.processedSelfReportsController import (
     export_mobile_self_reports,
     fetch_mobile_self_reports_map_pins,
-    fetch_mobile_self_reports_mine,
     fetch_mobile_user_analytics_summary,
+    fetch_processed_self_report_dashboard,
 )
 from controllers.regionalAlertsController import (
-    cancel_regional_alert,
     fetch_regional_alert_settings,
     fetch_regional_alerts,
     fetch_regional_summaries,
@@ -22,6 +24,9 @@ from controllers.mobileAlertsController import (
 )
 
 mobile_self_reports_router = APIRouter()
+mobile_self_reports_router.add_api_route(
+    "/disease-watch-feed/processed-reports", methods=["GET"], endpoint=fetch_processed_self_report_dashboard
+)
 
 # POST      /mobile/self-reports
 mobile_self_reports_router.add_api_route(
@@ -30,7 +35,7 @@ mobile_self_reports_router.add_api_route(
     endpoint=create_mobile_self_report,
 )
 
-# Saved, admin-reviewed reporting and manual regional mobile alerts.
+# Processed report summaries and automatic regional alert history.
 mobile_self_reports_router.add_api_route(
     "/disease-watch-feed/regional-summaries", methods=["GET"], endpoint=fetch_regional_summaries
 )
@@ -48,9 +53,7 @@ mobile_self_reports_router.add_api_route(
 mobile_self_reports_router.add_api_route(
     "/disease-watch-feed/alert-settings/run-evaluation", methods=["POST"], endpoint=run_regional_alert_evaluation
 )
-mobile_self_reports_router.add_api_route(
-    "/disease-watch-feed/alerts/{alert_id}/cancel", methods=["PATCH"], endpoint=cancel_regional_alert
-)
+
 
 # Authenticated mobile inbox. These routes intentionally use a separate
 # controller and mobile JWT policy from the dashboard's alert-history routes.

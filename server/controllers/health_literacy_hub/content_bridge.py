@@ -1,7 +1,7 @@
 """MongoDB is authoritative. Runtime reads/writes never synchronize repository JSON."""
 from fastapi import HTTPException
 
-from .constants import content_collection, get_legacy_content_type, normalize_storage_content_type
+from .constants import content_collection, normalize_storage_content_type
 from .serialization import serialize_content_document
 from health_literacy_media import MediaStore
 
@@ -20,7 +20,7 @@ def require_storage_content_type(content_type):
 
 def content_match(content_type):
     value = require_storage_content_type(content_type)
-    return {"contentType": {"$in": [value, get_legacy_content_type(value)]}}
+    return {"contentType": value}
 
 
 def ensure_content_indexes():
@@ -37,12 +37,10 @@ def read_content(content_type):
 
 
 def find_content(content_type, content_id):
-    items = list(content_collection.find({**content_match(content_type), "id": content_id}))
-    if not items:
+    item = content_collection.find_one({**content_match(content_type), "id": content_id})
+    if item is None:
         raise HTTPException(404, "Health Literacy Hub content not found")
-    if len(items) != 1:
-        raise HTTPException(409, "Duplicate legacy content IDs require migration review")
-    return items[0]
+    return item
 
 
 def insert_content(content_type, document):
@@ -71,7 +69,7 @@ def delete_content(original):
 
 
 def published_match(destination, content_type=None):
-    query = {destination: True, "isArchived": {"$ne": True}, "isPublished": {"$ne": False}}
+    query = {destination: True, "isArchived": False, "isPublished": True}
     if content_type:
         query.update(content_match(content_type))
     return query
@@ -103,5 +101,4 @@ def encode_media(content_type, file):
 
 
 def delete_media_file(content_type, media):
-    # Legacy source files are preserved for migration/rollback.
     get_media_store().cleanup_safely(media)

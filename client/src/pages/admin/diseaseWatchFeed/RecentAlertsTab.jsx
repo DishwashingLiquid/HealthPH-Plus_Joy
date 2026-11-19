@@ -31,7 +31,7 @@ const AUTOMATIC_STATUS_LABELS = {
   "Preparation failed": "Could not prepare",
 };
 
-function AlertCards({ alerts, onCancel, cancellingId }) {
+function AlertCards({ alerts }) {
   if (!alerts.length) return <p className="text-sm text-gray-500">No alerts to show yet.</p>;
   return <div className="grid grid-cols-1 gap-[12px]">{alerts.map((alert) => {
     const intervalLabel = ALERT_AUTOMATION_INTERVALS.find(({ minutes }) => minutes === Number(alert.intervalMinutes))?.label || `${alert.intervalMinutes} minutes`;
@@ -42,34 +42,30 @@ function AlertCards({ alerts, onCancel, cancellingId }) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-[16px] font-semibold text-gray-800">{alert.title}</h3>
             <div className="flex gap-2">
-              {alert.automated && <span className="rounded-full bg-[#F3E8FF] px-2 py-1 text-xs font-semibold text-[#7E22CE]">Made automatically</span>}
-              <span className="rounded-full bg-[#EFF8FF] px-2 py-1 text-xs font-semibold text-[#175CD3]">{alert.automated ? AUTOMATIC_STATUS_LABELS[alert.status] || alert.status : alert.status}</span>
+              <span className="rounded-full bg-[#F3E8FF] px-2 py-1 text-xs font-semibold text-[#7E22CE]">Made automatically</span>
+              <span className="rounded-full bg-[#EFF8FF] px-2 py-1 text-xs font-semibold text-[#175CD3]">{AUTOMATIC_STATUS_LABELS[alert.status] || alert.status}</span>
             </div>
           </div>
           <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-700">{alert.message}</p>
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-gray-500">
             <span>Region: {alert.region}</span>
-            {alert.automated ? <>
+            <>
               <span>Made {relativeDate(alert.generatedAt)}</span>
               <span>Reports counted: {Number(alert.reportCount || 0).toLocaleString()}</span>
               <span>Reports from the last {intervalLabel}</span>
               <span className="font-medium text-gray-700">{alert.status === "Preparing" ? "Getting the alert ready for app users." : `Prepared for ${Number(alert.recipientCount || 0).toLocaleString()} app users.`} This does not mean they received it.</span>
-            </> : <>
-              <span>{alert.status === "Sent" ? `Marked as sent ${relativeDate(alert.sentAt)}` : alert.status === "Cancelled" ? `Cancelled ${exactDate(alert.cancelledAt)}` : `Scheduled for ${exactDate(alert.scheduledAt)}`}</span>
-              <span className="font-medium text-gray-700">Marked as sent to {Number(alert.recipientCount || 0).toLocaleString()} users</span>
-            </>}
+            </>
           </div>
           <SummaryPreview preview={alert.summaryPreview} />
           {alert.deliveryError && <p role="alert" className="mt-2 text-xs text-[#B42318]">Problem getting the alert ready: {alert.deliveryError}</p>}
-          {!alert.automated && alert.status === "Scheduled" && <button type="button" onClick={() => onCancel(alert.id)} disabled={cancellingId === alert.id} className="mt-3 rounded-[6px] border border-[#F04438] px-3 py-1.5 text-xs font-medium text-[#B42318] disabled:opacity-60">{cancellingId === alert.id ? "Cancelling..." : "Cancel alert"}</button>}
         </div>
       </div>
     </article>;
   })}</div>;
 }
-AlertCards.propTypes = { alerts: PropTypes.arrayOf(PropTypes.object).isRequired, onCancel: PropTypes.func.isRequired, cancellingId: PropTypes.string.isRequired };
+AlertCards.propTypes = { alerts: PropTypes.arrayOf(PropTypes.object).isRequired };
 
-export default function RecentAlertsTab({ alerts, summaries, sentAlerts, canSendAlert, onSendAlert, onCancelAlert, cancellingId, errorMessage, isLoading, isSummariesLoading, isSummariesFetching, summariesErrorMessage, alertSettings, onRunEvaluation, isEvaluationRunning, evaluationFeedback }) {
+export default function RecentAlertsTab({ alerts, summaries, sentAlerts, canSendAlert, onSendAlert, errorMessage, isLoading, isSummariesLoading, isSummariesFetching, summariesErrorMessage, alertSettings, onRunEvaluation, isEvaluationRunning, evaluationFeedback }) {
   const [page, setPage] = useState(1); const pageCount = Math.max(1, Math.ceil(alerts.length / REPORTS_PER_PAGE));
   const [evaluationInterval, setEvaluationInterval] = useState(String(normalizeAlertAutomationInterval(alertSettings?.intervalMinutes)));
   const evaluationControl = getRunEvaluationControlState(alertSettings, isEvaluationRunning);
@@ -85,7 +81,7 @@ export default function RecentAlertsTab({ alerts, summaries, sentAlerts, canSend
           <div>
             <h2 className="text-lg font-semibold text-gray-800">Self-Reports</h2>
             <p className="mt-1 text-sm text-gray-500">
-              Submitted symptoms and saved regional administrative summaries. These are not diagnoses.
+              Selected symptoms and symptoms extracted from processed report text, combined in regional summaries. These are not diagnoses.
             </p>
           </div>
           {canSendAlert && (
@@ -132,11 +128,11 @@ export default function RecentAlertsTab({ alerts, summaries, sentAlerts, canSend
         {evaluationControl.helperText && <p className="mt-2 text-xs text-gray-500">{evaluationControl.helperText}</p>}
         {evaluationFeedback?.message && <p role={evaluationFeedback.type === "error" ? "alert" : "status"} className={`mt-3 rounded-[8px] p-3 text-sm ${evaluationFeedback.type === "error" ? "bg-[#FFF6F6] text-[#B42318]" : "bg-[#ECFDF3] text-[#027A48]"}`}>{evaluationFeedback.message}</p>}
         <div className="mt-4">
-          <AlertCards alerts={sentAlerts} onCancel={onCancelAlert} cancellingId={cancellingId} />
+          <AlertCards alerts={sentAlerts} />
         </div>
       </section>
     </div>
   );
 }
-RecentAlertsTab.propTypes = { alerts: PropTypes.arrayOf(PropTypes.object).isRequired, summaries: PropTypes.arrayOf(PropTypes.object), sentAlerts: PropTypes.arrayOf(PropTypes.object), canSendAlert: PropTypes.bool, onSendAlert: PropTypes.func, onCancelAlert: PropTypes.func, cancellingId: PropTypes.string, errorMessage: PropTypes.string, isLoading: PropTypes.bool, isSummariesLoading: PropTypes.bool, isSummariesFetching: PropTypes.bool, summariesErrorMessage: PropTypes.string, alertSettings: PropTypes.object, onRunEvaluation: PropTypes.func, isEvaluationRunning: PropTypes.bool, evaluationFeedback: PropTypes.shape({ type: PropTypes.oneOf(["success", "error"]), message: PropTypes.string }) };
-RecentAlertsTab.defaultProps = { summaries: [], sentAlerts: [], canSendAlert: false, onSendAlert: () => {}, onCancelAlert: () => {}, cancellingId: "", errorMessage: "", isLoading: false, alertSettings: null, onRunEvaluation: () => {}, isEvaluationRunning: false, evaluationFeedback: null };
+RecentAlertsTab.propTypes = { alerts: PropTypes.arrayOf(PropTypes.object).isRequired, summaries: PropTypes.arrayOf(PropTypes.object), sentAlerts: PropTypes.arrayOf(PropTypes.object), canSendAlert: PropTypes.bool, onSendAlert: PropTypes.func, errorMessage: PropTypes.string, isLoading: PropTypes.bool, isSummariesLoading: PropTypes.bool, isSummariesFetching: PropTypes.bool, summariesErrorMessage: PropTypes.string, alertSettings: PropTypes.object, onRunEvaluation: PropTypes.func, isEvaluationRunning: PropTypes.bool, evaluationFeedback: PropTypes.shape({ type: PropTypes.oneOf(["success", "error"]), message: PropTypes.string }) };
+RecentAlertsTab.defaultProps = { summaries: [], sentAlerts: [], canSendAlert: false, onSendAlert: () => {}, errorMessage: "", isLoading: false, alertSettings: null, onRunEvaluation: () => {}, isEvaluationRunning: false, evaluationFeedback: null };

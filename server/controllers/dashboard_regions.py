@@ -1,21 +1,15 @@
 """Read-only region adapters for Disease Watch, Health Literacy and Sentiment Pulse.
 
-Stored/mobile contracts and the shared normalizer remain unchanged. These
-adapters resolve legacy field layouts only while building dashboard results.
+Each record type supplies its current region field paths. The shared
+normalizer handles supported geographic names and codes.
 """
 
 from region_normalization import REGION_ALIASES, REGIONS, normalize_region
 
 
 LOCATION_REGION_PATHS = ("location.regionCode", "location.regionName")
-USER_REGION_PATHS = ("region", "regionCode", "regionLabel", *LOCATION_REGION_PATHS)
-EVENT_REGION_PATHS = (
-    "region", "regionCode", "regionName", "regionLabel",
-    *LOCATION_REGION_PATHS,
-    "metadata.region", "metadata.regionCode", "metadata.regionName",
-    "user_location.regionCode", "user_location.regionLabel",
-    "userLocation.regionCode", "userLocation.regionLabel",
-)
+USER_REGION_PATHS = ("region", "regionCode", "regionLabel")
+EVENT_REGION_PATHS = ("region",)
 
 
 def _field_value(document, path):
@@ -82,6 +76,6 @@ def mongo_region_expression(paths=EVENT_REGION_PATHS):
 
 
 def dashboard_region_match(regions, paths=EVENT_REGION_PATHS):
-    """Keep source/date filters indexable; apply legacy normalization only in reads."""
+    """Keep source/date filters indexable while resolving geographic aliases."""
     codes = list(dict.fromkeys(normalize_region(region) for region in regions))
     return {"$expr": {"$in": [mongo_region_expression(paths), [code for code in codes if code]]}}

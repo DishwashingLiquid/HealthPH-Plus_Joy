@@ -26,6 +26,8 @@ const MetricCard = ({ label, metric }) => {
         <div className="text-right">
           {isUnavailable ? (
             <p className="text-sm font-semibold text-gray-500">No source</p>
+          ) : metric.percentage === null ? (
+            <p className="text-sm font-semibold text-gray-500">No baseline</p>
           ) : (
             <p
               className={`text-sm font-semibold ${
@@ -92,13 +94,17 @@ export default function UserAnalyticsTab({
   }
 
   return (
+    <div>
+    <p className="mb-3 text-sm text-gray-500">Distinct identified submitters with processed reports in the reporting period: {userAnalytics.registeredReporterCount || 0} registered accounts and {userAnalytics.guestReporterCount || 0} guest sessions.</p>
+    {userAnalytics.unidentifiedReporterReports > 0 && <p className="mb-3 text-sm text-amber-700">{userAnalytics.unidentifiedReporterReports} processed reports have no stored submitter identity. They contribute to report totals and are excluded from distinct submitter totals.</p>}
     <div className="grid grid-cols-1 gap-[10px] xl:grid-cols-3">
       <MetricCard
-        label="Total Mobile Reporters"
+        label="Identified Submitters"
         metric={userAnalytics.totalUsers}
       />
       <MetricCard label="Alert Open Rate" metric={userAnalytics.alertOpenRate} />
-      <MetricCard label="Symptom Reports" metric={userAnalytics.symptomReports} />
+      <MetricCard label="Processed Reports" metric={userAnalytics.symptomReports} />
+    </div>
     </div>
   );
 }
@@ -107,25 +113,24 @@ UserAnalyticsTab.propTypes = {
   errorMessage: PropTypes.string,
   isLoading: PropTypes.bool,
   userAnalytics: PropTypes.shape({
+    unidentifiedReporterReports: PropTypes.number,
+    registeredReporterCount: PropTypes.number,
+    guestReporterCount: PropTypes.number,
     alertOpenRate: PropTypes.shape({
-      current: PropTypes.oneOfType([PropTypes.number, PropTypes.oneOf([null])])
-        .isRequired,
+      current: PropTypes.number,
       fallbackReason: PropTypes.string,
       isAvailable: PropTypes.bool,
-      percentage: PropTypes.oneOfType([
-        PropTypes.number,
-        PropTypes.oneOf([null]),
-      ]).isRequired,
-      trend: PropTypes.oneOf(["up", "down", null]).isRequired,
+      percentage: PropTypes.number,
+      trend: PropTypes.oneOf(["up", "down", null]),
     }).isRequired,
     symptomReports: PropTypes.shape({
       current: PropTypes.number.isRequired,
-      percentage: PropTypes.number.isRequired,
+      percentage: PropTypes.number,
       trend: PropTypes.oneOf(["up", "down"]).isRequired,
     }).isRequired,
     totalUsers: PropTypes.shape({
       current: PropTypes.number.isRequired,
-      percentage: PropTypes.number.isRequired,
+      percentage: PropTypes.number,
       trend: PropTypes.oneOf(["up", "down"]).isRequired,
     }).isRequired,
   }).isRequired,

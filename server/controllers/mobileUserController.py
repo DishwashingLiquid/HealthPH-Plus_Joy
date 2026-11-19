@@ -42,7 +42,7 @@ def _hash_password(password: str) -> str:
 
 
 def _hash_pbkdf2_secret(secret: str) -> str:
-    """Match the legacy FastAPI mobile-account `<salt>:<hash>` format."""
+    """Hash a new PIN using the current salted PBKDF2 format."""
     salt = secrets.token_hex(16)
     digest = hashlib.pbkdf2_hmac(
         "sha256", secret.encode("utf-8"), salt.encode("utf-8"), PBKDF2_ITERATIONS
@@ -65,42 +65,19 @@ def _verify_pbkdf2_secret(secret: str, encoded_secret: str) -> bool:
 
 
 def _verify_password(password: str, password_hash: str) -> bool:
-    """Accept bcrypt and the deployed legacy PBKDF2 mobile-account hashes."""
-    if isinstance(password_hash, str) and ":" in password_hash:
-        return _verify_pbkdf2_secret(password, password_hash)
+    """Verify the bcrypt passwordHash written by registration."""
+    if not isinstance(password_hash, str):
+        return False
     try:
         return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
     except (TypeError, ValueError):
         return False
 
 
-def _is_legacy_pbkdf2(password_hash: str | None) -> bool:
-    return isinstance(password_hash, str) and ":" in password_hash
-
-
-def _password_hash_field(user: dict) -> str:
-    """Use the existing deployed field name during a no-reset migration."""
-    return "passwordHash" if "passwordHash" in user else "password"
-
-
-def _stored_password_hash(user: dict) -> str:
-    return user.get("passwordHash") or user.get("password") or ""
-
-
-def _should_migrate_pbkdf2_passwords() -> bool:
-    return os.getenv("MOBILE_MIGRATE_PBKDF2_TO_BCRYPT", "false").strip().lower() in {
-        "1", "true", "yes", "on"
-    }
-
-
 def _stored_pin_hash(user: dict) -> str:
-    """Read both the existing scalar `pins` value and a future object form."""
+    """Read the scalar PIN hash written by update_mobile_user_pin."""
     pins = user.get("pins")
-    if isinstance(pins, str):
-        return pins
-    if isinstance(pins, dict):
-        return pins.get("hash") or pins.get("pinHash") or ""
-    return ""
+    return pins if isinstance(pins, str) else ""
 
 
 def _generate_public_id() -> str:
@@ -198,21 +175,12 @@ async def login_mobile_user(payload: MobileLoginRequest):
             "roleId": MOBILE_ROLE_ID,
         }
     )
-    password_hash = _stored_password_hash(user) if user else ""
+    password_hash = user.get("passwordHash", "") if user else ""
     if not user or not _verify_password(payload.password, password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
             headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # This is opt-in so an existing PBKDF2 deployment remains unchanged until
-    # its maintainers explicitly approve rolling upgrades. A successful login
-    # is the only time a legacy hash is replaced; users are never locked out.
-    if _is_legacy_pbkdf2(password_hash) and _should_migrate_pbkdf2_passwords():
-        mobile_users_collection.update_one(
-            {"_id": user["_id"]},
-            {"$set": {_password_hash_field(user): _hash_password(payload.password)}},
         )
 
     return JSONResponse(

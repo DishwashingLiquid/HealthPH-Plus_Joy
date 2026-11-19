@@ -77,6 +77,7 @@ export const baseAPI = createApi({
     "SentimentPulseSurveys",
     "RegionalSymptomSummaries",
     "RegionalAlerts",
+    "ProcessedSelfReports",
   ],
   endpoints: () => ({}),
 });

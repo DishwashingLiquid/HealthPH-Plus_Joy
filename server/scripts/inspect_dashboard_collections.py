@@ -29,64 +29,35 @@ from disease_watch_storage import (
 
 
 COLLECTIONS = (
-    "self_reports", "mobile_users", "regional_symptom_summaries",
-    "regional_summary_events", "regional_alerts", "mobile_notification_deliveries",
-    "regional_alert_batch_states", "regional_alert_cooldowns",
-    DESTINATION_COLLECTION,
-    "application_settings", "content", "analytics_events",
-    "health_literacy_feedback", "surveys", "survey_responses", "analytics_entries", "id_counters",
+    "self_reports", "mobile_users", "regional_alerts", "mobile_notification_deliveries",
+    DESTINATION_COLLECTION, "application_settings", "content", "analytics_events",
+    "health_literacy_feedback", "surveys", "survey_responses", "analytics_entries", "report_id_counters",
 )
 
 
 def retention_diagnostics(db, names):
     """Return aggregate lifecycle evidence without report or account payloads."""
     at = datetime.now(timezone(timedelta(hours=8))).replace(tzinfo=None)
-    source_counts = {
-        "regional_summary": db.regional_symptom_summaries.count_documents({}, maxTimeMS=10000)
-        if "regional_symptom_summaries" in names else 0,
-        "summary_event": db.regional_summary_events.count_documents({}, maxTimeMS=10000)
-        if "regional_summary_events" in names else 0,
-        "alert_batch_state": db.regional_alert_batch_states.count_documents({}, maxTimeMS=10000)
-        if "regional_alert_batch_states" in names else 0,
-        "alert_cooldown": db.regional_alert_cooldowns.count_documents({}, maxTimeMS=10000)
-        if "regional_alert_cooldowns" in names else 0,
-    }
-    destination_exists = DESTINATION_COLLECTION in names
-    destination_counts = {
-        kind: db[DESTINATION_COLLECTION].count_documents({"kind": kind}, maxTimeMS=10000)
-        if destination_exists else 0
-        for kind in DOCUMENT_KINDS
-    }
-    use_internal = destination_exists and all(
-        destination_counts[kind] >= source_counts[kind] for kind in DOCUMENT_KINDS
-    )
-    views = scoped_collections(db[DESTINATION_COLLECTION]) if use_internal else None
-    diagnostics = {
-        "evaluatedAtPhilippineTime": at.isoformat(),
-        "diseaseWatchStorage": "consolidated" if use_internal else (
-            "incomplete-destination" if destination_exists else "legacy-sources"
-        ),
-        "cutoverReady": use_internal,
-        "legacySourceCounts": source_counts,
-        "destinationKindCounts": destination_counts,
-    }
-    events = views[SUMMARY_EVENT] if use_internal else db.regional_summary_events
-    cooldowns = views[ALERT_COOLDOWN] if use_internal else db.regional_alert_cooldowns
-    batch_states = views[ALERT_BATCH_STATE] if use_internal else db.regional_alert_batch_states
-    summaries = views[REGIONAL_SUMMARY] if use_internal else db.regional_symptom_summaries
-    if use_internal or "regional_summary_events" in names:
+    views = scoped_collections(db[DESTINATION_COLLECTION])
+    diagnostics = {"evaluatedAtPhilippineTime": at.isoformat(),
+                   "diseaseWatchStorage": DESTINATION_COLLECTION}
+    events = views[SUMMARY_EVENT]
+    cooldowns = views[ALERT_COOLDOWN]
+    batch_states = views[ALERT_BATCH_STATE]
+    summaries = views[REGIONAL_SUMMARY]
+    if DESTINATION_COLLECTION in names:
         diagnostics["events"] = {
             "consumed": events.count_documents({"consumedBatchId": {"$exists": True}}, maxTimeMS=10000),
             "unconsumed": events.count_documents({"consumedBatchId": {"$exists": False}}, maxTimeMS=10000),
             "olderThanMaximumWindow": events.count_documents(
                 {"occurredAt": {"$lt": at - timedelta(days=1)}}, maxTimeMS=10000),
             "missingSource": list(events.aggregate([
-                {"$lookup": {"from": "self_reports", "localField": "reportId", "foreignField": "_id", "as": "sourceMatches"}},
+                {"$lookup": {"from": "analytics_entries", "localField": "reportId", "foreignField": "report_id", "as": "sourceMatches"}},
                 {"$match": {"sourceMatches": {"$size": 0}}},
                 {"$count": "count"},
             ], maxTimeMS=10000)),
             "missingSourceByConsumption": list(events.aggregate([
-                {"$lookup": {"from": "self_reports", "localField": "reportId", "foreignField": "_id", "as": "sourceMatches"}},
+                {"$lookup": {"from": "analytics_entries", "localField": "reportId", "foreignField": "report_id", "as": "sourceMatches"}},
                 {"$match": {"sourceMatches": {"$size": 0}}},
                 {"$group": {
                     "_id": {"$cond": [
@@ -97,19 +68,16 @@ def retention_diagnostics(db, names):
                 }},
             ], maxTimeMS=10000)),
         }
-    if use_internal or "regional_alert_cooldowns" in names:
+    if DESTINATION_COLLECTION in names:
         diagnostics["expiredCooldowns"] = cooldowns.count_documents(
             {"expiresAt": {"$lte": at}}, maxTimeMS=10000)
-    if use_internal or "regional_alert_batch_states" in names:
+    if DESTINATION_COLLECTION in names:
         diagnostics["processingBatches"] = batch_states.count_documents(
             {"status": "Processing"}, maxTimeMS=10000)
-    if use_internal or "regional_symptom_summaries" in names:
+    if DESTINATION_COLLECTION in names:
         diagnostics["nonzeroSummaries"] = summaries.count_documents(
             {"reportCount": {"$gt": 0}}, maxTimeMS=10000)
-    if "content" in names:
-        diagnostics["embeddedMediaRecords"] = db.content.count_documents(
-            {"media.dataUrl": {"$exists": True}}, maxTimeMS=10000)
-    for name in ("id_counters", "application_settings"):
+    for name in ("report_id_counters", "application_settings"):
         if name in names:
             # Show shape and numeric sequence values, not arbitrary field values.
             diagnostics[name] = list(db[name].aggregate([
