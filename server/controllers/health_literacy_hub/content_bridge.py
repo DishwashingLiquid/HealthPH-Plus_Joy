@@ -3,7 +3,7 @@ from fastapi import HTTPException
 
 from .constants import content_collection, normalize_storage_content_type
 from .serialization import serialize_content_document
-from health_literacy_media import MediaStore
+from helpers.health_literacy.media import MediaStore
 
 
 def get_media_store():

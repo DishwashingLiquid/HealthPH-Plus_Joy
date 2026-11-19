@@ -17,12 +17,12 @@ from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 import config.database as database
-from disease_watch_storage import (
+from helpers.disease_watch.storage import (
     ensure_disease_watch_internal_indexes,
 )
 from middleware.requireAuth import require_auth
 from region_normalization import REGIONS, REGION_NAMES, normalize_region
-from regional_summaries import (ALLOWED_INTERVALS, AUTOMATION_SETTINGS_ID, SummaryStore,
+from helpers.disease_watch.summaries import (ALLOWED_INTERVALS, AUTOMATION_SETTINGS_ID, SummaryStore,
                                 now, settings_values)
 
 summaries = getattr(database, "regional_symptom_summaries_collection", None)

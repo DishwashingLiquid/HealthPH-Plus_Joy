@@ -2,7 +2,7 @@ import json
 from typing import Optional
 
 from fastapi import HTTPException, status
-from health_literacy_media import external_url, serialize_media
+from helpers.health_literacy.media import external_url, serialize_media
 from .gallery import serialize_gallery
 
 from .constants import (

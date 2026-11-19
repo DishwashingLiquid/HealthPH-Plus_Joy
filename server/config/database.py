@@ -6,7 +6,7 @@ from dotenv import dotenv_values
 import os
 import certifi
 
-from disease_watch_storage import (
+from helpers.disease_watch.storage import (
     ALERT_BATCH_STATE,
     ALERT_COOLDOWN,
     REGIONAL_SUMMARY,

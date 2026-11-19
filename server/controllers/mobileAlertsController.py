@@ -11,7 +11,7 @@ import config.database as database
 from middleware.requireMobileAuth import require_mobile_auth
 from models.mobileUser import MOBILE_REGISTRATION_SOURCE, MOBILE_ROLE_ID
 from region_normalization import REGION_NAMES
-from regional_summaries import PH_TZ, now
+from helpers.disease_watch.summaries import PH_TZ, now
 
 
 AUTOMATED_SOURCE = "automated_regional_summary"

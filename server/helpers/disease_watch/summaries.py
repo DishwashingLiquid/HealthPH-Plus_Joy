@@ -6,11 +6,7 @@ from the repository; processing and alert workers persist derived projections.
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 
-try:
-    from pymongo.errors import DuplicateKeyError
-except ModuleNotFoundError:  # Pure counting tests do not require a Mongo driver.
-    class DuplicateKeyError(Exception):
-        pass
+from pymongo.errors import DuplicateKeyError
 
 from helpers.processedSelfReportHelpers import ProcessedSelfReportRepository, ph_datetime
 from region_normalization import REGIONS

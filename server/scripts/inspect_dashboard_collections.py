@@ -17,7 +17,7 @@ from pymongo import MongoClient
 SERVER_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SERVER_ROOT))
 
-from disease_watch_storage import (
+from helpers.disease_watch.storage import (
     ALERT_BATCH_STATE,
     ALERT_COOLDOWN,
     DESTINATION_COLLECTION,

@@ -6,7 +6,7 @@ from fastapi import HTTPException, Request
 from fastapi.routing import APIRoute
 from starlette.datastructures import UploadFile
 
-from health_literacy_media import IMAGE_TYPES, serialize_media
+from helpers.health_literacy.media import IMAGE_TYPES, serialize_media
 
 GALLERY_COUNT_LIMIT = 10
 CAPTION_LIMIT = 1000
