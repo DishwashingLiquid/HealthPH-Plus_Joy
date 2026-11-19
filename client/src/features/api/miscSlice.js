@@ -1,6 +1,6 @@
 import { baseAPI } from "./_baseAPI";
 
-export const activityLogApi = baseAPI.injectEndpoints({
+export const miscApi = baseAPI.injectEndpoints({
   endpoints: (builder) => ({
     sendContactUs: builder.mutation({
       query: (data) => ({
@@ -12,4 +12,4 @@ export const activityLogApi = baseAPI.injectEndpoints({
   }),
 });
 
-export const { useSendContactUsMutation } = activityLogApi;
+export const { useSendContactUsMutation } = miscApi;

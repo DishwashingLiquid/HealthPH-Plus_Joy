@@ -2,6 +2,16 @@ import { baseAPI } from "./_baseAPI";
 
 export const healthLiteracyHubApi = baseAPI.injectEndpoints({
   endpoints: (builder) => ({
+    fetchCommentModerationQueue: builder.query({
+      query: ({ status = "pending", cursor } = {}) => ({
+        url: "/health-literacy-hub/comments/moderation/queue", params: { status, ...(cursor ? { cursor } : {}) },
+      }),
+      providesTags: [{ type: "HealthLiteracyContent", id: "comment-moderation" }],
+    }),
+    moderateHealthLiteracyComment: builder.mutation({
+      query: ({ id, status }) => ({ url: `/health-literacy-hub/comments/moderation/${id}`, method: "PATCH", body: { status } }),
+      invalidatesTags: [{ type: "HealthLiteracyContent", id: "comment-moderation" }],
+    }),
     fetchHealthLiteracyContent: builder.query({
       query: (contentType) => `/health-literacy-hub/${contentType}`,
       providesTags: (result, error, contentType) => [
@@ -28,6 +38,8 @@ export const healthLiteracyHubApi = baseAPI.injectEndpoints({
       }),
       invalidatesTags: (result, error, { contentType }) => [
         { type: "HealthLiteracyContent", id: contentType },
+        { type: "HealthLiteracyContent", id: `website-${contentType}` },
+        { type: "HealthLiteracyContent", id: "website-all" },
         "HealthLiteracyAnalyticsOverview",
       ],
     }),
@@ -39,6 +51,8 @@ export const healthLiteracyHubApi = baseAPI.injectEndpoints({
       }),
       invalidatesTags: (result, error, { contentType }) => [
         { type: "HealthLiteracyContent", id: contentType },
+        { type: "HealthLiteracyContent", id: `website-${contentType}` },
+        { type: "HealthLiteracyContent", id: "website-all" },
         "HealthLiteracyAnalyticsOverview",
       ],
     }),
@@ -49,6 +63,8 @@ export const healthLiteracyHubApi = baseAPI.injectEndpoints({
       }),
       invalidatesTags: (result, error, { contentType }) => [
         { type: "HealthLiteracyContent", id: contentType },
+        { type: "HealthLiteracyContent", id: `website-${contentType}` },
+        { type: "HealthLiteracyContent", id: "website-all" },
         "HealthLiteracyAnalyticsOverview",
       ],
     }),
@@ -71,6 +87,8 @@ export const healthLiteracyHubApi = baseAPI.injectEndpoints({
 });
 
 export const {
+  useFetchCommentModerationQueueQuery,
+  useModerateHealthLiteracyCommentMutation,
   useFetchHealthLiteracyContentQuery,
   useFetchWebsiteHealthLiteracyContentQuery,
   useCreateHealthLiteracyContentMutation,

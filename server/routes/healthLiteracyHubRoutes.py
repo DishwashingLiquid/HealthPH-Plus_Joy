@@ -1,4 +1,6 @@
 from fastapi import APIRouter
+from controllers.health_literacy_hub.gallery import HubUploadRoute
+from controllers.health_literacy_comments import router as comments_router
 
 from controllers.healthLiteracyHubController import (
     create_health_literacy_analytics_event,
@@ -7,6 +9,7 @@ from controllers.healthLiteracyHubController import (
     fetch_health_literacy_media,
     fetch_health_literacy_analytics_overview,
     fetch_health_literacy_content,
+    fetch_mobile_health_literacy_contract,
     fetch_mobile_health_literacy_content,
     fetch_mobile_health_literacy_content_by_type,
     fetch_website_health_literacy_content,
@@ -14,7 +17,10 @@ from controllers.healthLiteracyHubController import (
     update_health_literacy_content,
 )
 
-router = APIRouter()
+router = APIRouter(route_class=HubUploadRoute)
+mobile_contract_router = APIRouter()
+# Specific website discussion routes must precede /{content_type}.
+router.include_router(comments_router)
 
 # GET       /health-literacy-hub/analytics/overview
 router.add_api_route(
@@ -30,11 +36,25 @@ router.add_api_route(
     endpoint=create_health_literacy_analytics_event,
 )
 
+# POST      /health-literacy/analytics/events
+mobile_contract_router.add_api_route(
+    "/analytics/events",
+    methods=["POST"],
+    endpoint=create_health_literacy_analytics_event,
+)
+
 # GET       /health-literacy-hub/mobile
 router.add_api_route(
     "/mobile",
     methods=["GET"],
     endpoint=fetch_mobile_health_literacy_content,
+)
+
+# GET       /health-literacy/mobile
+mobile_contract_router.add_api_route(
+    "/mobile",
+    methods=["GET"],
+    endpoint=fetch_mobile_health_literacy_contract,
 )
 
 # GET       /health-literacy-hub/mobile/{content_type}
@@ -58,10 +78,9 @@ router.add_api_route(
     endpoint=fetch_website_health_literacy_content_by_type,
 )
 
-# GET       /health-literacy-hub/media/{content_type}/{filename}
 router.add_api_route(
-    "/media/{content_type}/{filename}",
-    methods=["GET"],
+    "/media/{file_id}",
+    methods=["GET", "HEAD"],
     endpoint=fetch_health_literacy_media,
 )
 

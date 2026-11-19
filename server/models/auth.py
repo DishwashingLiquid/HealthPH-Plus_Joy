@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Union
 from typing_extensions import Annotated
 from fastapi.param_functions import Body
@@ -52,3 +52,12 @@ class ResetPasswordRequest(BaseModel):
     token: str
     password: str
     re_password: str
+
+
+class AccountInvitationToken(BaseModel):
+    token: str = Field(min_length=1, max_length=256)
+
+
+class ActivateAccountRequest(AccountInvitationToken):
+    password: str = Field(max_length=128)
+    re_password: str = Field(max_length=128)

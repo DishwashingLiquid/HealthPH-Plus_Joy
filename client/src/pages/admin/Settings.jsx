@@ -21,6 +21,8 @@ import MultiSelect from "../../components/MultiSelect";
 
 const Settings = () => {
   const user = useSelector((state) => state.auth.user);
+  const isAdminUser =
+    user.user_type === "SUPERADMIN" || user.role_label === "Admin";
 
   const initialData = {
     id: user.id,
@@ -410,7 +412,7 @@ const Settings = () => {
           </FieldGroup>
 
           {/* REGION */}
-          {user.user_type == "USER" && (
+          {!isAdminUser && (
             <FieldGroup
               label="Regional Office"
               labelFor="region"
@@ -524,9 +526,8 @@ const Settings = () => {
               }
               selectAllLabel={getAccessibleRegionsDisplay()}
               selectAll={true}
-              showSelectAll={user.user_type == "USER" ? false : true}
+              showSelectAll={!isAdminUser ? false : true}
               additionalClassname="w-full  max-w-[360px] mt-[8px]"
-              // selectable={["ADMIN", "SUPERADMIN"].includes(user.user_type)}
               selectable={false}
             />
           </FieldGroup>
@@ -551,7 +552,7 @@ const Settings = () => {
               onChange={(e) => {
                 if (
                   editable &&
-                  !["ADMIN", "SUPERADMIN"].includes(user.user_type)
+                  !isAdminUser
                 ) {
                   setFormData({ ...formData, organization: e.target.value });
                   setFormErrors({ ...formErrors, organization: "" });
@@ -563,7 +564,7 @@ const Settings = () => {
               state={formErrors.organization != "" ? "error" : ""}
               // required
               readOnly={
-                ["ADMIN", "SUPERADMIN"].includes(user.user_type)
+                isAdminUser
                   ? true
                   : !editable
               }

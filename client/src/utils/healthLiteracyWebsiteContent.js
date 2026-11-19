@@ -11,24 +11,17 @@ export const slugify = (value) =>
     .replace(/(^-|-$)/g, "");
 
 export const getDashboardContentSlug = (item) => {
+  if (item?.legacyArticleSlug) return item.legacyArticleSlug;
   const titleSlug = slugify(item?.title) || "health-literacy-content";
   return `${titleSlug}-${item?.id}`;
 };
 
-export const getContentMediaSource = (media) => {
-  const mediaSource = media?.url || media?.dataUrl || "";
-
-  if (!mediaSource || mediaSource.startsWith("data:")) return mediaSource;
-
-  try {
-    return new URL(mediaSource, import.meta.env.VITE_API_URL).href;
-  } catch {
-    return mediaSource;
-  }
-};
+export const getContentMediaSource = (media) => media?.url || "";
 
 export const getStaticArticleImageSource = (article) =>
   article?.articleImage ? `/assets/articles/preview/${article.articleImage}` : "";
+
+const getTrimmedUrl = (value) => String(value ?? "").trim();
 
 export const getArticleSortDate = (article) => {
   const date = new Date(article?.sortDate ?? article?.datePublished ?? article?.createdAt);
@@ -49,12 +42,36 @@ export const formatContentDate = (value) => {
 };
 
 export const getResourceImageSource = (article) => {
-  if (article?.source === "api") {
-    return getContentMediaSource(article.media);
+  if (article?.contentOrigin === "api") {
+    const uploadedMediaSource = getContentMediaSource(article.media);
+    if (uploadedMediaSource) return uploadedMediaSource;
+
+    if (article?.resourceType === "video") {
+      return getTrimmedUrl(article.mediaUrl);
+    }
+
+    if (article?.resourceType === "infographic") {
+      return getTrimmedUrl(article.imageUrl) || getTrimmedUrl(article.mediaUrl);
+    }
+
+    return getTrimmedUrl(article.imageUrl) || getTrimmedUrl(article.mediaUrl);
   }
 
   return getStaticArticleImageSource(article);
 };
+
+export const getResourcePosterSource = (article) =>
+  getContentMediaSource(article?.thumbnail) || getTrimmedUrl(article?.imageUrl)
+    || getContentMediaSource(article?.galleryImages?.[0]?.media);
+
+export const getArticleGalleryImages = (article) => (article.galleryImages || []).map((entry) => ({
+  id: entry.id || entry.filename,
+  src: article.contentOrigin === "api" ? getContentMediaSource(entry.media)
+    : `/assets/articles/gallery/${article.galleryFolder}/${entry.filename}`,
+  filename: entry.media?.filename || entry.filename,
+  alt: article.contentOrigin === "api" ? entry.alt || "" : entry.alt ?? entry.caption ?? "",
+  caption: entry.caption || "",
+}));
 
 const getReadDuration = (text) => {
   const words = String(text ?? "")
@@ -67,7 +84,7 @@ const getReadDuration = (text) => {
 
 export const normalizeStaticArticle = (article) => ({
   ...article,
-  source: "static",
+  contentOrigin: "static",
   contentType: "articles",
   contentTypeLabel: "Article",
   resourceType: "article",
@@ -86,21 +103,21 @@ export const normalizeDashboardContent = (item) => {
 
   return {
     ...item,
-    source: "api",
+    contentOrigin: "api",
     contentType,
     contentTypeLabel,
     resourceType,
     articleTitle: item.title ?? "Untitled content",
     articleSlug: getDashboardContentSlug(item),
-    datePublished: item.createdAt,
-    articlePreview: item.description ?? "",
+    datePublished: item.publishedDate ?? item.createdAt,
+    articlePreview: item.shortPreview?.trim() || item.description || "",
     articleImage: "",
     articleImageCaption: item.title ?? "",
     articleBody: item.description ?? "",
-    galleryImages: [],
+    galleryImages: item.galleryImages || [],
     galleryFolder: "",
     readDuration: getReadDuration(item.description),
-    sortDate: item.createdAt,
+    sortDate: item.publishedDate ?? item.createdAt,
   };
 };
 

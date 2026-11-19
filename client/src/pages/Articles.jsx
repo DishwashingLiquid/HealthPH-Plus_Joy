@@ -1,27 +1,32 @@
+/* eslint-disable react/prop-types */
 import { useLocation } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import "../assets/css/about.css";
 
 import Icon from "../components/Icon";
 import HomeNavbar from "../components/HomeNavbar";
 import HomeFooter from "../components/HomeFooter";
+import MediaViewer from "../components/health-literacy/MediaViewers";
+import "../assets/css/health-literacy.css";
+import {
+  ArticleMediaProvider,
+} from "../components/about-us/ArticleMedia";
 import ArticleItem, {
   ArticleItemSkeleton,
 } from "../components/about-us/ArticleItem";
 import { useFetchWebsiteHealthLiteracyContentQuery } from "../features/api/healthLiteracyHubSlice";
 import {
-  getContentMediaSource,
-  normalizeStaticArticle,
   normalizeWebsiteContent,
   sortNewestFirst,
 } from "../utils/healthLiteracyWebsiteContent";
 
-import ArticlesList from "../assets/data/articles.json";
-
-const Articles = () => {
+const ArticlesContent = ({ embedded = false }) => {
+  const Heading = embedded ? "h2" : "h1";
   const location = useLocation();
 
   const [articlePage, setArticlePage] = useState(location.state ?? 1);
   const [previewContent, setPreviewContent] = useState(null);
+  const openedShare = useRef(null);
   const {
     data: websiteContent,
     isLoading: isLoadingWebsiteContent,
@@ -36,17 +41,23 @@ const Articles = () => {
     typeof websiteContent === "undefined";
 
   const articles = useMemo(() => {
-    const staticArticles = ArticlesList.filter((a) => a.articleTitle != "").map(
-      normalizeStaticArticle
-    );
     const dashboardContent = normalizeWebsiteContent(websiteContent ?? []);
 
-    return sortNewestFirst([...dashboardContent, ...staticArticles]);
+    return sortNewestFirst(dashboardContent);
   }, [websiteContent]);
 
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
+    const params = new URLSearchParams(location.search);
+    const visit = `${location.key}:${location.search}`;
+    if (openedShare.current === visit) return;
+    const item = articles.find((entry) => String(entry.id) === params.get("content")
+      && entry.contentType === params.get("type") && ["video", "infographic"].includes(entry.resourceType));
+    if (item) { openedShare.current = visit; setPreviewContent(item); }
+  }, [articles, location.search, location.key]);
+
+  useEffect(() => {
+    if (!embedded) window.scrollTo(0, 0);
+  }, [embedded]);
 
   useEffect(() => {
     document.getElementsByClassName("article-layout")[0]?.scrollTo({
@@ -71,38 +82,31 @@ const Articles = () => {
     return articlesPerPage.slice(startIndex - numOfArticlesPerPage, startIndex);
   };
 
-  const previewMediaSource = getContentMediaSource(previewContent?.media);
-  const previewMediaType = previewContent?.media?.contentType ?? "";
-  const isPreviewVideo = previewMediaType.startsWith("video/");
-  const previewFilename =
-    previewContent?.media?.filename || `${previewContent?.articleTitle ?? "infographic"}`;
   const maxArticlePage = Math.ceil(articles.length / numOfArticlesPerPage);
 
-  return (
-    <div className="article-layout">
-      <HomeNavbar />
-
-      <section className="mt-[56px]">
-        <div className="about-container mb-[112px]">
+  const content = (
+    <section className={embedded ? "public-section public-content-section section-articles" : "mt-[56px]"}>
+      <div className={embedded ? "public-shell" : "about-container mb-[112px]"}>
           <div className="w-full max-w-[1144px]">
             {/* <div className="flex justify-start items-center mb-[24px]">
               <Link
                 to="/about-us"
-                className="prod-btn-lg prod-btn-secondary flex items-center"
+                className="public-button flex items-center"
               >
                 <Icon
                   iconName="ArrowLeft"
                   height="24px"
                   width="24px"
-                  fill="#8693A0"
+                  fill="currentColor"
                 />
                 <span className="ms-[8px]">Go Back</span>
               </Link>
             </div> */}
-            <p className="section-title">Articles</p>
+            <Heading id={embedded ? "articles" : undefined} className={embedded ? "public-section-heading public-scroll-target" : "section-title"}>Articles</Heading>
+            {embedded && <p className="public-section-intro">Research-informed resources, updates, and public-health learning materials from HealthPH+.</p>}
             {isWebsiteContentError && (
               <p className="article-status">
-                Dashboard resources could not be loaded. Showing saved articles.
+                Articles could not be loaded. Please try again later.
               </p>
             )}
             <div className="articles">
@@ -117,17 +121,24 @@ const Articles = () => {
                           article={a}
                           key={`${a.source}-${a.id ?? a.articleID ?? a.articleSlug}`}
                           articlePage={articlePage}
+                          isLoading={
+                            isFetchingWebsiteContent && a.resourceType === "video"
+                          }
                           onPreviewClick={setPreviewContent}
                         />
                       );
                     }
                   })}
             </div>
+            {!isShowingArticleSkeletons && !isWebsiteContentError && articles.length === 0 && (
+              <p className="article-status">No published articles are available yet.</p>
+            )}
             {!isShowingArticleSkeletons &&
               articles.length > numOfArticlesPerPage && (
               <div className="w-full flex justify-end">
                 <button
-                  className="prod-btn-lg prod-btn-secondary flex items-center justify-center me-[20px] h-[48px]"
+                  className="public-button public-button--icon flex items-center justify-center me-[20px] h-[48px]"
+                  aria-label="Previous articles"
                   disabled={!(articlePage > 1)}
                   onClick={() => {
                     if (articlePage > 1) {
@@ -139,11 +150,12 @@ const Articles = () => {
                     iconName="ArrowLeft"
                     height="24px"
                     width="24px"
-                    fill="#8693A0"
+                    fill="currentColor"
                   />
                 </button>
                 <button
-                  className="prod-btn-lg prod-btn-secondary flex items-center justify-center h-[48px]"
+                  className="public-button public-button--icon flex items-center justify-center h-[48px]"
+                  aria-label="Next articles"
                   disabled={!(articlePage < maxArticlePage)}
                   onClick={() => {
                     if (articlePage < maxArticlePage) {
@@ -155,76 +167,29 @@ const Articles = () => {
                     iconName="ArrowRight"
                     height="24px"
                     width="24px"
-                    fill="#8693A0"
+                    fill="currentColor"
                   />
                 </button>
               </div>
             )}
           </div>
-        </div>
-      </section>
-
-      <HomeFooter />
-
-      {previewContent && (
-        <div className="image-modal health-literacy-preview-modal">
-          <div
-            className="image-modal-backdrop"
-            onClick={() => setPreviewContent(null)}
-          ></div>
-          <div className="image-modal-container">
-            <div className="image-wrapper">
-              {previewMediaSource && isPreviewVideo ? (
-                <video src={previewMediaSource} controls autoPlay />
-              ) : previewMediaSource ? (
-                <img
-                  src={previewMediaSource}
-                  alt={previewContent.articleTitle}
-                />
-              ) : (
-                <div className="article-preview-empty">
-                  <Icon
-                    iconName="Document"
-                    height="48px"
-                    width="48px"
-                    fill="#6A8EB5"
-                  />
-                  <p>Preview is unavailable.</p>
-                </div>
-              )}
-            </div>
-            <div className="image-caption">
-              <p>{previewContent.articleTitle}</p>
-              {previewContent.resourceType === "infographic" &&
-                previewMediaSource && (
-                  <a
-                    href={previewMediaSource}
-                    download={previewFilename}
-                    className="prod-btn-lg prod-btn-secondary article-preview-download"
-                  >
-                    <span>Download</span>
-                    <Icon
-                      iconName="Download"
-                      height="20px"
-                      width="20px"
-                      fill="#8693A0"
-                    />
-                  </a>
-                )}
-            </div>
-            <div className="close-icon" onClick={() => setPreviewContent(null)}>
-              <Icon
-                iconName="Close"
-                height="24px"
-                width="24px"
-                className="icon"
-              />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      </div>
+    </section>
   );
+
+  const previewModal = previewContent && (
+    <MediaViewer article={previewContent} onClose={() => setPreviewContent(null)} />
+  );
+
+  if (embedded) {
+    return <div className="article-layout one-page-section hl-articles public-buttons">{content}{previewModal}</div>;
+  }
+
+  return <div className="article-layout hl-articles public-buttons"><HomeNavbar />{content}<HomeFooter />{previewModal}</div>;
 };
+
+const Articles = (props) => (
+  <ArticleMediaProvider><ArticlesContent {...props} /></ArticleMediaProvider>
+);
 
 export default Articles;

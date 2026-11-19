@@ -4,6 +4,7 @@ const Modal = ({
   onConfirm,
   onConfirmLabel,
   onCancel,
+  closeOnBackdrop = true,
   onLoading,
   onLoadingLabel,
   heading,
@@ -15,7 +16,7 @@ const Modal = ({
     <div className={`modal ${additionalClasses}`}>
       <div
         className="modal-backdrop"
-        onClick={onLoading ? null : onCancel}
+        onClick={onLoading || !closeOnBackdrop ? undefined : onCancel}
       ></div>
       <div className="modal-container">
         <div className="modal-body">

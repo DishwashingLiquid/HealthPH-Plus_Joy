@@ -1,0 +1,622 @@
+/* eslint-disable react/prop-types */
+import { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
+import {
+  ToolbarButton,
+  ToolbarSearch,
+} from "../../../../components/ToolbarControls";
+import ModalWithBody from "../../../../components/admin/ModalWithBody";
+import {
+  useCreateHealthLiteracyAnalyticsEventMutation,
+  useCreateHealthLiteracyContentMutation,
+  useDeleteHealthLiteracyContentMutation,
+  useFetchHealthLiteracyContentQuery,
+  useUpdateHealthLiteracyContentMutation,
+} from "../../../../features/api/healthLiteracyHubSlice";
+import { ContentGrid } from "./ContentCards";
+import { ContentFormBody } from "./ContentFormBody";
+import { createGalleryImageId, galleryValidationError } from "./contentGallery";
+import MediaViewer from "../../../../components/health-literacy/MediaViewers";
+import { ArticleMediaProvider } from "../../../../components/about-us/ArticleMedia";
+import { normalizeDashboardContent } from "../../../../utils/healthLiteracyWebsiteContent";
+import { stopCardPreviews } from "../../../../utils/healthLiteracyMedia";
+import CommentModeration from "./CommentModeration";
+import "../../../../assets/css/health-literacy.css";
+import {
+  downloadMediaFile,
+  getVideoFileDuration,
+} from "./contentTabFileMedia";
+import { getFilteredContentItems } from "./contentTabFiltering";
+import {
+  buildContentFormPayload,
+  createEditFormData,
+  createMediaPreviewContent,
+  getShareUrl,
+} from "./contentTabModalHelpers";
+import {
+  INITIAL_FORM_DATA,
+  TAB_CONTENT_TYPES,
+  UPLOAD_RULES,
+  getContentFormValidationError,
+  getContentLabel,
+  getContentMediaSource,
+  getHealthLiteracyVisitorId,
+  isAllowedMediaType,
+  getMediaSizeError,
+  showToast,
+} from "../shared";
+
+const EMPTY_CONTENT = [];
+
+const ContentTab = ({ contentTypeLabel }) => {
+  const user = useSelector((state) => state.auth.user);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedMediaContent, setSelectedMediaContent] = useState(null);
+  const [editingContent, setEditingContent] = useState(null);
+  const [formData, setFormData] = useState(INITIAL_FORM_DATA);
+
+  const contentType = TAB_CONTENT_TYPES[contentTypeLabel];
+
+  const {
+    currentData,
+    isLoading: isLoadingContent,
+    isFetching: isFetchingContent,
+    error: fetchError,
+    refetch,
+  } = useFetchHealthLiteracyContentQuery(contentType, {
+    skip: !contentType,
+    pollingInterval: 5 * 60 * 1000,
+    refetchOnMountOrArgChange: true,
+  });
+
+  // currentData belongs to this type; data can still belong to the previous tab.
+  // A successful empty array also counts as loaded and survives failed refetches.
+  const hasLoadedContent = currentData !== undefined;
+  const fetchedContent = currentData ?? EMPTY_CONTENT;
+  const isInitialLoading = !hasLoadedContent && (isLoadingContent || isFetchingContent);
+
+  const [createHealthLiteracyContent, { isLoading: isCreatingContent }] =
+    useCreateHealthLiteracyContentMutation();
+  const [updateHealthLiteracyContent, { isLoading: isUpdatingContent }] =
+    useUpdateHealthLiteracyContentMutation();
+  const [deleteHealthLiteracyContent, { isLoading: isDeletingContent }] =
+    useDeleteHealthLiteracyContentMutation();
+  const [createHealthLiteracyAnalyticsEvent] =
+    useCreateHealthLiteracyAnalyticsEventMutation();
+
+  const uploadRule = UPLOAD_RULES[contentTypeLabel] ?? UPLOAD_RULES.Articles;
+
+  useEffect(() => {
+    const refreshPreviews = () => refetch();
+    window.addEventListener("focus", refreshPreviews);
+    return () => window.removeEventListener("focus", refreshPreviews);
+  }, [refetch]);
+
+  useEffect(() => () => {
+    if (formData.mediaPreview?.startsWith("blob:")) {
+      URL.revokeObjectURL(formData.mediaPreview);
+    }
+  }, [formData.mediaPreview]);
+
+  // Refresh expiring draft previews without replacing unsaved form fields.
+  useEffect(() => {
+    setFormData((previous) => {
+      const fresh = fetchedContent.find((item) => item.id === editingContent?.id);
+      if (!fresh) return previous;
+      return { ...previous,
+        ...(!previous.media && !previous.removeMedia ? { existingMedia: fresh.media,
+          mediaPreview: getContentMediaSource(fresh.media) || null } : {}),
+        galleryImages: (previous.galleryImages || []).map((image) => {
+          const media = fresh.galleryImages?.find((entry) => entry.id === image.id)?.media
+            || (image.id === `main-${fresh.media?.fileId}` ? fresh.media : null);
+          return media && !image.file ? { ...image, media } : image;
+        }),
+      };
+    });
+    setSelectedMediaContent((previous) => {
+      if (!previous) return previous;
+      const fresh = fetchedContent.find((item) => item.id === previous.item?.id);
+      return fresh ? { ...previous, media: fresh.media, item: { ...previous.item, ...fresh } } : previous;
+    });
+  }, [fetchedContent, editingContent?.id]);
+
+  useEffect(() => {
+    const topic = searchQuery.trim();
+
+    if (!contentType || topic.length < 2) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      createHealthLiteracyAnalyticsEvent({
+        eventType: "search",
+        contentType: contentTypeLabel,
+        region: "all",
+        topic,
+        visitorId: getHealthLiteracyVisitorId(user?.id),
+      }).catch(() => {});
+    }, 800);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    contentType,
+    contentTypeLabel,
+    createHealthLiteracyAnalyticsEvent,
+    searchQuery,
+    user?.id,
+  ]);
+
+  const resetForm = () => {
+    setFormData(INITIAL_FORM_DATA);
+  };
+
+  const closeEditModal = () => {
+    setIsDeleteModalOpen(false);
+    setIsEditModalOpen(false);
+    setEditingContent(null);
+    resetForm();
+  };
+
+  const handleCreateClick = () => {
+    resetForm();
+    setEditingContent(null);
+    setIsCreateModalOpen(true);
+  };
+
+  const handleEditClick = (item) => {
+    if (item.contentOrigin !== "api") return;
+
+    setEditingContent(item);
+    setFormData(createEditFormData({ item, contentTypeLabel }));
+    setIsEditModalOpen(true);
+  };
+
+  const handleMediaPreviewClick = (item) => {
+    stopCardPreviews();
+    createHealthLiteracyAnalyticsEvent({
+      eventType: "content_opened",
+      contentId: item.id ? String(item.id) : undefined,
+      contentTitle: item.title,
+      contentType: contentTypeLabel,
+      region: user?.region || null,
+      visitorId: getHealthLiteracyVisitorId(user?.id),
+    }).catch(() => {});
+
+    setSelectedMediaContent(createMediaPreviewContent({ item, contentTypeLabel }));
+  };
+
+  const handleShareClick = async (item) => {
+    const shareUrl = getShareUrl(item);
+
+    if (!shareUrl) {
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message: "No share URL is available for this article",
+      });
+      return;
+    }
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: item.title,
+          text: item.description,
+          url: shareUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        showToast({
+          iconName: "CheckCircle",
+          color: "success",
+          message: "Article link copied to clipboard",
+        });
+      }
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message: "Failed to share article",
+      });
+    }
+  };
+
+  const handleDownloadClick = (item) => {
+    const mediaSource = getContentMediaSource(item.media) || item.imageUrl;
+
+    if (!mediaSource) {
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message: "No infographic file is available to download",
+      });
+      return;
+    }
+
+    downloadMediaFile({
+      url: mediaSource,
+      filename: item.media?.filename || `${item.title || "infographic"}`,
+    });
+  };
+
+  const validateForm = () => {
+    const validationError = (contentTypeLabel === "Articles" && galleryValidationError(formData.galleryImages)) || getContentFormValidationError(
+      formData,
+      contentTypeLabel
+    );
+
+    if (validationError) {
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message: validationError,
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleCreateSubmit = async () => {
+    if (!validateForm()) return;
+
+    try {
+      await createHealthLiteracyContent({
+        contentType,
+        data: buildContentFormPayload({ formData, contentTypeLabel }),
+      }).unwrap();
+
+      showToast({
+        iconName: "CheckCircle",
+        color: "success",
+        message: `New ${getContentLabel(contentTypeLabel)} created successfully`,
+      });
+
+      setIsCreateModalOpen(false);
+      resetForm();
+    } catch (error) {
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message:
+          error?.data?.detail ??
+          `Failed to create ${getContentLabel(contentTypeLabel).toLowerCase()}`,
+      });
+    }
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editingContent || !validateForm()) return;
+
+    try {
+      await updateHealthLiteracyContent({
+        contentType,
+        contentId: editingContent.id,
+        data: buildContentFormPayload({
+          formData,
+          contentTypeLabel,
+          includeRemoveMedia: true,
+        }),
+      }).unwrap();
+
+      showToast({
+        iconName: "CheckCircle",
+        color: "success",
+        message: `${getContentLabel(contentTypeLabel)} updated successfully`,
+      });
+
+      closeEditModal();
+    } catch (error) {
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message:
+          error?.data?.detail ??
+          `Failed to update ${getContentLabel(contentTypeLabel).toLowerCase()}`,
+      });
+    }
+  };
+
+  const handleFormChange = (event) => {
+    const { name, value, type, checked } = event.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const handleDeleteSubmit = async () => {
+    if (!editingContent) return;
+
+    try {
+      await deleteHealthLiteracyContent({
+        contentType,
+        contentId: editingContent.id,
+      }).unwrap();
+
+      showToast({
+        iconName: "CheckCircle",
+        color: "success",
+        message: `${getContentLabel(contentTypeLabel)} deleted successfully`,
+      });
+
+      closeEditModal();
+    } catch (error) {
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message:
+          error?.data?.detail ??
+          `Failed to delete ${getContentLabel(contentTypeLabel).toLowerCase()}`,
+      });
+    }
+  };
+
+  const setMediaFile = async (file) => {
+    if (!file) return;
+    if (contentTypeLabel === "Articles" && file.type.startsWith("image/")) {
+      const galleryImages = [...(formData.galleryImages || []), { id: createGalleryImageId(), file, caption: "", alt: "" }];
+      const error = galleryValidationError(galleryImages);
+      if (error) showToast({ iconName: "Error", color: "destructive", message: error });
+      else setFormData((previous) => ({ ...previous, galleryImages }));
+      return;
+    }
+
+    if (!isAllowedMediaType(file, contentTypeLabel)) {
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message: `${contentTypeLabel} does not accept this file type`,
+      });
+      return;
+    }
+
+    const sizeError = getMediaSizeError(file);
+    if (sizeError) {
+      showToast({ iconName: "Error", color: "destructive", message: sizeError });
+      return;
+    }
+
+    try {
+      const duration =
+        contentTypeLabel === "Videos" ? await getVideoFileDuration(file) : "";
+      const mediaPreview = URL.createObjectURL(file);
+
+      setFormData((prev) => ({
+        ...prev,
+        media: file,
+        mediaPreview,
+        existingMedia: null,
+        duration: contentTypeLabel === "Videos" ? duration : "",
+        removeMedia: false,
+      }));
+    } catch {
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message: "Failed to read the selected media file",
+      });
+    }
+  };
+
+  const handleMediaChange = async (event) => {
+    const file = event.target.files?.[0];
+    await setMediaFile(file);
+    event.target.value = "";
+  };
+
+  const handleThumbnailChange = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/gif", "image/webp"].includes(file.type)) {
+      showToast({ iconName: "Error", color: "destructive", message: "Choose a JPG, PNG, GIF, or WEBP thumbnail" });
+      return;
+    }
+    const sizeError = getMediaSizeError(file);
+    if (sizeError) {
+      showToast({ iconName: "Error", color: "destructive", message: sizeError });
+      return;
+    }
+    setFormData((previous) => ({ ...previous, thumbnail: file, removeThumbnail: false }));
+  };
+
+  const handleRemoveThumbnail = () => {
+    setFormData((previous) => ({ ...previous, thumbnail: null, existingThumbnail: null,
+      removeThumbnail: Boolean(isEditModalOpen) }));
+  };
+
+  const handleMediaDrop = async (event) => {
+    event.preventDefault();
+    await setMediaFile(event.dataTransfer.files?.[0]);
+  };
+
+  const handleRemoveMedia = () => {
+    setFormData((prev) => ({
+      ...prev,
+      media: null,
+      mediaPreview: null,
+      existingMedia: null,
+      duration: contentTypeLabel === "Videos" ? "" : prev.duration,
+      removeMedia: Boolean(isEditModalOpen),
+    }));
+  };
+
+  const filteredContent = getFilteredContentItems({
+    fetchedContent,
+    contentTypeLabel,
+    searchQuery,
+  });
+
+  return (
+    <div className="hl-hub">
+      <CommentModeration />
+      <div className="rounded-[12px] border border-[#E5E5E5] bg-white p-[20px]">
+        <div className="flex flex-col gap-[14px] xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <h2 className="text-[20px] font-semibold text-gray-800">
+              {contentTypeLabel}
+            </h2>
+            <p className="mt-[4px] text-[14px] text-gray-500">
+              Manage health literacy {contentTypeLabel.toLowerCase()} for
+              mobile and public channels.
+            </p>
+          </div>
+          <div className="flex flex-col gap-[10px] sm:flex-row sm:items-center">
+            <ToolbarSearch
+              placeholder={`Search ${contentTypeLabel.toLowerCase()}...`}
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              className="sm:w-[320px]"
+            />
+            <ToolbarButton
+              type="button"
+              onClick={handleCreateClick}
+              iconName="Plus"
+              variant="brand"
+              className="whitespace-nowrap"
+            >
+              Create New Content
+            </ToolbarButton>
+          </div>
+        </div>
+
+        <div className="mt-[20px]">
+          <div className="flex min-h-[44px] items-center gap-3 text-[14px]">
+            <span role="status" aria-live="polite" aria-atomic="true" className="text-gray-500">
+              {hasLoadedContent && isFetchingContent ? "Refreshing…" : ""}
+            </span>
+            {fetchError && !isFetchingContent && (
+              <div role="alert" className="flex flex-wrap items-center gap-2 text-red-700">
+                <span>{hasLoadedContent
+                  ? "Unable to refresh shared content. Showing the last successful result."
+                  : "Unable to load shared content. Please try again."}</span>
+                <button type="button" onClick={() => refetch()}
+                  className="rounded px-2 py-1 font-semibold underline focus:outline-none focus:ring-2 focus:ring-[#6A8EB5]">
+                  Retry
+                </button>
+              </div>
+            )}
+          </div>
+          {(hasLoadedContent || !fetchError || isFetchingContent) && (
+            <ContentGrid
+              content={filteredContent}
+              contentType={contentTypeLabel}
+              isLoading={isInitialLoading}
+              onMediaClick={handleMediaPreviewClick}
+              onEditClick={handleEditClick}
+              onShareClick={handleShareClick}
+              onDownloadClick={handleDownloadClick}
+            />
+          )}
+        </div>
+      </div>
+
+      {isCreateModalOpen && (
+        <ModalWithBody
+          onConfirm={handleCreateSubmit}
+          onConfirmLabel="Create"
+          onCancel={() => {
+            setIsCreateModalOpen(false);
+            resetForm();
+          }}
+          onLoading={isCreatingContent}
+          onLoadingLabel="Creating..."
+          heading={`Create New ${getContentLabel(contentTypeLabel)}`}
+          color="brand"
+          additionalClasses="health-literacy-content-modal admin-brand-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
+        >
+          <ContentFormBody
+            contentTypeLabel={contentTypeLabel}
+            formData={formData}
+            uploadRule={uploadRule}
+            mode="create"
+            onFormChange={handleFormChange}
+            onMediaChange={handleMediaChange}
+            onThumbnailChange={handleThumbnailChange}
+            onRemoveThumbnail={handleRemoveThumbnail}
+            onMediaDrop={handleMediaDrop}
+            onRemoveMedia={handleRemoveMedia}
+            onGalleryChange={(galleryImages) => setFormData((previous) => ({ ...previous, galleryImages }))}
+          />
+        </ModalWithBody>
+      )}
+
+      {isEditModalOpen && (
+        <ModalWithBody
+          onConfirm={handleEditSubmit}
+          onConfirmLabel="Save"
+          onCancel={closeEditModal}
+          onLoading={isUpdatingContent}
+          onLoadingLabel="Saving..."
+          heading={`Edit ${getContentLabel(contentTypeLabel)}`}
+          color="brand"
+          additionalClasses="health-literacy-content-modal admin-brand-modal !top-[68px] !h-[calc(100vh-68px)] !pt-[20px]"
+        >
+          <ContentFormBody
+            contentTypeLabel={contentTypeLabel}
+            formData={formData}
+            uploadRule={uploadRule}
+            mode="edit"
+            onFormChange={handleFormChange}
+            onMediaChange={handleMediaChange}
+            onThumbnailChange={handleThumbnailChange}
+            onRemoveThumbnail={handleRemoveThumbnail}
+            onMediaDrop={handleMediaDrop}
+            onRemoveMedia={handleRemoveMedia}
+            onGalleryChange={(galleryImages) => setFormData((previous) => ({ ...previous, galleryImages }))}
+            onDelete={() => setIsDeleteModalOpen(true)}
+            onDeleteDisabled={isUpdatingContent || isDeletingContent}
+          />
+        </ModalWithBody>
+      )}
+
+      {isDeleteModalOpen && editingContent && (
+        <ModalWithBody
+          onConfirm={handleDeleteSubmit}
+          onConfirmLabel="Delete"
+          onCancel={() => setIsDeleteModalOpen(false)}
+          onLoading={isDeletingContent}
+          onLoadingLabel="Deleting..."
+          heading="Delete Content"
+          color="destructive"
+          additionalClasses="!z-[70]"
+        >
+          <div className="p-[20px]">
+            <p className="text-[14px] text-gray-700">
+              Are you sure you want to delete this content?
+            </p>
+          </div>
+        </ModalWithBody>
+      )}
+
+      {selectedMediaContent && (
+        <ArticleMediaProvider>
+          <MediaViewer article={normalizeDashboardContent({ ...selectedMediaContent.item, contentType,
+            media: selectedMediaContent.media ? { ...selectedMediaContent.media, url: getContentMediaSource(selectedMediaContent.media) } : null,
+            thumbnail: selectedMediaContent.item.thumbnail ? { ...selectedMediaContent.item.thumbnail, url: getContentMediaSource(selectedMediaContent.item.thumbnail) } : null,
+            galleryImages: (selectedMediaContent.item.galleryImages || []).map((entry) => ({ ...entry,
+              media: { ...entry.media, url: getContentMediaSource(entry.media) } })),
+          })} onClose={() => setSelectedMediaContent(null)} dashboardActions={
+            <div className="hl-details">
+              {contentTypeLabel === "Articles" && <div className="hl-prose">
+                <h2>Full description</h2>
+                {(selectedMediaContent.item.description || "").split("\n").filter(Boolean).map((paragraph, index) => <p key={index}>{paragraph}</p>)}
+              </div>}
+              <p className="hl-meta">Website: {selectedMediaContent.publishToWebsite ? "Published" : "Unpublished"} · Mobile: {selectedMediaContent.publishToMobile ? "Published" : "Unpublished"}</p>
+              <p className="hl-meta">Website comments are managed in the moderation panel.</p>
+              {selectedMediaContent.canEdit && <button type="button" className="hl-button" onClick={() => {
+                const item = selectedMediaContent.item; setSelectedMediaContent(null); handleEditClick(item);
+              }}>Edit</button>}
+            </div>
+          } />
+        </ArticleMediaProvider>
+      )}
+    </div>
+  );
+};
+
+export default ContentTab;

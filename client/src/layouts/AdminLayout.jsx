@@ -4,13 +4,23 @@ import Sidebar from "../components/admin/Sidebar";
 import { useSelector } from "react-redux";
 import AccessDenied from "../pages/error/AccessDenied";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import "../assets/css/navbar.css";
+import "../assets/css/admin.css";
 
 const AdminLayout = () => {
   const location = useLocation();
   const user = useSelector((state) => state.auth.user);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.classList.add("admin-active");
+
+    return () => {
+      document.documentElement.classList.remove("admin-active");
+    };
+  }, []);
 
   return (
     <>
@@ -32,7 +42,7 @@ const AdminLayout = () => {
         )}
       </div> */}
     <div
-      className="admin-layout flex flex-col max-h-screen h-screen bg-[#F5F5F5] overflow-y-hidden"
+      className="admin-layout internal-buttons flex flex-col max-h-screen h-screen bg-[#F5F5F5] overflow-y-hidden"
       style={{
         "--admin-sidebar-width": sidebarOpen ? "270px" : "72px",
       }}

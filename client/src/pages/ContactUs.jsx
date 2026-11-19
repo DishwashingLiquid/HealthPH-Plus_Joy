@@ -1,14 +1,16 @@
+/* eslint-disable react/prop-types */
 import { useState } from "react";
 import HomeFooter from "../components/HomeFooter";
 import HomeNavbar from "../components/HomeNavbar";
+import "../assets/css/home.css";
 import Icon from "../components/Icon";
 import ContactDetailItem from "../components/about-us/ContactDetailItem";
 import FieldGroup from "../components/FieldGroup";
 import Input from "../components/Input";
-import Textarea from "../components/Textarea";
 import { useSendContactUsMutation } from "../features/api/miscSlice";
 
-const ContactUs = () => {
+const ContactUs = ({ embedded = false }) => {
+  const Heading = embedded ? "h2" : "h1";
   const contactDetails = [
     {
       icon: "Mail",
@@ -146,12 +148,12 @@ const ContactUs = () => {
     return flag;
   };
 
-  return (
-    <div className="contact-us-layout flex flex-col min-h-[100vh]">
-      <HomeNavbar background="solid" />
+  const content = (
+    <section className={embedded ? "public-section public-content-section" : ""}>
       <div className="contact-us-container flex-grow">
         <div className="contact-us-wrapper">
-          <p className="heading">Contact Us</p>
+          <Heading id={embedded ? "contact" : undefined} className={embedded ? "heading public-scroll-target" : "heading"}>Contact Us</Heading>
+          {embedded && <p className="public-section-intro">Reach the HealthPH+ team, send a message, or find us on the map.</p>}
 
           {/* CONTACT US GRID */}
           <div className="contact-us-grid">
@@ -169,7 +171,7 @@ const ContactUs = () => {
                   <div className="flex items-center justify-end">
                     <button
                       type="button"
-                      className=" prod-btn-base prod-btn-primary"
+                      className=" public-button"
                       onClick={() => setIsMessageSent(false)}
                     >
                       Send another message
@@ -276,7 +278,7 @@ const ContactUs = () => {
                   <div className="flex items-center justify-end pt-[8px]">
                     <button
                       type="submit"
-                      className="prod-btn-base prod-btn-primary"
+                      className="public-button"
                       disabled={isLoading}
                     >
                       {isLoading ? "Sending..." : "Send Message"}
@@ -329,8 +331,11 @@ const ContactUs = () => {
           </div>
         </div>
       </div>
-      <HomeFooter />
-    </div>
+    </section>
   );
+
+  if (embedded) return <div className="contact-us-layout public-buttons">{content}</div>;
+
+  return <div className="contact-us-layout public-buttons flex flex-col min-h-[100vh]"><HomeNavbar />{content}<HomeFooter /></div>;
 };
 export default ContactUs;

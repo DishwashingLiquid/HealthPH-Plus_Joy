@@ -1,11 +1,9 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import Icon from "../../components/Icon";
 import { useEffect, useRef, useState } from "react";
+import "../../assets/css/map.css";
 import Datatable from "../../components/admin/Datatable";
-import {
-  useCreateActivityLogMutation,
-  useFetchActivityLogsQuery,
-} from "../../features/api/activityLogsSlice";
+import { useCreateAccountActivityMutation } from "../../features/api/accountActivitySlice";
 import EmptyState from "../../components/admin/EmptyState";
 import { format } from "date-fns";
 import CSVReader from "react-csv-reader";
@@ -89,7 +87,7 @@ const UploadDataset = () => {
     }
 
     if (
-      !["region", "province", "posts"].every((e) =>
+      !["id", "text", "location", "date_posted", "source", "date_collected"].every((e) =>
         Object.keys(data[0]).includes(e)
       )
     ) {
@@ -240,7 +238,7 @@ const UploadDataset = () => {
 
   const [deleteDataset] = useDeleteDatasetMutation();
 
-  const [log_activiy] = useCreateActivityLogMutation();
+  const [log_activiy] = useCreateAccountActivityMutation();
 
   const [rows, setRows] = useState([]);
 
@@ -400,11 +398,14 @@ const UploadDataset = () => {
                   All current and previous CSV data sets are uploaded here.
                   Download the 'CSV Template' to fill out the data columns then
                   proceed to upload it.
+                  Use YYYY-MM-DD for dates (2026-10-31), or an ISO timestamp
+                  such as 2026-10-31T09:30:00+08:00 when the time is known.
+                  Format Excel date cells as yyyy-mm-dd before saving as CSV.
                 </span>
                 <div className="mt-[16px]">
                   <Link
                     to="/assets/dataset-template.csv"
-                    target="_blank"
+                    download="healthph-plus-raw-dataset-template.csv"
                     className="prod-btn-base prod-btn-secondary"
                   >
                     Download CSV Template

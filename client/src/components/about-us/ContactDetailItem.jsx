@@ -6,8 +6,8 @@ const ContactDetailItem = ({ icon, iconFill, label, desc, link, linkText }) => {
       <div className="contact-icon">
         <Icon
           iconName={icon}
-          fill={iconFill ? "#007AFF" : "transparent"}
-          stroke={iconFill ? "transparent" : "#007AFF"}
+          fill={iconFill ? "#32418C" : "transparent"}
+          stroke={iconFill ? "transparent" : "#32418C"}
           className="icon"
           height="24px"
           width="24px"

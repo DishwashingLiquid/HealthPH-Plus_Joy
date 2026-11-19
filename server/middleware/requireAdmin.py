@@ -1,48 +1,36 @@
-from dotenv import dotenv_values
+from bson import ObjectId
+from fastapi import Depends, HTTPException, status
+from typing_extensions import Annotated
 
+from config.database import user_collection
+from middleware.requireAuth import require_auth
 from models.user import AdminResult
 
-config_dotenv = dotenv_values()
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from typing_extensions import Annotated
-from jose import JWTError, jwt
-from models.auth import TokenData
-from config.database import user_collection
-from bson import ObjectId
-import os
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/authenticate")
-
-
-async def require_admin(token: Annotated[str, Depends(oauth2_scheme)]):
-    credential_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
+def require_admin(
+    user_id: Annotated[str, Depends(require_auth)],
+):
+    user = user_collection.find_one(
+        {"_id": ObjectId(user_id)},
+        {"user_type": 1, "role_label": 1, "is_disabled": 1},
     )
 
-    try:
-        payload = jwt.decode(
-            token,
-            os.getenv("SECRET_KEY"),
-            algorithms=[os.getenv("ALGORITHM")],
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Your session is invalid. Please sign in again.",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
-        id: str = payload.get("sub")
+    if user.get("is_disabled", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been disabled. Please contact support.",
+        )
 
-        if id is None:
-            raise credential_exception
+    is_admin = (
+        user.get("user_type") == "SUPERADMIN"
+        or user.get("role_label") == "Admin"
+    )
 
-        token_data = TokenData(id=id)
-
-        user_data = user_collection.find_one({"_id": ObjectId(token_data.id)})
-
-        if user_data["user_type"] not in ["ADMIN", "SUPERADMIN"]:
-            return AdminResult(result=False, id=token_data.id)
-
-        return AdminResult(result=True, id=token_data.id)
-
-    except JWTError:
-        raise credential_exception
+    return AdminResult(result=is_admin, id=user_id)

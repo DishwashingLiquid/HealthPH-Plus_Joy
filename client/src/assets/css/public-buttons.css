@@ -1,0 +1,37 @@
+/* Public actions share appearance; feature classes own placement and dimensions.
+   Context aliases cover shared viewer bodies and their media-retry controls. */
+.public-button, :where(.public-buttons) :is(.hl-button, .hl-text-button, .hl-photo-icon-button, .prod-btn-primary, .prod-btn-secondary) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  line-height: 1.4;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+:is(.public-button, .public-buttons :is(.hl-button, .hl-text-button, .hl-photo-icon-button, .prod-btn-primary, .prod-btn-secondary)) {
+  --public-button-brand: #32418C;
+  border: 1px solid var(--public-button-brand);
+  background: var(--public-button-brand);
+  color: #fff;
+  font-family: Inter, ui-sans-serif, sans-serif;
+  font-size: var(--public-button-font-size, 16px);
+  font-weight: 700;
+}
+.public-button--small { --public-button-font-size: 14px; }
+.public-button.public-button--large { --public-button-font-size: 18px; min-height: 52px; padding: 12px 20px; }
+.public-button.public-button--icon { width: 44px; height: 44px; padding: 0; flex-shrink: 0; }
+.public-button.public-button--round { border-radius: 50%; }
+:is(.public-button, .public-buttons :is(.hl-button, .hl-text-button, .hl-photo-icon-button, .prod-btn-primary, .prod-btn-secondary)):focus-visible {
+  outline: 3px solid var(--public-button-brand);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 3px #fff;
+}
+:is(.public-button, .public-buttons :is(.hl-button, .hl-text-button, .hl-photo-icon-button, .prod-btn-primary, .prod-btn-secondary)):disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}

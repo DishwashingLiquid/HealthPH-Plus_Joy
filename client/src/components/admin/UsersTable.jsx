@@ -1,3 +1,4 @@
+import AccountStatus, { ResendInvitationButton } from "./AccountStatus";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
@@ -15,7 +16,7 @@ import {
   useDisableUserMutation,
   useUpdateUserMutation,
 } from "../../features/api/userSlice";
-import { useCreateActivityLogMutation } from "../../features/api/activityLogsSlice";
+import { useCreateAccountActivityMutation } from "../../features/api/accountActivitySlice";
 import ModalWithBody from "./ModalWithBody";
 import FieldGroup from "../FieldGroup";
 import Checkbox from "../Checkbox";
@@ -26,98 +27,55 @@ import Regions from "../../assets/data/regions.json";
 import MultiSelect from "../MultiSelect";
 
 const UsersTable = ({
-  users,
-  setCurrentData,
+  users = [],
+  visibleUsers = users,
+  page = 1,
   searchQuery,
   setSearchQuery,
+  organizationOptions = [],
+  isOrganizationsLoading = false,
+  roleLabelOptions = [],
 }) => {
   const user = useSelector((state) => state.auth.user);
 
-  const [tableData, setTableData] = useState([]);
+  const hasOrganizationOptions = organizationOptions.length > 0;
+  
+  const normalizeOrganizationValue = (organizationName) =>
+    organizationOptions.some((options) => options.value === organizationName)
+      ? organizationName
+      : "";
+
+  const tableData = visibleUsers;
   
   const [selectedUserIds, setSelectedUserIds] = useState([]);
   const [bulkActionModalActive, setBulkActionModalActive] = useState(false);
   const [bulkActionType, setBulkActionType] = useState("");
 
   useEffect(() => {
-    if (users) {
-      setTableData(users);
-      setCurrentData(users);
-    }
-  }, [users]);
-
-  useEffect(() => {
-    if (users) {
-      let searchQuerySplit = searchQuery.split(" ");
-      searchQuerySplit = searchQuerySplit.filter((s) => s.length > 0);
-
-      const filteredRows = users.filter((user) => {
-        return searchQuerySplit.some((s) => {
-          const reg = new RegExp("^.*" + s + ".*$", "i");
-          if (
-            reg.test(user["last_name"]) ||
-            reg.test(user["first_name"]) ||
-            reg.test(user["email"]) ||
-            reg.test(user["organization"])
-          ) {
-            return true;
-          }
-        });
-      });
-
-      setTableData(searchQuery.length > 0 ? filteredRows : users);
-      setCurrentData(searchQuery.length > 0 ? filteredRows : users);
-    }
-  }, [searchQuery]);
+    setSelectedUserIds([]);
+  }, [page, searchQuery]);
 
   const displayRegion = (region) => {
-    const regions = {
-      NCR: "National Capital Region",
-      I: "Region I",
-      II: "Region II",
-      III: "Region III",
-      CAR: "Cordillera Administrative Region (CAR)",
-      IVA: "Region IV-A (CALABARZON)",
-      IVB: "Region IV-B (MIMAROPA)",
-      V: "Region V",
-      VI: "Region VI",
-      VII: "Region VII",
-      VIII: "Region VIII",
-      IX: "Region IX",
-      X: "Region X",
-      XI: "Region XI",
-      XII: "Region XII",
-      XIII: "Region XIII",
-      BARMM: "Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)",
-    };
-
-    return regions[region];
-  };
-
-  const displayRoleLabel = (roleLabel) => {
-    const roleLabels = {
-      ANALYST: "Analyst",
-      DOH: "DOH Official",
-      LGU: "LGU Worker",
-      RESEARCHER: "Researcher",
-      VIEWER: "Viewer",
-      FIELD_WORKER: "Field Worker",
-    };
-
-    return roleLabels[roleLabel] || roleLabel;
+    return Regions.regions.find((item) => item.value === region)?.label || region;
   };
 
   const getRolePillClass = (roleLabel) => {
-    const roleClasses = {
-      ANALYST: "bg-[#D1FAE5] text-[#059669]",
-      DOH: "bg-[#FEF3C7] text-[#D97706]",
-      LGU: "bg-[#FEE2E2] text-[#DC2626]",
-      RESEARCHER: "bg-[#E0F2FE] text-[#0284C7]",
-      VIEWER: "bg-[#F3F4F6] text-[#4B5563]",
-      FIELD_WORKER: "bg-[#FEF3C7] text-[#B45309]",
-    };
+    const roleClasses = [
+      "bg-[#EEF2FF] text-[#4F46E5]",
+      "bg-[#D1FAE5] text-[#059669]",
+      "bg-[#FEF3C7] text-[#D97706]",
+      "bg-[#FEE2E2] text-[#DC2626]",
+      "bg-[#E0F2FE] text-[#0284C7]",
+      "bg-[#F3F4F6] text-[#4B5563]",
+      "bg-[#ECFDF3] text-[#027A48]",
+      "bg-[#F4E8FF] text-[#7E22CE]",
+    ];
 
-    return roleClasses[roleLabel] || "bg-[#F2F4F7] text-gray-600";
+    const roleIndex = roleLabelOptions.findIndex(
+      (role) => role.value === roleLabel
+    );
+
+    return roleClasses[Math.max(roleIndex, 0) % roleClasses.length];
   };
 
   const [isModalLoading, setIsModalLoading] = useState(false);
@@ -126,7 +84,7 @@ const UsersTable = ({
 
   const [deleteUser] = useDeleteUsersMutation();
 
-  const [log_activity] = useCreateActivityLogMutation();
+  const [log_activity] = useCreateAccountActivityMutation();
 
   const searchWords = searchQuery.split(" ").filter((search) => search.length > 0);
 
@@ -179,12 +137,15 @@ const UsersTable = ({
       first_name: row.first_name || "",
       last_name: row.last_name || "",
       email: row.email || "",
+      original_email: row.email || "",
+      activation_pending: row.activation_pending || false,
       region: row.region || "",
-      organization: row.organization || "",
+      organization: normalizeOrganizationValue(row.organization || ""),
       role_label: row.role_label || "",
       accessible_regions: normalizeAccessibleRegions(row.accessible_regions),
       created_at: row.created_at || "",
       is_disabled: row.is_disabled || false,
+      user_type: row.user_type || "USER",
     });
 
     setUpdateModalErrors(emptyUpdateModalErrors);
@@ -207,6 +168,7 @@ const UsersTable = ({
     setBulkActionModalActive(false);
   };
 
+  const [isResendingInvitation, setIsResendingInvitation] = useState(false);
   const [updateModalActive, setUpdateModalActive] = useState(false);
 
   const emptyUpdateModalData = {
@@ -221,6 +183,7 @@ const UsersTable = ({
     accessible_regions: [],
     created_at: "",
     is_disabled: false,
+    user_type: "USER",
   };
 
   const emptyUpdateModalErrors = {
@@ -246,6 +209,7 @@ const UsersTable = ({
       email: updateModalData.email.trim().toLowerCase(),
       region: updateModalData.region,
       organization: updateModalData.organization.trim(),
+      user_type: "USER",
       role_label: updateModalData.role_label,
       accessible_regions: updateModalData.accessible_regions.join(","),
     };
@@ -274,8 +238,13 @@ const UsersTable = ({
     }
 
     if (!payload.organization) {
-      nextErrors.organization = "Must enter organization.";
+      nextErrors.organization = "Must choose organization.";
        hasError = true;
+    }
+
+    if (!payload.role_label) {
+      nextErrors.role_label = "Must choose role.";
+      hasError = true;
     }
 
     if (!payload.accessible_regions) {
@@ -567,6 +536,8 @@ const UsersTable = ({
                     role_label,
                     created_at,
                     is_disabled,
+                    activation_pending,
+                    invitation_email_sent,
                   }) => {
                     const fullName = `${first_name} ${last_name}`;
 
@@ -588,6 +559,7 @@ const UsersTable = ({
                             role_label,
                             created_at,
                             is_disabled,
+                            activation_pending
                           })
                         }
                       >
@@ -624,7 +596,7 @@ const UsersTable = ({
                                 role_label
                               )}`}
                             >
-                              {displayRoleLabel(role_label)}
+                              {role_label}
                             </span>
                           ) : (
                             <span className="text-gray-400">-</span>
@@ -642,15 +614,7 @@ const UsersTable = ({
                           {format(new Date(created_at), "MMM dd, yyyy hh:mm a")}
                         </td>
                         <td className="px-[10px] py-[14px]">
-                          <span
-                            className={`rounded-full px-[8px] py-[4px] text-xs font-medium ${
-                              is_disabled
-                                ? "bg-[#FEF2F2] text-[#B42318]"
-                                : "bg-[#ECFDF3] text-[#027A48]"
-                            }`}
-                          >
-                            {is_disabled ? "Disabled" : "Active"}
-                          </span>
+                          <AccountStatus account={{ id, is_disabled, activation_pending, invitation_email_sent, user_type: "USER", role_label }} />
                         </td>
                       </tr>
                     );
@@ -685,6 +649,7 @@ const UsersTable = ({
       {/* MODALS */}
       {bulkActionModalActive && (
         <Modal
+          closeOnBackdrop={false}
           onLoading={isModalLoading}
           onLoadingLabel={
             bulkActionType === "delete"
@@ -724,23 +689,147 @@ const UsersTable = ({
 
       {updateModalActive && (
         <ModalWithBody
-          onLoading={isModalLoading}
-          onLoadingLabel={"Updating"}
-          onConfirm={() => {
-            handleUpdateUser();
-          }}
+          closeOnBackdrop={false}
+          onLoading={isModalLoading || isResendingInvitation}
+          onLoadingLabel={isResendingInvitation ? "Please wait..." : "Updating"}
+          onConfirm={handleUpdateUser}
           onConfirmLabel="Update"
+          onCancelLabel="Close"
+          headerActions={
+            <>
+              <AccountStatus account={updateModalData} showDeliveryNote={false} />
+              <ResendInvitationButton
+                account={updateModalData}
+                disabled={isModalLoading}
+                emailChanged={updateModalData.email.trim().toLowerCase() !== updateModalData.original_email?.trim().toLowerCase()}
+                onLoadingChange={setIsResendingInvitation}
+              />
+            </>
+          }
+          onConfirmDisabled={!hasOrganizationOptions}
           onCancel={() => {
             setUpdateModalData(emptyUpdateModalData);
             setUpdateModalErrors(emptyUpdateModalErrors);
             setUpdateModalActive(false);
           }}
-          heading={`Update ${updateModalData.name}'s account`}
-          content="This user will receive full access to HealthPH+ such as the Analytics, Trends Map, and other modules."
+          heading="Update Account"
+          content="This user can access HealthPH+ modules based on their role label and organization permissions."
           color="primary"
+          additionalClasses="account-form-modal"
         >
           <div className="p-[20px]">
-            <div className="grid grid-cols-1 gap-x-[16px] p-[20px] md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-x-[16px] md:grid-cols-2">
+              <FieldGroup
+                label="Account Type"
+                labelFor="update-user-type"
+                additionalClasses="mb-[16px]"
+              >
+                <Input
+                  size="input-md"
+                  id="update-user-type"
+                  type="text"
+                  additionalClasses="mt-[8px] w-full"
+                  value={updateModalData.user_type}
+                  disabled
+                />
+              </FieldGroup>
+              <FieldGroup 
+                label="Role" 
+                labelFor="update-role-label" 
+                additionalClasses="mb-[16px]" 
+                caption={updateModalErrors.role_label} 
+                state={updateModalErrors.role_label ? "error" : ""}
+              >
+                <CustomSelect 
+                  options={roleLabelOptions} 
+                  id="update-role-label" 
+                  placeholder="Select role" 
+                  size="input-select-md" 
+                  value={updateModalData.role_label} 
+                  handleChange={(value) => setUpdateModalData({ ...updateModalData, role_label: value })} 
+                  additionalClasses="mt-[8px] w-full" 
+                  state={updateModalErrors.role_label ? "error" : ""}
+                />
+              </FieldGroup>
+              <FieldGroup 
+                label="Regional Office"
+                labelFor="update-region" 
+                additionalClasses="mb-[16px]" 
+                caption={updateModalErrors.region} 
+                state={updateModalErrors.region ? "error" : ""}
+              >
+                <CustomSelect 
+                  options={Regions.regions} 
+                  id="update-region" 
+                  placeholder="Select region" 
+                  size="input-select-md" 
+                  value={updateModalData.region} 
+                  handleChange={(value) => setUpdateModalData({ ...updateModalData, region: value })} additionalClasses="mt-[8px] w-full" state={updateModalErrors.region ? "error" : ""} menuMaxHeight="max-h-[250px]"
+                />
+              </FieldGroup>
+              <FieldGroup 
+                label="Accessible Regions" 
+                labelFor="accessible-regions" 
+                additionalClasses="w-full mb-[16px]" 
+                caption={updateModalErrors.accessible_regions} 
+                state={updateModalErrors.accessible_regions ? "error" : ""}
+              >
+                <MultiSelect 
+                  options={Regions.regions} 
+                  defaultValue={updateModalData.accessible_regions} 
+                  placeHolder="Select Region/s" 
+                  onChange={(e) => setUpdateModalData({ ...updateModalData, accessible_regions: e.map((v) => v.value) })} selectAllLabel="All Regions" 
+                  selectAll={false} 
+                  additionalClassname="w-full mt-[8px]" 
+                  editable={true} 
+                  state={updateModalErrors.accessible_regions ? "error" : ""}
+                />
+              </FieldGroup>
+              <FieldGroup 
+                label="Organization" 
+                labelFor="update-organization" 
+                additionalClasses="mb-[16px] md:col-span-2" 
+                caption={
+                  updateModalErrors.organization ||
+                  (isOrganizationsLoading
+                    ? ""
+                    : !hasOrganizationOptions
+                    ? "Add an organization first from the Organizations tab."
+                    : ""
+                  )
+                }
+                state={
+                  updateModalErrors.organization
+                    ? "error"
+                    : isOrganizationsLoading
+                    ? ""
+                    : !hasOrganizationOptions
+                    ? "warning"
+                    : ""
+                }
+              >
+                <CustomSelect
+                  options={organizationOptions}
+                  isLoading={isOrganizationsLoading}
+                  id="update-organization"
+                  placeholder={
+                    isOrganizationsLoading
+                      ? "Loading organizations..."
+                      : hasOrganizationOptions
+                      ? "Select organization"
+                      : "No organizations available" 
+                  }
+                  size="input-select-md"
+                  value={updateModalData.organization}
+                  handleChange={(value) => {
+                    setUpdateModalData({ ...updateModalData, organization: value });
+                    setUpdateModalErrors({ ...updateModalErrors, organization: ""});
+                  }}
+                  additionalClasses="mt-[8px] w-full"
+                  state={updateModalErrors.organization ? "error" : ""}
+                  editable={!isOrganizationsLoading && hasOrganizationOptions}
+                />
+              </FieldGroup>
               <FieldGroup 
                 label="First Name" 
                 labelFor="update-first-name" 
@@ -758,7 +847,6 @@ const UsersTable = ({
                   state={updateModalErrors.first_name ? "error" : ""} 
                 />
               </FieldGroup>
-
               <FieldGroup 
                 label="Last Name" 
                 labelFor="update-last-name" 
@@ -776,7 +864,6 @@ const UsersTable = ({
                   state={updateModalErrors.last_name ? "error" : ""}
                 />
               </FieldGroup>
-
               <FieldGroup
                 label="Email" 
                 labelFor="update-email" 
@@ -790,92 +877,31 @@ const UsersTable = ({
                   type="email" 
                   additionalClasses="mt-[8px] w-full" 
                   value={updateModalData.email} 
-                  onChange={(e) => setUpdateModalData({ ...updateModalData, email: e.target.value })} 
+                  onChange={(e) => {
+                    setUpdateModalData({ ...updateModalData, email: e.target.value });
+                    setUpdateModalErrors({ ...updateModalErrors, email: ""});
+                  }} 
                   state={updateModalErrors.email ? "error" : ""}
                 />
               </FieldGroup>
-
-              <FieldGroup 
-                label="Regional Office"
-                labelFor="update-region" 
-                additionalClasses="mb-[16px]" 
-                caption={updateModalErrors.region} 
-                state={updateModalErrors.region ? "error" : ""}
+              <FieldGroup
+                label="Date Created"
+                labelFor="update-user-created-at"
+                additionalClasses="mb-[16px]"
               >
-                <CustomSelect 
-                  options={Regions.regions} 
-                  id="update-region" 
-                  placeholder="Select region" 
-                  size="input-select-md" 
-                  value={updateModalData.region} 
-                  handleChange={(value) => setUpdateModalData({ ...updateModalData, region: value })} additionalClasses="mt-[8px] w-full" state={updateModalErrors.region ? "error" : ""} menuMaxHeight="max-h-[250px]"
+                <Input
+                  size="input-md"
+                  id="update-user-created-at"
+                  type="text"
+                  additionalClasses="mt-[8px] w-full"
+                  value={
+                    updateModalData.created_at
+                      ? format(new Date(updateModalData.created_at), "MMM dd, yyyy hh:mm a")
+                      : ""
+                  }
+                  disabled
                 />
               </FieldGroup>
-
-              <FieldGroup 
-                label="Organization" 
-                labelFor="update-organization" 
-                additionalClasses="mb-[16px]" 
-                caption={updateModalErrors.organization} 
-                state={updateModalErrors.organization ? "error" : ""}
-              >
-                <Input 
-                  size="input-md" 
-                  id="update-organization" 
-                  type="text" 
-                  additionalClasses="mt-[8px] w-full" 
-                  value={updateModalData.organization} 
-                  onChange={(e) => setUpdateModalData({ ...updateModalData, organization: e.target.value })} 
-                  state={updateModalErrors.organization ? "error" : ""}
-                />
-              </FieldGroup>
-
-              <FieldGroup 
-                label="Role" 
-                labelFor="update-role-label" 
-                additionalClasses="mb-[16px]" 
-                caption={updateModalErrors.role_label} 
-                state={updateModalErrors.role_label ? "error" : ""}
-              >
-                <CustomSelect 
-                  options={[
-                    { label: "Analyst", value: "ANALYST" }, 
-                    { label: "DOH Official", value: "DOH" }, 
-                    { label: "LGU Worker", value: "LGU" }, 
-                    { label: "Researcher", value: "RESEARCHER" }, 
-                    { label: "Viewer", value: "VIEWER" }, 
-                    { label: "Field Worker", value: "FIELD_WORKER" },
-                  ]} 
-                  id="update-role-label" 
-                  placeholder="Select role" 
-                  size="input-select-md" 
-                  value={updateModalData.role_label} 
-                  handleChange={(value) => setUpdateModalData({ ...updateModalData, role_label: value })} 
-                  additionalClasses="mt-[8px] w-full" 
-                  state={updateModalErrors.role_label ? "error" : ""}
-                />
-              </FieldGroup>
-
-              <div className="md:col-span-2">
-                <FieldGroup 
-                  label="Accessible Regions" 
-                  labelFor="accessible-regions" 
-                  additionalClasses="w-full mb-[16px]" 
-                  caption={updateModalErrors.accessible_regions} 
-                  state={updateModalErrors.accessible_regions ? "error" : ""}
-                >
-                  <MultiSelect 
-                    options={Regions.regions} 
-                    defaultValue={updateModalData.accessible_regions} 
-                    placeHolder="Select Region/s" 
-                    onChange={(e) => setUpdateModalData({ ...updateModalData, accessible_regions: e.map((v) => v.value) })} selectAllLabel="All Regions" 
-                    selectAll={false} 
-                    additionalClassname="w-full mt-[8px]" 
-                    editable={true} 
-                    state={updateModalErrors.accessible_regions ? "error" : ""}
-                  />
-                </FieldGroup>
-              </div>
             </div>
           </div>
         </ModalWithBody>

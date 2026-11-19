@@ -1,4 +1,4 @@
-import { icon } from "leaflet";
+/* eslint-disable react/prop-types */
 import Icon from "./Icon";
 
 export const ToolbarSearch = ({
@@ -6,6 +6,7 @@ export const ToolbarSearch = ({
     value,
     onChange,
     className = "",
+    ...inputProps
 }) => {
     return (
         <div className={`relative w-full xl:w-[320px] ${className}`}>
@@ -18,6 +19,7 @@ export const ToolbarSearch = ({
                 className="absolute left-[12px] top-1/2 -translate-y-1/2"
             />
             <input
+                {...inputProps}
                 type="text"
                 placeholder={placeholder}
                 value={value}
@@ -34,18 +36,27 @@ export const ToolbarButton = ({
     variant = "secondary",
     onClick,
     className = "",
+    disabled = false,
+    type = "button",
+    ...buttonProps
 }) => {
-    const isPrimary = variant === "primary";
+    const isBrand = variant === "brand";
+    const isPrimary = variant === "primary" || isBrand;
+    const buttonClassName = isBrand
+        ? "public-button public-button--small"
+        : `rounded-[10px] px-[16px] py-[10px] text-sm font-medium flex items-center gap-[8px] transition shadow-sm disabled:cursor-not-allowed disabled:opacity-60 ${
+            isPrimary
+                ? "bg-[#32418C] text-white hover:bg-[#27346F]"
+                : "border border-[#E5E5E5] bg-white text-gray-800 hover:bg-[#F8F9FA]"
+        }`;
 
     return (
         <button
-            type="button"
+            type={type}
             onClick={onClick}
-            className={`rounded-[10px] px-[16px] py-[10px] text-sm flex items-center gap-[8px] ${
-                isPrimary
-                    ? "bg-[#32418C] text-white"
-                    : "border border-[#E5E5E5] bg-[#F8F9FA] text-gray-800"
-            } ${className}`}
+            disabled={disabled}
+            className={`${buttonClassName} ${className}`}
+            {...buttonProps}
         >
             {iconName && (
                 <Icon
@@ -53,7 +64,7 @@ export const ToolbarButton = ({
                     height="16px"
                     width="16px"
                     fill="none"
-                    stroke="#FFF"
+                    stroke={isPrimary ? "#FFFFFF" : "#344054"}
                 />
             )}
             <span>{children}</span>

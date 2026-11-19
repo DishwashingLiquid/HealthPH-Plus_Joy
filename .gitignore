@@ -1,4 +1,14 @@
 build/*
 server/__pycache__
+__pycache__/
+*.py[cod]
+*$py.class
 .vscode
 .venv/
+*.zip
+.hub-build-check/
+hub-*.json
+hub-*.jsonl
+docs/mobile-backend/live/
+/services/xlmr-disease-detection-service/model/
+/services/sentiment-analysis-service/model/

@@ -1,3 +1,4 @@
+import AccountStatus, { ResendInvitationButton } from "./AccountStatus";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
@@ -12,6 +13,9 @@ import Checkbox from "../Checkbox";
 import ModalWithBody from "./ModalWithBody";
 import FieldGroup from "../FieldGroup";
 import Input from "../Input";
+import CustomSelect from "../CustomSelect";
+import MultiSelect from "../MultiSelect";
+
 import Regions from "../../assets/data/regions.json";
 
 import {
@@ -19,17 +23,20 @@ import {
      useDisableUserMutation,
      useUpdateUserMutation,
 } from "../../features/api/userSlice";
-import { useCreateActivityLogMutation } from "../../features/api/activityLogsSlice";
+import { useCreateAccountActivityMutation } from "../../features/api/accountActivitySlice";
 
 const AdminsTable = ({
     admins = [],
-    setCurrentData,
+    visibleAdmins = admins,
+    page = 1,
     searchQuery,
     setSearchQuery,
+    organizationOptions = [],
+    isOrganizationsLoading = false,
 }) => {
     const user = useSelector((state) => state.auth.user);
 
-    const [tableData, setTableData] = useState([]);
+    const tableData = visibleAdmins;
     const [selectedAdminIds, setSelectedAdminIds] = useState([]);
     const [bulkActionModalActive, setBulkActionModalActive] = useState(false);
     const [bulkActionType, setBulkActionType] = useState("");
@@ -40,7 +47,8 @@ const AdminsTable = ({
         first_name: "",
         last_name: "",
         email: "",
-        user_type: "ADMIN",
+        user_type: "SUPERADMIN",
+        role_label: "",
         region: "ALL",
         organization: "",
         accessible_regions: [],
@@ -55,49 +63,21 @@ const AdminsTable = ({
         organization: "",
     };
 
+    const [isResendingInvitation, setIsResendingInvitation] = useState(false);
     const [updateModalActive, setUpdateModalActive] = useState(false);
     const [updateModalData, setUpdateModalData] = useState(emptyUpdateModalData);
     const [updateModalErrors, setUpdateModalErrors] = useState(emptyUpdateModalErrors);
 
     useEffect(() => {
-        if (admins) {
-            setTableData(admins);
-            setCurrentData(admins);
-        }
-    }, [admins]);
-
-    useEffect(() => {
-        if (admins) {
-            const searchQuerySplit = searchQuery
-                .split(" ")
-                .filter((search) => search.length > 0);
-
-            const filteredRows = admins.filter((admin) => {
-                return searchQuerySplit.some((search) => {
-                    const reg = new RegExp("^.*" + search + ".*$", "i");
-
-                    return (
-                        reg.test(admin["last_name"]) ||
-                        reg.test(admin["first_name"]) ||
-                        reg.test(admin["email"]) ||
-                        reg.test(admin["user_type"])
-                    );
-                });
-            });
-
-            const nextData = searchQuery.length > 0 ? filteredRows : admins;
-
-            setTableData(nextData);
-            setCurrentData(nextData);
-        }
-    }, [searchQuery, admins]);
+        setSelectedAdminIds([]);
+    }, [page, searchQuery]);
 
     const [isModalLoading, setIsModalLoading] = useState(false);
 
     const [updateUserStatus] = useDisableUserMutation();
     const [deleteAdmin] = useDeleteAdminMutation();
     const [updateAdmin] = useUpdateUserMutation();
-    const [log_activity] = useCreateActivityLogMutation();
+    const [log_activity] = useCreateAccountActivityMutation();
 
     const searchWords = searchQuery.split(" ").filter((search) => search.length > 0);
 
@@ -117,6 +97,13 @@ const AdminsTable = ({
     const canDisableSelectedAdmins = selectedActiveAdmins.length > 0;
 
     const visibleSelectableAdmins = tableData.filter((admin) => user.id != admin.id);
+
+    const hasOrganizationOptions = organizationOptions.length > 0;
+
+    const normalizeOrganizationValue = (organizationName) =>
+        organizationOptions.some((option) => option.value === organizationName)
+            ? organizationName
+            : "";
 
     const allVisibleAdminsSelected =
         visibleSelectableAdmins.length > 0 &&
@@ -174,9 +161,12 @@ const AdminsTable = ({
             first_name: row.first_name || "",
             last_name: row.last_name || "",
             email: row.email || "",
-            user_type: row.user_type || "ADMIN",
+            original_email: row.email || "",
+            activation_pending: row.activation_pending || false,
+            user_type: "SUPERADMIN",
+            role_label: "",
             region: row.region || "ALL",
-            organization: row.organization || "",
+            organization: normalizeOrganizationValue(row.organization || ""),
             accessible_regions:
                 normalizeAccessibleRegions(row.accessible_regions).length > 0
                     ? normalizeAccessibleRegions(row.accessible_regions)
@@ -197,6 +187,7 @@ const AdminsTable = ({
             email: updateModalData.email.trim().toLowerCase(),
             region: updateModalData.region || "ALL",
             organization: updateModalData.organization.trim(),
+            user_type: "SUPERADMIN",
             accessible_regions:
                 updateModalData.accessible_regions.length > 0
                     ? updateModalData.accessible_regions.join(",")
@@ -223,7 +214,7 @@ const AdminsTable = ({
         }
 
         if (!payload.organization) {
-            nextErrors.organization = "Must enter organization.";
+            nextErrors.organization = "Must choose organization.";
             hasError = true;
         }
 
@@ -243,7 +234,7 @@ const AdminsTable = ({
                     iconName="Error"
                     size="snackbar-sm"
                     color="destructive"
-                    message="Failed to update admnistrator."
+                    message="Failed to update superadmin."
                 />
             );
             return;
@@ -254,13 +245,13 @@ const AdminsTable = ({
                 iconName="CheckCircle"
                 size="snackbar-sm"
                 color="success"
-                message="Administrator updated successfully"
+                message="Superadmin updated successfully"
             />
         );
 
         await log_activity({
             user_id: user.id,
-            entry: `Updated ADMIN : ${updateModalData.name}`,
+            entry: `Updated SUPERADMIN account: ${updateModalData.name}`,
             module: "User Management",
         });
 
@@ -275,15 +266,11 @@ const AdminsTable = ({
 
         try {
             if (bulkActionType === "delete") {
-                if (user.user_type === "ADMIN") {
-                    throw new Error("Admins cannot delete administrator accounts.");
-                }
-
                 for (const selectedAdmin of selectedAdmins) {
                     const response = await deleteAdmin(selectedAdmin.id);
 
                     if (!response || "error" in response) {
-                        throw new Error("Failed to delete selected administrators.");
+                        throw new Error("Failed to delete selected superadmins.");
                     }
                 }
             }
@@ -298,7 +285,7 @@ const AdminsTable = ({
                     });
 
                     if (!response || "error" in response) {
-                        throw new Error("Failed to update selected administrators.");
+                        throw new Error("Failed to update selected superadmins.");
                     }
                 }
             }
@@ -315,7 +302,7 @@ const AdminsTable = ({
                     iconName="CheckCircle"
                     size="snackbar-sm"
                     color="success"
-                    message={`${actionLabel} ${selectedAdmins.length} selected administrator${
+                    message={`${actionLabel} ${selectedAdmins.length} selected superadmin${
                         selectedAdmins.length === 1 ? "" : "s"
                     } successfully`}
                 />,
@@ -332,7 +319,7 @@ const AdminsTable = ({
 
             await log_activity({
                 user_id: user.id,
-                entry: `${actionLabel} ${selectedAdmins.length} ADMIN account${
+                entry: `${actionLabel} ${selectedAdmins.length} SUPERADMIN account${
                     selectedAdmins.length === 1 ? "" : "s"
                 }`,
                 module: "User Management",
@@ -399,7 +386,7 @@ const AdminsTable = ({
                         >
                             Disable
                         </button>
-                        {user.user_type !== "ADMIN" && (
+                        {user.user_type === "SUPERADMIN" && (
                             <button
                                 type="button"
                                 className="rounded-[8px] bg-[#DC2626] px-[12px] py-[8px] text-sm text-white"
@@ -429,7 +416,7 @@ const AdminsTable = ({
                                     <th className="px-[10px] py-[12px] font-medium">Full Name</th>
                                     <th className="px-[10px] py-[12px] font-medium">Email</th>
                                     <th className="px-[10px] py-[12px] font-medium">Date Created</th>
-                                    <th className="px-[10px] py-[12px] font-medium">User Type</th>
+                                    <th className="px-[10px] py-[12px] font-medium">Account Type</th>
                                     <th className="px-[10px] py-[12px] font-medium">Status</th>
                                 </tr>
                             </thead>
@@ -445,10 +432,14 @@ const AdminsTable = ({
                                         organization,
                                         created_at,
                                         user_type,
+                                        role_label,
                                         is_disabled,
+                                        activation_pending,
+                                        invitation_email_sent,
                                     }) => {
                                         const fullName = `${first_name} ${last_name}`;
                                         const isCurrentUser = user.id == id;
+                                        const accessLevel = "SUPERADMIN";
 
                                         return (
                                             <tr
@@ -462,7 +453,9 @@ const AdminsTable = ({
                                                         ? "bg-[#F8FAFC]"
                                                         : ""
                                                 }`}
-                                                onClick={() =>
+                                                onClick={() => {
+                                                    if (isCurrentUser) return;
+
                                                     openUpdateModal({
                                                         id,
                                                         first_name,
@@ -473,9 +466,11 @@ const AdminsTable = ({
                                                         organization,
                                                         created_at,
                                                         user_type,
+                                                        role_label,
                                                         is_disabled,
-                                                    })
-                                                }
+                                                        activation_pending,
+                                                    });
+                                                }}
                                             >
                                                 <td
                                                     className="px-[10px] py-[14px]"
@@ -513,7 +508,7 @@ const AdminsTable = ({
                                                 <td className="px-[10px] py-[14px]">
                                                     <div className="flex flex-wrap gap-[6px]">
                                                         <span className="rounded-full bg-[#EEF2FF] px-[8px] py-[4px] text-xs font-medium text-[#4F46E5]">
-                                                            {user_type}
+                                                            {accessLevel}
                                                         </span>
                                                         {isCurrentUser && (
                                                             <span className="rounded-full bg-[#F2F4F7] px-[8px] py-[4px] text-xs font-medium text-gray-500">
@@ -523,15 +518,7 @@ const AdminsTable = ({
                                                     </div>
                                                 </td>
                                                 <td className="px-[10px] py-[14px]">
-                                                    <span
-                                                        className={`rounded-full px-[8px] py-[4px] text-xs font-medium ${
-                                                            is_disabled
-                                                                ? "bg-[#FEF2F2] text-[#B42318]"
-                                                                : "bg-[#ECFDF3] text-[#027A48]"
-                                                        }`}
-                                                    >
-                                                        {is_disabled ? "Disabled" : "Active"}
-                                                    </span>
+                                                    <AccountStatus account={{ id, is_disabled, activation_pending, invitation_email_sent, user_type, role_label }} />
                                                 </td>
                                             </tr>
                                         );
@@ -555,16 +542,17 @@ const AdminsTable = ({
                         </EmptyState>
                     )
                 ) : (
-                    <EmptyState
-                        iconName="UserTwo"
-                        heading="No Administrators Found"
-                        content="There are currently no administrators listed. Add new administrators to manage the platform effectively."
-                    />
+                        <EmptyState
+                            iconName="UserTwo"
+                            heading="No Superadmins Found"
+                            content="There are currently no superadmins listed. Add fellow superadmins to manage platform-level access."
+                        />
                 )}
             </div>
 
             {bulkActionModalActive && (
                 <Modal
+                    closeOnBackdrop={false}
                     onLoading={isModalLoading}
                     onLoadingLabel={
                         bulkActionType === "delete"
@@ -588,15 +576,15 @@ const AdminsTable = ({
                             : bulkActionType === "disable"
                             ? "disable"
                             : "enable"
-                    } ${selectedAdminIds.length} selected administrator${
+                    } ${selectedAdminIds.length} selected superadmin${
                         selectedAdminIds.length === 1 ? "" : "s"
                     }?`}
                     content={
                         bulkActionType === "delete"
-                            ? "Selected administrators will no longer be able to use their HealthPH+ accounts."
+                            ? "Selected superadmins will no longer be able to use their HealthPH+ accounts."
                             : bulkActionType === "disable"
-                            ? "Selected administrators will be unable to sign in to HealthPH+ until enabled again."
-                            : "Selected administrators will regain access to HealthPH+."
+                            ? "Selected superadmins will be unable to sign in to HealthPH+ until enabled again."
+                            : "Selected superadmins will regain access to HealthPH+."
                     }
                     color={bulkActionType === "enable" ? "primary" : "destructive"}
                 />
@@ -604,24 +592,117 @@ const AdminsTable = ({
 
             {updateModalActive && (
                 <ModalWithBody
-                    onLoading={isModalLoading}
-                    onLoadingLabel="Updating"
+                    closeOnBackdrop={false}
+                    onLoading={isModalLoading || isResendingInvitation}
+                    onLoadingLabel={isResendingInvitation ? "Please wait..." : "Updating"}
                     onConfirm={handleUpdateAdmin}
                     onConfirmLabel="Update"
+                    onCancelLabel="Close"
+                    headerActions={
+                        <>
+                            <AccountStatus account={updateModalData} showDeliveryNote={false} />
+                            <ResendInvitationButton
+                                account={updateModalData}
+                                disabled={isModalLoading}
+                                emailChanged={updateModalData.email.trim().toLowerCase() !== updateModalData.original_email?.trim().toLowerCase()}
+                                onLoadingChange={setIsResendingInvitation}
+                            />
+                        </>
+                    }
+                    onConfirmDisabled={!hasOrganizationOptions}
                     onCancel={() => {
                         setUpdateModalData(emptyUpdateModalData);
                         setUpdateModalErrors(emptyUpdateModalErrors);
                         setUpdateModalActive(false);
                     }}
-                    heading={`Update ${updateModalData.name}'s account`}
+                    heading="Update Account"
                     color="primary"
+                    additionalClasses="account-form-modal"
                 >
                     <div className="p-[20px]">
-                        <div className="grid grid-cols-1 gap-x-[16px] p-[20px] md:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-x-[16px] md:grid-cols-6">
+                            <FieldGroup
+                                label="Account Type"
+                                labelFor="update-admin-user-type"
+                                additionalClasses="mb-[16px] md:col-span-3"
+                                caption="Account type is fixed for this account."
+                            >
+                                <Input
+                                    size="input-md"
+                                    id="update-admin-user-type"
+                                    type="text"
+                                    additionalClasses="mt-[8px] w-full"
+                                    value={updateModalData.user_type}
+                                    disabled
+                                />
+                            </FieldGroup>
+                            <FieldGroup
+                                label="Accessible Regions"
+                                labelFor="update-admin-accessible-regions"
+                                additionalClasses="mb-[16px] md:col-span-3"
+                                caption="SUPERADMIN accounts automatically cover all regions."
+                            >
+                                <MultiSelect
+                                    options={Regions.regions}
+                                    defaultValue={updateModalData.accessible_regions}
+                                    placeHolder="Select region/s"
+                                    onChange={() => {}}
+                                    selectAllLabel="All Regions"
+                                    selectAll={false}
+                                    additionalClassname="mt-[8px] w-full"
+                                    editable={false}
+                                    selectable={false}
+                                />
+                            </FieldGroup>
+                            <FieldGroup
+                                label="Organization"
+                                labelFor="update-admin-organization"
+                                additionalClasses="mb-[16px] md:col-span-6"
+                                caption={
+                                    updateModalErrors.organization ||
+                                    (isOrganizationsLoading
+                                        ? ""
+                                        : !hasOrganizationOptions
+                                        ? "Add an organization first from the Organizations tab."
+                                        : ""
+                                    )
+                                }
+                                state={
+                                    updateModalErrors.organization
+                                        ? "error"
+                                        : isOrganizationsLoading
+                                        ? ""
+                                        : !hasOrganizationOptions
+                                        ? "warning"
+                                        : ""
+                                }
+                            >
+                                <CustomSelect
+                                    options={organizationOptions}
+                                    isLoading={isOrganizationsLoading}
+                                    id="update-admin-organization"
+                                    placeholder={
+                                        isOrganizationsLoading
+                                            ? "Loading organizations..."
+                                            : hasOrganizationOptions
+                                            ? "Select organization"
+                                            : "No organizations available"   
+                                    }
+                                    size="input-select-md"
+                                    value={updateModalData.organization}
+                                    handleChange={(value) => {
+                                        setUpdateModalData({ ...updateModalData, organization: value });
+                                        setUpdateModalErrors({ ...updateModalErrors, organization: ""});
+                                    }}
+                                    additionalClasses="mt-[8px] w-full"
+                                    state={updateModalErrors.organization ? "error" : ""}
+                                    editable={!isOrganizationsLoading && hasOrganizationOptions}
+                                />
+                            </FieldGroup>
                             <FieldGroup
                                 label="First Name"
                                 labelFor="update-admin-first-name"
-                                additionalClasses="mb-[16px]"
+                                additionalClasses="mb-[16px] md:col-span-3"
                                 caption={updateModalErrors.first_name}
                                 state={updateModalErrors.first_name ? "error" : ""}
                             >
@@ -638,7 +719,7 @@ const AdminsTable = ({
                             <FieldGroup
                                 label="Last Name"
                                 labelFor="update-admin-last-name"
-                                additionalClasses="mb-[16px]"
+                                additionalClasses="mb-[16px] md:col-span-3"
                                 caption={updateModalErrors.last_name}
                                 state={updateModalErrors.last_name ? "error" : ""}
                             >
@@ -655,7 +736,7 @@ const AdminsTable = ({
                             <FieldGroup
                                 label="Email"
                                 labelFor="update-admin-email"
-                                additionalClasses="mb-[16px]"
+                                additionalClasses="mb-[16px] md:col-span-3"
                                 caption={updateModalErrors.email}
                                 state={updateModalErrors.email ? "error" : ""}
                             >
@@ -670,40 +751,9 @@ const AdminsTable = ({
                                 />
                             </FieldGroup>
                             <FieldGroup
-                                label="Organization"
-                                labelFor="update-admin-organization"
-                                additionalClasses="mb-[16px]"
-                                caption={updateModalErrors.organization}
-                                state={updateModalErrors.organization ? "error" : ""}
-                            >
-                                <Input
-                                    size="input-md"
-                                    id="update-admin-organization"
-                                    type="text"
-                                    additionalClasses="mt-[8px] w-full"
-                                    value={updateModalData.organization}
-                                    onChange={(e) => setUpdateModalData({ ...updateModalData, organization: e.target.value })}
-                                    state={updateModalErrors.organization ? "error" : ""}
-                                />
-                            </FieldGroup>
-                            <FieldGroup
-                                label="Account Type"
-                                labelFor="update-admin-user-type"
-                                additionalClasses="mb-[16px]"
-                            >
-                                <Input
-                                    size="input-md"
-                                    id="update-admin-user-type"
-                                    type="text"
-                                    additionalClasses="mt-[8px] w-full"
-                                    value={updateModalData.user_type}
-                                    disabled
-                                />
-                            </FieldGroup>
-                            <FieldGroup
                                 label="Date Created"
                                 labelFor="update-admin-created-at"
-                                additionalClasses="mb-[16px]"
+                                additionalClasses="mb-[16px] md:col-span-3"
                             >
                                 <Input
                                     size="input-md"

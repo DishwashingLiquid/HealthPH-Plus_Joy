@@ -1,0 +1,792 @@
+from uuid import uuid4
+import logging
+from collections import Counter, defaultdict
+
+import re
+from datetime import date, datetime, time
+
+from typing_extensions import Annotated
+from bson import ObjectId
+from fastapi import BackgroundTasks, Body, Depends, HTTPException, Query, status
+from fastapi.responses import JSONResponse
+from pymongo import UpdateOne
+
+from config.database import analytics_entries_collection
+from middleware.requireAuth import require_auth
+from middleware.requireRole import require_role
+from middleware.requirePage import require_page
+
+from schema.analyticsEntrySchema import list_analytics_entries
+from helpers.languageDetectionHelpers import (
+    SUPPORTED_LANGUAGE_CODES,
+    detect_languages,
+)
+from helpers.analyticsAccessHelpers import (
+    get_allowed_analytics_regions,
+    get_analytics_entry_region,
+)
+from helpers.diseaseDetectionHelpers import detect_diseases
+from helpers.analyticsSentimentHelpers import run_sentiment_processing
+from helpers.processingJobHelpers import (
+    ProcessingLease, ProcessingLeaseLost, new_processing_job, job_guard,
+    INTERRUPTED_MESSAGE,
+)
+from helpers.analyticsSymptomHelpers import get_entry_symptoms
+from helpers.analyticsWordHelpers import summarize_word_frequencies
+from helpers.surveillanceMapHelpers import MAP_DISEASE_CODES, build_processed_map_points
+from helpers.surveillanceDateHelpers import (
+    get_surveillance_window,
+    is_within_surveillance_window,
+)
+
+from helpers.miscHelpers import get_ph_datetime
+from region_normalization import REGION_ALIASES, normalize_region
+
+
+"""
+@desc = "Fetch analytics entries"
+@route = "GET api/analytics-entries"
+@access = "Private"
+"""
+
+async def fetch_analytics_entries(
+    user_id: Annotated[str, Depends(require_auth)],
+    source_type: str = Query("all"),
+    analysis_status: str = Query("all"),
+    dataset_id: str = Query("all"),
+    search: str = Query(""),
+    limit: int = Query(100),
+    offset: int = Query(0, ge=0),
+    language: str = Query("all"),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    region: str = Query("all"),
+):
+    query = {}
+
+    if source_type != "all":
+        query["source_type"] = source_type
+
+    if analysis_status != "all":
+        query["analysis_status"] = analysis_status
+
+    if dataset_id != "all":
+        query["dataset_id"] = dataset_id
+
+    if region.strip().lower() != "all":
+        selected_region = normalize_region(region)
+        if not selected_region:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid region filter.",
+            )
+
+        aliases = sorted(
+            alias for alias, code in REGION_ALIASES.items()
+            if code == selected_region
+        )
+        region_pattern = r"^\s*(?:" + "|".join(
+            r"\s+".join(re.escape(word) for word in alias.split())
+            for alias in aliases
+        ) + r")\s*$"
+
+        # Keep the region alternatives separate from the text/location search.
+        query["$and"] = [{
+            "$or": [
+                {field: {"$regex": region_pattern, "$options": "i"}}
+                for field in (
+                    "location.region",
+                    "location.regionCode",
+                    "location.regionName",
+                )
+            ]
+        }]
+
+    if language != "all":
+        if language not in SUPPORTED_LANGUAGE_CODES:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid language filter.",
+            )
+
+        query["language"] = language
+
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(
+            status_code=400,
+            detail="From date must be on or before To date.",
+        )
+
+    date_filter = {}
+
+    if date_from:
+        date_filter["$gte"] = datetime.combine(
+            date_from, time.min
+        )
+
+    if date_to:
+        date_filter["$lte"] = datetime.combine(
+            date_to, time.max
+        )
+
+    if date_filter:
+        query["created_at"] = date_filter
+
+    search_value = search.strip()
+
+    if search_value:
+        search_pattern = re.escape(search_value)
+
+        query["$or"] = [
+            {
+                field: {
+                    "$regex": search_pattern,
+                    "$options": "i",
+                }
+            }
+            for field in (
+                "text",
+                "location.raw",
+                "location.city",
+                "location.province",
+                "location.region",
+                "location.barangay",
+            )
+        ]
+
+    limit = max(1, min(limit, 500))
+    total = analytics_entries_collection.count_documents(query)
+
+    entries = (
+        analytics_entries_collection.find(query)
+        .sort([("created_at", -1), ("_id", -1)])
+        .skip(offset)
+        .limit(limit)
+    )
+
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "entries": list_analytics_entries(entries),
+    }
+
+async def fetch_self_report_language_summary(
+    current_user: Annotated[
+        dict,
+        Depends(require_page("NLP Insights")),
+    ],
+):
+    entries = analytics_entries_collection.find(
+        {
+            "source_type": "self_report",
+            "analysis_status": "PROCESSED",
+            "analysis.language_detection.status": "completed",
+            "language": {"$in": sorted(SUPPORTED_LANGUAGE_CODES)},
+        },
+        {
+            "language": 1,
+            "location": 1,
+        },
+    )
+
+    language_counts = Counter()
+    location_language_counts = defaultdict(Counter)
+    allowed_regions = get_allowed_analytics_regions(current_user)
+
+    for entry in entries:
+        region = get_analytics_entry_region(entry)
+
+        if allowed_regions is not None and region not in allowed_regions:
+            continue
+
+        language = entry.get("language")
+        language_counts[language] += 1
+
+        location = entry.get("location") or {}
+        location_label = str(
+            location.get("province")
+            or location.get("region")
+            or location.get("raw")
+            or ""
+        ).strip()
+
+        if location_label:
+            location_language_counts[location_label][language] += 1
+
+    return {
+        "source_type": "self_report",
+        "record_count": sum(language_counts.values()),
+        "language_counts": dict(language_counts),
+        "location_language_counts": {
+            location: dict(counts)
+            for location, counts in location_language_counts.items()
+        },
+    }
+
+
+async def fetch_analytics_map_points(
+    current_user: Annotated[
+        dict,
+        Depends(require_page("AI Surveillance")),
+    ],
+    days: int = Query(7, ge=1, le=365),
+    hours: int | None = Query(None, ge=24, le=24, description="Use a rolling 24-hour window instead of calendar days."),
+):
+    return build_processed_map_points(
+        days=days,
+        hours=hours,
+        allowed_regions=get_allowed_analytics_regions(current_user),
+    )
+
+
+def fetch_surveillance_summary(
+    current_user: Annotated[
+        dict,
+        Depends(require_page("AI Surveillance")),
+    ],
+    region: str = Query("all"),
+    disease: str = Query("all"),
+    days: int = Query(7, ge=1, le=365),
+    hours: int | None = Query(None, ge=24, le=24, description="Use a rolling 24-hour window instead of calendar days."),
+):
+    allowed_regions = get_allowed_analytics_regions(current_user)
+
+    selected_region = None
+    if region.strip().lower() != "all":
+        selected_region = normalize_region(region)
+
+        if not selected_region:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid region filter.",
+            )
+
+        if (
+            allowed_regions is not None
+            and selected_region not in allowed_regions
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have access to this region.",
+            )
+
+    selected_disease = disease.strip().upper()
+
+    if selected_disease != "ALL" and selected_disease not in MAP_DISEASE_CODES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid disease filter.",
+        )
+
+    entries = analytics_entries_collection.find(
+        {
+            "analysis_status": "PROCESSED",
+            "source_type": {"$in": ["social_media", "self_report"]},
+        },
+        {
+            "_id": 1,
+            "source_type": 1,
+            "report_id": 1,
+            "source_id": 1,
+            "metadata.symptom_labels": 1,
+            "location": 1,
+            "analysis.disease_labels": 1,
+            "analysis.symptoms": 1,
+            "analysis.symptom_extraction": 1,
+            "event_time": 1,
+        },
+    )
+
+    processed_entries = 0
+    disease_positive_entries = 0
+    disease_counts = Counter()
+    active_regions = set()
+    symptom_reports = defaultdict(set)
+    symptom_labels = {}
+    window_start, window_end = get_surveillance_window(days, hours)
+
+    for entry in entries:
+        entry_region = get_analytics_entry_region(entry)
+
+        if (
+            allowed_regions is not None
+            and entry_region not in allowed_regions
+        ):
+            continue
+
+        if not is_within_surveillance_window(
+            entry,
+            window_start,
+            window_end,
+        ):
+            continue
+
+        if selected_region and entry_region != selected_region:
+            continue
+
+        raw_labels = (entry.get("analysis") or {}).get(
+            "disease_labels", []
+        )
+
+        labels = (
+            {
+                str(label).strip().upper()
+                for label in raw_labels
+            } & MAP_DISEASE_CODES
+            if isinstance(raw_labels, list)
+            else set()
+        )
+
+        if selected_disease != "ALL":
+            if selected_disease not in labels:
+                continue
+            labels = {selected_disease}
+
+        processed_entries += 1
+
+        source_type = entry.get("source_type")
+
+        if source_type == "self_report":
+            report_id = (
+                entry.get("report_id")
+                or entry.get("source_id")
+                or entry["_id"]
+            )
+        else:
+            # each soc med analytics entry represents one dataset row
+            report_id = entry["_id"]
+
+        report_key = (source_type, str(report_id))
+
+        for key, symptom in get_entry_symptoms(entry).items():
+            symptom_labels.setdefault(key, symptom)
+            symptom_reports[key].add(report_key)
+
+        if labels:
+            disease_positive_entries += 1
+            disease_counts.update(labels)
+
+            if entry_region:
+                active_regions.add(entry_region)
+
+    return {
+        "processed_entry_count": processed_entries,
+        "period_start": window_start.isoformat(),
+        "period_end": window_end.isoformat(),
+        "disease_positive_entry_count": disease_positive_entries,
+        "disease_label_count": sum(disease_counts.values()),
+        "disease_counts": {
+            code: disease_counts[code]
+            for code in sorted(MAP_DISEASE_CODES)
+        },
+        "active_region_count": len(active_regions),
+        "active_regions": sorted(active_regions),
+        "symptom_counts": [
+            {"symptom": symptom_labels[key], "report_count": len(report_ids)}
+            for key, report_ids in sorted(
+                symptom_reports.items(),
+                key=lambda item: (-len(item[1]), item[0]),
+            )
+        ],
+    }
+
+def fetch_nlp_entity_summary(
+    current_user: Annotated[
+        dict,
+        Depends(require_page("NLP Insights")),
+    ],
+):
+    allowed_regions = get_allowed_analytics_regions(current_user)
+
+    entries = analytics_entries_collection.find(
+        {
+            "analysis_status": "PROCESSED",
+            "source_type": {"$in": ["social_media", "self_report"]},
+        },
+        {
+            "_id": 1,
+            "source_type": 1,
+            "report_id": 1,
+            "source_id": 1,
+            "location": 1,
+            "metadata.symptom_labels": 1,
+            "analysis.disease_labels": 1,
+            "analysis.symptoms": 1,
+            "analysis.symptom_extraction": 1,
+        },
+    )
+
+    report_ids = set()
+    region_reports = defaultdict(set)
+    disease_reports = defaultdict(set)
+    symptom_reports = defaultdict(set)
+    symptom_labels = {}
+
+    for entry in entries:
+        entry_region = get_analytics_entry_region(entry)
+
+        if (
+            allowed_regions is not None
+            and entry_region not in allowed_regions
+        ):
+            continue
+
+        entry_source_type = entry["source_type"]
+
+        if entry_source_type == "self_report":
+            report_id = (
+                entry.get("report_id")
+                or entry.get("source_id")
+                or entry["_id"]
+            )
+        else:
+            report_id = entry["_id"]
+
+        report_key = (entry_source_type, str(report_id))
+        report_ids.add(report_key)
+
+        region_reports[entry_region or "UNMAPPED"].add(report_key)
+
+        analysis = entry.get("analysis") or {}
+        labels = analysis.get("disease_labels", [])
+
+        if isinstance(labels, list):
+            for label in labels:
+                if isinstance(label, str):
+                    code = label.strip().upper()
+
+                    if code in MAP_DISEASE_CODES:
+                        disease_reports[code].add(report_key)
+
+        for key, symptom in get_entry_symptoms(entry).items():
+            symptom_labels.setdefault(key, symptom)
+            symptom_reports[key].add(report_key)
+
+    return {
+        "processed_report_count": len(report_ids),
+        "disease_counts": {
+            code: len(disease_reports[code])
+            for code in sorted(MAP_DISEASE_CODES)
+        },
+        "region_counts": [
+            {
+                "region": region,
+                "report_count": len(ids),
+            }
+            for region, ids in sorted(
+                region_reports.items(),
+                key=lambda item: (-len(item[1]), item[0]),
+            )
+        ],
+        "symptom_counts": [
+            {
+                "symptom": symptom_labels[key],
+                "report_count": len(ids),
+            }
+            for key, ids in sorted(
+                symptom_reports.items(),
+                key=lambda item: (-len(item[1]), item[0]),
+            )
+        ],
+    }
+
+def fetch_nlp_word_summary(
+    current_user: Annotated[
+        dict,
+        Depends(require_page("NLP Insights")),
+    ],
+):
+    allowed_regions = get_allowed_analytics_regions(current_user)
+
+    entries = analytics_entries_collection.find(
+        {
+            "analysis_status": "PROCESSED",
+            "source_type": {
+                "$in": ["self_report", "social_media"],
+            },
+        },
+        {
+            "_id": 1,
+            "source_type": 1,
+            "report_id": 1,
+            "source_id": 1,
+            "text": 1,
+            "location": 1,
+        },
+    ).sort([
+        ("updated_at", -1),
+        ("_id", -1),
+    ])
+
+    seen_reports = set()
+    source_counts = {
+        "self_report": 0,
+        "social_media": 0,
+    }
+
+    def permitted_texts():
+        for entry in entries:
+            region = get_analytics_entry_region(entry)
+
+            if (
+                allowed_regions is not None
+                and region not in allowed_regions
+            ):
+                continue
+
+            text = entry.get("text")
+
+            if not isinstance(text, str) or not text.strip():
+                continue
+
+            source_type = entry["source_type"]
+
+            if source_type == "self_report":
+                report_id = (
+                    entry.get("report_id")
+                    or entry.get("source_id")
+                    or entry["_id"]
+                )
+            else:
+                report_id = entry["_id"]
+
+            report_key = (source_type, str(report_id))
+
+            # count a reports text once if duplicate entries exist
+            if report_key in seen_reports:
+                continue
+
+            seen_reports.add(report_key)
+            source_counts[source_type] += 1
+
+            yield text
+
+    word_summary = summarize_word_frequencies(
+        permitted_texts(),
+        limit=30,
+    )
+
+    return {
+        "processed_report_count": len(seen_reports),
+        "source_report_counts": source_counts,
+        **word_summary,
+    }
+
+PROCESSABLE_SOURCE_TYPES = ["self_report"]
+
+def run_analytics_entry_processing_job(entry_ids: list[str], job_id: str):
+    object_ids = [ObjectId(entry_id) for entry_id in entry_ids]
+    worker_id = str(uuid4())
+    try:
+        claimed = analytics_entries_collection.update_many({
+            "_id": {"$in": object_ids},
+            "source_type": {"$in": PROCESSABLE_SOURCE_TYPES},
+            "analysis_status": "QUEUED", **job_guard(job_id, require_live=True),
+        }, {"$set": {
+            "analysis_status": "PROCESSING", "analysis_error": "",
+            "analysis_started_at": get_ph_datetime(), "updated_at": get_ph_datetime(),
+            "processing_job.worker_id": worker_id,
+        }})
+        if not claimed.matched_count:
+            return
+        with ProcessingLease(
+            analytics_entries_collection, "analysis_status", job_id, worker_id,
+            scope={"_id": {"$in": object_ids}},
+        ) as lease:
+            entries = list(
+                analytics_entries_collection.find(
+                    {
+                        "_id": {"$in": object_ids},
+                        "source_type": {"$in": PROCESSABLE_SOURCE_TYPES},
+                        "analysis_status": "PROCESSING",
+                        **job_guard(job_id, worker_id, True),
+                    }
+                ).sort("_id", 1)
+            )
+
+            if not entries:
+                raise ProcessingLeaseLost(INTERRUPTED_MESSAGE)
+
+            texts = [
+                entry["text"]
+                for entry in entries
+            ]
+
+            language_predictions = detect_languages(texts)
+            disease_predictions = detect_diseases(texts)
+
+            completed_at = get_ph_datetime()
+            updates = []
+
+            for entry, language_prediction, disease_prediction in zip(
+                entries,
+                language_predictions,
+                disease_predictions,
+                strict=True,
+            ):
+                is_supported = language_prediction["is_supported"]
+
+                updates.append(
+                    UpdateOne(
+                        {"_id": entry["_id"], "analysis_status": "PROCESSING", **job_guard(job_id, worker_id, True)},
+                        {
+                            "$set": {
+                                "language": (
+                                    language_prediction["language"]
+                                    if is_supported
+                                    else ""
+                                ),
+                                "analysis.language_detection": {
+                                    "status": (
+                                        "completed"
+                                        if is_supported
+                                        else "unsupported"
+                                    ),
+                                    "detection_source": (
+                                        language_prediction["detection_source"]
+                                    ),
+                                    "confidence": (
+                                        language_prediction["confidence"]
+                                        if is_supported
+                                        else None
+                                    ),
+                                    "completed_at": completed_at,
+                                },
+                                "analysis.disease_labels": (
+                                    disease_prediction["labels"]
+                                ),
+                                "analysis.disease_probabilities": (
+                                    disease_prediction["probabilities"]
+                                ),
+                                "analysis.disease_classification": {
+                                    "status": "completed",
+                                    "thresholds_used": (
+                                        disease_prediction["thresholds_used"]
+                                    ),
+                                    "model_version": (
+                                        disease_prediction["model_version"]
+                                    ),
+                                    "completed_at": completed_at,
+                                },
+                                "analysis.symptoms": disease_prediction["symptoms"],
+                                "analysis.symptom_extraction": {
+                                    "status": "completed",
+                                    "model_version": (
+                                        disease_prediction["symptom_model_version"]
+                                    ),
+                                    "completed_at": completed_at,
+                                },
+                                "analysis_status": "PROCESSED",
+                                "analysis_error": "",
+                                "analyzed_at": completed_at,
+                                "updated_at": completed_at,
+                            }
+                        },
+                    )
+                )
+
+            lease.ensure_active()
+            update_result = analytics_entries_collection.bulk_write(updates)
+
+            if update_result.matched_count != len(entries):
+                raise RuntimeError(
+                    "Not all selected analytics entries were updated."
+                )
+
+    except Exception as error:
+        analytics_entries_collection.update_many({
+            "_id": {"$in": object_ids}, "analysis_status": "PROCESSING",
+            **job_guard(job_id, worker_id),
+        }, {"$set": {
+            "analysis_status": "FAILED", "analysis_error": str(error),
+            "updated_at": get_ph_datetime(),
+        }})
+        return
+
+    try:
+        from controllers.regionalAlertsController import on_self_report_processing_completed
+        on_self_report_processing_completed()
+    except Exception:
+        logging.getLogger(__name__).exception("Regional symptom projection failed; the scheduled worker will retry")
+
+    try:
+        run_sentiment_processing(analytics_entries_collection, [entry["_id"] for entry in entries])
+    except Exception:
+        logging.getLogger(__name__).exception("Sentiment processing failed after self-report processing completed")
+
+async def process_analytics_entries(
+    background_tasks: BackgroundTasks,
+    current_user: Annotated[
+        dict,
+        Depends(require_role(["Admin", "SUPERADMIN"])),
+    ],
+    entry_ids: list[str] = Body(...),
+):
+    if not entry_ids or any(
+        not ObjectId.is_valid(entry_id)
+        for entry_id in entry_ids
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Every selected analytics entry must have a valid ID.",
+        )
+
+    object_ids = list({
+        ObjectId(entry_id)
+        for entry_id in entry_ids
+    })
+
+    eligible_entries = list(
+        analytics_entries_collection.find(
+            {
+                "_id": {"$in": object_ids},
+                "source_type": {"$in": PROCESSABLE_SOURCE_TYPES},
+                "analysis_status": {"$in": ["SUBMITTED", "FAILED"]},
+            },
+            {"_id": 1},
+        )
+    )
+
+    if not eligible_entries:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No selected entries are ready for processing.",
+        )
+
+    eligible_ids = [
+        entry["_id"]
+        for entry in eligible_entries
+    ]
+
+    queued_at = get_ph_datetime()
+    job = new_processing_job()
+    analytics_entries_collection.update_many({
+        "_id": {"$in": eligible_ids},
+        "source_type": {"$in": PROCESSABLE_SOURCE_TYPES},
+        "analysis_status": {"$in": ["SUBMITTED", "FAILED"]},
+    }, {"$set": {
+        "analysis_status": "QUEUED", "analysis_error": "",
+        "queued_at": queued_at, "updated_at": queued_at, "processing_job": job,
+    }})
+    # Only schedule entries this request actually queued, including concurrent requests.
+    queued_ids = [entry["_id"] for entry in analytics_entries_collection.find({
+        "_id": {"$in": eligible_ids}, "analysis_status": "QUEUED",
+        **job_guard(job["id"]),
+    }, {"_id": 1})]
+    if not queued_ids:
+        raise HTTPException(status_code=409, detail="Selected entries are already queued or processing.")
+    background_tasks.add_task(
+        run_analytics_entry_processing_job,
+        [str(entry_id) for entry_id in queued_ids], job["id"],
+    )
+
+    return JSONResponse(
+        status_code=status.HTTP_202_ACCEPTED,
+        content={
+            "message": (
+                "Self-report entries queued for language and disease processing."
+            ),
+            "queued_count": len(queued_ids),
+        },
+    )

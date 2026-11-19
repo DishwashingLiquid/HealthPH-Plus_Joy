@@ -2,6 +2,10 @@ import { baseAPI } from "./_baseAPI";
 
 export const userSlice = baseAPI.injectEndpoints({
   endpoints: (builder) => ({
+    resendInvitation: builder.mutation({
+      query: (id) => ({ url: `/users/${id}/resend-invitation`, method: "POST", timeout: 30000 }),
+      invalidatesTags: ["Users", "Admins"],
+    }),
     updatePersonalInfo: builder.mutation({
       query: (formData) => ({
         url: "/users/update-personal-information",
@@ -29,6 +33,7 @@ export const userSlice = baseAPI.injectEndpoints({
         method: "DELETE",
         body: { user_id: id },
       }),
+      invalidatesTags: ["Users", "Admins", "AccountAnalytics"],
     }),
     fetchUsers: builder.query({
       query: () => "/users",
@@ -36,18 +41,19 @@ export const userSlice = baseAPI.injectEndpoints({
     }),
     createUser: builder.mutation({
       query: (formData) => ({
-        url: `/users/`,
+        url: "/users",
         method: "POST",
         body: formData,
+        timeout: 30000,
       }),
-      invalidatesTags: ["Users", "Admins"],
+      invalidatesTags: ["Users", "Admins", "AccountAnalytics"],
     }),
     deleteUsers: builder.mutation({
       query: (id) => ({
         url: `/users/delete/${id}`,
         method: "DELETE",
       }),
-      invalidatesTags: ["Users"],
+      invalidatesTags: ["Users", "AccountAnalytics"],
     }),
     fetchAdmins: builder.query({
       query: () => "/users/admins",
@@ -60,14 +66,14 @@ export const userSlice = baseAPI.injectEndpoints({
         method: "POST",
         body: formData,
       }),
-      invalidatesTags: ["Admins"],
+      invalidatesTags: ["Admins", "AccountAnalytics"],
     }),
     deleteAdmin: builder.mutation({
       query: (id) => ({
         url: `/users/admins/${id}`,
         method: "DELETE",
       }),
-      invalidatesTags: ["Admins"],
+      invalidatesTags: ["Admins", "AccountAnalytics"],
     }),
     disableUser: builder.mutation({
       query: ({ id, status }) => ({
@@ -75,7 +81,7 @@ export const userSlice = baseAPI.injectEndpoints({
         method: "PUT",
         body: { disable_status: status },
       }),
-      invalidatesTags: ["Users", "Admins"],
+      invalidatesTags: ["Users", "Admins", "AccountAnalytics"],
     }),
     updateUser: builder.mutation({
       query: ({ id, ...formData }) => ({
@@ -83,12 +89,13 @@ export const userSlice = baseAPI.injectEndpoints({
         method: "PUT",
         body: formData,
       }),
-      invalidatesTags: ["Users", "Admins"],
+      invalidatesTags: ["Users", "Admins", "AccountAnalytics"],
     }),
   }),
 });
 
 export const {
+  useResendInvitationMutation,
   useUpdatePersonalInfoMutation,
   useUpdateEmailMutation,
   useUpdatePasswordMutation,

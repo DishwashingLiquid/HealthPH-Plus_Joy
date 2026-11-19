@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "models": [
+    {
+      "id": "electra",
+      "modelVersion": "REPLACE_WITH_EXACT_CHECKPOINT_VERSION_OR_HASH",
+      "evaluationSet": "REPLACE_WITH_DATASET_NAME_AND_VERSION",
+      "testSetId": "REPLACE_WITH_SHARED_TEST_RECORDS_ID_OR_HASH",
+      "evaluationProtocol": "REPLACE_WITH_SHARED_EVALUATION_PROTOCOL_VERSION",
+      "split": "test",
+      "evaluatedAt": "YYYY-MM-DD",
+      "sampleCount": null,
+      "thresholds": { "AURI": null, "PN": null, "TB": null, "COVID": null },
+      "languages": ["en", "fil", "hil", "ilo", "ceb"],
+      "macroF1": null,
+      "microF1": null,
+      "precisionMacro": null,
+      "recallMacro": null,
+      "hammingLoss": null,
+      "perLanguage": [
+        { "language": "en", "sampleCount": null, "macroF1": null },
+        { "language": "fil", "sampleCount": null, "macroF1": null },
+        { "language": "hil", "sampleCount": null, "macroF1": null },
+        { "language": "ilo", "sampleCount": null, "macroF1": null },
+        { "language": "ceb", "sampleCount": null, "macroF1": null }
+      ]
+    },
+    {
+      "id": "xlmr",
+      "modelVersion": "REPLACE_WITH_EXACT_CHECKPOINT_VERSION_OR_HASH",
+      "evaluationSet": "REPLACE_WITH_DATASET_NAME_AND_VERSION",
+      "testSetId": "REPLACE_WITH_SHARED_TEST_RECORDS_ID_OR_HASH",
+      "evaluationProtocol": "REPLACE_WITH_SHARED_EVALUATION_PROTOCOL_VERSION",
+      "split": "test",
+      "evaluatedAt": "YYYY-MM-DD",
+      "sampleCount": null,
+      "thresholds": { "AURI": null, "PN": null, "TB": null, "COVID": null },
+      "languages": ["en", "fil", "hil", "ilo", "ceb"],
+      "macroF1": null,
+      "microF1": null,
+      "precisionMacro": null,
+      "recallMacro": null,
+      "hammingLoss": null,
+      "perLanguage": [
+        { "language": "en", "sampleCount": null, "macroF1": null },
+        { "language": "fil", "sampleCount": null, "macroF1": null },
+        { "language": "hil", "sampleCount": null, "macroF1": null },
+        { "language": "ilo", "sampleCount": null, "macroF1": null },
+        { "language": "ceb", "sampleCount": null, "macroF1": null }
+      ]
+    }
+  ]
+}

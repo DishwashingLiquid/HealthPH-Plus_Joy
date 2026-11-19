@@ -82,7 +82,7 @@ const Testimonials = () => {
       </div>
       <div className="w-full flex justify-end">
         <button
-          className="prod-btn-lg prod-btn-secondary flex items-center justify-center me-[20px] h-[48px]"
+          className="public-button public-button--icon flex items-center justify-center me-[20px] h-[48px]"
           disabled={!(testimonialPage > 1)}
           onClick={() => {
             if (testimonialPage > 1) {
@@ -94,11 +94,11 @@ const Testimonials = () => {
             iconName="ArrowLeft"
             height="24px"
             width="24px"
-            fill="#8693A0"
+            fill="currentColor"
           />
         </button>
         <button
-          className="prod-btn-lg prod-btn-secondary flex items-center justify-center h-[48px]"
+          className="public-button public-button--icon flex items-center justify-center h-[48px]"
           disabled={!(testimonialPage < testimonials.length / 2)}
           onClick={() => {
             if (testimonialPage < testimonials.length / 2)
@@ -109,7 +109,7 @@ const Testimonials = () => {
             iconName="ArrowRight"
             height="24px"
             width="24px"
-            fill="#8693A0"
+            fill="currentColor"
           />
         </button>
       </div>

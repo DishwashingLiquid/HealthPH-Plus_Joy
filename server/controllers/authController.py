@@ -30,9 +30,18 @@ from helpers.authHelpers import (
     verify_password,
     generate_hashed_password,
     create_access_token,
+    get_web_session_duration,
     create_reset_password_token,
 )
 from helpers.sendMail import mail_forgot_password, mail_verification_code
+from helpers.accountInvitationHelpers import validate_account_password
+
+
+def require_activated_account(user_data):
+    if user_data.get("activation_pending"):
+        raise HTTPException(status_code=403, detail="Activate your account using your invitation email first. Ask your administrator to resend it if needed.")
+    if user_data.get("is_disabled"):
+        raise HTTPException(status_code=403, detail="Your account has been disabled. Please contact your administrator.")
 
 
 """
@@ -42,7 +51,7 @@ route     POST api/auth/authenticate
 """
 
 
-async def authenticate_user(
+def authenticate_user(
     response: Response, credentials: Annotated[OAuth2PasswordRequestFormJSON, Depends()]
 ):
     # Check if user submitted an email and password
@@ -53,7 +62,7 @@ async def authenticate_user(
         )
 
     # Find user with {email} in database
-    user_data = user_collection.find_one({"email": credentials.email})
+    user_data = user_collection.find_one({"email": credentials.email.strip().lower()})
 
     # Check if user with {email} exists
     if not user_data:
@@ -63,6 +72,7 @@ async def authenticate_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    require_activated_account(user_data)
     user = UserInDB(**user_data)
 
     # Check if password matches on database
@@ -70,14 +80,6 @@ async def authenticate_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Check if user's account is disabled
-    if user.is_disabled:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Account has been disabled. Contact support for more information.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -92,13 +94,17 @@ async def authenticate_user(
 
     # Send OTP code to User via email
     result = mail_verification_code(
-        user.email, {"otp_code": otp.otp_code, "otp_expiry": otp.otp_expiry}
+        user.email, {"first_name": user.first_name, "otp_code": otp.otp_code, "otp_expiry": otp.otp_expiry}
     )
 
     if not result:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Failed to sign in. Please try again later.",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "We couldn't send your verification email. "
+                "The email service is currently unavailable. "
+                "Please try again later."
+            ),
         )
 
     return JSONResponse(
@@ -106,7 +112,6 @@ async def authenticate_user(
         content={
             "message": "OTP code sent",
             "otp_code_sent": True,
-            "otp_code": otp.otp_code,
             "otp_expiry": str(otp.otp_expiry),
         },
     )
@@ -155,24 +160,36 @@ async def verify_otp_code(request: OTPCodeRequest):
             detail="Invalid or expired OTP code",
         )
 
+    require_activated_account(user_data)
+    if not user_data.get("otp_code") or not isinstance(user_data.get("otp_expiry"), datetime):
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP code")
     user = UserOTP(**user_data)
-    print("aaa")
+    expiry = user.otp_expiry
+    if expiry.tzinfo is None:
+        expiry = expiry.replace(tzinfo=timezone(timedelta(hours=8)))
     # Check if OTP code is correct or not yet expired
-    if (
-        user.otp_code != otp_code and otp_code != "000000"
-    ) or user.otp_expiry.astimezone(timezone.utc) < datetime.now(timezone.utc):
+    if user.otp_code != otp_code or expiry <= datetime.now(timezone.utc):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired OTP code",
         )
 
-    # Generate access token for authentication / authorization
-    access_token_expires = timedelta(
-        minutes=float(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
+    # Consume the code atomically; a code cannot authorize multiple sessions.
+    consumed = user_collection.find_one_and_update(
+        {"_id": user_data["_id"], "otp_code": otp_code, "otp_expiry": user.otp_expiry,
+         "activation_pending": {"$ne": True}, "is_disabled": {"$ne": True}},
+        {"$unset": {"otp_code": "", "otp_expiry": ""}},
     )
+    if not consumed:
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP code")
+
+    # Generate access token for authentication / authorization
+    access_token_expires = get_web_session_duration()
     access_token = create_access_token(
         data={"sub": str(user_data["_id"])}, expires_delta=access_token_expires
     )
+    # Read the actual signed expiry so browser persistence matches the JWT.
+    expiry_claim = jwt.get_unverified_claims(access_token)["exp"]
 
     # Set Response Cookie
     # secure = True / https
@@ -180,11 +197,14 @@ async def verify_otp_code(request: OTPCodeRequest):
         content={
             "access_token": access_token,
             "token_type": "bearer",
+            "expires_in": int(access_token_expires.total_seconds()),
+            "expires_at": datetime.fromtimestamp(expiry_claim, timezone.utc).isoformat(),
             "user": individual_user(user_data),
         }
     )
     response.set_cookie(
-        key="accesstoken", value=access_token, httponly=False, samesite="none"
+        key="accesstoken", value=access_token, httponly=False, samesite="none",
+        max_age=int(access_token_expires.total_seconds()),
     )
 
     return response
@@ -214,6 +234,7 @@ async def resend_otp_code(email: str = Body(...)):
             detail="Failed to resend verification code",
         )
 
+    require_activated_account(user_data)
     user = UserInDB(**user_data)
 
     # Generate OTP code
@@ -227,7 +248,7 @@ async def resend_otp_code(email: str = Body(...)):
 
     # Send OTP code to User via email
     result = mail_verification_code(
-        user.email, {"otp_code": otp.otp_code, "otp_expiry": otp.otp_expiry}
+        user.email, {"first_name": user.first_name, "otp_code": otp.otp_code, "otp_expiry": otp.otp_expiry}
     )
 
     if not result:
@@ -241,7 +262,6 @@ async def resend_otp_code(email: str = Body(...)):
         content={
             "message": "OTP code sent",
             "otp_code_sent": True,
-            "otp_code": otp.otp_code,
             "otp_expiry": str(otp.otp_expiry),
         },
     )
@@ -265,6 +285,7 @@ async def forgot_password(req: ForgotPasswordRequest):
             detail="Email address does not exists.",
         )
 
+    require_activated_account(user_data)
     # Create User variable
     user = User(**user_data)
 
@@ -320,6 +341,11 @@ async def verify_reset_password(data: VerifyResetPasswordToken):
         if email is None:
             raise credential_exception
 
+        user_data = user_collection.find_one({"email": email})
+        if not user_data:
+            raise credential_exception
+        require_activated_account(user_data)
+
         return email
     except JWTError:
         raise credential_exception
@@ -359,6 +385,7 @@ async def reset_password(req: ResetPasswordRequest):
             detail="Passwords do not match",
         )
 
+    validate_account_password(req.password, req.re_password)
     # Hash new password
     new_pwd = generate_hashed_password(req.password)
 
@@ -372,6 +399,7 @@ async def reset_password(req: ResetPasswordRequest):
             detail="Invalid reset password link or reset password link expired",
         )
 
+    require_activated_account(user_data)
     # Create User variable
     user = User(**user_data)
 

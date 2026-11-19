@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from controllers.accountInvitationController import resend_account_invitation
 from controllers.userController import (
     set_disable_status,
     update_personal_info,
@@ -14,6 +15,7 @@ from controllers.userController import (
 )
 
 router = APIRouter()
+router.add_api_route("/{id}/resend-invitation", methods=["POST"], endpoint=resend_account_invitation)
 
 # PUT       /users/updated-personal-information
 router.add_api_route(

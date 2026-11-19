@@ -1,12 +1,16 @@
 /* eslint-disable react/prop-types */
 import { Link } from "react-router-dom";
 import Icon from "../Icon";
+import ArticleMedia from "./ArticleMedia";
+import VideoCardPreview from "../health-literacy/VideoCardPreview";
+import { attachmentKind, GENERIC_ARTICLE_THUMBNAIL } from "../../utils/healthLiteracyMedia";
 import {
   formatContentDate,
   getResourceImageSource,
+  getResourcePosterSource,
 } from "../../utils/healthLiteracyWebsiteContent";
 
-const ArticleItem = ({ article, articlePage, onPreviewClick }) => {
+const ArticleItem = ({ article, articlePage, isLoading, onPreviewClick }) => {
   const {
     articleTitle,
     articleSlug,
@@ -16,62 +20,72 @@ const ArticleItem = ({ article, articlePage, onPreviewClick }) => {
     contentTypeLabel,
     resourceType,
   } = article;
-  const mediaSource = getResourceImageSource(article);
+  const primarySource = getResourceImageSource(article);
+  const galleryImage = article.galleryImages?.[0];
+  const mediaSource = primarySource || galleryImage?.media?.url || "";
+  const kind = attachmentKind(mediaSource, (primarySource ? article.media?.contentType : galleryImage?.media?.contentType) || "", resourceType);
   const isVideo = resourceType === "video";
   const isPreviewContent = ["video", "infographic"].includes(resourceType);
   const displayDate = formatContentDate(datePublished);
 
+  if (isLoading && isVideo) {
+    return (
+      <div
+        className="article-item article-item-video-loading"
+        role="status"
+        aria-label="Loading video content"
+      >
+        <Icon iconName="Video" height="48px" width="48px" stroke="#6B7280" />
+      </div>
+    );
+  }
+
   return (
     <div className="article-item">
       <div className="article-image">
-        {mediaSource && isVideo ? (
-          <video src={mediaSource} muted playsInline />
-        ) : mediaSource ? (
-          <img src={mediaSource} alt={articleImageCaption || articleTitle} />
-        ) : (
-          <div className="article-image-placeholder">
-            <Icon
-              iconName="Document"
-              height="48px"
-              width="48px"
-              fill="#6A8EB5"
-            />
-          </div>
-        )}
+        {isVideo ? <VideoCardPreview src={mediaSource} poster={getResourcePosterSource(article)} mime={article.media?.contentType}
+          title={articleTitle} onOpen={() => onPreviewClick?.(article)} />
+          : isPreviewContent ? <button type="button" className="article-media-preview" aria-label={`View Infographic: ${articleTitle}`} onClick={() => onPreviewClick?.(article)}>
+            <ArticleMedia src={kind === "image" ? mediaSource : GENERIC_ARTICLE_THUMBNAIL} alt={articleImageCaption || articleTitle} />
+          </button> : <Link to={"/articles/" + articleSlug} state={articlePage} aria-label={`Read article: ${articleTitle}`}>
+            <ArticleMedia src={kind === "image" ? mediaSource : GENERIC_ARTICLE_THUMBNAIL} alt={articleImageCaption || articleTitle} />
+          </Link>}
+
       </div>
       <div className="article-body">
         <div className="article-meta">
           {contentTypeLabel && <span className="article-type">{contentTypeLabel}</span>}
           {displayDate && <p className="date">{displayDate}</p>}
         </div>
-        <p className="article-title">{articleTitle}</p>
+        <h3 className="article-title">{articleTitle}</h3>
         <p className="article-preview">{articlePreview}</p>
         {isPreviewContent ? (
           <button
             type="button"
+            disabled={false}
             onClick={() => onPreviewClick?.(article)}
-            className="prod-btn-lg prod-btn-secondary article-action"
+            className="public-button article-action"
           >
             <span>{isVideo ? "Watch Video" : "View Infographic"}</span>
             <Icon
               iconName="ArrowUpRight"
               height="24px"
               width="24px"
-              stroke="#8693A0"
+              stroke="currentColor"
             />
           </button>
         ) : (
           <Link
             state={articlePage}
             to={"/articles/" + articleSlug}
-            className="prod-btn-lg prod-btn-secondary article-action"
+            className="public-button article-action"
           >
             <span>Read More</span>
             <Icon
               iconName="ArrowUpRight"
               height="24px"
               width="24px"
-              stroke="#8693A0"
+              stroke="currentColor"
             />
           </Link>
         )}

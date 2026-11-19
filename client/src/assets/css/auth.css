@@ -1,8 +1,51 @@
+@import url("./typography.css");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Keep activation actions visible when lazy page styles include button resets. */
+.auth-layout .auth-container .activation-primary-button {
+  background-color: #32418c;
+  color: #ffffff;
+  border: 1px solid #32418c;
+}
+
+.auth-layout .auth-container .activation-primary-button:hover {
+  background-color: #27346f;
+  color: #ffffff;
+  border-color: #27346f;
+}
+
+.auth-layout .auth-container .activation-primary-button:focus-visible {
+  outline: 3px solid #8bc3ff;
+  outline-offset: 2px;
+}
+
+.auth-layout .auth-container .activation-primary-button:disabled {
+  background-color: #687582;
+  color: #ffffff;
+  border-color: #687582;
+  cursor: wait;
+}
+
 @layer components {
+  .stepper {
+    display: grid;
+    grid-template-columns: repeat(var(--no-of-steps), 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .stepper .stepper-item {
+    @apply h-[8px] rounded-[4px] bg-primary-100;
+    transition: background-color 0.3s ease-in-out;
+  }
+
+  .stepper .stepper-item.active {
+    @apply bg-primary-500;
+  }
+
   .auth-layout .background {
     @apply fixed top-0 left-0 w-screen h-screen;
     z-index: -1;

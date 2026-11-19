@@ -330,19 +330,18 @@ async def fetch_points(user_id: Annotated[str, Depends(require_auth)]):
     # Get user data
     user_data = user_collection.find_one({"_id": ObjectId(user_id)})
 
-    # Check user_type
-    # If SUPERADMIN, fetch all datasets
+    # Superadmin sees every dataset.
     if user_data["user_type"] == "SUPERADMIN":
         datasets = dataset_collection.find(
             {"created_at": {"$gte": start_date}}, {"filename": 1}
         )
-    # If ADMIN, fetch all datasets uploaded by ADMIN
-    elif user_data["user_type"] == "ADMIN":
+    # Admin-role users see datasets they uploaded.
+    elif user_data.get("role_label") == "Admin":
         datasets = dataset_collection.find(
             {"created_at": {"$gte": start_date}, "user_id": str(user_data["_id"])},
             {"filename": 1},
         )
-    # If USER, fetch all datasets uploaded by ADMIN who added USER
+    # Other users see datasets uploaded by the account that added them.
     else:
         datasets = dataset_collection.find(
             {
@@ -612,19 +611,18 @@ async def fetch_points_by_disease_by_user(
     # Get user data
     user_data = user_collection.find_one({"_id": ObjectId(user_id)})
 
-    # Check user_type
-    # If SUPERADMIN, fetch all datasets
+    # Superadmin sees every dataset.
     if user_data["user_type"] == "SUPERADMIN":
         datasets = dataset_collection.find(
             {"created_at": {"$gte": start_date}}, {"filename": 1}
         )
-    # If ADMIN, fetch all datasets uploaded by ADMIN
-    elif user_data["user_type"] == "ADMIN":
+    # Admin-role users see datasets they uploaded.
+    elif user_data.get("role_label") == "Admin":
         datasets = dataset_collection.find(
             {"created_at": {"$gte": start_date}, "user_id": str(user_data["_id"])},
             {"filename": 1},
         )
-    # If USER, fetch all datasets uploaded by ADMIN who added USER
+    # Other users see datasets uploaded by the account that added them.
     else:
         datasets = dataset_collection.find(
             {

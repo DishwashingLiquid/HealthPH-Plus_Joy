@@ -1,1 +1,57 @@
-[]
+[
+  {
+    "id": "d3bedbdd-81b5-404c-9ba5-4a952d0df2d5",
+    "title": "How to use the HealthPH+ mobile application",
+    "description": "How to Use HealthPH+\r\n\r\nOpen the HealthPH+ app and explore the available features from the main menu. You can browse published health articles and educational resources, check available health-related information, and participate in mobile surveys by answering the provided questions and submitting your responses.\r\n\r\nStay Informed and Participate\r\n\r\nCheck the application regularly for newly published health content, surveys, and other updates. When answering surveys, provide accurate information and review your responses before submitting them.\r\n\r\nHealthPH+ Reminder: Information provided through the application is intended for educational and research purposes and should not replace professional medical advice, diagnosis, or treatment.",
+    "tags": [],
+    "topics": [],
+    "diseases": [],
+    "language": "en",
+    "media": {
+      "filename": "Mobile Wireframe Figma.mp4",
+      "contentType": "video/mp4",
+      "size": 62776622,
+      "storedFilename": "8bd00c5c-6e78-4d3b-8e11-1be27d5db412-Mobile-Wireframe-Figma.mp4",
+      "url": "/api/health-literacy-hub/media/videos/8bd00c5c-6e78-4d3b-8e11-1be27d5db412-Mobile-Wireframe-Figma.mp4"
+    },
+    "duration": "1:42",
+    "source": "HealthPH+",
+    "author": "Janzzen Cuentas",
+    "publishedDate": "2026-09-16T13:22:00",
+    "externalUrl": null,
+    "imageUrl": null,
+    "mediaUrl": null,
+    "publishToMobile": true,
+    "publishToWebsite": true,
+    "isPublished": true,
+    "createdAt": "2026-08-14T11:06:52.911155",
+    "updatedAt": "2026-09-16T13:21:17.645804",
+    "lastReviewedAt": "2026-09-16T13:21:17.645804",
+    "assignedReviewer": "",
+    "reviewRequestedAt": "",
+    "lastReviewedBy": {
+      "id": "6a72d1adb16c674ce125be9b",
+      "name": "Janzzen Cuentas"
+    },
+    "isArchived": false,
+    "archivedAt": "",
+    "archivedBy": {},
+    "isPinned": false,
+    "pinnedAt": "",
+    "pinnedBy": {},
+    "createdBy": {
+      "id": "6a72d1adb16c674ce125be9b",
+      "name": "Janzzen Cuentas"
+    },
+    "isFactCheck": false,
+    "claim": null,
+    "claimStatus": "Needs Expert Review",
+    "verifiedBy": "Project Researcher",
+    "verdict": "Needs Context",
+    "explanation": null,
+    "updatedBy": {
+      "id": "6a72d1adb16c674ce125be9b",
+      "name": "Janzzen Cuentas"
+    }
+  }
+]

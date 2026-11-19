@@ -1,11 +1,11 @@
-import { Outlet, useLocation } from "react-router-dom";
-import AuthLogo from "../assets/images/auth-logo.svg";
+import { Outlet } from "react-router-dom";
 import Icon from "../components/Icon";
+import "../assets/css/auth.css";
 
 const AuthLayout = () => {
   return (
     <>
-      <div className="auth-layout">
+      <div className="auth-layout internal-buttons">
         <main>
           <div className="auth-container">
             <Outlet />
@@ -27,11 +27,7 @@ const AuthLayout = () => {
             </a>
           </footer>
         </main>
-        <div className="content">
-          {/*<div className="logo-wrapper">
-            <img src={AuthLogo} alt="" />
-          </div>*/}
-        </div>
+        <div className="content"></div>
         <div className="background"></div>
       </div>
     </>

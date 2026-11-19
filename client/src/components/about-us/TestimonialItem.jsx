@@ -1,6 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useState } from "react";
-import ModalWithBody from "../admin/ModalWithBody";
+import PublicFullscreenModal from "../PublicFullscreenModal";
 
 const TestimonialItem = ({ name, position, image, testimonial }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -42,29 +42,27 @@ const TestimonialItem = ({ name, position, image, testimonial }) => {
       </div>
 
       {isOpen && (
-        <ModalWithBody
-          onConfirm={handleClose}
-          onConfirmLabel="Close"
-          onBackdrop={handleClose}
-          heading=""
-          additionalClasses="research-team-testimonial-modal !pt-[20px] !pb-[20px]"
+        <PublicFullscreenModal
+          ariaLabel={`${name}, ${position}`}
+          onClose={handleClose}
+          panelClassName="public-team-modal"
         >
-          <div className="research-team-testimonial-modal-content">
-            <div className="research-team-testimonial-modal-media">
-              <div className="research-team-testimonial-modal-image-wrapper">
+          <div className="public-team-modal__content">
+            <div className="public-team-modal__media">
+              <div className="public-team-modal__image-wrapper">
                 {imagePath && <img src={imagePath} alt={name} />}
               </div>
-              <div className="research-team-testimonial-modal-person">
-                <p className="research-team-testimonial-modal-name">{name}</p>
-                <p className="research-team-testimonial-modal-position">{position}</p>
+              <div className="public-team-modal__person">
+                <p className="public-team-modal__name">{name}</p>
+                <p className="public-team-modal__position">{position}</p>
               </div>
             </div>
 
-            <div className="research-team-testimonial-modal-copy">
+            <div className="public-team-modal__copy">
               <p>{testimonial}</p>
             </div>
           </div>
-        </ModalWithBody>
+        </PublicFullscreenModal>
       )}
     </div>
   );
