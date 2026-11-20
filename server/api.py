@@ -17,7 +17,6 @@ from routes.userRoutes import router as userRouter
 from routes.organizationRoutes import router as organizationRouter
 from routes.roleLabelRoutes import router as roleLabelRouter
 from routes.activityLogRoutes import router as activityLogRouter
-from routes.analyticsRoutes import router as analyticsRouter
 from routes.datasetsRoutes import router as datasetsRouter
 from routes.analyticsEntryRoutes import router as analyticsEntryRouter
 from routes.modelEvaluationRoutes import router as modelEvaluationRouter
@@ -160,7 +159,6 @@ api_app.include_router(
     prefix="/mobile/environmental-data",
 )
 api_app.include_router(router=pointRouter, tags=["Points"], prefix="/points")
-api_app.include_router(router=analyticsRouter, tags=["Analytics"])
 api_app.include_router(router=miscRouter, tags=["Misc"])
 api_app.include_router(router=healthLiteracyHubRouter, tags=["Health Literacy Hub"], prefix="/health-literacy-hub")
 api_app.include_router(
