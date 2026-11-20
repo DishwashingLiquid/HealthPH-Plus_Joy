@@ -165,6 +165,10 @@ def test_forward_passes_are_serialized_and_validation_precedes_inference():
     predictor._lock = threading.Lock()
     predictor.thresholds = dict.fromkeys(LABELS, 0.5)
     predictor.model_version = "test-version"
+    predictor.symptom_model_version = "test-symptoms"
+    predictor.symptom_extractor = SimpleNamespace(
+        extract_many=lambda texts: [[] for _ in texts]
+    )
     activity = {"active": 0, "maximum": 0, "calls": 0}
 
     def tokenize(texts, **kwargs):

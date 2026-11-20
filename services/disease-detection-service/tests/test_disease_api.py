@@ -7,6 +7,7 @@ from healthph_plus.disease_inference import LABELS
 
 class FakePredictor:
     model_version = "test-version"
+    symptom_model_version = "test-symptoms"
 
     def __init__(self):
         self.calls = []
@@ -17,8 +18,12 @@ class FakePredictor:
     def predict_many(self, texts):
         self.calls.append(texts)
         return [{
-            "labels": [], "probabilities": dict.fromkeys(LABELS, 0.1),
-            "thresholds_used": dict.fromkeys(LABELS, 0.5), "model_version": self.model_version,
+            "labels": [],
+            "probabilities": dict.fromkeys(LABELS, 0.1),
+            "thresholds_used": dict.fromkeys(LABELS, 0.5),
+            "model_version": self.model_version,
+            "symptoms": [],
+            "symptom_model_version": self.symptom_model_version,
         } for text in texts]
 
 
@@ -41,7 +46,11 @@ def test_startup_loads_once_and_health_does_not_run_inference():
     with TestClient(app) as client:
         for _ in range(3):
             assert client.get("/health/live").json() == {"status": "ok"}
-            assert client.get("/health/ready").json() == {"status": "ready", "model_version": "test-version"}
+            assert client.get("/health/ready").json() == {
+                "status": "ready",
+                "model_version": "test-version",
+                "symptom_model_version": "test-symptoms",
+            }
         assert len(created) == 1
         assert len(created[0].calls) == 1
     assert app.state.predictor is None
@@ -79,7 +88,14 @@ def test_api_preserves_text_and_returns_full_contract(service):
     text = "  Ubo\n at lagnat 😷  "
     response = client.post("/v1/disease/predict", json={"text": text})
     assert response.status_code == 200
-    assert set(response.json()) == {"labels", "probabilities", "thresholds_used", "model_version"}
+    assert set(response.json()) == {
+        "labels",
+        "probabilities",
+        "thresholds_used",
+        "model_version",
+        "symptoms",
+        "symptom_model_version",
+    }
     assert predictor.calls[-1] == [text]
     texts = ["second", "first", "second"]
     response = client.post("/v1/disease/predict-batch", json={"texts": texts})

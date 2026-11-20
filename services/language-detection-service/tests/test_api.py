@@ -16,7 +16,7 @@ class FakeDetector:
     def predict(self, text):
         return self.predict_many([text])[0]
 
-    def predict_many(self, texts):
+    def predict_many(self, texts, **options):
         self.calls.append(texts)
         if self.fail:
             raise RuntimeError("internal failure")

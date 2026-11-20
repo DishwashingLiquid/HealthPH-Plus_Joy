@@ -147,7 +147,7 @@ def test_real_predictions_match_notebook(real_detector):
     results = real_detector.predict_many(SAMPLES)
     for i, result in enumerate(results):
         expected_model = labels[i][0].replace("__label__", "")
-        expected_language = module.normalize_language_code(expected_model)
+        expected_language = "fil" if expected_model == "tl" else expected_model
         assert result["language"] == (
             "hil" if hil[i]
             else "ilo" if ilo[i]
