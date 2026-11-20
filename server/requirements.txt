@@ -1,41 +1,19 @@
+# Backend API and authentication
 bcrypt
 certifi
 fastapi[all]
-uvicorn
 pymongo[srv]
 python-dotenv
 python-jose[cryptography]
 python-multipart
 httpx
 passlib[bcrypt]
-geopandas
-pyproj
 jinja2
+
+# Dataset handling
 pandas
-wordcloud
-nltk
-geopy
-tqdm
-
-# Packages for annotation using Electra
-transformers
-torch==2.10.0
 numpy==1.26.4
-accelerate
 
-# Packages for bigram
-networkx
-matplotlib
-memory_profiler==0.61.0
-spacy
-
-# Packages for extracting symptoms
-fuzzywuzzy
-python-Levenshtein
-
-# Package for Survey
-surveyJS
-
-#Packages for Render 
+# Server runtime
 gunicorn==23.0.0
 uvicorn==0.30.0
