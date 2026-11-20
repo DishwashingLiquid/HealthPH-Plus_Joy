@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from fastapi import HTTPException, status
 from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
 
 from helpers.miscHelpers import get_ph_datetime
 from controllers.dashboard_regions import USER_REGION_PATHS, dashboard_region
@@ -33,18 +34,58 @@ def get_application_survey_sequence(survey: dict) -> int:
 
 
 def allocate_survey_id_sequence() -> int:
-    """Atomically allocate a new survey ID from the current sequence."""
-    application_settings_collection.update_one(
-        {"_id": APPLICATION_ID_SEQUENCE_SETTINGS_ID},
-        {"$setOnInsert": {APPLICATION_ID_SEQUENCE_FIELD: 1}}, upsert=True,
+    highest = max(
+        (
+            get_application_survey_sequence(survey)
+            for survey in surveys_collection.find({}, {"id": 1})
+        ),
+        default=0,
     )
+    next_sequence = max(1, highest + 1)
+
+    previous_settings = application_settings_collection.find_one(
+        {"_id": "sentiment_pulse_display_sequences"},
+        {"nextSentimentPulseSurveyDisplaySequence": 1},
+    ) or {}
+
+    previous_next = previous_settings.get(
+        "nextSentimentPulseSurveyDisplaySequence"
+    )
+    if type(previous_next) is int and previous_next > 0:
+        next_sequence = max(next_sequence, previous_next)
+
+    query = {"_id": APPLICATION_ID_SEQUENCE_SETTINGS_ID}
+    update = {
+        "$max": {
+            APPLICATION_ID_SEQUENCE_FIELD: next_sequence,
+        }
+    }
+
+    try:
+        application_settings_collection.update_one(
+            query, update, upsert=True
+        )
+    except DuplicateKeyError:
+        application_settings_collection.update_one(query, update)
+
     previous = application_settings_collection.find_one_and_update(
-        {"_id": APPLICATION_ID_SEQUENCE_SETTINGS_ID, APPLICATION_ID_SEQUENCE_FIELD: {"$gte": 1}},
-        {"$inc": {APPLICATION_ID_SEQUENCE_FIELD: 1}}, return_document=ReturnDocument.BEFORE,
+        {
+            **query,
+            APPLICATION_ID_SEQUENCE_FIELD: {"$gte": 1},
+        },
+        {"$inc": {APPLICATION_ID_SEQUENCE_FIELD: 1}},
+        return_document=ReturnDocument.BEFORE,
     )
+
     if previous is None:
-        raise HTTPException(status_code=503, detail="Survey ID sequence is unavailable")
+        raise HTTPException(
+            status_code=503,
+            detail="Survey ID sequence is unavailable",
+        )
+
     return previous[APPLICATION_ID_SEQUENCE_FIELD]
+
+
 
 
 def allocate_question_id_sequences(survey: dict, count: int) -> int:

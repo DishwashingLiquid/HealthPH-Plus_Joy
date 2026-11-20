@@ -77,8 +77,16 @@ class ProcessedSelfReportRepository:
 
     def ensure_indexes(self):
         self.collection.create_index(
-            [("report_id", 1)], unique=True, name="unique_self_report_analytics",
-            partialFilterExpression={"source_type": "self_report"},
+            [("report_id", 1)],
+            name="unique_self_report_analytics",
+            unique=True,
+            partialFilterExpression={
+                "source_type": "self_report",
+                "report_id": {
+                    "$type": "string",
+                    "$gt": "",
+                },
+            },
         )
 
     def records(self, *, start=None, end=None, regions=None, disease=None, session=None):

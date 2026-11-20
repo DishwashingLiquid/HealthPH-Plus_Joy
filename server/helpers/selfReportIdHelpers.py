@@ -19,12 +19,48 @@ def report_number(value):
 
 
 def ensure_report_id_indexes(reports, counters):
-    reports.create_index([("id", 1)], name="unique_self_report_public_id", unique=True)
-    try:
-        counters.update_one({"_id": COUNTER_ID}, {"$setOnInsert": {"value": 0}}, upsert=True)
-    except DuplicateKeyError:
-        pass  # Another worker initialized the same counter.
+    highest = 0
+    seen = set()
 
+    for document in reports.find({}, {"id": 1}):
+        value = document.get("id")
+        if value in (None, ""):
+            continue
+
+        number = report_number(value)
+        if number is None or value in seen:
+            raise ReportIdError(
+                "Invalid or duplicate self-report IDs need review."
+            )
+
+        seen.add(value)
+        highest = max(highest, number)
+
+    index_name = "unique_self_report_public_id"
+    existing = reports.index_information().get(index_name)
+
+    if existing is None:
+        reports.create_index(
+            [("id", 1)],
+            name=index_name,
+            unique=True,
+            partialFilterExpression={"id": {"$type": "string"}},
+        )
+    elif existing.get("key") != [("id", 1)] or not existing.get("unique"):
+        raise ReportIdError("The self-report ID index needs review.")
+
+    # Advance a missing/behind counter; never lower an existing counter.
+    try:
+        counters.update_one(
+            {"_id": COUNTER_ID},
+            {"$max": {"value": highest}},
+            upsert=True,
+        )
+    except DuplicateKeyError:
+        counters.update_one(
+            {"_id": COUNTER_ID},
+            {"$max": {"value": highest}},
+        )
 
 def next_report_id(counters):
     counter = counters.find_one_and_update(
