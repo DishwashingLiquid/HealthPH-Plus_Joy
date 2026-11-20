@@ -1,12 +1,9 @@
 from uuid import uuid4
 import logging
-from datetime import datetime
 import json
 import os
 from pathlib import Path
 import shutil
-import time
-from numpy import full
 import pymongo
 from typing_extensions import Annotated
 import pandas as pd
@@ -22,12 +19,9 @@ from config.database import (
     analytics_entries_collection,
     point_collection,
 )
-from models.user import AdminResult
 from middleware.requireAuth import require_auth
-from middleware.requireAdmin import require_admin
 from middleware.requireRole import require_role
 from schema.datasetSchema import individual_dataset, list_datasets
-from helpers.datasetsHelpers import annotation
 from helpers.miscHelpers import get_ph_datetime
 from helpers.datasetDateHelpers import normalize_dataset_dates
 from helpers.datasetValidationHelpers import validate_dataset_required_values
@@ -43,7 +37,7 @@ from helpers.processingJobHelpers import (
     live_lease_guard, INTERRUPTED_MESSAGE,
 )
 
-from controllers.pointControllers import delete_point, create_points
+from controllers.pointControllers import delete_point
 from collections import Counter, defaultdict
 
 # Folder to store datasets
@@ -67,72 +61,6 @@ def is_template_dataset(raw_dataset_df):
     return raw_dataset_df["text"].fillna("").astype(str).str.strip().eq(
         "Sample post text about lung-related diseases."
     ).any()
-
-def annotate_dataset(
-    dataset_data: dict,
-    raw_dataset_filename: str,
-    raw_dataset_path: str,
-    original_filename: str,
-    user_name: str,
-):
-    print("===== ANNOTATION STARTED =====\n")
-
-    # Split the raw dataset filename [<filename>, 'csv']
-    raw_dataset_filename_split = str.split(raw_dataset_filename, sep=".")
-
-    # Append '-annotated' to filename
-    result_filename = (
-        f"{raw_dataset_filename_split[0]}-annotated.{raw_dataset_filename_split[1]}"
-    )
-
-    # Annotated dataset
-    # temp comment = needs to stop annotation for a moment 
-    #annotated_datasets_path: str = annotation(raw_dataset_filename, result_filename)
-
-    annotated_datasets_path = raw_dataset_path
-
-    file_size = os.stat(annotated_datasets_path).st_size
-
-    num_of_rows = len(pd.read_csv(annotated_datasets_path))
-
-    csv_headers = ["posts", "filtered_location", "annotations"]
-
-    preview_headers = "+".join(csv_headers)
-
-    preview_data = pd.read_csv(
-        (annotated_datasets_path),
-        nrows=3,
-        usecols=csv_headers,
-    ).to_json(orient="records")
-
-    to_encode = dict(dataset_data).copy()
-
-    to_encode.update(
-        {
-            "user_name": user_name,
-            "filename": result_filename,
-            "original_filename": original_filename,
-            "file_size": file_size,
-            "num_of_rows": num_of_rows,
-            "preview_headers": str(preview_headers),
-            "preview_data": json.dumps(preview_data),
-            "dataset_type": "ANNOTATED",
-            "created_at": get_ph_datetime(),
-        }
-    )
-
-    new_annotated_dataset = dataset_collection.insert_one(dict(to_encode))
-
-    if not new_annotated_dataset:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to upload annotated dataset",
-        )
-
-    print("DATASET ANNOTATED SUCCESSFULLY")
-
-    create_points(result_filename)
-    pass
 
 def run_dataset_processing_job(dataset_id: str, job_id: str):
     object_id = ObjectId(dataset_id)
@@ -551,17 +479,6 @@ async def upload_dataset(
             }
         },
     )
-
-    #TEMP: disable automatic annotation during upload
-    #HealthPH+ will process annotation as a separate dataset action/job
-    """ background_tasks.add_task(
-        annotate_dataset,
-        dataset_data,
-        filename,
-        str(full_path),
-        original_filename,
-        f"{user_data['first_name']} {user_data['last_name']}",
-    ) """
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
