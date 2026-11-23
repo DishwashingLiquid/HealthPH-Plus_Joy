@@ -24,8 +24,6 @@ import AISurveillance from "./pages/admin/AISurveillance";
 import NLPInsights from "./pages/admin/NLPInsights";
 import MisinformationTracker from "./pages/admin/MisinformationTracker";
 import ModelAccessToolkit from "./pages/admin/ModelAccessToolkit";
-import TrendsMap from "./pages/admin/TrendsMap";
-import UploadDataset from "./pages/admin/UploadDataset";
 import UserManagement from "./pages/admin/UserManagement";
 import Help from "./pages/admin/Help";
 import Settings from "./pages/admin/Settings";
@@ -34,12 +32,10 @@ import EditPassword from "./pages/admin/EditPassword";
 
 import PageNotFound from "./pages/error/PageNotFound";
 import AccessDenied from "./pages/error/AccessDenied";
-import Test from "./Test";
 
 import HelmetTitle from "./components/HelmetTitle";
 
 import useDeviceDetect from "./hooks/useDeviceDetect";
-import FullMap from "./pages/admin/FullMap";
 import Print from "./pages/Print";
 import {
   ROLE_PAGES,
@@ -103,7 +99,6 @@ function App() {
   ) : (
     <>
       <Routes>
-        <Route path="/test" element={<Test />}></Route>
         <Route element={<AuthLayout />}>
           <Route path="/activate-account" element={<><HelmetTitle title="HealthPH+ | Activate Account" /><ActivateAccount /></>} />
         </Route>
@@ -169,15 +164,6 @@ function App() {
               ) : (
                 <Navigate to="/login" />
               )
-            }
-          ></Route>
-          <Route
-            path="full-map"
-            element={
-              <>
-                <HelmetTitle title="HealthPH | Map" />
-                <FullMap />
-              </>
             }
           ></Route>
           <Route element={<AuthLayout />}>
@@ -271,15 +257,6 @@ function App() {
               )}
             />
             <Route
-              path="trends-map"
-              element={
-                <>
-                  <HelmetTitle title="HealthPH | Trends Map" />
-                  <TrendsMap />
-                </>
-              }
-            />
-            <Route
               path="sentiment-pulse"
               element={renderRolePage(
                 ROLE_PAGES.SENTIMENT_PULSE_TOOL,
@@ -288,19 +265,6 @@ function App() {
                   SentimentPulseTool
                 )
               )}
-            />
-            <Route
-              path="trends-map/upload-dataset"
-              element={
-                canManageAccounts ? (
-                  <>
-                    <HelmetTitle title="HealthPH | Upload Dataset" />
-                    <UploadDataset />
-                  </>
-                ) : (
-                  <Navigate to="/dashboard" />
-                )
-              }
             />
             {!isPWA && (
               <Route
