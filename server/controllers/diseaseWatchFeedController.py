@@ -15,7 +15,7 @@ from helpers.selfReportLocationHelpers import populate_self_report_location
 from helpers.analyticsEntryHelpers import build_self_report_analytics_entry
 from helpers.analyticsSymptomHelpers import SELF_REPORT_SYMPTOM_ID_TO_LABEL
 from helpers.selfReportIdHelpers import insert_report_with_id, ReportIdError
-from helpers.miscHelpers import get_ph_datetime
+from helpers.dateTimeHelpers import get_ph_datetime
 from middleware.requireMobileAuth import optional_mobile_auth, require_mobile_auth
 from models.mobileUser import MOBILE_REGISTRATION_SOURCE, MOBILE_ROLE_ID, MOBILE_ROLE_LABEL
 from controllers.mobileUserController import serialize_mobile_user

@@ -8,7 +8,7 @@ from typing_extensions import Annotated
 
 from middleware.requireRole import require_role
 from models.healthLiteracyHubAnalytics import HealthLiteracyAnalyticsEvent
-from helpers.miscHelpers import get_ph_datetime
+from helpers.dateTimeHelpers import get_ph_datetime
 from config.database import analytics_events_collection, content_collection, user_collection
 from helpers.health_literacy.media import external_url, media_response, preview_authorized, public_api_base_url
 from controllers.health_literacy_hub.gallery import gallery_uploads, prepare_gallery, store_gallery

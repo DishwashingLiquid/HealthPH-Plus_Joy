@@ -9,7 +9,7 @@ from controllers.sentiment_pulse.inference_client import (
     BATCH_SIZE, SentimentClient, probability, valid_version,
 )
 from helpers.analyticsAccessHelpers import get_analytics_entry_region
-from helpers.surveillanceDateHelpers import parse_analytics_datetime
+from helpers.dateTimeHelpers import parse_analytics_datetime
 
 logger = logging.getLogger(__name__)
 SOURCES = ("self_report", "social_media")

@@ -21,9 +21,14 @@ from config.database import (
 from middleware.requireAuth import require_auth
 from middleware.requireRole import require_role
 from schema.datasetSchema import individual_dataset, list_datasets
-from helpers.miscHelpers import get_ph_datetime
-from helpers.datasetDateHelpers import normalize_dataset_dates
-from helpers.datasetValidationHelpers import validate_dataset_required_values
+from helpers.dateTimeHelpers import get_ph_datetime
+from helpers.datasetImportHelpers import (
+    RAW_DATASET_REQUIRED_HEADERS,
+    normalize_csv_header,
+    is_template_dataset,
+    normalize_dataset_dates,
+    validate_dataset_required_values,
+)
 from helpers.analyticsEntryHelpers import (
     build_social_media_analytics_entries,
     get_valid_analytics_entries,
@@ -42,23 +47,6 @@ from collections import Counter, defaultdict
 datasets_folder = Path("public/datasets")
 
 annotated_datasets_folder = Path("public/annotated_datasets")
-
-RAW_DATASET_REQUIRED_HEADERS = [
-    "id",
-    "text",
-    "location",
-    "date_posted",
-    "source",
-    "date_collected",
-]
-
-def normalize_csv_header(header):
-    return str(header).strip().lower().replace(" ", "_")
-
-def is_template_dataset(raw_dataset_df):
-    return raw_dataset_df["text"].fillna("").astype(str).str.strip().eq(
-        "Sample post text about lung-related diseases."
-    ).any()
 
 def run_dataset_processing_job(dataset_id: str, job_id: str):
     object_id = ObjectId(dataset_id)

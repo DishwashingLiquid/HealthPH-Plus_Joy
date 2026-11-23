@@ -8,6 +8,9 @@ ISO_TIMESTAMP_PATTERN = re.compile(
     r"(?::[0-9]{2}(?:\.[0-9]{1,6})?)?(?:Z|[+-][0-9]{2}:[0-9]{2})?"
 )
 
+def get_ph_datetime():
+    """Return PH local time using the existing storage convention."""
+    return datetime.now(PH_TIMEZONE).replace(tzinfo=None)
 
 def parse_analytics_datetime(value):
     """Parse current ISO input; offset-free timestamps mean Philippine time."""

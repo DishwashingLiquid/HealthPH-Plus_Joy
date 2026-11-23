@@ -8,7 +8,7 @@ from datetime import timedelta
 from hashlib import sha256
 
 from helpers.analyticsSymptomHelpers import get_entry_symptoms
-from helpers.surveillanceDateHelpers import parse_analytics_datetime
+from helpers.dateTimeHelpers import parse_analytics_datetime
 from region_normalization import REGIONS, resolve_region
 
 PROCESSED_SELF_REPORT_QUERY = {"source_type": "self_report", "analysis_status": "PROCESSED"}

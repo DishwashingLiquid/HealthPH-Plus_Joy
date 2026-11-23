@@ -11,7 +11,7 @@ from jose import jwt
 from pymongo.errors import DuplicateKeyError
 
 from config.database import mobile_users_collection
-from helpers.miscHelpers import get_ph_datetime
+from helpers.dateTimeHelpers import get_ph_datetime
 from models.mobileUser import (
     MOBILE_REGISTRATION_SOURCE,
     MOBILE_ROLE_ID,
