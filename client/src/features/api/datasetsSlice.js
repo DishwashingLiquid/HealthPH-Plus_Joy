@@ -8,13 +8,7 @@ export const datasetsApi = baseAPI.injectEndpoints({
         method: "POST",
         body: data,
       }),
-      invalidatesTags: [
-        "Datasets",
-        "AnalyticsSuspected",
-        "AnalyticsFrequent",
-        "AnalyticsPercentage",
-        "AnalyticsWordcloud",
-      ],
+    invalidatesTags: ["Datasets", "AnalyticsEntries"],
     }),
     fetchDatasets: builder.query({
       query: () => "/datasets",
@@ -36,30 +30,14 @@ export const datasetsApi = baseAPI.injectEndpoints({
         url: `/datasets/process/${id}`,
         method: "POST",
       }),
-      invalidatesTags: [
-        "Datasets",
-        "Points",
-        "PointsDisease",
-        "AnalyticsSuspected",
-        "AnalyticsFrequent",
-        "AnalyticsPercentage",
-        "AnalyticsWordcloud",
-      ],
+      invalidatesTags: ["Datasets", "AnalyticsEntries"],
     }),
     deleteDataset: builder.mutation({
       query: (id) => ({
         url: `/datasets/${id}`,
         method: "DELETE",
       }),
-      invalidatesTags: [
-        "Datasets",
-        "Points",
-        "PointsDisease",
-        "AnalyticsSuspected",
-        "AnalyticsFrequent",
-        "AnalyticsPercentage",
-        "AnalyticsWordcloud",
-      ],
+    invalidatesTags: ["Datasets", "AnalyticsEntries"],
     }),
   }),
 });

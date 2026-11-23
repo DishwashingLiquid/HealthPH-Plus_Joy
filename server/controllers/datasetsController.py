@@ -17,7 +17,6 @@ from config.database import (
     user_collection,
     dataset_collection,
     analytics_entries_collection,
-    point_collection,
 )
 from middleware.requireAuth import require_auth
 from middleware.requireRole import require_role
@@ -37,7 +36,6 @@ from helpers.processingJobHelpers import (
     live_lease_guard, INTERRUPTED_MESSAGE,
 )
 
-from controllers.pointControllers import delete_point
 from collections import Counter, defaultdict
 
 # Folder to store datasets
@@ -684,9 +682,11 @@ route     DELETE api/datasets/{id}
 
 
 async def delete_dataset(
-    background_tasks: BackgroundTasks, 
     id: str,
-    current_user: Annotated[dict, Depends(require_role(["Admin", "SUPERADMIN"]))]
+    current_user: Annotated[
+        dict,
+        Depends(require_role(["Admin", "SUPERADMIN"])),
+    ],
 ):
     # Check if there is id
     if not id:
@@ -743,8 +743,6 @@ async def delete_dataset(
     if os.path.exists(full_path):
         os.remove(full_path)
 
-    background_tasks.add_task(delete_point, dataset_data["filename"])
-
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={
@@ -770,22 +768,13 @@ async def delete_all_datasets(
     datasets_to_delete = list(
         dataset_collection.find(
             {},
-            {
-                "_id": 1,
-                "filename": 1,
-            },
+            {"_id": 1},
         )
     )
 
     dataset_ids = [
         str(dataset["_id"])
         for dataset in datasets_to_delete
-    ]
-
-    dataset_filenames = [
-        dataset["filename"]
-        for dataset in datasets_to_delete
-        if dataset.get("filename")
     ]
 
     dataset_collection.delete_many({})
@@ -795,13 +784,6 @@ async def delete_all_datasets(
             {
                 "dataset_id": {"$in": dataset_ids},
                 "source_type": "social_media",
-            }
-        )
-
-    if dataset_filenames:
-        point_collection.delete_many(
-            {
-                "dataset_source": {"$in": dataset_filenames},
             }
         )
 

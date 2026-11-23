@@ -25,7 +25,6 @@ from routes.environmentalDataRoutes import (
     router as environmentalDataRouter,
     mobile_router as mobileEnvironmentalDataRouter,
 )
-from routes.pointRoutes import router as pointRouter
 from routes.miscRoutes import router as miscRouter
 from routes.healthLiteracyHubRoutes import (
     mobile_contract_router as healthLiteracyMobileContractRouter,
@@ -158,7 +157,6 @@ api_app.include_router(
     tags=["Mobile Environmental Data"],
     prefix="/mobile/environmental-data",
 )
-api_app.include_router(router=pointRouter, tags=["Points"], prefix="/points")
 api_app.include_router(router=miscRouter, tags=["Misc"])
 api_app.include_router(router=healthLiteracyHubRouter, tags=["Health Literacy Hub"], prefix="/health-literacy-hub")
 api_app.include_router(

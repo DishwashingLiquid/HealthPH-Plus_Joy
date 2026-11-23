@@ -43,7 +43,6 @@ dataset_collection = db["datasets"]
 analytics_entries_collection = db["analytics_entries"]
 model_evaluations_collection = db["model_evaluations"]
 model_training_logs_collection = db["model_training_logs"]
-point_collection = db['points']
 health_literacy_feedback_collection = db["health_literacy_feedback"]
 analytics_events_collection = db["analytics_events"]
 content_collection = db["content"].with_options(
