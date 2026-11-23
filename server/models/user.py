@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 
 from helpers.dateTimeHelpers import get_ph_datetime
@@ -12,9 +12,8 @@ class User(BaseModel):
     email: str
     is_disabled: bool | None = False
     user_type: str | None = "USER"
-    created_at: datetime = get_ph_datetime()
-    updated_at: datetime = get_ph_datetime()
-
+    created_at: datetime = Field(default_factory=get_ph_datetime)
+    updated_at: datetime = Field(default_factory=get_ph_datetime)
 
 class UserInDB(User):
     password: str
@@ -35,8 +34,8 @@ class CreateUserRequest(BaseModel):
     is_disabled: bool | None = False
     user_type: str | None = "USER"
     role_label: str | None = ""
-    created_at: datetime = get_ph_datetime()
-    updated_at: datetime = get_ph_datetime()
+    created_at: datetime = Field(default_factory=get_ph_datetime)
+    updated_at: datetime = Field(default_factory=get_ph_datetime)
 
 
 class UpdatePersonalInfo(BaseModel):

@@ -1,4 +1,3 @@
-"""Dashboard/export endpoints backed exclusively by processed analytics."""
 import csv
 from datetime import date, datetime, timedelta
 from functools import lru_cache
@@ -16,7 +15,7 @@ from helpers.processedSelfReportHelpers import (
     ProcessedSelfReportRepository, dashboard, ph_datetime, report_item,
 )
 from middleware.requireAuth import require_auth
-from middleware.requireRole import require_role
+from controllers.regionalAlertsController import require_regional_alert_user
 from region_normalization import normalize_region
 
 
@@ -83,24 +82,33 @@ def map_pin(record):
         "geocodedAddress": location.get("geocodedAddress"),
     }
 
-
-async def fetch_processed_self_report_dashboard(
-    _user: Annotated[str, Depends(require_auth)], region: str | None = None,
-    date_from: str | None = None, date_to: str | None = None,
+async def fetch_dashboard_processed_reports(
+    user: Annotated[dict, Depends(require_regional_alert_user)],
+    region: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
 ):
     start, end = reporting_window(date_from, date_to)
     result = dashboard(repository(), start, end, parse_regions(region))
+
     return JSONResponse(content=result)
 
-
-async def fetch_mobile_user_analytics_summary(
-    _user: Annotated[dict, Depends(require_role(["Admin", "SUPERADMIN"]))], region: str | None = None,
-    date_from: str | None = None, date_to: str | None = None,
+async def fetch_dashboard_user_analytics(
+    user: Annotated[dict, Depends(require_regional_alert_user)],
+    region: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
 ):
     start, end = reporting_window(date_from, date_to)
     result = dashboard(repository(), start, end, parse_regions(region))
-    return JSONResponse(content={**result["userAnalytics"], "period": result["period"], "source": result["source"]})
 
+    return JSONResponse(
+        content={
+            **result["userAnalytics"],
+            "period": result["period"],
+            "source": result["source"],
+        }
+    )
 
 async def fetch_mobile_self_reports_map_pins(
     region: str | None = None, date_from: str | None = None, date_to: str | None = None,

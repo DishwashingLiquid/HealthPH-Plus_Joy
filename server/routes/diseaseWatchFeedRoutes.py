@@ -7,8 +7,6 @@ from controllers.diseaseWatchFeedController import (
 from controllers.processedSelfReportsController import (
     export_mobile_self_reports,
     fetch_mobile_self_reports_map_pins,
-)
-from controllers.diseaseWatchFeedDashboardController import (
     fetch_dashboard_processed_reports,
     fetch_dashboard_user_analytics,
 )
