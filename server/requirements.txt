@@ -7,7 +7,6 @@ python-dotenv
 python-jose[cryptography]
 python-multipart
 httpx
-passlib[bcrypt]
 jinja2
 
 # Dataset handling

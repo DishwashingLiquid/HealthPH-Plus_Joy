@@ -1,11 +1,9 @@
 import os
 
-from dotenv import dotenv_values
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 
-config_dotenv = dotenv_values()
 
 mobile_bearer = HTTPBearer(auto_error=False)
 

@@ -2,7 +2,6 @@ from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 from pymongo import ReadPreference
 from pymongo.write_concern import WriteConcern
-from dotenv import dotenv_values
 import os
 import certifi
 
@@ -13,9 +12,6 @@ from helpers.disease_watch.storage import (
     SUMMARY_EVENT,
     scoped_collections,
 )
-
-# Get configuration values from .env file
-config = dotenv_values()
 
 # MONGODB URI CONNECTION
 uri = os.getenv("MONGO_URI")
@@ -43,7 +39,6 @@ dataset_collection = db["datasets"]
 analytics_entries_collection = db["analytics_entries"]
 model_evaluations_collection = db["model_evaluations"]
 model_training_logs_collection = db["model_training_logs"]
-health_literacy_feedback_collection = db["health_literacy_feedback"]
 analytics_events_collection = db["analytics_events"]
 content_collection = db["content"].with_options(
     read_preference=ReadPreference.PRIMARY,

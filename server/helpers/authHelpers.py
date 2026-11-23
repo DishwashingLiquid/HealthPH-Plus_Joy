@@ -1,22 +1,13 @@
-from jose import jwt
 from datetime import datetime, timedelta, timezone
-import os
 import math
-
-# Password hashing
-from passlib.context import CryptContext
-
-from models.auth import OTPCode
-from helpers.dateTimeHelpers import get_ph_datetime
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-import bcrypt
+import os
 import secrets
 
-from dotenv import dotenv_values
+import bcrypt
+from jose import jwt
 
-config_dotenv = dotenv_values()
+from helpers.dateTimeHelpers import get_ph_datetime
+from models.auth import OTPCode
 
 # Checks if input password and hashed password matches
 def verify_password(plain_password: str, hashed_password: str):
@@ -78,7 +69,3 @@ def generate_otp_code():
         otp_code=f"{secrets.randbelow(999999):06d}",
         otp_expiry=get_ph_datetime() + timedelta(minutes=10),
     )
-
-
-# print(generate_hashed_password("Pass123!"))
-# 2b$10$jgHncmAMGVhlKwSPGWJe1.ICnbQx5ZW6YBva.Z.9.w5nIua.QCkjW

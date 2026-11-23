@@ -3,13 +3,11 @@ from smtplib import SMTPException
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.utils import formataddr, formatdate
-from dotenv import dotenv_values
 import os
 from datetime import datetime, timedelta, timezone
 from helpers.emailTemplateHelpers import render_email
 from region_normalization import REGION_NAMES
 
-config = dotenv_values()
 
 smtp_port = os.getenv("SMTP_PORT")
 smtp_server = os.getenv("SMTP_SERVER")

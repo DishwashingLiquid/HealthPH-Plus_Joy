@@ -24,11 +24,9 @@ from models.user import (
     UpdatePasswordRequest,
     UpdateUserRequest,
     UserInDB,
-    SuperadminResult,
 )
 from middleware.requireAuth import require_auth
 from middleware.requireAdmin import require_admin
-from middleware.requireSuperadmin import require_superadmin
 from middleware.requireRole import require_role
 
 from schema.userSchema import individual_user, list_users

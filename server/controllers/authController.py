@@ -7,11 +7,8 @@ from typing import Annotated as Annttd
 from datetime import datetime, timedelta, timezone
 import re
 import os
-from dotenv import dotenv_values
 
 from helpers.dateTimeHelpers import get_ph_datetime
-
-config_dotenv = dotenv_values()
 
 from config.database import user_collection
 from models.auth import (

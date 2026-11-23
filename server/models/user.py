@@ -78,8 +78,3 @@ class UpdateUserRequest(BaseModel):
 class AdminResult(BaseModel):
     result: bool
     id: str
-
-
-class SuperadminResult(BaseModel):
-    result: bool
-    id: str
