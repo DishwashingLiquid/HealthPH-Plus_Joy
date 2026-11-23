@@ -65,10 +65,10 @@ seconds and have defaults, so existing environments need no new variables.
 ```bash
 cd client
 ```
-4. Type the following commands:
+4. Type the following commands: (making sure same tool and version is downloaded to every computer)
 ```bash
-yarn install
-yarn build
+npx --yes yarn@1.22.22 install --frozen-lockfile
+npx --yes yarn@1.22.22 build
 ```
 
 5. Open another terminal in root directory, and go to `server` folder
