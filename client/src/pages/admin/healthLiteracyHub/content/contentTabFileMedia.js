@@ -23,14 +23,3 @@ export const getVideoFileDuration = (file) =>
     };
     video.src = objectUrl;
   });
-
-export const downloadMediaFile = ({ url, filename }) => {
-  const downloadLink = document.createElement("a");
-  downloadLink.href = url;
-  downloadLink.download = filename;
-  downloadLink.rel = "noopener noreferrer";
-  downloadLink.style.display = "none";
-  document.body.appendChild(downloadLink);
-  downloadLink.click();
-  document.body.removeChild(downloadLink);
-};

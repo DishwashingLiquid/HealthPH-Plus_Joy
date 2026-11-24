@@ -8,6 +8,8 @@ import {
     MAX_TRAINING_LOG_BYTES, TRAINING_MODEL_NAMES, formatTrainingDate, parseTrainingLogPreview,
 } from "../../utils/modelTrainingLogHelpers";
 
+import { downloadUrl } from "../../utils/fileExportHelpers";
+
 export default function ModelTrainingLogUpload({ canUpload, onPrint, printDisabled, isPrinting, children }) {
     const input = useRef(null);
     const reading = useRef(0);
@@ -68,14 +70,18 @@ export default function ModelTrainingLogUpload({ canUpload, onPrint, printDisabl
                     <ToolbarButton iconName="Printer" variant="primary" onClick={onPrint} disabled={printDisabled || isPrinting}>
                         {isPrinting ? "Preparing..." : "Print"}
                     </ToolbarButton>
-                    <ToolbarButton iconName="Download" variant="primary" onClick={() => {
-                        const link = document.createElement("a");
-                        link.href = "/assets/model-training-log-template.json";
-                        link.download = "healthph-model-training-log-template.json";
-                        document.body.appendChild(link);
-                        link.click();
-                        link.remove();
-                    }}>Download JSON Template</ToolbarButton>
+                    <ToolbarButton
+                        iconName="Download"
+                        variant="primary"
+                        onClick={() =>
+                            downloadUrl(
+                                "/assets/model-training-log-template.json",
+                                "healthph-model-training-log-template.json",
+                            )
+                        }
+                    >
+                        Download JSON Template
+                    </ToolbarButton>
                     {canUpload && <>
                         <input ref={input} type="file" accept=".json,application/json" className="hidden" onChange={chooseFile} aria-label="Training-log JSON file" />
                         <ToolbarButton iconName="Upload" variant="primary" onClick={() => input.current?.click()} disabled={isReading || isLoading}>

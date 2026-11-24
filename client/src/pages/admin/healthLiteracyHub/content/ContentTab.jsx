@@ -22,10 +22,8 @@ import { normalizeDashboardContent } from "../../../../utils/healthLiteracyWebsi
 import { stopCardPreviews } from "../../../../utils/healthLiteracyMedia";
 import CommentModeration from "./CommentModeration";
 import "../../../../assets/css/health-literacy.css";
-import {
-  downloadMediaFile,
-  getVideoFileDuration,
-} from "./contentTabFileMedia";
+import { getVideoFileDuration } from "./contentTabFileMedia";
+import { downloadUrl } from "../../../../utils/fileExportHelpers";
 import { getFilteredContentItems } from "./contentTabFiltering";
 import {
   buildContentFormPayload,
@@ -236,10 +234,10 @@ const ContentTab = ({ contentTypeLabel }) => {
       return;
     }
 
-    downloadMediaFile({
-      url: mediaSource,
-      filename: item.media?.filename || `${item.title || "infographic"}`,
-    });
+    downloadUrl(
+      mediaSource,
+      item.media?.filename || `${item.title || "infographic"}`,
+    );
   };
 
   const validateForm = () => {

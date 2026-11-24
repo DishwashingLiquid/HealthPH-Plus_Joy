@@ -1,36 +1,18 @@
 import { accountStatusLabel } from "./accountStatus.js";
-import { formatSelfReportPrintDate } from "./selfReportPrintHelpers.js";
+import { formatPrintDate, loadPrintPages } from "./printHelpers.js";
 
 const text = (value) => String(value ?? "").trim() || "Unavailable";
 const number = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
 const column = (key, label, width, align = "left") => ({ key, label, width, align });
 
-// Use the protected, paginated activity endpoint. Never print just the visible page.
-export const loadRecentActivityForPrint = async (fetchPage, filters = {}) => {
-    const entries = [];
-    const seen = new Set();
-    let expectedTotal;
-    do {
-        const page = await fetchPage({ ...filters, limit: 100, offset: entries.length });
-        if (!Array.isArray(page?.entries) || !Number.isSafeInteger(page.total) || page.total < 0) {
-            throw new Error("Unable to prepare account activity: an invalid response was received.");
-        }
-        if (expectedTotal === undefined) expectedTotal = page.total;
-        if (page.total !== expectedTotal || page.offset !== entries.length ||
-            (!page.entries.length && entries.length < expectedTotal) ||
-            entries.length + page.entries.length > expectedTotal) {
-            throw new Error("Account activity changed while preparing the report. Please try printing again.");
-        }
-        for (const entry of page.entries) {
-            if (!entry.id || seen.has(entry.id)) {
-                throw new Error("Account activity changed while preparing the report. Please try printing again.");
-            }
-            seen.add(entry.id);
-            entries.push(entry);
-        }
-    } while (entries.length < expectedTotal);
-    return entries;
-};
+export const loadRecentActivityForPrint = (fetchPage, filters = {}) =>
+    loadPrintPages(fetchPage, filters, {
+        batchSize: 100,
+        invalidMessage:
+            "Unable to prepare account activity: an invalid response was received.",
+        changedMessage:
+            "Account activity changed while preparing the report. Please try printing again.",
+    });
 
 export const buildUserManagementPrintReport = ({
     view, user, accounts = [], organizations = [], roles = [], analytics = {},
@@ -68,7 +50,7 @@ export const buildUserManagementPrintReport = ({
                 email: text(account.email), region: regionLabel(account.region),
                 role: text(account.role_label), type: text(account.user_type),
                 organization: text(account.organization), status: accountStatusLabel(account),
-                created: formatSelfReportPrintDate(account.created_at),
+                created: formatPrintDate(account.created_at),
             })),
         });
     } else if (view === "Organizations") {
@@ -161,7 +143,7 @@ export const buildUserManagementPrintReport = ({
                 rows: recentActivity.map((log) => ({
                     id: log.id, name: text(log.user_name), role: log.user_type === "SUPERADMIN" ? "SUPERADMIN" : text(log.role_label || log.user_type),
                     entry: text(log.entry), module: text(log.module), ip: text(log.ip_address || log.ip),
-                    logged: formatSelfReportPrintDate(log.created_at),
+                    logged: formatPrintDate(log.created_at),
                 })),
             });
         }

@@ -6,6 +6,11 @@ import {
 import { isCount, isShare, reportingScope, summaryState, surveyCardSentiment } from "./sentimentContract";
 import { regionalAnswerRows, regionalCardRows, regionalRow, regionalAssessment, regionalDisplayLabel, REGIONAL_ANSWER_SCOPE, REGIONAL_SUBMISSION_SCOPE, REGIONAL_SATISFACTION_SCOPE } from "./regionalMetrics";
 
+import {
+  downloadCsvText,
+  escapeCsvValue,
+} from "../../../utils/fileExportHelpers";
+
 const metricHeaders = ["Eligible text/choice answers", "Analyzed text/choice answers", "Text/choice answers without results", "Calm answers", "Worried answers", "Worried share (%)", "Satisfied answers", "Valid satisfaction answers", "Satisfaction share (%)", "Dissatisfied answers", "Neutral satisfaction answers"];
 const metricValues = (row = {}) => [row.eligibleAnswers, row.predictedAnswers, row.answersWithoutResults, row.calm, row.worried].map((value) => isCount(value) ? value : "").concat([
   isShare(row.worriedShare) ? row.worriedShare.toFixed(1) : "",
@@ -15,13 +20,6 @@ const metricValues = (row = {}) => [row.eligibleAnswers, row.predictedAnswers, r
   isCount(row.dissatisfiedAnswers) ? row.dissatisfiedAnswers : "",
   isCount(row.neutralSatisfactionAnswers) ? row.neutralSatisfactionAnswers : "",
 ]);
-
-const escapeCsvValue = (value) => {
-  const text = String(value ?? "");
-  return text.includes(",") || text.includes('"') || text.includes("\n")
-    ? `"${text.replace(/"/g, '""')}"`
-    : text;
-};
 
 export const buildSentimentPulseCsv = ({
   activeTab,
@@ -139,27 +137,11 @@ export const buildSentimentPulseCsv = ({
 
 export const exportSentimentPulseCsv = (options) => {
   const csvContent = buildSentimentPulseCsv(options);
-  const { activeTab } = options;
 
-  // Use a file URL rather than navigating to a data URL. The BOM also lets
-  // spreadsheet applications recognize the report's UTF-8 characters.
-  const blob = new Blob(["\uFEFF", csvContent], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const element = document.createElement("a");
-  element.setAttribute("href", url);
-  element.setAttribute(
-    "download",
-    `sentiment-pulse-export-${activeTab}-${new Date().getTime()}.csv`
+  downloadCsvText(
+    csvContent,
+    `sentiment-pulse-export-${options.activeTab}-${Date.now()}.csv`,
   );
-  element.style.display = "none";
-  try {
-    document.body.appendChild(element);
-    element.click();
-  } finally {
-    element.remove();
-    // Keep the URL alive until the browser has started reading the download.
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
 };
 
 export const showSentimentPulsePdfExportNotice = () => {

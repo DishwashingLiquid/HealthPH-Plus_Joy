@@ -1,5 +1,10 @@
 import { getDashboardRegionLabel } from "../../dashboardRegions";
 
+import {
+  downloadCsvText,
+  escapeCsvValue as escapeCsvCell,
+} from "../../../../utils/fileExportHelpers";
+
 export const formatNumber = (value) => {
   return new Intl.NumberFormat("en-US").format(value ?? 0);
 };
@@ -49,10 +54,8 @@ export const getAnalyticsCellText = (value) => {
   return value ?? "";
 };
 
-export const escapeCsvValue = (value) => {
-  const text = String(getAnalyticsCellText(value) ?? "");
-  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-};
+export const escapeCsvValue = (value) =>
+  escapeCsvCell(getAnalyticsCellText(value));
 
 export const slugify = (value) => {
   return String(value)
@@ -72,27 +75,18 @@ export const getRegionLabel = (value) => {
 
 export const downloadCsv = ({ filename, title, filters, columns, rows }) => {
   const headerRows = [
-    [title],
-    [`Generated: ${new Date().toLocaleString()}`],
-    [`Time Range: ${filters.timeRange}`],
-    [`Content Type: ${filters.contentType}`],
-    [`Region: ${filters.region}`],
-    [],
-    columns,
+      [title],
+      [`Generated: ${new Date().toLocaleString()}`],
+      [`Time Range: ${filters.timeRange}`],
+      [`Content Type: ${filters.contentType}`],
+      [`Region: ${filters.region}`],
+      [],
+      columns,
   ];
 
   const csvContent = [...headerRows, ...rows]
     .map((row) => row.map(escapeCsvValue).join(","))
     .join("\n");
 
-  const element = document.createElement("a");
-  element.setAttribute(
-    "href",
-    `data:text/csv;charset=utf-8,${encodeURIComponent(csvContent)}`
-  );
-  element.setAttribute("download", filename);
-  element.style.display = "none";
-  document.body.appendChild(element);
-  element.click();
-  document.body.removeChild(element);
+  downloadCsvText(csvContent, filename);
 };

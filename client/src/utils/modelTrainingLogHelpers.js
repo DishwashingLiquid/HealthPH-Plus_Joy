@@ -1,3 +1,5 @@
+import { loadPrintPages } from "./printHelpers";
+
 export const MAX_TRAINING_LOG_BYTES = 2 * 1024 * 1024;
 export const TRAINING_MODEL_NAMES = {
     fasttext: "FastText", electra: "ELECTRA", xlmr: "XLM-RoBERTa",
@@ -81,24 +83,21 @@ export function trainingLogForExport(log) {
     return Object.fromEntries(CONTRACT_FIELDS.filter((key) => log[key] !== undefined).map((key) => [key, log[key]]));
 }
 
-export async function loadTrainingLogsForPrint(filters, fetchPage) {
-    const logs = [];
-    const seen = new Set();
-    let expected = null;
-    do {
-        const result = await fetchPage({ ...filters, limit: 20, offset: logs.length });
-        if (expected === null) expected = result.total;
-        if (result.total !== expected || (!result.logs.length && logs.length < expected)) {
-            throw new Error("The training-log list changed. Please refresh and print again.");
-        }
-        for (const log of result.logs) {
-            const key = trainingRunKey(log);
-            if (seen.has(key)) throw new Error("The training-log list changed. Please refresh and print again.");
-            seen.add(key);
-            logs.push(log);
-        }
-    } while (logs.length < expected);
-    return logs;
+export function loadTrainingLogsForPrint(filters, fetchPage) {
+    return loadPrintPages(fetchPage, filters, {
+        itemsKey: "logs",
+        batchSize: 20,
+        getKey: trainingRunKey,
+        isValidItem: (log) =>
+            typeof log.modelId === "string" &&
+            log.modelId.trim().length > 0 &&
+            typeof log.runId === "string" &&
+            log.runId.trim().length > 0,
+        invalidMessage:
+            "Unable to prepare training logs: an invalid response was received.",
+        changedMessage:
+            "The training-log list changed. Please refresh and print again.",
+    });
 }
 
 export function buildTrainingLogPrintReport({ logs, filters, user, generatedAt = new Date().toISOString() }) {
@@ -162,15 +161,4 @@ export function buildTrainingLogPrintReport({ logs, filters, user, generatedAt =
             "Accuracy and F1 are percentages; loss is a decimal. Missing measurements are not recorded, not zero."],
         sections,
     };
-}
-
-export function downloadTrainingJson(value, filename) {
-    const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

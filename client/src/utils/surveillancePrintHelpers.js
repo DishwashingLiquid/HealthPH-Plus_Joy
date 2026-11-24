@@ -1,4 +1,4 @@
-import { formatSelfReportPrintDate } from "./selfReportPrintHelpers";
+import { formatPrintDate } from "./printHelpers";
 
 export const buildSurveillancePrintReport = ({ summary, timeLabel, regionLabel, diseaseLabel, user, generatedAt = new Date().toISOString() }) => {
     const totalDetections = summary.disease_label_count;
@@ -26,7 +26,7 @@ export const buildSurveillancePrintReport = ({ summary, timeLabel, regionLabel, 
             { label: "Time range", value: timeLabel },
             { label: "Region", value: regionLabel },
             { label: "Impact", value: diseaseLabel },
-            { label: "Reporting period (PHT)", value: `${formatSelfReportPrintDate(summary.period_start)} to ${formatSelfReportPrintDate(summary.period_end)}` },
+            { label: "Reporting period (PHT)", value: `${formatPrintDate(summary.period_start)} to ${formatPrintDate(summary.period_end)}` },
             { label: "Data sources", value: "Self Reports and Social Media Datasets" },
         ],
         notes: [

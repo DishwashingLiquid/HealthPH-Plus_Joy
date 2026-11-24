@@ -13,7 +13,7 @@ import DataManagementPrint from "../../components/admin/DataManagementPrint";
 import SummaryPrintReport from "../../components/admin/SummaryPrintReport";
 import ModelEvaluationUpload from "../../components/admin/ModelEvaluationUpload";
 import TrainingLogs from "../../components/admin/ModelTrainingLogs";
-import { loadSelfReportsForPrint } from "../../utils/selfReportPrintHelpers";
+import { loadSelfReportsForPrint } from "../../utils/printHelpers";
 import { useFetchModelEvaluationsQuery } from "../../features/api/modelEvaluationsSlice";
 import {
     EVALUATION_LANGUAGE_NAMES,
@@ -23,6 +23,12 @@ import {
     getComparisonIssue,
     getLanguageComparisonIssue,
 } from "../../utils/modelEvaluationHelpers";
+
+import {
+    downloadBlob,
+    downloadUrl,
+} from "../../utils/fileExportHelpers";
+
 import useUrlTab from "../../hooks/useUrlTab";
 
 import {
@@ -1037,12 +1043,10 @@ const DataManagement = () => {
     };
 
     const handleDownloadTemplate = () => {
-        const link = document.createElement("a");
-        link.href = "/assets/dataset-template.csv";
-        link.download = "healthph-plus-raw-dataset-template.csv";
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
+        downloadUrl(
+            "/assets/dataset-template.csv",
+            "healthph-plus-raw-dataset-template.csv",
+        );
     };
 
     const handleProcessDataset = async ({ id, filename }) => {
@@ -1290,16 +1294,7 @@ const DataManagement = () => {
     const handleDownloadDataset = async ({ id, filename }) => {
         try {
             const blob = await downloadDataset(id).unwrap();
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement("a");
-
-            link.href = url;
-            link.download = filename || "dataset.csv";
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-
-            window.URL.revokeObjectURL(url);
+            downloadBlob(blob, filename || "dataset.csv");
         } catch (error) {
             console.error("Failed to download dataset", error);
         }

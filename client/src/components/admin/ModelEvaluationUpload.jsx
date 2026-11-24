@@ -8,6 +8,8 @@ import {
     EVALUATION_MODEL_NAMES, MAX_EVALUATION_BYTES, parseEvaluationPreview,
 } from "../../utils/modelEvaluationHelpers";
 
+import { downloadUrl } from "../../utils/fileExportHelpers";
+
 export default function ModelEvaluationUpload({
     canUpload = false, onPrint, printDisabled = false, isPrinting = false, printError = "", children,
 }) {
@@ -67,14 +69,16 @@ export default function ModelEvaluationUpload({
                     <ToolbarButton iconName="Printer" variant="primary" onClick={onPrint} disabled={printDisabled || isPrinting} title="Print evaluation results matching the current filters">
                         {isPrinting ? "Preparing..." : "Print"}
                     </ToolbarButton>
-                    <ToolbarButton iconName="Download" variant="primary" onClick={() => {
-                        const link = document.createElement("a");
-                        link.href = "/assets/model-evaluation-template.json";
-                        link.download = "healthph-model-evaluation-template.json";
-                        document.body.appendChild(link);
-                        link.click();
-                        link.remove();
-                    }}>
+                    <ToolbarButton
+                        iconName="Download"
+                        variant="primary"
+                        onClick={() =>
+                            downloadUrl(
+                                "/assets/model-evaluation-template.json",
+                                "healthph-model-evaluation-template.json",
+                            )
+                        }
+                    >
                         Download JSON Template
                     </ToolbarButton>
                     {canUpload && (

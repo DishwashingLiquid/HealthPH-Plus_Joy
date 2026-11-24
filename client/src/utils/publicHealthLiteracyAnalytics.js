@@ -1,5 +1,6 @@
 import { getHealthLiteracyVisitorId } from "./healthLiteracyVisitor";
 import { safeMediaSource } from "./healthLiteracyMedia";
+import { downloadBlob } from "./fileExportHelpers";
 
 const CONTENT_TYPES = { articles: "article", article: "article", videos: "video", video: "video", infographics: "infographic", infographic: "infographic" };
 const EVENTS = new Set(["content_opened", "content_shared", "content_downloaded"]);
@@ -50,21 +51,18 @@ export const sharePublicContent = async (article) => {
 };
 
 export const downloadPublicContent = async (article, source, filename) => {
-  if (!safeMediaSource(source)) throw new Error("Unsupported download source");
-  const response = await fetch(source, { credentials: "omit" });
-  if (!response.ok) throw new Error("Download unavailable");
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  try {
-    link.href = url;
-    link.download = filename || "health-literacy-content";
-    document.body.appendChild(link);
-    link.click();
-  } finally {
-    link.remove();
-    // Allow the browser to consume the blob before releasing it.
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  if (!safeMediaSource(source)) {
+    throw new Error("Unsupported download source");
   }
+
+  const response = await fetch(source, { credentials: "omit" });
+
+  if (!response.ok) {
+    throw new Error("Download unavailable");
+  }
+
+  const blob = await response.blob();
+  downloadBlob(blob, filename || "health-literacy-content");
+
   void trackPublicContentEvent("content_downloaded", article);
 };

@@ -14,10 +14,12 @@ import {
     useFetchModelTrainingLogsQuery, useLazyFetchModelTrainingLogsQuery,
 } from "../../features/api/modelTrainingLogsSlice";
 import {
-    TRAINING_METRICS, TRAINING_MODEL_NAMES, downloadTrainingJson, formatTrainingDate,
+    TRAINING_METRICS, TRAINING_MODEL_NAMES, formatTrainingDate,
     formatTrainingDuration, formatTrainingMetric, trainingLogForExport, trainingRunKey,
     buildTrainingLogPrintReport, loadTrainingLogsForPrint,
 } from "../../utils/modelTrainingLogHelpers";
+
+import { downloadJson } from "../../utils/fileExportHelpers";
 
 const PAGE_SIZE = 10;
 const SELECT_CLASSES = "max-w-full rounded-[10px] border border-[#E5E5E5] bg-white px-[14px] py-[10px] text-sm";
@@ -223,7 +225,7 @@ function TrainingRunDetails({ log }) {
     const exportRun = () => {
         try {
             setExportError("");
-            downloadTrainingJson(trainingLogForExport(log), `healthph-training-${log.modelId}-${log.runId.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 80)}.json`);
+            downloadJson(trainingLogForExport(log), `healthph-training-${log.modelId}-${log.runId.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 80)}.json`);
         } catch { setExportError("Unable to download this run. Please try again."); }
     };
     return (
