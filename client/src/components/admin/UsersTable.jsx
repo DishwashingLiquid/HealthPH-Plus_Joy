@@ -1,15 +1,12 @@
 import AccountStatus, { ResendInvitationButton } from "./AccountStatus";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { toast } from "react-toastify";
 import { format } from "date-fns";
 
 import Highlighter from "react-highlight-words";
 
 import EmptyState from "./EmptyState";
-import Icon from "../Icon";
 import Modal from "./Modal";
-import Snackbar from "../Snackbar";
 
 import {
   useDeleteUsersMutation,
@@ -25,6 +22,8 @@ import CustomSelect from "../CustomSelect";
 
 import Regions from "../../assets/data/regions.json";
 import MultiSelect from "../MultiSelect";
+import { showToast } from "../../utils/notificationHelpers";
+import { getRequestErrorMessage } from "../../utils/apiErrorHelpers";
 
 const UsersTable = ({
   users = [],
@@ -262,96 +261,72 @@ const UsersTable = ({
     const response = await updateUser(payload);
 
     if (!response) {
-      toast(
-        <Snackbar
-          iconName="Error"
-          size="snackbar-sm"
-          color="destructive"
-          message={"Failed to update User"}
-        />,
-        {
-          closeButton: ({ closeToast }) => (
-            <Icon
-              iconName="Close"
-              className="close-icon close-icon-sm close-destructive"
-              onClick={closeToast}
-            />
-          ),
-        }
-      );
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message: "Failed to update user.",
+      });
       setIsModalLoading(false);
       return;
     }
 
     if ("error" in response) {
-      const { detail } = response["error"]["data"];
+      const detail = response.error?.data?.detail;
+      const fieldErrors = {};
+      const generalErrors = [];
 
-      detail.map(({ field, error }) => {
-        if (field in updateModalData) {
-          setUpdateModalErrors((formErrors) => ({
-            ...formErrors,
-            [field]: error,
-          }));
-        } else if (field == "error") {
-          toast(
-            <Snackbar
-              iconName="Error"
-              size="snackbar-sm"
-              color="destructive"
-              message={error}
-            />,
-            {
-              closeButton: ({ closeToast }) => (
-                <Icon
-                  iconName="Close"
-                  className="close-icon close-icon-sm close-destructive"
-                  onClick={closeToast}
-                />
-              ),
-            }
-          );
-        } else {
-          toast(
-            <Snackbar
-              iconName="Error"
-              size="snackbar-sm"
-              color="destructive"
-              message={detail}
-            />,
-            {
-              closeButton: ({ closeToast }) => (
-                <Icon
-                  iconName="Close"
-                  className="close-icon close-icon-sm close-destructive"
-                  onClick={closeToast}
-                />
-              ),
-            }
-          );
+      if (Array.isArray(detail)) {
+        for (const item of detail) {
+          if (
+            item &&
+            Object.hasOwn(emptyUpdateModalErrors, item.field) &&
+            typeof item.error === "string" &&
+            item.error.trim()
+          ) {
+            fieldErrors[item.field] = item.error;
+          } else {
+            generalErrors.push(item);
+          }
         }
-      });
+      }
+
+      const hasFieldErrors = Object.keys(fieldErrors).length > 0;
+
+      if(hasFieldErrors) {
+        setUpdateModalErrors((current) => ({
+          ...current,
+          ...fieldErrors,
+        }));
+      }
+
+      if (
+        !Array.isArray(detail) ||
+        generalErrors.length > 0 ||
+        !hasFieldErrors
+      ) {
+        const generalError = Array.isArray(detail)
+          ? { data: { detail: generalErrors } }
+          : response.error;
+
+        showToast({
+          iconName: "Error",
+          color: "destructive",
+          message: getRequestErrorMessage(
+            generalError,
+            "Failed to update user.",
+          ),
+        });
+      }
 
       setIsModalLoading(false);
       return;
     }
 
-    toast(
-      <Snackbar
-        iconName="CheckCircle"
-        size="snackbar-sm"
-        color="success"
-        message={`User updated successfully`}
-      />,
-      {
-        closeButton: ({ closeToast }) => (
-          <Icon
-            iconName="Close"
-            className="close-icon close-icon-sm close-success"
-            onClick={closeToast}
-          />
-        ),
-      }
-    );
+    showToast({
+      iconName: "CheckCircle",
+      color: "success",
+      message: "User updated successfully",
+    });
 
     await log_activity({
       user_id: user.id,
@@ -400,25 +375,13 @@ const UsersTable = ({
           ? "Disabled"
           : "Enabled";
 
-      toast(
-        <Snackbar
-          iconName="CheckCircle"
-          size="snackbar-sm"
-          color="success"
-          message={`${actionLabel} ${selectedUsers.length} selected user${
-            selectedUsers.length === 1 ? "" : "s"
-          } successfully`}
-        />,
-        {
-          closeButton: ({ closeToast }) => (
-            <Icon
-              iconName="Close"
-              className="close-icon close-icon-sm close-success"
-              onClick={closeToast}
-            />
-          ),
-        }
-      );
+      showToast({
+        iconName: "CheckCircle",
+        color: "success",
+        message: `${actionLabel} ${selectedUsers.length} selected user${
+          selectedUsers.length === 1 ? "" : "s"
+        } successfully`,
+      });
 
       await log_activity({
         user_id: user.id,
@@ -431,23 +394,14 @@ const UsersTable = ({
       setSelectedUserIds([]);
       closeBulkActionModal();
     } catch (error) {
-      toast(
-        <Snackbar
-          iconName="Error"
-          size="snackbar-sm"
-          color="destructive"
-          message={error.message || "Bulk action failed. Please try again."}
-        />,
-        {
-          closeButton: ({ closeToast }) => (
-            <Icon
-              iconName="Close"
-              className="close-icon close-icon-sm close-destructive"
-              onClick={closeToast}
-            />
-          ),
-        }
-      );
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message: getRequestErrorMessage(
+          error,
+          "Bulk action failed. Please try again.",
+        ),
+      });
     }
 
     setIsModalLoading(false);

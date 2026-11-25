@@ -15,12 +15,12 @@ import FieldGroup from "../../components/FieldGroup";
 import CustomSelect from "../../components/CustomSelect";
 import SearchableSelect from "../../components/SearchableSelect";
 import MultiSelect from "../../components/MultiSelect";
-import Snackbar from "../../components/Snackbar";
 import { ToolbarSearch } from "../../components/ToolbarControls";
 import EmptyState from "../../components/admin/EmptyState";
 import Modal from "../../components/admin/Modal";
 
 import { getRequestErrorMessage } from "../../utils/apiErrorHelpers";
+import { showToast } from "../../utils/notificationHelpers";
 import {
   formatPhDateTime,
   parsePhDate,
@@ -71,7 +71,6 @@ import {
 
 
 import useUrlTab from "../../hooks/useUrlTab";
-import { toast } from "react-toastify";
 
 const ADMIN_ROLE_LABEL = "Admin";
 
@@ -746,18 +745,13 @@ const UserManagement = () => {
       };
     }
 
-    toast(
-      <Snackbar
-        iconName="CheckCircle"
-        size="snackbar-sm"
-        color="success"
-        message={
-          isEditMode
-            ? "Organization updated successfully"
-            : "Organization added successfully" 
-        }
-      />
-    );
+    showToast({
+      iconName: "CheckCircle",
+      color: "success",
+      message: isEditMode
+        ? "Organization updated successfully"
+        : "Organization added successfully",
+    });
 
     await log_activity({
       user_id: user.id,
@@ -792,14 +786,13 @@ const UserManagement = () => {
       };
     }
 
-    toast(
-      <Snackbar
-        iconName="CheckCircle"
-        size="snackbar-sm"
-        color="success"
-        message={isEditMode ? "Role updated successfully" : "Role added successfully"}
-      />
-    );
+    showToast({
+      iconName: "CheckCircle",
+      color: "success",
+      message: isEditMode
+        ? "Role updated successfully"
+        : "Role added successfully",
+    });
 
     await log_activity({
       user_id: user.id,
@@ -816,31 +809,23 @@ const UserManagement = () => {
     const response = await deleteOrganization(selectedOrganization.id);
 
     if ("error" in response) {
-      const detail = response.error?.data?.detail;
-      const message = Array.isArray(detail)
-        ? detail[0]?.error || "Failed to delete organization."
-        : detail || "Failed to delete organization.";
-
-      toast(
-        <Snackbar
-          iconName="Error"
-          size="snackbar-sm"
-          color="destructive"
-          message={message}
-        />
-      );
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message: getRequestErrorMessage(
+          response.error,
+          "Failed to delete organization.",
+        ),
+      });
 
       return;
     }
 
-    toast(
-      <Snackbar
-        iconName="CheckCircle"
-        size="snackbar-sm"
-        color="success"
-        message="Organization deleted successfully"
-      />
-    );
+    showToast({
+      iconName: "CheckCircle",
+      color: "success",
+      message: "Organization deleted successfully",
+    });
 
     await log_activity({
       user_id: user.id,
@@ -1376,23 +1361,11 @@ const UserAccountModal = ({
     const response = await createUser(payload);
 
     if (!response) {
-      toast(
-        <Snackbar
-          iconName="Error"
-          size="snackbar-sm"
-          color="destructive"
-          message="Failed to create user"
-        />,
-        {
-          closeButton: ({ closeToast }) => (
-            <Icon
-              iconName="Close"
-              className="close-icon close-icon-sm close-destructive"
-              onClick={closeToast}
-            />
-          ),
-        }
-      );
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message: "Failed to create user",
+      });
       
       setIsLoading(false);
       return;
@@ -1415,23 +1388,11 @@ const UserAccountModal = ({
           }
 
           if (field == "snackbar") {
-            toast(
-              <Snackbar
-                iconName="Error"
-                size="snackbar-sm"
-                color="destructive"
-                message={error}
-              />,
-              {
-                closeButton: ({ closeToast }) => (
-                  <Icon
-                    iconName="Close"
-                    className="close-icon close-icon-sm close-destructive"
-                    onClick={closeToast}
-                  />
-                ),
-              }
-            );
+            showToast({
+              iconName: "Error",
+              color: "destructive",
+              message: error,
+            });
           }
         });
       } else {
@@ -1442,23 +1403,15 @@ const UserAccountModal = ({
       return;
     }
 
-    toast(
-      <Snackbar
-        iconName={response.data.invitation_sent ? "CheckCircle" : "Error"}
-        size="snackbar-sm"
-        color={response.data.invitation_sent ? "success" : "destructive"}
-        message={response.data.message}
-      />,
-      {
-        closeButton: ({ closeToast }) => (
-          <Icon
-            iconName="Close"
-            className="close-icon close-icon-sm close-success"
-            onClick={closeToast}
-          />
-        ),
-      }
-    );
+    showToast({
+      iconName: response.data.invitation_sent
+        ? "CheckCircle"
+        : "Error",
+      color: response.data.invitation_sent
+        ? "success"
+        : "destructive",
+      message: response.data.message,
+    });
 
     await log_activity({
       user_id: currentUser.id,

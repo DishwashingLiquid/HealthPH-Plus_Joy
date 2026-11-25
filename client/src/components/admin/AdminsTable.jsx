@@ -1,14 +1,11 @@
 import AccountStatus, { ResendInvitationButton } from "./AccountStatus";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { toast } from "react-toastify";
 import Highlighter from "react-highlight-words";
 import { format } from "date-fns";
 
 import EmptyState from "./EmptyState";
-import Icon from "../Icon";
 import Modal from "./Modal";
-import Snackbar from "../Snackbar";
 import Checkbox from "../Checkbox";
 import ModalWithBody from "./ModalWithBody";
 import FieldGroup from "../FieldGroup";
@@ -17,6 +14,9 @@ import CustomSelect from "../CustomSelect";
 import MultiSelect from "../MultiSelect";
 
 import Regions from "../../assets/data/regions.json";
+
+import { showToast } from "../../utils/notificationHelpers";
+import { getRequestErrorMessage } from "../../utils/apiErrorHelpers";
 
 import {
      useDeleteAdminMutation,
@@ -229,25 +229,22 @@ const AdminsTable = ({
 
         if (!response || "error" in response) {
             setIsModalLoading(false);
-            toast(
-                <Snackbar
-                    iconName="Error"
-                    size="snackbar-sm"
-                    color="destructive"
-                    message="Failed to update superadmin."
-                />
-            );
+            showToast({
+                iconName: "Error",
+                color: "destructive",
+                message: getRequestErrorMessage(
+                    response?.error,
+                    "Failed to update superadmin.",
+                ),
+            });
             return;
         }
 
-        toast(
-            <Snackbar
-                iconName="CheckCircle"
-                size="snackbar-sm"
-                color="success"
-                message="Superadmin updated successfully"
-            />
-        );
+        showToast({
+            iconName: "CheckCircle",
+            color: "success",
+            message: "Superadmin updated successfully",
+        });
 
         await log_activity({
             user_id: user.id,
@@ -297,25 +294,13 @@ const AdminsTable = ({
                     ? "Disabled"
                     : "Enabled";
 
-            toast(
-                <Snackbar
-                    iconName="CheckCircle"
-                    size="snackbar-sm"
-                    color="success"
-                    message={`${actionLabel} ${selectedAdmins.length} selected superadmin${
-                        selectedAdmins.length === 1 ? "" : "s"
-                    } successfully`}
-                />,
-                {
-                    closeButton: ({ closeToast }) => (
-                        <Icon
-                            iconName="Close"
-                            className="close-icon close-icon-sm close-success"
-                            onClick={closeToast}
-                        />
-                    ),
-                }
-            );
+            showToast({
+                iconName: "CheckCircle",
+                color: "success",
+                message: `${actionLabel} ${selectedAdmins.length} selected superadmin${
+                    selectedAdmins.length === 1 ? "" : "s"
+                } successfully`,
+            });
 
             await log_activity({
                 user_id: user.id,
@@ -328,23 +313,14 @@ const AdminsTable = ({
             setSelectedAdminIds([]);
             closeBulkActionModal();
         } catch (error) {
-            toast(
-                <Snackbar
-                    iconName="Error"
-                    size="snackbar-sm"
-                    color="destructive"
-                    message={error.message || "Bulk action failed. Please try again."}
-                />,
-                {
-                    closeButton: ({ closeToast }) => (
-                        <Icon
-                            iconName="Close"
-                            className="close-icon close-icon-sm close-destructive"
-                            onClick={closeToast}
-                        />
-                    ),
-                }
-            );
+            showToast({
+                iconName: "Error",
+                color: "destructive",
+                message: getRequestErrorMessage(
+                    error,
+                    "Bulk action failed. Please try again.",
+                ),
+            });
         }
 
         setIsModalLoading(false);
