@@ -8,6 +8,8 @@ import {
     EVALUATION_MODEL_NAMES, MAX_EVALUATION_BYTES, parseEvaluationPreview,
 } from "../../utils/modelEvaluationHelpers";
 
+import { getRequestErrorMessage } from "../../utils/apiErrorHelpers";
+
 import { downloadUrl } from "../../utils/fileExportHelpers";
 
 export default function ModelEvaluationUpload({
@@ -53,8 +55,10 @@ export default function ModelEvaluationUpload({
             setMessage("Evaluation records saved. The charts will refresh with the uploaded results.");
             setSelection(null);
         } catch (failure) {
-            const detail = failure?.data?.detail;
-            setError(typeof detail === "string" ? detail : "Unable to save evaluation records. Please try again.");
+            setError(getRequestErrorMessage(
+                failure,
+                "Unable to save evaluation records. Please try again.",
+            ));
         }
     };
 

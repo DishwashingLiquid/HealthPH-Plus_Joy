@@ -24,6 +24,8 @@ import {
     getLanguageComparisonIssue,
 } from "../../utils/modelEvaluationHelpers";
 
+import { getRequestErrorMessage } from "../../utils/apiErrorHelpers";
+
 import {
     downloadBlob,
     downloadUrl,
@@ -619,20 +621,6 @@ const formatBytes = (size = 0) => {
     return `${(kb / 1024).toFixed(2).replace(/\.?0+$/, "")} MB`;
 }
 
-const getRequestErrorMessage = (error, fallback) => {
-    const detail = error?.data?.detail;
-
-    if (typeof detail === "string") {
-        return detail;
-    }
-
-    if (Array.isArray(detail) && detail[0]?.msg) {
-        return detail[0].msg;
-    }
-
-    return error?.error || fallback;
-};
-
 /* SUBTAB 2 = DATA MANAGEMENT */
 const DataManagement = () => {
     const user = useSelector((state) => state.auth.user);
@@ -1032,10 +1020,10 @@ const DataManagement = () => {
                 console.error("Failed to record upload activity", activityError);
             }
         } catch (error) {
-            const message =
-                error?.data?.detail ||
-                error?.error ||
-                "Failed to upload dataset. Please try again.";
+            const message = getRequestErrorMessage(
+                error,
+                "Failed to upload dataset. Please try again.",
+            );
 
             setUploadError(message);
             console.error("Failed to upload dataset", error);

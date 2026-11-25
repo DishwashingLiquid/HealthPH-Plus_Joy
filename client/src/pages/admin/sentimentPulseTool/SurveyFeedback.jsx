@@ -6,6 +6,8 @@ import { sentimentPulseApi, useFetchSentimentPulseProcessingQuery, useProcessSen
 import SentimentSummary from "./SentimentSummary";
 import { formatCount, formatShare, isActiveJob, jobLabel, processNotice, surveyAggregate, surveyCardSentiment } from "./sentimentContract";
 
+import { getRequestErrorMessage } from "../../../utils/apiErrorHelpers";
+
 const cardColors = { calm: "#15803D", worried: "#DC2626" };
 
 export function SurveySentiment({ surveyId, ended }) {
@@ -76,7 +78,10 @@ export default function SurveyFeedback({ surveyId, ended, onSnapshot, detailed =
       const refreshed = await query.refetch();
       setFastPolling(isActiveJob(refreshed.data?.job));
     } catch (error) {
-      setActionError(typeof error?.data?.detail === "string" ? error.data.detail : "Unable to request processing. Refresh status before retrying.");
+      setActionError(getRequestErrorMessage(
+        error,
+        "Unable to request processing. Refresh status before retrying.",
+      ))
     } finally { inFlight.current = false; setIsActionPending(false); }
   };
 

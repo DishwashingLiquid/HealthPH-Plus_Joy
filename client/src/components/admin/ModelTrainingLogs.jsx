@@ -19,6 +19,8 @@ import {
     buildTrainingLogPrintReport, loadTrainingLogsForPrint,
 } from "../../utils/modelTrainingLogHelpers";
 
+import { getRequestErrorMessage } from "../../utils/apiErrorHelpers";
+
 import { downloadJson } from "../../utils/fileExportHelpers";
 
 const PAGE_SIZE = 10;
@@ -122,7 +124,10 @@ export default function ModelTrainingLogs() {
             setPrintReport(report);
         } catch (failure) {
             if (cycle === printCycle.current) {
-                setPrintError(typeof failure?.data?.detail === "string" ? failure.data.detail : failure.message || "Unable to prepare the print report. Please try again.");
+                setPrintError(getRequestErrorMessage(
+                    failure,
+                    "Unable to prepare the print report. Please try again.",
+                ));
                 setIsPrinting(false);
                 printBusy.current = false;
             }
@@ -159,7 +164,10 @@ export default function ModelTrainingLogs() {
             </div>
 
             {isError ? <EmptyState iconName="Error" heading="Unable to Load Training Logs"
-                content={typeof error?.data?.detail === "string" ? error.data.detail : "Please try loading the logs again."}>
+                content={getRequestErrorMessage(
+                    error,
+                    "Please try loading the logs again.",
+                )}>
                 <ToolbarButton onClick={refetch}>Retry</ToolbarButton>
             </EmptyState> : <>
                 <section className="rounded-[12px] border border-[#E5E5E5] p-[16px] sm:p-[20px]">

@@ -8,6 +8,8 @@ import {
     MAX_TRAINING_LOG_BYTES, TRAINING_MODEL_NAMES, formatTrainingDate, parseTrainingLogPreview,
 } from "../../utils/modelTrainingLogHelpers";
 
+import { getRequestErrorMessage } from "../../utils/apiErrorHelpers";
+
 import { downloadUrl } from "../../utils/fileExportHelpers";
 
 export default function ModelTrainingLogUpload({ canUpload, onPrint, printDisabled, isPrinting, children }) {
@@ -53,7 +55,10 @@ export default function ModelTrainingLogUpload({ canUpload, onPrint, printDisabl
             setMessage("Training log saved. Existing runs were kept. Active filters still apply to the list.");
             setSelection(null);
         } catch (failure) {
-            setError(typeof failure?.data?.detail === "string" ? failure.data.detail : "Unable to save the training log. Please try again.");
+            setError(getRequestErrorMessage(
+                failure,
+                "Unable to save the training log. Please try again.",
+            ));
         } finally {
             saving.current = false;
         }

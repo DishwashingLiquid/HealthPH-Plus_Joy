@@ -21,6 +21,8 @@ import { ToolbarSearch } from "../../components/ToolbarControls";
 import EmptyState from "../../components/admin/EmptyState";
 import Modal from "../../components/admin/Modal";
 
+import { getRequestErrorMessage } from "../../utils/apiErrorHelpers";
+
 import Regions from "../../assets/data/regions.json";
 import { ROLE_PAGES } from "../../utils/rolePageAccess";
 
@@ -695,8 +697,10 @@ const UserManagement = () => {
       setPrintReport(report);
     } catch (error) {
       if (printMounted.current) {
-        const detail = error?.data?.detail;
-        setPrintError(typeof detail === "string" ? detail : error?.message || "Unable to prepare this report. Please try again.");
+        setPrintError(getRequestErrorMessage(
+          error,
+          "Unable to prepare this report. Please try again.",
+        ));
       }
       finishPrint();
     } finally {

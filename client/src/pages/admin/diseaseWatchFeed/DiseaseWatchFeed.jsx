@@ -20,6 +20,8 @@ import UserAnalyticsTab from "./UserAnalyticsTab";
 import { buildRecentAlerts } from "./recentAlerts";
 import { hasDiseaseWatchFeedAccess, hasSavedAlertSettings } from "./alertAutomation";
 
+import { getRequestErrorMessage } from "../../../utils/apiErrorHelpers";
+
 const TABS = [
   { id: "recent-alerts", label: "Recent Alerts" },
   { id: "regional-coverage", label: "Regional Coverage" },
@@ -71,23 +73,6 @@ const EMPTY_USER_ANALYTICS = {
     percentage: 0,
     trend: "up",
   },
-};
-
-const getErrorMessage = (error, fallback) => {
-  const detail = error?.data?.detail;
-
-  if (Array.isArray(detail)) {
-    return detail
-      .map((item) => item?.error || item?.message || item?.field)
-      .filter(Boolean)
-      .join(", ");
-  }
-
-  if (typeof detail === "string") {
-    return detail;
-  }
-
-  return error?.error || fallback;
 };
 
 const renderTopMetricCards = () => (
@@ -215,7 +200,7 @@ export default function DiseaseWatchFeed() {
       if (requestError?.status === 403) setAccessDenied(true);
       setEvaluationFeedback({
         type: "error",
-        message: getErrorMessage(requestError, "Could not check reports. Please try again."),
+        message: getRequestErrorMessage(requestError, "Could not check reports. Please try again."),
       });
     } finally {
       await refreshRegionalAlertData();
@@ -265,7 +250,7 @@ export default function DiseaseWatchFeed() {
             alerts={alerts}
             sentAlerts={regionalAlertsResponse?.items || []}
             canSendAlert={canSendAlert}
-            settingsErrorMessage={settingsError ? getErrorMessage(settingsError, "Failed to load saved alert settings.") : !isSettingsLoading && !hasSavedAlertSettings(alertSettingsResponse?.item) ? "Saved alert settings are unavailable." : ""}
+            settingsErrorMessage={settingsError ? getRequestErrorMessage(settingsError, "Failed to load saved alert settings.") : !isSettingsLoading && !hasSavedAlertSettings(alertSettingsResponse?.item) ? "Saved alert settings are unavailable." : ""}
             isSettingsLoading={isSettingsLoading}
             onRetrySettings={refetchAlertSettings}
             onSendAlert={() => setIsSendAlertOpen(true)}
@@ -279,8 +264,8 @@ export default function DiseaseWatchFeed() {
             isReportsFetching={isDashboardFetching}
             isHistoryLoading={isHistoryLoading}
             isHistoryFetching={isHistoryFetching}
-            reportsErrorMessage={dashboardError ? getErrorMessage(dashboardError, "Failed to load processed reports.") : ""}
-            historyErrorMessage={regionalAlertsError ? getErrorMessage(regionalAlertsError, "Failed to load alert history.") : ""}
+            reportsErrorMessage={dashboardError ? getRequestErrorMessage(dashboardError, "Failed to load processed reports.") : ""}
+            historyErrorMessage={regionalAlertsError ? getRequestErrorMessage(regionalAlertsError, "Failed to load alert history.") : ""}
             onRetryReports={refetchDashboard}
             onRetryHistory={refetchRegionalAlerts}
           />
@@ -291,7 +276,7 @@ export default function DiseaseWatchFeed() {
             availableRegions={availableRegions}
             errorMessage={
               dashboardError
-                ? getErrorMessage(
+                ? getRequestErrorMessage(
                     dashboardError,
                     "Failed to load regional coverage."
                   )
@@ -307,7 +292,7 @@ export default function DiseaseWatchFeed() {
           <UserAnalyticsTab
             errorMessage={
               dashboardError
-                ? getErrorMessage(
+                ? getRequestErrorMessage(
                     dashboardError,
                     "Failed to load user analytics."
                   )

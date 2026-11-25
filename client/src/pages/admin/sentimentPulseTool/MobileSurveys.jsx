@@ -13,6 +13,8 @@ import {
   useFetchSentimentPulseSurveyResultsQuery,
 } from "../../../features/api/sentimentPulseSlice";
 
+import { getRequestErrorMessage } from "../../../utils/apiErrorHelpers";
+
 import SurveyFeedback, { SurveySentiment } from "./SurveyFeedback";
 
 export const QUESTION_TYPES = [
@@ -260,9 +262,10 @@ function MobileSurveyResultsModal({ surveyId, onClose }) {
   const dominantSentiment = survey?.dominantSentiment || "Neutral";
   const dominantColor = sentimentColors[dominantSentiment] || "#9CA3AF";
   const sentimentBreakdown = survey?.sentimentBreakdown || {};
-  const errorMessage =
-    error?.data?.detail ||
-    "Unable to load survey results. Please try again.";
+  const errorMessage = getRequestErrorMessage(
+    error,
+    "Unable to load survey results. Please try again.",
+  );
 
   return (
     <ModalWithBody
@@ -1069,10 +1072,10 @@ export default function MobileSurveys({
       setEndedSurveyIds((ids) => [...new Set([...ids, surveyToEnd.id])]);
       setSurveyToEnd(null);
     } catch (error) {
-      setEndSurveyError(
-        error?.data?.detail ||
-          "Unable to end this survey. Please try again."
-      );
+      setEndSurveyError(getRequestErrorMessage(
+        error,
+        "Unable to end this survey. Please try again.",
+      ));
     }
   };
 

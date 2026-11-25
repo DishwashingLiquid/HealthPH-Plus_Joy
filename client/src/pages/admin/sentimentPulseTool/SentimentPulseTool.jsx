@@ -22,6 +22,9 @@ import MobileSurveys, {
   getDefaultScheduleDateTime,
   validateDraft,
 } from "./MobileSurveys";
+
+import { getRequestErrorMessage } from "../../../utils/apiErrorHelpers";
+
 import RegionalAnalysis, { REGIONS } from "./RegionalAnalysis";
 import SentimentPulseFilters from "./SentimentPulseFilters";
 import SentimentTrends from "./SentimentTrends";
@@ -462,12 +465,12 @@ export default function SentimentPulseTool() {
       setActiveTab("mobile-surveys");
       handleCloseModal();
     } catch (error) {
-      setReviewError(
-        error?.data?.detail ||
-          (pendingSurveySubmission.mode === "update"
-            ? "Unable to update the survey. Please try again."
-            : "Unable to create the survey draft. Please try again.")
-      );
+      setReviewError(getRequestErrorMessage(
+        error,
+        pendingSurveySubmission.mode === "update"
+          ? "Unable to update the survey. Please try again."
+          : "Unable to create the survey draft. Please try again.",
+      ));
     } finally {
       isConfirmingSurveyRef.current = false;
     }
@@ -492,9 +495,10 @@ export default function SentimentPulseTool() {
       setActiveTab("mobile-surveys");
       handleCloseModal();
     } catch (error) {
-      setDeleteError(
-        error?.data?.detail || "Unable to delete the survey. Please try again."
-      );
+      setDeleteError(getRequestErrorMessage(
+        error,
+        "Unable to delete the survey. Please try again.",
+      ));
     }
   };
 
@@ -578,9 +582,10 @@ export default function SentimentPulseTool() {
           ...item,
           selected: true,
           status: "error",
-          error:
-            result.reason?.data?.detail ||
+          error: getRequestErrorMessage(
+            result.reason,
             "Unable to schedule this survey. Please try again.",
+          ),
         };
       })
     );

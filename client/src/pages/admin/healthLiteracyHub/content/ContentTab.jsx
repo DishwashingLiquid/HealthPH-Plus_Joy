@@ -24,6 +24,9 @@ import CommentModeration from "./CommentModeration";
 import "../../../../assets/css/health-literacy.css";
 import { getVideoFileDuration } from "./contentTabFileMedia";
 import { downloadUrl } from "../../../../utils/fileExportHelpers";
+
+import { getRequestErrorMessage } from "../../../../utils/apiErrorHelpers";
+
 import { getFilteredContentItems } from "./contentTabFiltering";
 import {
   buildContentFormPayload,
@@ -279,9 +282,10 @@ const ContentTab = ({ contentTypeLabel }) => {
       showToast({
         iconName: "Error",
         color: "destructive",
-        message:
-          error?.data?.detail ??
+        message: getRequestErrorMessage(
+          error,
           `Failed to create ${getContentLabel(contentTypeLabel).toLowerCase()}`,
+        ),
       });
     }
   };
@@ -311,9 +315,10 @@ const ContentTab = ({ contentTypeLabel }) => {
       showToast({
         iconName: "Error",
         color: "destructive",
-        message:
-          error?.data?.detail ??
+        message: getRequestErrorMessage(
+          error,
           `Failed to update ${getContentLabel(contentTypeLabel).toLowerCase()}`,
+        ),
       });
     }
   };
@@ -346,9 +351,10 @@ const ContentTab = ({ contentTypeLabel }) => {
       showToast({
         iconName: "Error",
         color: "destructive",
-        message:
-          error?.data?.detail ??
+        message: getRequestErrorMessage(
+          error,
           `Failed to delete ${getContentLabel(contentTypeLabel).toLowerCase()}`,
+        ),
       });
     }
   };
