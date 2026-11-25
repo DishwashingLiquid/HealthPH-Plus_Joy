@@ -1,4 +1,21 @@
-import { formatVideoDuration } from "../shared";
+const formatVideoDuration = (durationInSeconds) => {
+  const totalSeconds = Math.floor(Number(durationInSeconds));
+
+  if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return "";
+
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const paddedMinutes =
+    hours > 0 ? String(minutes).padStart(2, "0") : minutes;
+
+  const paddedSeconds = String(seconds).padStart(2, "0");
+
+  return hours > 0
+    ? `${hours}:${paddedMinutes}:${paddedSeconds}`
+    : `${minutes}:${paddedSeconds}`;
+};
 
 export const getVideoFileDuration = (file) =>
   new Promise((resolve) => {

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
 
+import { formatPhDateTime } from "../../../utils/dateTimeHelpers";
+
 import ModalWithBody from "../../../components/admin/ModalWithBody";
 import {
   ALERT_AUTOMATION_INTERVALS,
@@ -8,11 +10,10 @@ import {
   hasSavedAlertSettings,
 } from "./alertAutomation";
 
-const displayDate = (value) => {
-  if (!value) return "No check planned yet";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "No check planned yet" : date.toLocaleString();
-};
+const displayDate = (value) =>
+  formatPhDateTime(value, {
+    fallback: "No check planned yet",
+  });
 
 export default function SendAlertModal({ onClose, onSave, isSaving, settings, isLoading }) {
   const [form, setForm] = useState(() => ({ enabled: settings?.enabled ?? false, threshold: settings?.threshold == null ? "" : String(settings.threshold), intervalMinutes: settings?.intervalMinutes == null ? "" : String(settings.intervalMinutes) }));

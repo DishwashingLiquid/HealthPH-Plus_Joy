@@ -9,7 +9,7 @@ import {
   getContentMediaSource,
   getContentViewCount,
   formatNumber,
-} from "../shared";
+} from "../healthLiteracyHelpers";
 
 export const ContentGrid = ({
   content,

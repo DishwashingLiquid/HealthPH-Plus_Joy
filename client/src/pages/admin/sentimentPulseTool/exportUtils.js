@@ -10,6 +10,7 @@ import {
   downloadCsvText,
   escapeCsvValue,
 } from "../../../utils/fileExportHelpers";
+import { formatPhDateTime } from "../../../utils/dateTimeHelpers";
 
 const metricHeaders = ["Eligible text/choice answers", "Analyzed text/choice answers", "Text/choice answers without results", "Calm answers", "Worried answers", "Worried share (%)", "Satisfied answers", "Valid satisfaction answers", "Satisfaction share (%)", "Dissatisfied answers", "Neutral satisfaction answers"];
 const metricValues = (row = {}) => [row.eligibleAnswers, row.predictedAnswers, row.answersWithoutResults, row.calm, row.worried].map((value) => isCount(value) ? value : "").concat([
@@ -34,7 +35,7 @@ export const buildSentimentPulseCsv = ({
   trends,
   surveyFeedback = {},
 }) => {
-  const timestamp = new Date().toLocaleString();
+  const timestamp = `${formatPhDateTime(new Date())} PHT`;
   const selectedRegionLabels =
     selectedRegions.length === 0
       ? "All"

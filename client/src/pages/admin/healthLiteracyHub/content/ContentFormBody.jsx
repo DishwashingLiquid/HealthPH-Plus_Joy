@@ -6,7 +6,7 @@ import {
   FACT_CHECK_CLAIM_STATUS_OPTIONS,
   FACT_CHECK_VERIFIED_BY_OPTIONS,
   HEALTH_LITERACY_LANGUAGE_OPTIONS,
-} from "../shared";
+} from "../healthLiteracyHelpers";
 
 const CONTENT_FORM_GUIDANCE = {
   Articles: {

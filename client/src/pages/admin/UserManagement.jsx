@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
-import { format } from "date-fns";
 import { useReactToPrint } from "react-to-print";
 
 import SkeletonBody from "../../components/SkeletonBody";
@@ -22,6 +21,10 @@ import EmptyState from "../../components/admin/EmptyState";
 import Modal from "../../components/admin/Modal";
 
 import { getRequestErrorMessage } from "../../utils/apiErrorHelpers";
+import {
+  formatPhDateTime,
+  parsePhDate,
+} from "../../utils/dateTimeHelpers";
 
 import Regions from "../../assets/data/regions.json";
 import { ROLE_PAGES } from "../../utils/rolePageAccess";
@@ -2862,17 +2865,10 @@ const AccountAnalyticsPanel = ({
         heading: "No Organization Activity Yet",
         content: "No account activity has been recorded for users in your organization yet.",
         };
- 
-  const formatLoggedAt = (value) => {
-    const date = new Date(value);
-    return Number.isNaN(date.getTime())
-      ? "Unavailable"
-      : format(date, "MMM dd, yyyy hh:mm a");
-  };
 
   const getRelativeTime = (value) => {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "Unavailable";
+    const date = parsePhDate(value);
+    if (!date) return "Unavailable";
 
     const diffMs = Date.now() - date.getTime();
     const diffMinutes = Math.floor(diffMs / 60000);
@@ -3112,7 +3108,7 @@ const AccountAnalyticsPanel = ({
                         {log.ip_address || log.ip || "Unavailable"}
                       </td>
                       <td className="px-[10px] py-[14px] text-gray-600">
-                        {formatLoggedAt(log.created_at)}
+                        {formatPhDateTime(log.created_at)}
                       </td>
                     </tr>
                   ))}

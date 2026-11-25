@@ -1,7 +1,7 @@
 import {
   HEALTH_LITERACY_LANGUAGE_OPTIONS,
   UPLOAD_RULES,
-} from "./shared/sharedConfig";
+} from "./helpers/healthLiteracyConfig";
 
 export {
   ANALYTICS_CONTENT_FILTERS,
@@ -17,24 +17,22 @@ export {
   INITIAL_FORM_DATA,
   TAB_CONTENT_TYPES,
   UPLOAD_RULES,
-} from "./shared/sharedConfig";
+} from "./helpers/healthLiteracyConfig";
+
 export {
   downloadCsv,
   escapeCsvValue,
-  formatFileSize,
   formatNumber,
   formatPercent,
-  formatVideoDuration,
   getAnalyticsCellText,
   getFilterLabel,
   getRegionLabel,
-  slugify,
-} from "./shared/sharedFormatting";
+} from "./helpers/healthLiteracyFormatting";
+
 export {
   buildAnalyticsReport,
   getHealthLiteracyVisitorId,
-} from "./shared/sharedAnalytics";
-export { showToast } from "./shared/sharedToast";
+} from "./helpers/healthLiteracyAnalytics";
 
 export const normalizeContentTags = (tags) => {
   const sourceTags = Array.isArray(tags)

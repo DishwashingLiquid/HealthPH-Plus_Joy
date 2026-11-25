@@ -6,16 +6,21 @@ import {
   getRunEvaluationControlState,
 } from "./alertAutomation";
 import { alertStatusLabel, recipientAssignmentLabel } from "./alertHistory";
+import {
+  formatPhDateTime,
+  parsePhDate,
+} from "../../../utils/dateTimeHelpers";
 
 const REPORTS_PER_PAGE = 5;
 const ENTITY_STYLES = { disease: { backgroundColor: "#32418C30", color: "#32418C" }, symptom: { backgroundColor: "#2572A530", color: "#2572A5" }, location: { backgroundColor: "#FBD11730", color: "#FBD117" } };
-const parseDate = (value) => {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
+const relativeDate = (value) => {
+  const date = parsePhDate(value);
+
+  return date
+    ? formatDistanceToNow(date, { addSuffix: true })
+    : "Unavailable";
 };
-const relativeDate = (value) => { const date = parseDate(value); return date ? formatDistanceToNow(date, { addSuffix: true }) : "Unavailable"; };
-const exactDate = (value) => { const date = parseDate(value); return date ? date.toLocaleString() : "Unavailable"; };
+
 function Highlight({ label, tone }) { return <span className="rounded-[6px] px-[6px] py-[2px] text-sm font-medium" style={ENTITY_STYLES[tone]}>{label}</span>; }
 Highlight.propTypes = { label: PropTypes.string.isRequired, tone: PropTypes.oneOf(["disease", "symptom", "location"]).isRequired };
 function SelfReportCard({ alert }) { const parts = alert.summarySegments || []; return <article className="rounded-[12px] border border-[#E5E5E5] bg-white p-[16px]"><div className="mb-[8px] flex flex-wrap items-center gap-[8px]"><h3 className="text-[16px] font-semibold text-gray-800"><Highlight label={alert.disease} tone="disease" /></h3><span className="rounded-[4px] bg-[#FFF3CD] px-[8px] py-[2px] text-xs font-medium text-[#856404]">{alert.type}</span></div><p className="mb-[8px] text-[15px] leading-[1.8] text-gray-800">{parts.length ? parts.map((part, index) => part.type === "entity" ? <Highlight key={`${alert.id}-${index}`} label={part.label} tone={part.tone} /> : <span key={`${alert.id}-${index}`}>{part.value}</span>) : alert.summary}</p><div className="text-xs text-gray-500">Region: <Highlight label={alert.region} tone="location" /> · Updated: {relativeDate(alert.timestamp)}</div></article>; }
@@ -40,8 +45,8 @@ function AlertCards({ alerts }) {
             </div>
           </div>
           {alert.automated && <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
-            <span>Reports from: {exactDate(alert.windowStart)}</span>
-            <span>Reports to: {exactDate(alert.windowEnd)}</span>
+            <span>Reports from: {formatPhDateTime(alert.windowStart)}</span>
+            <span>Reports to: {formatPhDateTime(alert.windowEnd)}</span>
           </div>}
           {message && <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-700">{message}</p>}
           <p role={alert.status === "Preparation failed" ? "alert" : undefined} className={`mt-3 text-sm font-medium ${alert.status === "Preparation failed" ? "text-[#B42318]" : "text-gray-700"}`}>{recipientAssignmentLabel(alert)}</p>
@@ -50,12 +55,12 @@ function AlertCards({ alerts }) {
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-gray-500">
             <span>Alert title: {alert.title || "Unavailable"}</span>
             <span>Region: {alert.region || "Unavailable"}</span>
-            <span>Alert created: {exactDate(alert.generatedAt)}{parseDate(alert.generatedAt) && ` (${relativeDate(alert.generatedAt)})`}</span>
+            <span>Alert created: {formatPhDateTime(alert.generatedAt)}{parsePhDate(alert.generatedAt) && ` (${relativeDate(alert.generatedAt)})`}</span>
             {alert.automated ? <>
               <span>Reports counted: {alert.reportCount == null ? "Unavailable" : Number(alert.reportCount).toLocaleString()}</span>
               <span>Report period: {intervalLabel}</span>
             </> : <>
-              <span>{alert.status === "Sent" ? `Recipients queued ${relativeDate(alert.sentAt)}` : alert.status === "Cancelled" ? `Cancelled ${exactDate(alert.cancelledAt)}` : `Scheduled for ${exactDate(alert.scheduledAt)}`}</span>
+              <span>{alert.status === "Sent" ? `Recipients queued ${relativeDate(alert.sentAt)}` : alert.status === "Cancelled" ? `Cancelled ${formatPhDateTime(alert.cancelledAt)}` : `Scheduled for ${formatPhDateTime(alert.scheduledAt)}`}</span>
             </>}
           </div>
           {alert.deliveryError && <p className="mt-2 text-xs text-[#B42318]">Technical details: {alert.deliveryError}</p>}

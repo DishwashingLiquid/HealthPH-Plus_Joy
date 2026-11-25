@@ -1,9 +1,8 @@
 /* eslint-disable react/prop-types */
 import { useSelector } from "react-redux";
-import { toast } from "react-toastify";
 import { useResendInvitationMutation } from "../../features/api/userSlice";
-import Snackbar from "../Snackbar";
 import { accountStatusLabel } from "../../utils/accountStatus";
+import { showToast } from "../../utils/notificationHelpers";
 
 export const ResendInvitationButton = ({ account, disabled = false, emailChanged = false, onLoadingChange }) => {
   const currentUser = useSelector((state) => state.auth.user);
@@ -19,7 +18,17 @@ export const ResendInvitationButton = ({ account, disabled = false, emailChanged
     try {
       const result = await resendInvitation(account.id);
       const detail = result.error?.data?.detail;
-      toast(<Snackbar size="snackbar-sm" iconName={result.error ? "Error" : "CheckCircle"} color={result.error ? "destructive" : "success"} message={result.error ? (typeof detail === "string" ? detail : "Unable to send invitation. Please try again.") : result.data.message} />);
+      showToast({
+        iconName: result.error ? "Error" : "CheckCircle",
+        color: result.error ? "destructive" : "success",
+        message: result.error
+          ? (
+            typeof detail === "string"
+              ? detail
+              : "Unable to send invitation. Please try again."
+            )
+          : result.data.message,
+      });
     } finally {
       onLoadingChange?.(false);
     }

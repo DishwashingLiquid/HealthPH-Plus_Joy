@@ -1,3 +1,5 @@
+import { formatPhDate } from "./dateTimeHelpers";
+
 export const EVALUATION_MODEL_NAMES = { electra: "ELECTRA", xlmr: "XLM-RoBERTa" };
 export const EVALUATION_LANGUAGE_NAMES = {
     en: "English", fil: "Filipino", hil: "Hiligaynon", ilo: "Ilocano", ceb: "Cebuano",
@@ -53,13 +55,7 @@ export const parseEvaluationPreview = (text) => {
     return report;
 };
 
-export const formatEvaluationDate = (value) => {
-    if (!value) return "Unavailable";
-    const date = new Date(`${value}T00:00:00+08:00`);
-    return Number.isNaN(date.getTime()) ? "Unavailable" : new Intl.DateTimeFormat("en-PH", {
-        timeZone: "Asia/Manila", month: "short", day: "2-digit", year: "numeric",
-    }).format(date);
-};
+export const formatEvaluationDate = formatPhDate;
 
 export const buildModelEvaluationPrintReport = ({
     models, selectedModel = "all", selectedMetric = "all", search = "", user,

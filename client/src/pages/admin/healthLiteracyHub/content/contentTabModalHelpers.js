@@ -3,7 +3,7 @@ import {
   getContentViewCount,
   getLimitedContentTags,
   normalizeContentTags,
-} from "../shared";
+} from "../healthLiteracyHelpers";
 
 export const createEditFormData = ({ item, contentTypeLabel }) => {
   const mainImage = contentTypeLabel === "Articles" && item.media?.fileId && item.media?.contentType?.startsWith("image/")

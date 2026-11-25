@@ -1,7 +1,7 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useState } from "react";
 import MediaFilePicker from "./MediaFilePicker";
-import { getMediaSizeError } from "../shared";
+import { getMediaSizeError } from "../healthLiteracyHelpers";
 
 export default function ArticleAttachmentEditor({ formData, mode, onMediaChange, onRemoveMedia }) {
   const hasAttachment = Boolean((formData.media || formData.existingMedia) && !formData.removeMedia);

@@ -1,14 +1,10 @@
+import { slugify } from "./textHelpers";
+
 export const WEBSITE_CONTENT_TYPE_LABELS = {
   articles: "Article",
   videos: "Video",
   infographics: "Infographic",
 };
-
-export const slugify = (value) =>
-  String(value ?? "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
 
 export const getDashboardContentSlug = (item) => {
   if (item?.legacyArticleSlug) return item.legacyArticleSlug;

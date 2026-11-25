@@ -1,6 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useState } from "react";
-import { getContentMediaSource } from "../shared";
+import { getContentMediaSource } from "../healthLiteracyHelpers";
 import { createGalleryImageId, galleryValidationError, moveGalleryImage } from "./contentGallery";
 import MediaFilePicker from "./MediaFilePicker";
 

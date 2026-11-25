@@ -4,7 +4,7 @@ import AnalyticsTab from "./AnalyticsTab";
 import ArticlesTab from "./ArticlesTab";
 import InfographicsTab from "./InfographicsTab";
 import VideosTab from "./VideosTab";
-import { ILLUSTRATIONS } from "./shared";
+import { ILLUSTRATIONS } from "./healthLiteracyHelpers";
 
 const TABS = [
   { id: "Articles", label: "Articles", Component: ArticlesTab },

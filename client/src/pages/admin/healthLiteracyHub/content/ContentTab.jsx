@@ -44,8 +44,9 @@ import {
   getHealthLiteracyVisitorId,
   isAllowedMediaType,
   getMediaSizeError,
-  showToast,
-} from "../shared";
+} from "../healthLiteracyHelpers";
+
+import { showToast } from "../../../../utils/notificationHelpers";
 
 const EMPTY_CONTENT = [];
 

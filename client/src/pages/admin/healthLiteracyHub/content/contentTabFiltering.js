@@ -1,6 +1,6 @@
 import {
   normalizeApiContent,
-} from "../shared";
+} from "../healthLiteracyHelpers";
 
 export const filterContentItems = (content, searchQuery) => {
   if (!searchQuery) return content;

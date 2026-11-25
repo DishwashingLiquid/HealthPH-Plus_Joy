@@ -3,6 +3,10 @@ import { createPortal } from "react-dom";
 import LoadingSkeleton from "../LoadingSkeleton";
 import Icon from "../Icon";
 import { useFetchEnvironmentalHistoryQuery } from "../../features/api/environmentalDataSlice";
+import {
+    formatPhDate,
+    formatPhDateTime,
+} from "../../utils/dateTimeHelpers";
 
 const WEATHER_LABELS = {
     0: "Clear sky",
@@ -271,12 +275,10 @@ const EnvironmentalDataCard = ({
         { label: "Air quality", coverage: airCoverage },
     ];
 
-    const periodDate = (value) => value
-        ? new Date(value).toLocaleString("en-PH", {
-            month: "short", day: "numeric", year: "numeric", timeZone: "Asia/Manila",
-            ...(dateRange === "24h" ? { hour: "2-digit", minute: "2-digit" } : {}),
-        })
-        : "";
+    const periodDate = (value) =>
+        dateRange === "24h"
+            ? formatPhDateTime(value, { fallback: "" })
+            : formatPhDate(value, { fallback: "" });
 
     return (
         <section ref={cardRef} className="rounded-xl border border-[#E5E5E5] bg-white p-3">

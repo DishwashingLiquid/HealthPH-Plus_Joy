@@ -18,9 +18,10 @@ import {
   formatNumber,
   formatPercent,
   getHealthLiteracyVisitorId,
-  showToast,
-  slugify,
-} from "./shared";
+} from "./healthLiteracyHelpers";
+
+import { showToast } from "../../../utils/notificationHelpers";
+import { slugify } from "../../../utils/textHelpers";
 
 const ANALYTICS_DASHBOARD_LABEL = "Analytics Dashboard";
 const ANALYTICS_EXPORT_ICON_FILL = "#FFFFFF";

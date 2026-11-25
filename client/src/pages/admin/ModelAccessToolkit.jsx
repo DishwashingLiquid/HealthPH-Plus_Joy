@@ -1,6 +1,5 @@
 import { Children, useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
-import { format } from "date-fns";
 import { useReactToPrint } from "react-to-print";
 
 import CSVReader from "react-csv-reader";
@@ -25,6 +24,7 @@ import {
 } from "../../utils/modelEvaluationHelpers";
 
 import { getRequestErrorMessage } from "../../utils/apiErrorHelpers";
+import { formatPhDateTime } from "../../utils/dateTimeHelpers";
 
 import {
     downloadBlob,
@@ -612,15 +612,6 @@ const formatDatasetHeader = (header) =>
         )
         .join(" ");
 
-const formatBytes = (size = 0) => {
-    if (size < 1024) return `${size} B`;
-
-    const kb = size / 1024;
-    if (kb < 1024) return `${kb.toFixed(2).replace(/\.?0+$/, "")} KB`;
-
-    return `${(kb / 1024).toFixed(2).replace(/\.?0+$/, "")} MB`;
-}
-
 /* SUBTAB 2 = DATA MANAGEMENT */
 const DataManagement = () => {
     const user = useSelector((state) => state.auth.user);
@@ -1058,28 +1049,8 @@ const DataManagement = () => {
     };
 
     /* HELPERS */
-    const displayFileSize = (size) => {
-        if (size < 1024) return `${size} B`;
-
-        const newSize = size / 1024;
-
-        if (newSize >= 1024) {
-            return `${(newSize / 1024).toFixed(2).replace(/\.?0+$/, "")} MB`;
-        }
-        return `${newSize.toFixed(2).replace(/\.?0+$/, "")} KB`; 
-    };
-
     const getDatasetStatus = (dataset) =>
         String(dataset.dataset_status || dataset.dataset_type || "UNKNOWN").toUpperCase();
-
-    const displayDatasetDate = (value) => {
-        if (!value) return "Unavailable";
-
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return "Unavailable";
-
-        return format(date, "MMM dd, yyyy hh:mm a");
-    };
 
     const normalizePreviewRows = (rows) => {
         let value = rows;
@@ -1944,7 +1915,7 @@ const DataManagement = () => {
                                                     </div>
                                                 </td>
                                                 <td className="py-[14px] px-[10px] text-gray-600">
-                                                    {displayDatasetDate(dataset.created_at)}
+                                                    {formatPhDateTime(dataset.created_at)}
                                                 </td>
                                                 <td className="py-[14px] px-[10px] text-gray-600">
                                                     {dataset.user_name || "Unavailable"}
@@ -2381,10 +2352,7 @@ const AnalyticsEntriesPanel = ({
                                                     {formatUserLocation(entry.user_location)}
                                                 </td>
                                                 <td className="py-[14px] px-[10px] text-gray-600">
-                                                    {entry.event_time
-                                                        ? format(new Date(entry.event_time), "MMM dd, yyyy hh:mm a")
-                                                        : "Unavailable"
-                                                    }
+                                                    {formatPhDateTime(entry.event_time)}
                                                 </td>
                                                 <td className="py-[14px] px-[10px]">
                                                     <DatasetStatusBadge status={entry.analysis_status || "SUBMITTED"} />
@@ -2405,10 +2373,7 @@ const AnalyticsEntriesPanel = ({
                                                     {entry.location?.raw || entry.location?.city || entry.location?.province || entry.location?.region || "Unavailable"}
                                                 </td>
                                                 <td className="py-[14px] px-[10px] text-gray-600">
-                                                    {entry.created_at
-                                                        ? format(new Date(entry.created_at), "MMM dd, yyyy hh:mm a")
-                                                        : "Unavailable"
-                                                    }
+                                                    {formatPhDateTime(entry.created_at)}
                                                 </td>
                                                 <td className="py-[14px] px-[10px]">
                                                     <DatasetStatusBadge status={entry.analysis_status || "SUBMITTED"} />
@@ -2434,18 +2399,6 @@ const AnalyticsEntriesPanel = ({
             )}
         </div>
     );
-};
-
-const displayEntryDateTime = (value) => {
-    if (!value) return "Unavailable";
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return "Unavailable";
-    }
-
-    return format(date, "MMM dd, yyyy hh:mm a");
 };
 
 const formatUserLocation = (location = {}) => {
@@ -2563,7 +2516,7 @@ const AnalyticsEntryDetailsModal = ({
                             <DetailRow label="Reporter" value={getSelfReportReporterLabel(entry)} />
                         )}
                         <DetailRow label="Language" value={entry.language} />
-                        <DetailRow label={dateLabel} value={displayEntryDateTime(dateValue)} />
+                        <DetailRow label={dateLabel} value={formatPhDateTime(dateValue)} />
                         <DetailRow label="Location" value={location} />
 
                         {isSurveySource && (

@@ -76,32 +76,6 @@ export const loadSelfReportsForPrint = (fetchPage, filters = {}) =>
         },
     );
 
-export const formatPrintDate = (value) => {
-    if (!value) return "Unavailable";
-
-    let timestamp = value;
-
-    if (typeof timestamp === "string") {
-        timestamp = timestamp.trim().replace(" ", "T");
-
-        if (
-            /^\d{4}-\d{2}-\d{2}T/.test(timestamp) &&
-            !/(?:Z|[+-]\d{2}:?\d{2})$/i.test(timestamp)
-        ) {
-            timestamp += "+08:00";
-        }
-    }
-
-    const date = new Date(timestamp);
-    if (Number.isNaN(date.getTime())) return "Unavailable";
-
-    return new Intl.DateTimeFormat("en-PH", {
-        timeZone: "Asia/Manila",
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-    }).format(date);
-};
+export {
+    formatPhDateTime as formatPrintDate,
+} from "./dateTimeHelpers";

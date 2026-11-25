@@ -14,6 +14,7 @@ import {
 } from "../../../features/api/sentimentPulseSlice";
 
 import { getRequestErrorMessage } from "../../../utils/apiErrorHelpers";
+import { formatPhDateTime } from "../../../utils/dateTimeHelpers";
 
 import SurveyFeedback, { SurveySentiment } from "./SurveyFeedback";
 
@@ -46,22 +47,8 @@ export const getDefaultScheduleDateTime = () => {
   return formatDateTimeLocalValue(date);
 };
 
-export const formatSurveyDate = (value) => {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return date.toLocaleString("en-PH", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-};
+export const formatSurveyDate = (value) =>
+  formatPhDateTime(value, { fallback: "" });
 
 export const createQuestion = (type = "text") => ({
   id: `question-${Date.now()}-${Math.random().toString(16).slice(2)}`,

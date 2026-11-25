@@ -1,4 +1,5 @@
 import { loadPrintPages } from "./printHelpers";
+import { formatPhDateTime} from "./dateTimeHelpers";
 
 export const MAX_TRAINING_LOG_BYTES = 2 * 1024 * 1024;
 export const TRAINING_MODEL_NAMES = {
@@ -56,10 +57,8 @@ export function parseTrainingLogPreview(text) {
 }
 
 export function formatTrainingDate(value) {
-    const date = value ? new Date(value) : null;
-    return date && Number.isFinite(date.getTime())
-        ? `${new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Manila" }).format(date)} PHT`
-        : "Not recorded";
+    const formatted = formatPhDateTime(value, { fallback: "" });
+    return formatted ? `${formatted} PHT` : "Not recorded";
 }
 
 export function formatTrainingDuration(seconds) {

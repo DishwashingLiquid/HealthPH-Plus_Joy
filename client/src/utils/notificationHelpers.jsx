@@ -1,8 +1,12 @@
+/* eslint-disable react/prop-types */
 import { toast } from "react-toastify";
-import Icon from "../../../../components/Icon";
-import Snackbar from "../../../../components/Snackbar";
+import Icon from "../components/Icon";
+import Snackbar from "../components/Snackbar";
 
-export const showToast = ({ color, iconName, message }) => {
+export const showToast = (
+  { color, iconName, message },
+  options = {},
+) =>
   toast(
     <Snackbar
       iconName={iconName}
@@ -18,6 +22,6 @@ export const showToast = ({ color, iconName, message }) => {
           onClick={closeToast}
         />
       ),
-    }
+      ...options,
+    },
   );
-};

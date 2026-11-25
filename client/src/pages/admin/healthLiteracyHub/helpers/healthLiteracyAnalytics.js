@@ -2,13 +2,13 @@ import {
   ANALYTICS_CONTENT_FILTERS,
   ANALYTICS_TIME_RANGES,
   DEFAULT_ANALYTICS_OVERVIEW,
-} from "./sharedConfig";
+} from "./healthLiteracyConfig";
 import {
   formatNumber,
   formatPercent,
   getFilterLabel,
   getRegionLabel,
-} from "./sharedFormatting";
+} from "./healthLiteracyFormatting";
 
 export { getHealthLiteracyVisitorId } from "../../../../utils/healthLiteracyVisitor";
 
