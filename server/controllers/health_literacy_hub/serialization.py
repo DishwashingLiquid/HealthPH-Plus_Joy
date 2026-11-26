@@ -87,24 +87,13 @@ def serialize_content_document(document: dict, admin_id=None) -> dict:
     serialized_document.pop("contentType", None)
     return serialized_document
 
-
-def serialize_mobile_content(document: dict) -> dict:
+def serialize_public_content(document: dict) -> dict:
     serialized_document = serialize_content_document(document)
     serialized_document.pop("staticArticleMigration", None)
     serialized_document["contentType"] = get_content_bucket(
         document.get("contentType", "")
     )
     return serialized_document
-
-
-def serialize_website_content(document: dict) -> dict:
-    serialized_document = serialize_content_document(document)
-    serialized_document.pop("staticArticleMigration", None)
-    serialized_document["contentType"] = get_content_bucket(
-        document.get("contentType", "")
-    )
-    return serialized_document
-
 
 def parse_tags(tags: Optional[str]) -> list[str]:
     if not tags:

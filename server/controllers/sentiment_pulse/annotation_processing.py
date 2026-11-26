@@ -4,8 +4,12 @@ from threading import Lock
 from uuid import uuid4
 
 from .annotation_config import eligible_text
-from .inference_client import BATCH_SIZE, SentimentClient, probability, valid_version
-
+from helpers.sentimentServiceHelpers import (
+    BATCH_SIZE,
+    SentimentClient,
+    probability,
+    valid_version,
+)
 
 def scope(survey_id):
     return {"source_type": "survey_response", "survey_id": survey_id, "source_platform": "mobile"}

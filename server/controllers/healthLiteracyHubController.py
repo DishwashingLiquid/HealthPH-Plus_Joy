@@ -38,9 +38,8 @@ from controllers.health_literacy_hub.serialization import (
     parse_string_list,
     get_user_snapshot,
     normalize_video_duration,
-    serialize_mobile_content,
+    serialize_public_content,
     serialize_mobile_contract_content,
-    serialize_website_content,
     serialize_content_document,
     validate_content_language,
 )
@@ -129,7 +128,7 @@ route     GET api/health-literacy-hub/mobile
 
 def fetch_mobile_health_literacy_content():
     return [
-        serialize_mobile_content(item) for item in fetch_published_mobile_content()
+        serialize_public_content(item) for item in fetch_published_mobile_content()
     ]
 
 
@@ -142,7 +141,7 @@ route     GET api/health-literacy-hub/mobile/{content_type}
 
 def fetch_mobile_health_literacy_content_by_type(content_type: str):
     return [
-        serialize_mobile_content(item)
+        serialize_public_content(item)
         for item in fetch_published_mobile_content(content_type)
     ]
 
@@ -174,7 +173,7 @@ route     GET api/health-literacy-hub/website
 
 def fetch_website_health_literacy_content():
     return [
-        serialize_website_content(item)
+        serialize_public_content(item)
         for item in fetch_published_website_content()
     ]
 
@@ -188,7 +187,7 @@ route     GET api/health-literacy-hub/website/{content_type}
 
 def fetch_website_health_literacy_content_by_type(content_type: str):
     return [
-        serialize_website_content(item)
+        serialize_public_content(item)
         for item in fetch_published_website_content(content_type)
     ]
 

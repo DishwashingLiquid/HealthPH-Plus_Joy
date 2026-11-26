@@ -80,8 +80,16 @@ router.add_api_route(
 
 router.add_api_route(
     "/media/{file_id}",
-    methods=["GET", "HEAD"],
+    methods=["GET"],
     endpoint=fetch_health_literacy_media,
+    operation_id="get_health_literacy_media",
+)
+
+router.add_api_route(
+    "/media/{file_id}",
+    methods=["HEAD"],
+    endpoint=fetch_health_literacy_media,
+    operation_id="head_health_literacy_media",
 )
 
 # GET       /health-literacy-hub/{content_type}

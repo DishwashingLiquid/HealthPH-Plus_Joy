@@ -5,7 +5,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
-from controllers.sentiment_pulse.inference_client import (
+from helpers.sentimentServiceHelpers import (
     BATCH_SIZE, SentimentClient, probability, valid_version,
 )
 from helpers.analyticsAccessHelpers import get_analytics_entry_region
