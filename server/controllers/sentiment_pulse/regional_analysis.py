@@ -1,12 +1,16 @@
 from collections import Counter
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from typing import Iterable, Optional
 
 from fastapi import HTTPException, status
 
 from controllers.dashboard_regions import USER_REGION_PATHS, dashboard_region, normalize_region
-from helpers.dateTimeHelpers import get_ph_datetime
+from helpers.dateTimeHelpers import (
+    PH_TIMEZONE,
+    get_ph_datetime,
+    to_ph_naive,
+)
 
 from .constants import (
     PUBLIC_SOURCES,
@@ -18,23 +22,13 @@ from .constants import (
 )
 from .survey_helpers import parse_ph_datetime
 
-
-PH_TIMEZONE = timezone(timedelta(hours=8))
 UNKNOWN_REGION = None
-
 
 @dataclass(frozen=True)
 class ResponseDateRange:
     start: datetime
     cutoff: datetime
     end_exclusive: Optional[datetime] = None
-
-
-def _ph_naive(value: datetime) -> datetime:
-    if value.tzinfo:
-        return value.astimezone(PH_TIMEZONE).replace(tzinfo=None)
-    return value
-
 
 def _parse_date_parameter(value: Optional[str], field_name: str) -> date:
     try:
@@ -53,7 +47,7 @@ def get_response_date_range(
     now: Optional[datetime] = None,
 ) -> ResponseDateRange:
     """Return inclusive Philippine calendar-day bounds, capped at request time."""
-    current = _ph_naive(now or get_ph_datetime())
+    current = to_ph_naive(now or get_ph_datetime())
 
     if time_range == "custom":
         start_day = _parse_date_parameter(start_date, "startDate")
@@ -109,7 +103,7 @@ def get_event_region(event: dict) -> Optional[str]:
 def published_survey_platforms(surveys: Iterable[dict], now: datetime) -> dict[str, set[str]]:
     """Publication eligibility is independent of the response reporting window."""
     eligible = {platform: set() for platform in PUBLIC_SOURCES}
-    current = _ph_naive(now)
+    current = to_ph_naive(now)
     for survey in surveys:
         survey_id = str(survey.get("id") or "")
         scheduled_at = survey.get("scheduledAt")
@@ -121,7 +115,7 @@ def published_survey_platforms(surveys: Iterable[dict], now: datetime) -> dict[s
         if (
             not survey_id
             or not isinstance(scheduled_at, datetime)
-            or _ph_naive(scheduled_at) > current
+            or to_ph_naive(scheduled_at) > current
         ):
             continue
         if survey.get("publishToMobile") is True:
@@ -261,7 +255,7 @@ def summarize_regional_response_rows(
         timestamp = row.get("createdAt")
         if not isinstance(timestamp, datetime):
             continue
-        latest_key = (_ph_naive(timestamp), _response_tie_breaker(row))
+        latest_key = (to_ph_naive(timestamp), _response_tie_breaker(row))
         existing = latest_by_account.get(account_id)
         if existing is None or latest_key > existing[0]:
             latest_by_account[account_id] = (

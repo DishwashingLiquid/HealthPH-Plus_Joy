@@ -72,3 +72,13 @@ def is_within_surveillance_window(entry, start, end):
     if isinstance(value, str) and ISO_DATE_PATTERN.fullmatch(value.strip()):
         return start.date() <= event_time.date() <= end.date()
     return start <= event_time <= end
+
+def to_ph_naive(value: datetime) -> datetime:
+    """Convert an aware datetime to the existing PH storage format."""
+    if value.tzinfo:
+        return value.astimezone(PH_TIMEZONE).replace(tzinfo=None)
+    return value
+
+def serialize_datetime(value) -> str:
+    """Preserve the existing ISO and empty-value conventions."""
+    return value.isoformat() if isinstance(value, datetime) else str(value or "")

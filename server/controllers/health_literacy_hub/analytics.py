@@ -1,11 +1,11 @@
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import HTTPException, Request, status
 from jose import JWTError, jwt
 
-from helpers.dateTimeHelpers import get_ph_datetime
+from helpers.dateTimeHelpers import get_ph_datetime, to_ph_naive
 from controllers.dashboard_regions import (
     USER_REGION_PATHS, dashboard_region, dashboard_region_match, mongo_region_expression, normalize_region,
 )
@@ -83,11 +83,7 @@ def parse_content_datetime(value):
 
     try:
         parsed = datetime.fromisoformat(str(value))
-        # Upload cutoffs use naive Philippine wall time, as do legacy records.
-        # Convert aware imports to that same clock without changing stored dates.
-        if parsed.tzinfo is not None:
-            parsed = parsed.astimezone(timezone(timedelta(hours=8))).replace(tzinfo=None)
-        return parsed
+        return to_ph_naive(parsed)
     except ValueError:
         return None
 

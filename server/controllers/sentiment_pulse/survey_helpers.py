@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from typing import Optional
 from uuid import uuid4
 
@@ -6,7 +6,11 @@ from fastapi import HTTPException, status
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
-from helpers.dateTimeHelpers import get_ph_datetime
+from helpers.dateTimeHelpers import (
+    get_ph_datetime,
+    serialize_datetime,
+    to_ph_naive,
+)
 from controllers.dashboard_regions import USER_REGION_PATHS, dashboard_region
 
 from .constants import (
@@ -118,20 +122,16 @@ def ensure_survey_indexes() -> None:
         [("id", 1)], name="sentiment_pulse_mobile_user_lookup"
     )
 
-
-def serialize_datetime(value) -> str:
-    return value.isoformat() if isinstance(value, datetime) else str(value or "")
-
-
 def parse_ph_datetime(value: str) -> datetime:
     try:
         parsed_datetime = datetime.fromisoformat(str(value or "").strip())
     except ValueError:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="scheduledAt must be a valid ISO date and time")
-    if parsed_datetime.tzinfo:
-        return parsed_datetime.astimezone(timezone(timedelta(hours=8))).replace(tzinfo=None)
-    return parsed_datetime
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="scheduledAt must be a valid ISO date and time",
+        )
 
+    return to_ph_naive(parsed_datetime)
 
 def get_survey_status(survey: dict, now: Optional[datetime] = None) -> str:
     if survey.get("endedAt"):

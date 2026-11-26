@@ -4,8 +4,9 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.utils import formataddr, formatdate
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from helpers.emailTemplateHelpers import render_email
+from helpers.dateTimeHelpers import to_ph_naive
 from region_normalization import REGION_NAMES
 
 
@@ -64,13 +65,15 @@ def _send_template(receiver, title, paragraphs, details=(), action_label=None, a
 def _ph_time(value):
     if not value:
         return "See the instructions above"
+
     if isinstance(value, str):
         value = datetime.fromisoformat(value)
-    # Existing OTP/reset timestamps are naive Philippine local time.
-    if value.tzinfo is not None:
-        value = value.astimezone(timezone(timedelta(hours=8)))
-    return value.strftime("%B %d, %Y at %I:%M %p (Philippine Time)")
 
+    value = to_ph_naive(value)
+
+    return value.strftime(
+       "%B %d, %Y at %I:%M %p (Philippine Time)"
+    )
 
 def _greeting(data=None):
     data = data or {}

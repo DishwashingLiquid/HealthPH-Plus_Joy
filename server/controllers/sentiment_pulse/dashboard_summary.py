@@ -1,22 +1,21 @@
 """Summary cards use publication dates and response records, never cached counters."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
-from helpers.dateTimeHelpers import get_ph_datetime
+from helpers.dateTimeHelpers import (
+    PH_TIMEZONE,
+    get_ph_datetime,
+    to_ph_naive,
+)
 from controllers.dashboard_regions import mongo_region_expression
 
 from .constants import PUBLIC_SOURCES, REGIONS, survey_responses_collection, surveys_collection
 from .regional_analysis import get_event_region
 from .survey_helpers import get_survey_status
 
-
-PH_TIMEZONE = timezone(timedelta(hours=8))  # Asia/Manila; matches get_ph_datetime.
-
-
 def reporting_months(now: datetime):
     # MongoDB dates in this application contain naive Philippine wall time.
-    if now.tzinfo:
-        now = now.astimezone(PH_TIMEZONE).replace(tzinfo=None)
+    now = to_ph_naive(now)
     current = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     previous = (current - timedelta(days=1)).replace(day=1)
     following = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
@@ -63,8 +62,7 @@ def summary_pipeline(now: datetime):
 
 def build_dashboard_summary(surveys, now: datetime):
     """Reduce one compact aggregate per survey, including surveys with no responses."""
-    if now.tzinfo:
-        now = now.astimezone(PH_TIMEZONE).replace(tzinfo=None)
+    now = to_ph_naive(now)
     previous, current, following = reporting_months(now)
     published = []
     for survey in surveys:

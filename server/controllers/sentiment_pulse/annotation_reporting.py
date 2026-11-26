@@ -6,7 +6,7 @@ from datetime import datetime
 from controllers.dashboard_regions import EVENT_REGION_PATHS, dashboard_region
 from .annotation_config import answer_key, eligible_text
 from .annotation_processing import scope, stored_prediction
-from .regional_analysis import _ph_naive
+from helpers.dateTimeHelpers import to_ph_naive
 
 READ_FIELDS = {key: 1 for key in (
     "survey_id", "question_id", "question_type", "text", "raw_answer", "analysis.sentiment",
@@ -19,7 +19,9 @@ READ_FIELDS = {key: 1 for key in (
 def submission_time(entry):
     value = entry.get("event_time")
     try:
-        return _ph_naive(value if isinstance(value, datetime) else datetime.fromisoformat(value))
+        return to_ph_naive(
+            value if isinstance(value, datetime) else datetime.fromisoformat(value)
+        )
     except (ValueError, TypeError):
         return None
 

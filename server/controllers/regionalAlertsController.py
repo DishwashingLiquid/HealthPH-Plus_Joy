@@ -20,6 +20,7 @@ import config.database as database
 from helpers.disease_watch.storage import (
     ensure_disease_watch_internal_indexes,
 )
+from helpers.dateTimeHelpers import serialize_datetime
 from middleware.requireAuth import require_auth
 from region_normalization import REGIONS, REGION_NAMES, normalize_region
 from helpers.disease_watch.summaries import (ALLOWED_INTERVALS, AUTOMATION_SETTINGS_ID, SummaryStore,
@@ -109,21 +110,17 @@ def _settings_document():
     document = settings.find_one({"_id": AUTOMATION_SETTINGS_ID}) if settings is not None else None
     return {**(document or {}), **settings_values(document)}
 
-
-def _iso(value): return value.isoformat() if isinstance(value, datetime) else str(value or "")
-
-
 def _serialize_settings(document):
     value = _settings_document() if document is None else {**document, **settings_values(document)}
     return {"enabled": value["enabled"], "threshold": value["threshold"], "intervalMinutes": value["intervalMinutes"],
-            "lastSuccessfulEvaluation": _iso(value.get("lastSuccessfulEvaluation")), "nextScheduledReconciliation": _iso(value.get("nextScheduledReconciliation")),
+            "lastSuccessfulEvaluation": serialize_datetime(value.get("lastSuccessfulEvaluation")), "nextScheduledReconciliation": serialize_datetime(value.get("nextScheduledReconciliation")),
             "lastEvaluationError": value.get("lastEvaluationError") or "", "status": "Enabled" if value["enabled"] else "Paused"}
 
 
 def serialize_summary(item, state=None):
     return {"region": item.get("region"), "regionName": REGION_NAMES.get(item.get("region"), item.get("region")), "reportCount": int(item.get("reportCount") or 0),
-            "symptomCounts": item.get("symptomCounts") or [], "updatedAt": _iso(item.get("updatedAt")),
-            "automationStatus": (state or {}).get("status") or "Active", "nextEligibleAt": _iso((state or {}).get("nextEligibleAt")),
+            "symptomCounts": item.get("symptomCounts") or [], "updatedAt": serialize_datetime(item.get("updatedAt")),
+            "automationStatus": (state or {}).get("status") or "Active", "nextEligibleAt": serialize_datetime((state or {}).get("nextEligibleAt")),
             "notice": "Counts combine selected symptoms and non-negated symptoms extracted from processed report text, once per report. These are not diagnoses."}
 
 
@@ -135,8 +132,8 @@ def preview_for_alert(item):
     return {
         "reportCount": int(snapshot.get("reportCount") or 0),
         "symptomCounts": snapshot.get("symptomCounts") or [],
-        "windowStart": _iso(snapshot.get("windowStart")),
-        "windowEnd": _iso(snapshot.get("windowEnd")),
+        "windowStart": serialize_datetime(snapshot.get("windowStart")),
+        "windowEnd": serialize_datetime(snapshot.get("windowEnd")),
     }
 
 
@@ -149,8 +146,8 @@ def serialize_alert(item):
             "recipientCount": assignment_count, "inboxAssignmentCount": inbox_count,
             "deliveryError": item.get("deliveryError") or "",
             "reportCount": trigger["reportCount"], "intervalMinutes": trigger["intervalMinutes"],
-            "windowStart": _iso(trigger["windowStart"]), "windowEnd": _iso(trigger["windowEnd"]),
-            "generatedAt": _iso(item["createdAt"]), "preparationStatus": item["status"],
+            "windowStart": serialize_datetime(trigger["windowStart"]), "windowEnd": serialize_datetime(trigger["windowEnd"]),
+            "generatedAt": serialize_datetime(item["createdAt"]), "preparationStatus": item["status"],
             "summaryPreview": preview_for_alert(item)}
 
 

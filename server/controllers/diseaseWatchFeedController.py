@@ -5,7 +5,7 @@ these raw submission documents.
 """
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from fastapi import Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -15,7 +15,7 @@ from helpers.selfReportLocationHelpers import populate_self_report_location
 from helpers.analyticsEntryHelpers import build_self_report_analytics_entry
 from helpers.analyticsSymptomHelpers import SELF_REPORT_SYMPTOM_ID_TO_LABEL
 from helpers.selfReportIdHelpers import insert_report_with_id, ReportIdError
-from helpers.dateTimeHelpers import get_ph_datetime
+from helpers.dateTimeHelpers import get_ph_datetime, to_ph_naive
 from middleware.requireMobileAuth import optional_mobile_auth, require_mobile_auth
 from models.mobileUser import MOBILE_REGISTRATION_SOURCE, MOBILE_ROLE_ID, MOBILE_ROLE_LABEL
 from controllers.mobileUserController import serialize_mobile_user
@@ -391,21 +391,18 @@ def _coerce_datetime(value):
     return parsed
 
 def _coerce_self_report_datetime(value):
-    """Store offset-bearing mobile report times as Philippine wall-clock time.
-
-    A timestamp without an offset has historically meant Philippine local time,
-    so it is deliberately left alone rather than treated as UTC.
-    """
+    """Store report times using the existing Philippine local-time convention."""
     if value in [None, ""]:
         return None
+
     raw_value = value.isoformat() if isinstance(value, datetime) else str(value)
+
     try:
         parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
     except ValueError:
         return None
-    if parsed.tzinfo is None:
-        return parsed
-    return parsed.astimezone(timezone(timedelta(hours=8))).replace(tzinfo=None)
+
+    return to_ph_naive(parsed)
 
 async def create_mobile_self_report(
     payload: SelfReportPayload,
