@@ -4,6 +4,7 @@ import {
   getLimitedContentTags,
   normalizeContentTags,
 } from "../healthLiteracyHelpers";
+import { formatPhDateTimeInput } from "../../../../utils/dateTimeHelpers";
 
 export const createEditFormData = ({ item, contentTypeLabel }) => {
   const mainImage = contentTypeLabel === "Articles" && item.media?.fileId && item.media?.contentType?.startsWith("image/")
@@ -19,9 +20,7 @@ export const createEditFormData = ({ item, contentTypeLabel }) => {
     language: item.language ?? "en",
     source: item.source ?? "",
     author: item.author ?? "",
-    publishedDate: item.publishedDate
-      ? String(item.publishedDate).slice(0, 16)
-      : "",
+    publishedDate: formatPhDateTimeInput(item.publishedDate),
     externalUrl: item.externalUrl ?? "",
     imageUrl: item.imageUrl === item.thumbnail?.url || item.imageUrl === item.media?.url
       ? "" : item.imageUrl ?? "",

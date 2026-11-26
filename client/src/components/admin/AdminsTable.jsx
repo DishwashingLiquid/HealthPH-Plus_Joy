@@ -2,7 +2,7 @@ import AccountStatus, { ResendInvitationButton } from "./AccountStatus";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import Highlighter from "react-highlight-words";
-import { format } from "date-fns";
+import { formatPhDateTime } from "../../utils/dateTimeHelpers";
 
 import EmptyState from "./EmptyState";
 import Modal from "./Modal";
@@ -479,7 +479,7 @@ const AdminsTable = ({
                                                     />
                                                 </td>
                                                 <td className="px-[10px] py-[14px] text-gray-600">
-                                                    {format(new Date(created_at), "MMM dd, yyyy hh:mm a")}
+                                                    {formatPhDateTime(created_at)}
                                                 </td>
                                                 <td className="px-[10px] py-[14px]">
                                                     <div className="flex flex-wrap gap-[6px]">
@@ -736,7 +736,10 @@ const AdminsTable = ({
                                     id="update-admin-created-at"
                                     type="text"
                                     additionalClasses="mt-[8px] w-full"
-                                    value={updateModalData.created_at ? format(new Date(updateModalData.created_at), "MMM dd, yyyy hh:mm a") : ""}
+                                    value={formatPhDateTime(
+                                        updateModalData.created_at,
+                                        { fallback: "" },
+                                    )}
                                     disabled
                                 />
                             </FieldGroup>

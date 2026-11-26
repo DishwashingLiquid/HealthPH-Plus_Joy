@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useFetchCommentModerationQueueQuery, useModerateHealthLiteracyCommentMutation } from "../../../../features/api/healthLiteracyHubSlice";
 
+import { formatPhDateTime } from "../../../../utils/dateTimeHelpers";
+
 export default function CommentModeration() {
   const [status, setStatus] = useState("pending");
   const [cursor, setCursor] = useState(null);
@@ -19,7 +21,7 @@ export default function CommentModeration() {
     {error && <p role="alert">Unable to load comments. <button type="button" className="hl-text-button" onClick={refetch}>Retry</button></p>}
     {!isFetching && data?.items.length === 0 && <p>No {status} comments.</p>}
     <ul className="hl-comment-list">{data?.items.map((comment) => <li key={comment.id}>
-      <p className="hl-meta">{comment.contentOrigin} · {comment.contentType} · {comment.contentId} · {new Date(comment.createdAt).toLocaleString()} · {comment.reportCount} reports</p>
+      <p className="hl-meta">{comment.contentOrigin} · {comment.contentType} · {comment.contentId} · {formatPhDateTime(comment.createdAt)} · {comment.reportCount} reports</p>
       <p>{comment.body}</p>
       <div className="hl-actions">{["approved", "hidden", "deleted"].filter((value) => value !== status).map((value) => <button key={value} type="button" disabled={isLoading}
         className="hl-button hl-secondary" onClick={async () => {

@@ -95,3 +95,53 @@ export function formatPhDateTime(
         }).format(date)
         : fallback;
 }
+
+export function isIsoDateOnly(value) {
+    return (
+        typeof value === "string" &&
+        DATE_ONLY.test(value) &&
+        validDay(value)
+    );
+}
+
+export function formatPhDateTimeInput(value) {
+    const date = parsePhDate(value);
+    if (!date) return "";
+
+    const parts = new Intl.DateTimeFormat("en-GB", {
+        timeZone: PH_TIME_ZONE,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+    }).formatToParts(date);
+
+    const fields = Object.fromEntries(
+        parts
+            .filter((part) => part.type !== "literal")
+            .map((part) => [part.type, part.value]),
+    );
+
+    const year = fields.year.padStart(4, "0");
+
+    return `${year}-${fields.month}-${fields.day}T${fields.hour}:${fields.minute}`;
+}
+
+export function getPhilippineDateInput(
+    offset = 0,
+    now = Date.now(),
+) {
+    if (!Number.isInteger(offset)) return "";
+
+    const input = formatPhDateTimeInput(now);
+    if (!input) return "";
+
+    const date = new Date(`${input.slice(0, 10)}T00:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + offset);
+
+    return Number.isFinite(date.getTime())
+        ? date.toISOString().slice(0, 10)
+        : "";
+}

@@ -14,7 +14,10 @@ import {
 } from "../../../features/api/sentimentPulseSlice";
 
 import { getRequestErrorMessage } from "../../../utils/apiErrorHelpers";
-import { formatPhDateTime } from "../../../utils/dateTimeHelpers";
+import {
+  formatPhDateTime,
+  formatPhDateTimeInput,
+} from "../../../utils/dateTimeHelpers";
 
 import SurveyFeedback, { SurveySentiment } from "./SurveyFeedback";
 
@@ -31,21 +34,8 @@ export const emptyDraft = {
   questions: [],
 };
 
-export const formatDateTimeLocalValue = (date) => {
-  const pad = (value) => String(value).padStart(2, "0");
-
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
-    date.getDate()
-  )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-};
-
-export const getDefaultScheduleDateTime = () => {
-  const date = new Date();
-  date.setMinutes(date.getMinutes() + 15);
-  date.setSeconds(0, 0);
-
-  return formatDateTimeLocalValue(date);
-};
+export const getDefaultScheduleDateTime = () =>
+  formatPhDateTimeInput(Date.now() + 15 * 60 * 1000);
 
 export const formatSurveyDate = (value) =>
   formatPhDateTime(value, { fallback: "" });
@@ -1001,6 +991,7 @@ export function MobileSurveyScheduleModal({
                             )
                           }
                           className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500"
+                          aria-label="Publish date and time"
                         />
                       </div>
                     </div>

@@ -119,7 +119,7 @@ export const buildSentimentPulseCsv = ({
           survey.id || "",
           survey.title,
           survey.status,
-          survey.scheduledAt || "",
+          formatPhDateTime(survey.scheduledAt, { fallback: "" }),
           survey.responses,
           survey.target,
           assessment.label,

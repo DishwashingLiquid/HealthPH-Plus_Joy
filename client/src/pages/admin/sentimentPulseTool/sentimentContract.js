@@ -1,24 +1,33 @@
+import {
+  getPhilippineDateInput,
+  isIsoDateOnly,
+} from "../../../utils/dateTimeHelpers";
+
 // Presentation of server aggregates only. No raw-entry aggregation or model scores.
 export const SENTIMENT_COLORS = { calm: "#2572A5", worried: "#B45309", satisfaction: "#15803D" };
 export const isCount = (value) => Number.isInteger(value) && value >= 0;
 export const isShare = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100;
 export const formatCount = (value) => isCount(value) ? value.toLocaleString("en-PH") : "Unavailable";
 export const formatShare = (value) => isShare(value) ? `${value.toFixed(1)}%` : "Unavailable";
-export const getPhilippineDateInput = (offset = 0, now = Date.now()) => {
-  const date = new Date(now + 8 * 60 * 60 * 1000);
-  date.setUTCDate(date.getUTCDate() + offset);
-  return date.toISOString().slice(0, 10);
-};
 
-const validDay = (day) => /^\d{4}-\d{2}-\d{2}$/.test(day || "") &&
-  Number.isFinite(Date.parse(`${day}T00:00:00Z`)) &&
-  new Date(`${day}T00:00:00Z`).toISOString().slice(0, 10) === day;
-
-export const dateRangeError = ({ timeRange, startDate, endDate }, today = getPhilippineDateInput()) => {
+export const dateRangeError = (
+  { timeRange, startDate, endDate },
+  today = getPhilippineDateInput(),
+) => {
   if (timeRange !== "custom") return "";
-  if (!validDay(startDate) || !validDay(endDate)) return "Choose valid start and end dates.";
-  if (startDate > endDate) return "Start date must be on or before end date.";
-  if (endDate > today) return "Choose an end date no later than today in the Philippines.";
+
+  if (!isIsoDateOnly(startDate) || !isIsoDateOnly(endDate)) {
+    return "Choose valid start and end dates.";
+  }
+
+  if (startDate > endDate) {
+    return "Start date must be on or before end date.";
+  }
+
+  if (endDate > today) {
+    return "Choose an end date no later than today in the Philippines.";
+  }
+
   return "";
 };
 

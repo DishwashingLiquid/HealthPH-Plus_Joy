@@ -35,7 +35,8 @@ import {
   showSentimentPulsePdfExportNotice,
 } from "./exportUtils";
 import { SENTIMENT_PULSE_TABS } from "./tabs";
-import { dateRangeError, getPhilippineDateInput } from "./sentimentContract";
+import { dateRangeError } from "./sentimentContract";
+import { getPhilippineDateInput } from "../../../utils/dateTimeHelpers";
 
 const freezeSnapshot = (value) => {
   if (!value || typeof value !== "object" || Object.isFrozen(value)) {
