@@ -35,3 +35,63 @@ export function getRequestErrorMessage(
         "Unable to complete the request. Please try again."
     );
 }
+
+export function getRequestFormErrors(
+    error,
+    allowedFields = [],
+    fallback = "Unable to complete the request. Please try again.",
+) {
+    const allowed = new Set(allowedFields);
+    const detail = error?.data?.detail;
+    const fieldErrors = {};
+    const generalErrors = [];
+
+    if (Array.isArray(detail)) {
+        for (const item of detail) {
+            const location = item?.loc;
+            const field =
+                item?.field ??
+                (
+                    Array.isArray(location) &&
+                    location.length === 2 &&
+                    ["body", "query", "path"].includes(location[0])
+                        ? location[1]
+                        : undefined
+                );
+
+            const message = detailMessage(item);
+
+            if (
+                typeof field === "string" &&
+                allowed.has(field) &&
+                message
+            ) {
+                fieldErrors[field] = message;
+            } else {
+                generalErrors.push(item);
+            }
+        }
+    }
+
+    const hasFieldErrors = Object.keys(fieldErrors).length > 0;
+
+    const generalError = Array.isArray(detail)
+        ? {
+            ...error,
+            data: {
+                ...error?.data,
+                detail: generalErrors,
+            },
+        }
+        : error;
+
+    return {
+        fieldErrors,
+        message:
+            Array.isArray(detail) &&
+            generalErrors.length === 0 &&
+            hasFieldErrors
+                ? ""
+                : getRequestErrorMessage(generalError, fallback),
+    };
+}

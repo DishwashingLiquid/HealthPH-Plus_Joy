@@ -12,9 +12,15 @@ import {
 import { updateUser, deauthenticateUser } from "../../features/auth/authSlice";
 import Modal from "../../components/admin/Modal";
 
-import Cookies from "js-cookie";
-import Snackbar from "../../components/Snackbar";
-import { toast } from "react-toastify";
+import { showToast } from "../../utils/notificationHelpers";
+import {
+    getRequestErrorMessage,
+    getRequestFormErrors,
+} from "../../utils/apiErrorHelpers";
+import {
+    clearSessionStorage,
+    saveSessionUser,
+} from "../../utils/authSession";
 
 import Regions from "../../assets/data/regions.json";
 import MultiSelect from "../../components/MultiSelect";
@@ -116,87 +122,49 @@ const Settings = () => {
     setError("");
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
 
-    if (!checkError()) {
-      setIsLoading(true);
+    if (checkError()) return;
+
+    const failureMessage = "Updating personal information failed";
+
+    setError("");
+    setIsLoading(true);
+
+    try {
       const response = await updatePersonalInfo(formData);
 
-      if (!response) {
-        toast(
-          <Snackbar
-            iconName="Error"
-            size="snackbar-sm"
-            color="destructive"
-            message="Updating personal information failed"
-          />,
-          {
-            closeButton: ({ closeToast }) => (
-              <Icon
-                iconName="Close"
-                className="close-icon close-icon-sm close-destructive"
-                onClick={closeToast}
-              />
-            ),
-          }
+      if (!response || "error" in response) {
+        const { fieldErrors, message } = getRequestFormErrors(
+          response?.error,
+          Object.keys(formErrors),
+          failureMessage,
         );
-        setIsLoading(false);
-        return;
-      }
 
-      if ("error" in response) {
-        const { detail } = response["error"]["data"];
-
-        detail.map(({ field, error }, i) => {
-          if (field in formData) {
-            setFormErrors((formErrors) => ({
-              ...formErrors,
-              [field]: error,
-            }));
-          }
-
-          if (field == "error") {
-            setError(error);
-          }
-        });
-
-        setIsLoading(false);
+        setFormErrors((current) => ({
+          ...current,
+          ...fieldErrors,
+        }));
+        setError(message);
         return;
       }
 
       dispatch(updateUser(response.data));
-
-      localStorage.removeItem("auth");
-
-      localStorage.setItem(
-        "auth",
-        JSON.stringify({ user: response.data.user })
-      );
-
-      setIsLoading(false);
-
+      saveSessionUser(response.data.user);
       setEditable(false);
 
-      toast(
-        <Snackbar
-          iconName="CheckCircle"
-          size="snackbar-sm"
-          color="success"
-          message="Profile updated successfully"
-        />,
-        {
-          closeButton: ({ closeToast }) => (
-            <Icon
-              iconName="Close"
-              className="close-icon close-icon-sm close-success"
-              onClick={closeToast}
-            />
-          ),
-        }
-      );
+      showToast({
+        iconName: "CheckCircle",
+        color: "success",
+        message: "Profile updated successfully",
+      });
 
       navigate("/dashboard/settings", { replace: true });
+    } catch (failure) {
+      setError(getRequestErrorMessage(failure, failureMessage));
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -244,50 +212,42 @@ const Settings = () => {
   const handleDeleteAccount = async () => {
     setDeleteLoading(true);
 
-    const response = await deleteUser(user.id);
+    try {
+      const response = await deleteUser(user.id);
 
-    if (!response) {
-      console.log("Error deleting account...");
-      setDeleteLoading(false);
-      return;
-    }
-
-    if ("error" in response) {
-      const { detail } = response["error"]["data"];
-
-      setDeleteLoading(false);
-
-      console.log(detail);
-      return;
-    }
-
-    setDeleteLoading(false);
-
-    navigate("/", { replace: true });
-
-    dispatch(deauthenticateUser());
-
-    Cookies.remove("token");
-
-    localStorage.removeItem("auth");
-
-    toast(
-      <Snackbar
-        iconName="CheckCircle"
-        size="snackbar-sm"
-        color="success"
-        message="Account deleted successfully"
-      />,
-      {
-        closeButton: ({ closeToast }) => (
-          <Icon
-            iconName="Close"
-            className="close-icon close-icon-sm close-success"
-            onClick={closeToast}
-          />
-        ),
+      if (!response || "error" in response) {
+        showToast({
+          iconName: "Error",
+          color: "destructive",
+          message: getRequestErrorMessage(
+            response?.error,
+            "Unable to delete your account. Please try again.",
+          ),
+        });
+        return;
       }
-    );
+
+      clearSessionStorage();
+      dispatch(deauthenticateUser());
+      navigate("/", { replace: true });
+
+      showToast({
+        iconName: "CheckCircle",
+        color: "success",
+        message: "Account deleted successfully",
+      });
+    } catch (failure) {
+      showToast({
+        iconName: "Error",
+        color: "destructive",
+        message: getRequestErrorMessage(
+          failure,
+          "Unable to delete your account. Please try again.",
+        ),
+      });
+    } finally {
+      setDeleteLoading(false);
+    }
   };
   return (
     <>

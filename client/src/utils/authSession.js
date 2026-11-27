@@ -33,3 +33,12 @@ export function getPostLoginPath(from) {
     if (typeof pathname !== "string" || !pathname.startsWith("/") || pathname.startsWith("//")) return "/dashboard";
     return `${pathname}${from.search || ""}${from.hash || ""}`;
 }
+
+export function saveSessionUser(user) {
+    try {
+        localStorage.setItem("auth", JSON.stringify({ user }));
+        return true;
+    } catch {
+        return false;
+    }
+}
